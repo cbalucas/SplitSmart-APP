@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -27,31 +27,27 @@ import {
   Card
 } from '../../components';
 import { Participant, Expense, Split } from '../../types';
-
-interface ExpenseFormData {
-  description: string;
-  amount: string;
-  date: Date;
-  category: 'comida' | 'transporte' | 'alojamiento' | 'entretenimiento' | 'compras' | 'salud' | 'educacion' | 'otros';
-  payerId: string;
-  splitType: 'equal';
-  splits: ExpenseSplit[];
-}
-
-interface ExpenseSplit {
-  participantId: string;
-  amount: number;
-  percentage?: number;
-  peopleCount?: number; // Override del peopleCount para este gasto específico
-  defaultPeopleCount?: number; // peopleCount por defecto del evento
-}
+import { useLanguage } from '../../context/LanguageContext';
+import { 
+  ExpenseFormData, 
+  ExpenseSplit, 
+  FormErrors, 
+  CategoryKey,
+  CategoryConfig,
+  CATEGORY_CONFIGS,
+  CATEGORY_COLORS
+} from './types';
+import { createStyles } from './styles';
+import { createExpenseLanguage } from './language';
 
 const CreateExpenseScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { theme } = useTheme();
+  const { language } = useLanguage();
   const { addExpense, updateExpense, getEventParticipants, getExpensesByEvent, getSplitsByEvent, events, expenses } = useData();
   const styles = createStyles(theme);
+  const t = createExpenseLanguage[language] || createExpenseLanguage.es;
   
   const eventId = (route.params as any)?.eventId as string;
   const editingExpenseId = (route.params as any)?.expenseId;
@@ -68,12 +64,13 @@ const CreateExpenseScreen: React.FC = () => {
     splits: []
   });
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<FormErrors>({});
   const [eventParticipants, setEventParticipants] = useState<Participant[]>([]);
   const [event, setEvent] = useState<any>(null);
   const [participantsPeopleCount, setParticipantsPeopleCount] = useState<Map<string, number>>(new Map());
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [payerSearchQuery, setPayerSearchQuery] = useState<string>('');
 
   // Cargar datos del evento y participantes cada vez que la pantalla se enfoca
   useFocusEffect(
@@ -169,7 +166,7 @@ const CreateExpenseScreen: React.FC = () => {
               date: new Date(expense.date),
               category: expense.category as any,
               payerId: expense.payerId,
-              splitType: isEqualSplit ? 'equal' : 'custom',
+              splitType: 'equal',
               splits: loadedSplits
             });
 
@@ -323,12 +320,47 @@ const CreateExpenseScreen: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Función para formatear moneda
+  const formatCurrency = (value: string): string => {
+    // Remover todo excepto números y punto decimal
+    const numericValue = value.replace(/[^\d.]/g, '');
+    
+    // Separar parte entera y decimal
+    const parts = numericValue.split('.');
+    const integerPart = parts[0];
+    const decimalPart = parts[1];
+    
+    // Agregar separadores de miles a la parte entera
+    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    
+    // Construir el resultado final
+    if (decimalPart !== undefined) {
+      // Limitar decimales a 2 dígitos
+      const limitedDecimal = decimalPart.substring(0, 2);
+      return formattedInteger + '.' + limitedDecimal;
+    }
+    
+    return formattedInteger;
+  };
+
+  // Función para obtener el valor numérico sin formato
+  const getNumericValue = (formattedValue: string): string => {
+    return formattedValue.replace(/,/g, '');
+  };
+
   // Handlers
   const handleInputChange = (field: keyof ExpenseFormData, value: any) => {
     // Ignorar cambios de splitType ya que siempre será 'equal'
     if (field === 'splitType') return;
     
-    setFormData(prev => ({ ...prev, [field]: value }));
+    let processedValue = value;
+    
+    // Formatear el monto si es el campo amount
+    if (field === 'amount') {
+      processedValue = formatCurrency(value);
+    }
+    
+    setFormData(prev => ({ ...prev, [field]: processedValue }));
     
     // Limpiar error del campo
     if (errors[field.toString()]) {
@@ -339,9 +371,10 @@ const CreateExpenseScreen: React.FC = () => {
 
     // Recalcular splits cuando cambia el monto (siempre usando 'equal')
     if (field === 'amount') {
-      // Si hay splits, recalcular
+      // Si hay splits, recalcular usando el valor numérico
       if (formData.splits.length > 0) {
-        recalculateSplits(value);
+        const numericValue = getNumericValue(processedValue);
+        recalculateSplits(numericValue);
       }
     }
   };
@@ -443,7 +476,8 @@ const CreateExpenseScreen: React.FC = () => {
   };
 
   const getAmount = (): number => {
-    return parseFloat(formData.amount) || 0;
+    const numericValue = getNumericValue(formData.amount);
+    return parseFloat(numericValue) || 0;
   };
 
   const handleCreateExpense = async () => {
@@ -454,9 +488,10 @@ const CreateExpenseScreen: React.FC = () => {
     try {
       if (isEditing && editingExpenseId) {
         // Actualizar gasto existente
+        const numericAmount = getNumericValue(formData.amount);
         const expenseUpdates: Partial<Expense> = {
           description: formData.description.trim(),
-          amount: parseFloat(formData.amount),
+          amount: parseFloat(numericAmount),
           currency: event?.currency || 'ARS',
           date: formData.date.toISOString(),
           category: formData.category,
@@ -495,11 +530,12 @@ const CreateExpenseScreen: React.FC = () => {
         console.log('Splits count:', formData.splits.length);
         console.log('Receipt image:', receiptImage ? 'Present' : 'None');
         
+        const numericAmount = getNumericValue(formData.amount);
         const expense: Expense = {
           id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           eventId,
           description: formData.description.trim(),
-          amount: parseFloat(formData.amount),
+          amount: parseFloat(numericAmount),
           currency: event?.currency || 'ARS',
           date: formData.date.toISOString(),
           category: formData.category,
@@ -587,18 +623,8 @@ const CreateExpenseScreen: React.FC = () => {
     return icons[category as keyof typeof icons] || 'dots-horizontal';
   };
 
-  const getCategoryColor = (category: string): string => {
-    const colors = {
-      comida: '#FF6B6B',
-      transporte: '#4ECDC4',
-      alojamiento: '#45B7D1',
-      entretenimiento: '#96CEB4',
-      compras: '#FECA57',
-      salud: '#FF9FF3',
-      educacion: '#54A0FF',
-      otros: '#5F27CD'
-    };
-    return colors[category as keyof typeof colors] || '#5F27CD';
+  const getCategoryColor = (category: CategoryKey): string => {
+    return CATEGORY_COLORS[category] || '#5F27CD';
   };
 
   const getParticipantName = (participantId: string): string => {
@@ -607,19 +633,32 @@ const CreateExpenseScreen: React.FC = () => {
   };
 
   const isFormValid = (): boolean => {
+    const numericAmount = getNumericValue(formData.amount);
     return formData.description.trim().length > 0 && 
            formData.amount.trim().length > 0 && 
-           !isNaN(parseFloat(formData.amount)) && 
-           parseFloat(formData.amount) > 0 &&
+           !isNaN(parseFloat(numericAmount)) && 
+           parseFloat(numericAmount) > 0 &&
            formData.payerId.length > 0;
   };
+
+  // Participantes ordenados alfabéticamente para el pagador con filtro
+  const sortedParticipantsForPayer = useMemo(() => {
+    return eventParticipants
+      .filter(p => p.name.toLowerCase().includes(payerSearchQuery.toLowerCase()))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [eventParticipants, payerSearchQuery]);
+
+  // Participantes ordenados alfabéticamente para la división
+  const sortedParticipantsForSplit = useMemo(() => {
+    return eventParticipants.sort((a, b) => a.name.localeCompare(b.name));
+  }, [eventParticipants]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>
-          {isEditing ? 'Editar Gasto' : 'Agregar Gasto'}
+          {isEditing ? t.headerTitle.edit : t.headerTitle.create}
         </Text>
         <View style={styles.headerRight}>
           <LanguageSelector size={26} color={theme.colors.onSurface} />
@@ -634,14 +673,14 @@ const CreateExpenseScreen: React.FC = () => {
       >
         {/* Información del Gasto */}
         <Card style={styles.card}>
-          <Text style={styles.cardTitle}>📝 Información del Gasto</Text>
+          <Text style={styles.cardTitle}>{t.expenseInfoCard.title}</Text>
           
           <Input
-            label="¿En qué se gastó? *"
-            placeholder="Ej: Cena en restaurante"
+            label={t.expenseInfoCard.descriptionLabel}
+            placeholder={t.expenseInfoCard.descriptionPlaceholder}
             value={formData.description}
             onChangeText={(text) => handleInputChange('description', text)}
-            icon="receipt-outline"
+            icon="file-document-outline"
             maxLength={100}
             error={errors.description}
             containerStyle={styles.input}
@@ -649,8 +688,8 @@ const CreateExpenseScreen: React.FC = () => {
 
           <View style={styles.amountInputContainer}>
             <Input
-              label="Monto Total *"
-              placeholder="0.00"
+              label={t.expenseInfoCard.amountLabel}
+              placeholder={t.expenseInfoCard.amountPlaceholder}
               value={formData.amount}
               onChangeText={(text) => handleInputChange('amount', text)}
               keyboardType="numeric"
@@ -673,7 +712,7 @@ const CreateExpenseScreen: React.FC = () => {
                 style={styles.inputIcon}
               />
               <View style={styles.inputContent}>
-                <Text style={styles.inputLabel}>Fecha del Gasto *</Text>
+                <Text style={styles.inputLabel}>{t.expenseInfoCard.dateLabel}</Text>
                 <Text style={styles.inputValue}>
                   {formatDate(formData.date)}
                 </Text>
@@ -682,44 +721,123 @@ const CreateExpenseScreen: React.FC = () => {
           </TouchableOpacity>
         </Card>
 
-        {/* Categorización */}
+        {/* Pagador */}
         <Card style={styles.card}>
-          <Text style={styles.cardTitle}>🏷️ Categorización</Text>
+          <Text style={styles.cardTitle}>{t.payerCard.title}</Text>
           
-          <Text style={styles.sectionLabel}>Categoría</Text>
-          <View style={styles.categoryGrid}>
-            {([
-              { key: 'comida', label: 'Comida', icon: 'food-fork-drink' },
-              { key: 'transporte', label: 'Transporte', icon: 'car' },
-              { key: 'alojamiento', label: 'Alojamiento', icon: 'home' },
-              { key: 'entretenimiento', label: 'Entretenimiento', icon: 'gamepad-variant' },
-              { key: 'compras', label: 'Compras', icon: 'shopping' },
-              { key: 'salud', label: 'Salud', icon: 'medical-bag' },
-              { key: 'educacion', label: 'Educación', icon: 'school' },
-              { key: 'otros', label: 'Otros', icon: 'dots-horizontal' }
-            ] as const).map((cat) => (
+          <View style={styles.searchContainer}>
+            <Input
+              label={t.payerCard.searchLabel}
+              placeholder={t.payerCard.searchPlaceholder}
+              value={payerSearchQuery}
+              onChangeText={setPayerSearchQuery}
+              icon="magnify"
+              containerStyle={styles.searchInput}
+            />
+            {payerSearchQuery.length > 0 && (
               <TouchableOpacity
-                key={cat.key}
-                style={[
-                  styles.categoryButton,
-                  formData.category === cat.key && styles.categoryButtonActive
-                ]}
-                onPress={() => handleInputChange('category', cat.key)}
+                style={styles.clearButton}
+                onPress={() => setPayerSearchQuery('')}
               >
                 <MaterialCommunityIcons
-                  name={cat.icon as any}
+                  name="close-circle"
                   size={20}
-                  color={formData.category === cat.key ? '#FFFFFF' : getCategoryColor(cat.key)}
+                  color={theme.colors.onSurfaceVariant}
                 />
-                <Text style={[
-                  styles.categoryButtonText,
-                  formData.category === cat.key && styles.categoryButtonTextActive
-                ]}>
-                  {cat.label}
-                </Text>
               </TouchableOpacity>
-            ))}
+            )}
           </View>
+          
+          {sortedParticipantsForPayer.map((participant) => (
+            <TouchableOpacity
+              key={participant.id}
+              style={[
+                styles.participantOption,
+                formData.payerId === participant.id && styles.participantOptionActive
+              ]}
+              onPress={() => handleInputChange('payerId', participant.id)}
+            >
+              <MaterialCommunityIcons
+                name={formData.payerId === participant.id ? 'radiobox-marked' : 'radiobox-blank'}
+                size={20}
+                color={theme.colors.primary}
+              />
+              <Text style={styles.payerParticipantName}>{participant.name}</Text>
+            </TouchableOpacity>
+          ))}
+          {errors.payerId && (
+            <Text style={styles.errorText}>{errors.payerId}</Text>
+          )}
+        </Card>
+
+        {/* División de Participantes Unificada */}
+        <Card style={styles.card}>
+          <Text style={styles.cardTitle}>{t.participantsCard.title}</Text>
+          <Text style={styles.cardSubtitle}>{t.participantsCard.subtitle}</Text>
+
+          {/* Lista Unificada de Participantes */}
+          <View style={styles.participantsList}>
+            {sortedParticipantsForSplit.map((participant) => {
+              const split = formData.splits.find(s => s.participantId === participant.id);
+              const isIncluded = !!split;
+              const amount = split?.amount || 0;
+              const percentage = split?.percentage || 0;
+              
+              return (
+                <View key={participant.id} style={[
+                  styles.unifiedParticipantRow,
+                  !isIncluded && styles.unifiedParticipantRowExcluded
+                ]}>
+                  <TouchableOpacity
+                    style={styles.participantToggle}
+                    onPress={() => handleParticipantToggle(participant.id)}
+                  >
+                    <MaterialCommunityIcons
+                      name={isIncluded ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                      size={20}
+                      color={isIncluded ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                    />
+                    <Text style={[
+                      styles.participantName,
+                      isIncluded && styles.participantNameActive,
+                      !isIncluded && styles.participantNameExcluded
+                    ]}>
+                      {participant.name}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {isIncluded && (
+                    <View style={styles.participantAmount}>
+                      <Text style={styles.amountText}>
+                        ${amount.toFixed(2)}
+                      </Text>
+                    </View>
+                  )}
+
+                  {!isIncluded && (
+                    <Text style={styles.excludedLabel}>{t.participantsCard.excludedLabel}</Text>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+
+          {formData.splits.length === 0 && (
+            <Text style={styles.warningText}>
+              {t.participantsCard.warningText}
+            </Text>
+          )}
+          
+          {/* Resumen de totales */}
+          {formData.splits.length > 0 && (
+            <View style={styles.totalSummary}>
+              <Text style={styles.totalSummaryText}>
+                Total: ${formData.splits.reduce((sum, split) => sum + split.amount, 0).toFixed(2)}
+                {formData.splits.length > 1 && ` • ${formData.splits.length} participantes`}
+              </Text>
+            </View>
+          )}
+
         </Card>
 
         {/* Comprobante / Imagen */}
@@ -767,201 +885,36 @@ const CreateExpenseScreen: React.FC = () => {
           )}
         </Card>
 
-        {/* Pagador */}
+        {/* Categorización */}
         <Card style={styles.card}>
-          <Text style={styles.cardTitle}>👤 ¿Quién pagó?</Text>
+          <Text style={styles.cardTitle}>🏷️ Categorización</Text>
           
-          {eventParticipants.map((participant) => (
-            <TouchableOpacity
-              key={participant.id}
-              style={[
-                styles.participantOption,
-                formData.payerId === participant.id && styles.participantOptionActive
-              ]}
-              onPress={() => handleInputChange('payerId', participant.id)}
-            >
-              <MaterialCommunityIcons
-                name={formData.payerId === participant.id ? 'radiobox-marked' : 'radiobox-blank'}
-                size={20}
-                color={theme.colors.primary}
-              />
-              <Text style={styles.payerParticipantName}>{participant.name}</Text>
-            </TouchableOpacity>
-          ))}
-          {errors.payerId && (
-            <Text style={styles.errorText}>{errors.payerId}</Text>
-          )}
-        </Card>
-
-        {/* División de Participantes Unificada */}
-        <Card style={styles.card}>
-          <Text style={styles.cardTitle}>👥 Participantes y División</Text>
-          <Text style={styles.cardSubtitle}>Selecciona participantes - la división se hará automáticamente de forma igual</Text>
-
-          {/* Lista Unificada de Participantes */}
-          <View style={styles.participantsList}>
-            {eventParticipants.map((participant) => {
-              const split = formData.splits.find(s => s.participantId === participant.id);
-              const isIncluded = !!split;
-              const amount = split?.amount || 0;
-              const percentage = split?.percentage || 0;
-              
-              return (
-                <View key={participant.id} style={[
-                  styles.unifiedParticipantRow,
-                  !isIncluded && styles.unifiedParticipantRowExcluded
+          <Text style={styles.sectionLabel}>Categoría</Text>
+          <View style={styles.categoryGrid}>
+            {CATEGORY_CONFIGS.map((cat) => (
+              <TouchableOpacity
+                key={cat.key}
+                style={[
+                  styles.categoryButton,
+                  formData.category === cat.key && styles.categoryButtonActive
+                ]}
+                onPress={() => handleInputChange('category', cat.key)}
+              >
+                <MaterialCommunityIcons
+                  name={cat.icon as any}
+                  size={20}
+                  color={formData.category === cat.key ? '#FFFFFF' : getCategoryColor(cat.key)}
+                />
+                <Text style={[
+                  styles.categoryButtonText,
+                  formData.category === cat.key && styles.categoryButtonTextActive
                 ]}>
-                  <TouchableOpacity
-                    style={styles.participantToggle}
-                    onPress={() => handleParticipantToggle(participant.id)}
-                  >
-                    <MaterialCommunityIcons
-                      name={isIncluded ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                      size={20}
-                      color={isIncluded ? theme.colors.primary : theme.colors.onSurfaceVariant}
-                    />
-                    <Text style={[
-                      styles.participantName,
-                      isIncluded && styles.participantNameActive,
-                      !isIncluded && styles.participantNameExcluded
-                    ]}>
-                      {participant.name}
-                    </Text>
-                  </TouchableOpacity>
-
-                  {isIncluded && (
-                    <View style={styles.participantAmount}>
-                      <Text style={styles.amountText}>
-                        ${amount.toFixed(2)}
-                      </Text>
-                    </View>
-                  )}
-
-                  {!isIncluded && (
-                    <Text style={styles.excludedLabel}>Excluido</Text>
-                  )}
-                </View>
-              );
-            })}
-          </View>
-
-          {formData.splits.length === 0 && (
-            <Text style={styles.warningText}>
-              ⚠️ Debes incluir al menos un participante
-            </Text>
-          )}
-          
-          {/* Resumen de totales */}
-          {formData.splits.length > 0 && (
-            <View style={styles.totalSummary}>
-              <Text style={styles.totalSummaryText}>
-                Total: ${formData.splits.reduce((sum, split) => sum + split.amount, 0).toFixed(2)}
-                {formData.splits.length > 1 && ` • ${formData.splits.length} participantes`}
-              </Text>
-            </View>
-          )}
-
-        </Card>
-
-        {/* Preview Card - Solo resumen visual, sin edición */}
-        {formData.splits.length > 0 && (
-          <Card style={styles.card}>
-            <Text style={styles.cardTitle}>📊 Vista Previa</Text>
-            <View style={styles.splitPreview}>
-              {formData.splits.map((split) => {
-                const defaultPeopleCount = split.defaultPeopleCount || 1;
-                const currentPeopleCount = split.peopleCount !== undefined ? split.peopleCount : defaultPeopleCount;
-                const hasOverride = split.peopleCount !== undefined && split.peopleCount !== defaultPeopleCount;
-                
-                return (
-                  <View key={split.participantId} style={styles.splitItem}>
-                    <View style={styles.splitParticipantInfo}>
-                      <MaterialCommunityIcons
-                        name="account"
-                        size={16}
-                        color={theme.colors.primary}
-                      />
-                      <Text style={styles.splitParticipant}>
-                        {getParticipantName(split.participantId)}
-                      </Text>
-                      {currentPeopleCount > 1 && (
-                        <View style={styles.peopleCountBadge}>
-                          <MaterialCommunityIcons
-                            name="account-multiple"
-                            size={12}
-                            color={hasOverride ? theme.colors.error : theme.colors.primary}
-                          />
-                          <Text style={[
-                            styles.peopleCountBadgeText,
-                            hasOverride && styles.peopleCountBadgeTextOverride
-                          ]}>
-                            ×{currentPeopleCount}{hasOverride ? '*' : ''}
-                          </Text>
-                        </View>
-                      )}
-                      {(
-                        <TouchableOpacity
-                          onPress={() => {
-                            Alert.prompt(
-                              'Modificar personas',
-                              `Por defecto: ${defaultPeopleCount} persona(s)\n\nIngresa el número de personas para este gasto específico (1-20), o deja vacío para usar el valor por defecto:`,
-                              [
-                                { text: 'Cancelar', style: 'cancel' },
-                                { text: 'Restablecer', onPress: () => handlePeopleCountOverride(split.participantId, undefined), style: 'destructive' },
-                                {
-                                  text: 'OK',
-                                  onPress: (value?: string) => {
-                                    if (value && value.trim()) {
-                                      const num = parseInt(value.trim());
-                                      if (!isNaN(num) && num >= 1 && num <= 20) {
-                                        handlePeopleCountOverride(split.participantId, num);
-                                      } else {
-                                        Alert.alert('Error', 'Ingresa un número entre 1 y 20');
-                                      }
-                                    } else {
-                                      handlePeopleCountOverride(split.participantId, undefined);
-                                    }
-                                  }
-                                }
-                              ],
-                              'plain-text',
-                              currentPeopleCount.toString()
-                            );
-                          }}
-                          style={styles.overrideButton}
-                        >
-                          <MaterialCommunityIcons
-                            name="pencil"
-                            size={14}
-                            color={theme.colors.primary}
-                          />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                    <View style={styles.splitAmountInfo}>
-                      <Text style={styles.splitAmount}>
-                        ${split.amount.toFixed(2)}
-                      </Text>
-
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-            
-            {formData.splits.length > 0 && (
-              <View style={styles.splitSummary}>
-                <Text style={styles.splitSummaryText}>
-                  {formData.splits.length} participantes • ${getAmount()} {event?.currency || 'ARS'}
+                  {cat.label}
                 </Text>
-              </View>
-            )}
-            
-            {errors.splits && (
-              <Text style={styles.errorText}>{errors.splits}</Text>
-            )}
-          </Card>
-        )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Card>
 
         {/* Espacio para los botones footer */}
         <View style={styles.footerSpace} />
@@ -1001,499 +954,5 @@ const CreateExpenseScreen: React.FC = () => {
     </SafeAreaView>
   );
 };
-
-const createStyles = (theme: Theme) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    } as ViewStyle,
-
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      backgroundColor: theme.colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.outline,
-    } as ViewStyle,
-
-    backButton: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
-    } as ViewStyle,
-
-    headerTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: theme.colors.onSurface,
-      flex: 1,
-    } as TextStyle,
-
-    headerRight: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    } as ViewStyle,
-
-    headerSpacer: {
-      width: 40,
-    } as ViewStyle,
-
-    scrollView: {
-      flex: 1,
-      paddingHorizontal: 20,
-    } as ViewStyle,
-
-    scrollViewContent: {
-      paddingVertical: 20,
-    } as ViewStyle,
-
-    card: {
-      marginBottom: 16,
-    } as ViewStyle,
-
-    cardTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: theme.colors.onSurface,
-      marginBottom: 16,
-    } as TextStyle,
-
-    input: {
-      marginBottom: 16,
-    } as ViewStyle,
-
-    dateInput: {
-      marginBottom: 16,
-    } as ViewStyle,
-
-    inputWrapper: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: theme.colors.outline,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      backgroundColor: theme.colors.surface,
-    } as ViewStyle,
-
-    inputIcon: {
-      marginRight: 12,
-    } as ViewStyle,
-
-    inputContent: {
-      flex: 1,
-    } as ViewStyle,
-
-    inputLabel: {
-      fontSize: 12,
-      color: theme.colors.onSurfaceVariant,
-      marginBottom: 2,
-    } as TextStyle,
-
-    inputValue: {
-      fontSize: 16,
-      color: theme.colors.onSurface,
-    } as TextStyle,
-
-    sectionLabel: {
-      fontSize: 14,
-      fontWeight: '500',
-      color: theme.colors.onSurface,
-      marginBottom: 12,
-    } as TextStyle,
-
-    categoryGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 8,
-    } as ViewStyle,
-
-    categoryButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: theme.colors.outline,
-      backgroundColor: theme.colors.surface,
-      minWidth: '45%',
-    } as ViewStyle,
-
-    categoryButtonActive: {
-      backgroundColor: theme.colors.primary,
-      borderColor: theme.colors.primary,
-    } as ViewStyle,
-
-    categoryButtonText: {
-      fontSize: 12,
-      color: theme.colors.onSurfaceVariant,
-      marginLeft: 6,
-    } as TextStyle,
-
-    categoryButtonTextActive: {
-      color: theme.colors.onPrimary,
-    } as TextStyle,
-
-    participantOption: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 12,
-      paddingHorizontal: 4,
-    } as ViewStyle,
-
-    participantOptionActive: {
-      backgroundColor: theme.colors.primaryContainer,
-      borderRadius: 8,
-      paddingHorizontal: 8,
-    } as ViewStyle,
-
-    payerParticipantName: {
-      fontSize: 16,
-      color: theme.colors.onSurface,
-      marginLeft: 12,
-    } as TextStyle,
-
-
-
-    splitPreview: {
-      backgroundColor: theme.colors.surfaceVariant,
-      borderRadius: 8,
-      padding: 12,
-    } as ViewStyle,
-
-    splitPreviewTitle: {
-      fontSize: 14,
-      fontWeight: '500',
-      color: theme.colors.onSurfaceVariant,
-      marginBottom: 8,
-    } as TextStyle,
-
-    splitItem: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: 4,
-    } as ViewStyle,
-
-    splitParticipant: {
-      fontSize: 14,
-      color: theme.colors.onSurface,
-    } as TextStyle,
-
-    peopleCountBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: theme.colors.primaryContainer,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: 10,
-      gap: 2,
-    } as ViewStyle,
-
-    peopleCountBadgeText: {
-      fontSize: 11,
-      fontWeight: '600',
-      color: theme.colors.primary,
-    } as TextStyle,
-
-    peopleCountBadgeTextOverride: {
-      color: theme.colors.error,
-    } as TextStyle,
-
-    overrideButton: {
-      padding: 4,
-      borderRadius: 4,
-      backgroundColor: theme.colors.surfaceVariant,
-    } as ViewStyle,
-
-    splitAmount: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: theme.colors.onSurface,
-    } as TextStyle,
-
-    splitPercentage: {
-      fontSize: 12,
-      color: theme.colors.onSurfaceVariant,
-    } as TextStyle,
-
-    // Nuevos estilos para selección de participantes
-    cardSubtitle: {
-      fontSize: 14,
-      color: theme.colors.onSurfaceVariant,
-      marginBottom: 16,
-      fontStyle: 'italic',
-    } as TextStyle,
-
-    participantCheckbox: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 12,
-      paddingHorizontal: 4,
-      borderRadius: 8,
-    } as ViewStyle,
-
-    participantCheckboxActive: {
-      backgroundColor: theme.colors.primaryContainer,
-      paddingHorizontal: 8,
-    } as ViewStyle,
-
-    participantCheckboxText: {
-      fontSize: 16,
-      color: theme.colors.onSurface,
-      marginLeft: 12,
-      flex: 1,
-    } as TextStyle,
-
-    participantCheckboxTextActive: {
-      color: theme.colors.primary,
-      fontWeight: '500',
-    } as TextStyle,
-
-    excludedLabel: {
-      fontSize: 12,
-      color: theme.colors.error,
-      backgroundColor: theme.colors.errorContainer,
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: 4,
-    } as TextStyle,
-
-    warningText: {
-      fontSize: 14,
-      color: theme.colors.error,
-      textAlign: 'center',
-      fontStyle: 'italic',
-      paddingVertical: 8,
-    } as TextStyle,
-
-    // Nuevos estilos para configuración de splits
-    splitConfiguration: {
-      marginBottom: 16,
-    } as ViewStyle,
-
-    splitConfigTitle: {
-      fontSize: 14,
-      fontWeight: '500',
-      color: theme.colors.onSurface,
-      marginBottom: 12,
-    } as TextStyle,
-
-    splitConfigItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingVertical: 8,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.outline + '30',
-    } as ViewStyle,
-
-    splitConfigParticipant: {
-      fontSize: 14,
-      color: theme.colors.onSurface,
-      flex: 1,
-    } as TextStyle,
-
-    splitConfigInput: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      minWidth: 80,
-    } as ViewStyle,
-
-    percentageInput: {
-      width: 60,
-    } as ViewStyle,
-
-    amountInput: {
-      width: 80,
-    } as ViewStyle,
-
-    percentageSymbol: {
-      fontSize: 14,
-      color: theme.colors.onSurfaceVariant,
-      marginLeft: 4,
-    } as TextStyle,
-
-    currencySymbol: {
-      fontSize: 14,
-      color: theme.colors.onSurfaceVariant,
-      marginRight: 4,
-    } as TextStyle,
-
-    splitTotal: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: theme.colors.primary,
-      textAlign: 'center',
-      marginTop: 8,
-      paddingTop: 8,
-      borderTopWidth: 1,
-      borderTopColor: theme.colors.outline + '50',
-    } as TextStyle,
-
-    // Nuevos estilos para el preview mejorado
-    splitParticipantInfo: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    } as ViewStyle,
-
-    splitAmountInfo: {
-      alignItems: 'flex-end',
-    } as ViewStyle,
-
-    noParticipantsText: {
-      fontSize: 14,
-      color: theme.colors.onSurfaceVariant,
-      textAlign: 'center',
-      fontStyle: 'italic',
-      paddingVertical: 16,
-    } as TextStyle,
-
-    splitSummary: {
-      marginTop: 12,
-      paddingTop: 12,
-      borderTopWidth: 1,
-      borderTopColor: theme.colors.outline + '50',
-    } as ViewStyle,
-
-    splitSummaryText: {
-      fontSize: 12,
-      color: theme.colors.onSurfaceVariant,
-      textAlign: 'center',
-    } as TextStyle,
-
-    errorText: {
-      fontSize: 12,
-      color: theme.colors.error,
-      marginTop: 4,
-    } as TextStyle,
-
-    footerSpace: {
-      height: 100,
-    } as ViewStyle,
-
-    footer: {
-      flexDirection: 'row',
-      paddingHorizontal: 20,
-      paddingVertical: 16,
-      backgroundColor: theme.colors.surface,
-      borderTopWidth: 1,
-      borderTopColor: theme.colors.outline,
-      gap: 12,
-    } as ViewStyle,
-
-    cancelButton: {
-      flex: 1,
-    } as ViewStyle,
-
-    createButton: {
-      flex: 1,
-    } as ViewStyle,
-
-    amountInputContainer: {
-      position: 'relative',
-    } as ViewStyle,
-
-    currencySuffix: {
-      position: 'absolute',
-      right: 16,
-      top: 40,
-      fontSize: 16,
-      color: theme.colors.onSurfaceVariant,
-      fontWeight: '500',
-    } as TextStyle,
-
-    // Nuevos estilos para la interfaz unificada
-    participantsList: {
-      marginTop: 16,
-    } as ViewStyle,
-
-    unifiedParticipantRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingVertical: 12,
-      paddingHorizontal: 4,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.outline + '20',
-      backgroundColor: theme.colors.surface,
-      borderRadius: 8,
-      marginBottom: 4,
-    } as ViewStyle,
-
-    unifiedParticipantRowExcluded: {
-      opacity: 0.6,
-      backgroundColor: theme.colors.surfaceVariant + '50',
-    } as ViewStyle,
-
-    participantToggle: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flex: 1,
-    } as ViewStyle,
-
-    participantName: {
-      fontSize: 14,
-      color: theme.colors.onSurfaceVariant,
-      marginLeft: 12,
-      flex: 1,
-    } as TextStyle,
-
-    participantNameActive: {
-      color: theme.colors.onSurface,
-      fontWeight: '500',
-    } as TextStyle,
-
-    participantNameExcluded: {
-      color: theme.colors.onSurfaceVariant,
-      fontStyle: 'italic',
-    } as TextStyle,
-
-    participantAmount: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      minWidth: 80,
-    } as ViewStyle,
-
-    amountText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: theme.colors.primary,
-    } as TextStyle,
-
-    inlineInput: {
-      width: 60,
-      height: 35,
-      fontSize: 13,
-    } as ViewStyle,
-
-    customAmountInput: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    } as ViewStyle,
-
-    totalSummary: {
-      marginTop: 12,
-      padding: 12,
-      backgroundColor: theme.colors.primaryContainer + '30',
-      borderRadius: 8,
-    } as ViewStyle,
-
-    totalSummaryText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: theme.colors.primary,
-      textAlign: 'center',
-    } as TextStyle,
-  });
 
 export default CreateExpenseScreen;
