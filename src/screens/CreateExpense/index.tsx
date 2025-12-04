@@ -123,7 +123,7 @@ const CreateExpenseScreen: React.FC = () => {
       } catch (error) {
         console.error('❌ Error loading event data:', error);
         console.error('Error details:', error);
-        Alert.alert('Error', 'No se pudieron cargar los datos del evento');
+        Alert.alert(t.alerts.errors.general, t.alerts.errors.loadEvent);
       }
     };
 
@@ -180,7 +180,7 @@ const CreateExpenseScreen: React.FC = () => {
           }
         } catch (error) {
           console.error('Error loading expense data:', error);
-          Alert.alert('Error', 'No se pudieron cargar los datos del gasto');
+          Alert.alert(t.alerts.errors.general, t.alerts.errors.loadExpense);
         }
       }
     };
@@ -196,11 +196,11 @@ const CreateExpenseScreen: React.FC = () => {
 
       if (hasChanges) {
         Alert.alert(
-          'Descartar cambios',
-          '¿Estás seguro de que quieres salir? Los cambios no guardados se perderán.',
+          t.alerts.exitConfirm.title,
+          t.alerts.exitConfirm.message,
           [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Salir', onPress: () => navigation.goBack(), style: 'destructive' }
+            { text: t.alerts.exitConfirm.cancel, style: 'cancel' },
+            { text: t.alerts.exitConfirm.confirm, onPress: () => navigation.goBack(), style: 'destructive' }
           ]
         );
       } else {
@@ -219,7 +219,7 @@ const CreateExpenseScreen: React.FC = () => {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (status !== 'granted') {
-        Alert.alert('Permiso requerido', 'Necesitamos permiso para acceder a tus fotos');
+        Alert.alert(t.alerts.permissions.title, t.alerts.permissions.photos);
         return;
       }
 
@@ -235,7 +235,7 @@ const CreateExpenseScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('❌ Error picking image:', error);
-      Alert.alert('Error', 'No se pudo seleccionar la imagen');
+      Alert.alert(t.alerts.errors.general, t.alerts.errors.selectImage);
     }
   };
 
@@ -244,7 +244,7 @@ const CreateExpenseScreen: React.FC = () => {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       
       if (status !== 'granted') {
-        Alert.alert('Permiso requerido', 'Necesitamos permiso para acceder a tu cámara');
+        Alert.alert(t.alerts.permissions.title, t.alerts.permissions.camera);
         return;
       }
 
@@ -259,7 +259,7 @@ const CreateExpenseScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('❌ Error taking photo:', error);
-      Alert.alert('Error', 'No se pudo tomar la foto');
+      Alert.alert(t.alerts.errors.general, t.alerts.errors.takePhoto);
     }
   };
 
@@ -579,7 +579,7 @@ const CreateExpenseScreen: React.FC = () => {
       console.error('Error saving expense:', error);
       console.error('Error details:', JSON.stringify(error));
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      Alert.alert('Error', `No se pudo guardar el gasto: ${errorMessage}`);
+      Alert.alert(t.alerts.errors.general, `${t.alerts.errors.saveExpense}: ${errorMessage}`);
     }
   };
 
@@ -589,11 +589,11 @@ const CreateExpenseScreen: React.FC = () => {
 
     if (hasChanges) {
       Alert.alert(
-        'Descartar cambios',
-        '¿Estás seguro de que quieres salir? Los cambios no guardados se perderán.',
+        t.alerts.exitConfirm.title,
+        t.alerts.exitConfirm.message,
         [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Salir', onPress: () => navigation.goBack(), style: 'destructive' }
+          { text: t.alerts.exitConfirm.cancel, style: 'cancel' },
+          { text: t.alerts.exitConfirm.confirm, onPress: () => navigation.goBack(), style: 'destructive' }
         ]
       );
     } else {
@@ -832,8 +832,8 @@ const CreateExpenseScreen: React.FC = () => {
           {formData.splits.length > 0 && (
             <View style={styles.totalSummary}>
               <Text style={styles.totalSummaryText}>
-                Total: ${formData.splits.reduce((sum, split) => sum + split.amount, 0).toFixed(2)}
-                {formData.splits.length > 1 && ` • ${formData.splits.length} participantes`}
+                {t.summary.total}: ${formData.splits.reduce((sum, split) => sum + split.amount, 0).toFixed(2)}
+                {formData.splits.length > 1 && ` • ${formData.splits.length} ${formData.splits.length === 1 ? t.summary.participant : t.summary.participants}`}
               </Text>
             </View>
           )}
@@ -842,7 +842,7 @@ const CreateExpenseScreen: React.FC = () => {
 
         {/* Comprobante / Imagen */}
         <Card style={styles.card}>
-          <Text style={styles.cardTitle}>📷 Comprobante (Opcional)</Text>
+          <Text style={styles.cardTitle}>{t.receiptCard.title}</Text>
           
           {receiptImage ? (
             <View style={{ marginTop: 12 }}>
@@ -858,7 +858,7 @@ const CreateExpenseScreen: React.FC = () => {
                 >
                   <MaterialCommunityIcons name="image-edit" size={20} color="#007AFF" />
                   <Text style={{ marginLeft: 8, fontSize: 14, color: '#007AFF', fontWeight: '500' }}>
-                    Cambiar
+                    {t.receiptCard.changeButton}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -867,7 +867,7 @@ const CreateExpenseScreen: React.FC = () => {
                 >
                   <MaterialCommunityIcons name="delete" size={20} color="#ff4444" />
                   <Text style={{ marginLeft: 8, fontSize: 14, color: '#ff4444', fontWeight: '500' }}>
-                    Eliminar
+                    {t.receiptCard.deleteButton}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -879,7 +879,7 @@ const CreateExpenseScreen: React.FC = () => {
             >
               <MaterialCommunityIcons name="camera-plus" size={24} color="#666" />
               <Text style={{ marginLeft: 8, fontSize: 14, color: '#666', fontWeight: '500' }}>
-                Adjuntar comprobante o recibo
+                {t.receiptCard.attachButton}
               </Text>
             </TouchableOpacity>
           )}
@@ -887,9 +887,9 @@ const CreateExpenseScreen: React.FC = () => {
 
         {/* Categorización */}
         <Card style={styles.card}>
-          <Text style={styles.cardTitle}>🏷️ Categorización</Text>
+          <Text style={styles.cardTitle}>{t.categoryCard.title}</Text>
           
-          <Text style={styles.sectionLabel}>Categoría</Text>
+          <Text style={styles.sectionLabel}>{t.categoryCard.sectionLabel}</Text>
           <View style={styles.categoryGrid}>
             {CATEGORY_CONFIGS.map((cat) => (
               <TouchableOpacity
@@ -909,7 +909,7 @@ const CreateExpenseScreen: React.FC = () => {
                   styles.categoryButtonText,
                   formData.category === cat.key && styles.categoryButtonTextActive
                 ]}>
-                  {cat.label}
+                  {t.categories[cat.key]}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -938,13 +938,13 @@ const CreateExpenseScreen: React.FC = () => {
       {/* Botones Footer Sticky */}
       <View style={styles.footer}>
         <Button
-          title="Cancelar"
+          title={t.buttons.cancel}
           variant="outlined"
           onPress={handleBack}
           style={styles.cancelButton}
         />
         <Button
-          title={isEditing ? 'Actualizar' : 'Crear Gasto'}
+          title={isEditing ? t.buttons.update : t.buttons.create}
           variant="filled"
           onPress={handleCreateExpense}
           disabled={!isFormValid()}

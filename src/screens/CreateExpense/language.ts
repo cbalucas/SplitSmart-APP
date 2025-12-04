@@ -79,7 +79,38 @@ export const createExpenseLanguage = {
         title: 'Modificar personas',
         message: 'Por defecto: {count} persona(s)\n\nIngresa el número de personas para este gasto específico (1-20), o deja vacío para usar el valor por defecto:',
         invalidNumber: 'Ingresa un número entre 1 y 20'
+      },
+      exitConfirm: {
+        title: 'Confirmar',
+        message: '¿Estás seguro de que quieres salir? Los cambios no guardados se perderán.',
+        cancel: 'Cancelar',
+        confirm: 'Salir'
+      },
+      imageOptions: {
+        title: 'Seleccionar imagen',
+        camera: 'Tomar foto',
+        gallery: 'Elegir de galería'
+      },
+      permissions: {
+        camera: 'Necesitamos permiso para acceder a tu cámara',
+        photos: 'Necesitamos permiso para acceder a tus fotos',
+        title: 'Permiso requerido'
+      },
+      errors: {
+        general: 'Error',
+        loadEvent: 'No se pudieron cargar los datos del evento',
+        loadExpense: 'No se pudieron cargar los datos del gasto',
+        selectImage: 'No se pudo seleccionar la imagen',
+        takePhoto: 'No se pudo tomar la foto',
+        saveExpense: 'No se pudo guardar el gasto'
       }
+    },
+    
+    // Summary section
+    summary: {
+      total: 'Total',
+      participants: 'participantes',
+      participant: 'participante'
     },
     
     // Form Errors
@@ -171,9 +202,40 @@ export const createExpenseLanguage = {
         title: 'Modify people',
         message: 'Default: {count} person(s)\n\nEnter the number of people for this specific expense (1-20), or leave empty to use the default value:',
         invalidNumber: 'Enter a number between 1 and 20'
+      },
+      exitConfirm: {
+        title: 'Confirm',
+        message: 'Are you sure you want to exit? Unsaved changes will be lost.',
+        cancel: 'Cancel',
+        confirm: 'Exit'
+      },
+      imageOptions: {
+        title: 'Select image',
+        camera: 'Take photo',
+        gallery: 'Choose from gallery'
+      },
+      permissions: {
+        camera: 'We need permission to access your camera',
+        photos: 'We need permission to access your photos',
+        title: 'Permission required'
+      },
+      errors: {
+        general: 'Error',
+        loadEvent: 'Could not load event data',
+        loadExpense: 'Could not load expense data',
+        selectImage: 'Could not select image',
+        takePhoto: 'Could not take photo',
+        saveExpense: 'Could not save expense'
       }
     },
-    
+
+    // Summary section
+    summary: {
+      total: 'Total',
+      participants: 'participants',
+      participant: 'participant'
+    },
+
     // Form Errors
     errors: {
       description: 'Description is required',
@@ -263,9 +325,40 @@ export const createExpenseLanguage = {
         title: 'Modificar pessoas',
         message: 'Padrão: {count} pessoa(s)\n\nDigite o número de pessoas para esta despesa específica (1-20), ou deixe vazio para usar o valor padrão:',
         invalidNumber: 'Digite um número entre 1 e 20'
+      },
+      exitConfirm: {
+        title: 'Confirmar',
+        message: 'Tem certeza de que deseja sair? As alterações não salvas serão perdidas.',
+        cancel: 'Cancelar',
+        confirm: 'Sair'
+      },
+      imageOptions: {
+        title: 'Selecionar imagem',
+        camera: 'Tirar foto',
+        gallery: 'Escolher da galeria'
+      },
+      permissions: {
+        camera: 'Precisamos de permissão para acessar sua câmera',
+        photos: 'Precisamos de permissão para acessar suas fotos',
+        title: 'Permissão necessária'
+      },
+      errors: {
+        general: 'Erro',
+        loadEvent: 'Não foi possível carregar os dados do evento',
+        loadExpense: 'Não foi possível carregar os dados da despesa',
+        selectImage: 'Não foi possível selecionar a imagem',
+        takePhoto: 'Não foi possível tirar a foto',
+        saveExpense: 'Não foi possível salvar a despesa'
       }
     },
-    
+
+    // Summary section
+    summary: {
+      total: 'Total',
+      participants: 'participantes',
+      participant: 'participante'
+    },
+
     // Form Errors
     errors: {
       description: 'A descrição é obrigatória',
