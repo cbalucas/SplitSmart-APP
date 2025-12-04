@@ -1,10 +1,11 @@
 // Theme configuration based on PromptAPP.md specifications
+import { AppColors, getAppColors } from './colors';
 export const lightTheme = {
   colors: {
-    // Primary colors
-    primary: '#007AFF',
-    onPrimary: '#FFFFFF',
-    primaryContainer: '#E3F2FD',
+    // Primary colors usando AppColors
+    primary: AppColors.primary.light,
+    onPrimary: AppColors.text.light.onPrimary,
+    primaryContainer: AppColors.primary.container.light,
     onPrimaryContainer: '#001D36',
     
     // Secondary colors
@@ -13,60 +14,60 @@ export const lightTheme = {
     secondaryContainer: '#E8DEF8',
     onSecondaryContainer: '#1E192B',
     
-    // Surface colors
-    surface: '#FFFFFF',
-    onSurface: '#1C1B1F',
-    surfaceVariant: '#F3F3F3',
-    onSurfaceVariant: '#49454F',
+    // Surface colors usando AppColors
+    surface: AppColors.surface.light.primary,
+    onSurface: AppColors.text.light.onSurface,
+    surfaceVariant: AppColors.surface.light.secondary,
+    onSurfaceVariant: AppColors.text.light.secondary,
     
-    // Background colors
-    background: '#F8F9FA',
-    onBackground: '#1C1B1F',
+    // Background colors usando AppColors
+    background: AppColors.surface.light.variant,
+    onBackground: AppColors.text.light.primary,
     
-    // Error colors
-    error: '#E74C3C',
+    // Error colors usando AppColors
+    error: AppColors.status.error.light,
     onError: '#FFFFFF',
-    errorContainer: '#F9DEDC',
+    errorContainer: AppColors.status.error.container.light,
     onErrorContainer: '#410E0B',
     
-    // Success colors
-    success: '#2ECC71',
+    // Success colors usando AppColors
+    success: AppColors.status.success.light,
     onSuccess: '#FFFFFF',
-    successContainer: '#D4F4DD',
+    successContainer: AppColors.status.success.container.light,
     onSuccessContainer: '#002204',
     
-    // Warning colors
-    warning: '#F39C12',
+    // Warning colors usando AppColors
+    warning: AppColors.status.warning.light,
     onWarning: '#FFFFFF',
-    warningContainer: '#FFDBCF',
+    warningContainer: AppColors.status.warning.container.light,
     onWarningContainer: '#2D1600',
     
-    // Info colors
-    info: '#3498DB',
+    // Info colors usando AppColors
+    info: AppColors.status.info.light,
     onInfo: '#FFFFFF',
-    infoContainer: '#D0E4FF',
+    infoContainer: AppColors.status.info.container.light,
     onInfoContainer: '#001D36',
     
-    // Neutral colors
-    outline: '#E0E0E0',
-    outlineVariant: '#CAC4D0',
-    shadow: '#000000',
-    scrim: '#000000',
+    // Neutral colors usando AppColors
+    outline: AppColors.border.light.primary,
+    outlineVariant: AppColors.border.light.secondary,
+    shadow: AppColors.special.light.shadow,
+    scrim: AppColors.special.light.shadow,
     inverseSurface: '#313033',
     inverseOnSurface: '#F4EFF4',
     inversePrimary: '#A6C8FF',
     
-    // Custom colors for app
-    cardBackground: '#FFFFFF',
-    divider: '#E5E5E5',
-    placeholder: '#9E9E9E',
-    disabled: '#BDBDBD',
+    // Custom colors usando AppColors
+    cardBackground: AppColors.surface.light.elevated,
+    divider: AppColors.special.light.divider,
+    placeholder: AppColors.special.light.placeholder,
+    disabled: AppColors.text.light.disabled,
     
-    // Status colors
-    active: '#4CAF50',
-    inactive: '#9E9E9E',
-    pending: '#FF9800',
-    completed: '#2196F3',
+    // Status colors usando AppColors
+    active: AppColors.interactive.light.active,
+    inactive: AppColors.interactive.light.inactive,
+    pending: AppColors.status.warning.light,
+    completed: AppColors.status.info.light,
     archived: '#9C27B0'
   },
   
@@ -204,27 +205,73 @@ export const darkTheme = {
   colors: {
     ...lightTheme.colors,
     
-    // Primary colors (darker theme)
-    primary: '#A6C8FF',
-    onPrimary: '#003258',
-    primaryContainer: '#004A77',
-    onPrimaryContainer: '#D0E4FF',
+    // Primary colors usando AppColors - Verde fluor vibrante para elementos interactivos
+    primary: AppColors.primary.dark,
+    onPrimary: AppColors.text.dark.onPrimary,
+    primaryContainer: AppColors.primary.container.dark,
+    onPrimaryContainer: AppColors.text.dark.onPrimary,
     
-    // Surface colors (darker theme)
-    surface: '#121212',
-    onSurface: '#E6E1E5',
-    surfaceVariant: '#1E1E1E',
-    onSurfaceVariant: '#CAC4D0',
+    // Secondary colors - mejor contraste
+    secondary: '#B8A7C8',
+    onSecondary: '#2A1E35',
+    secondaryContainer: '#41344C',
+    onSecondaryContainer: '#D4C3E4',
     
-    // Background colors (darker theme)
-    background: '#000000',
-    onBackground: '#E6E1E5',
+    // Surface colors usando AppColors - mayor contraste y separación
+    surface: AppColors.surface.dark.primary,
+    onSurface: AppColors.text.dark.onSurface,
+    surfaceVariant: AppColors.surface.dark.variant,
+    onSurfaceVariant: AppColors.text.dark.secondary,
     
-    // Custom colors for dark theme
-    cardBackground: '#1E1E1E',
-    divider: '#2C2C2C',
-    placeholder: '#757575',
-    disabled: '#555555'
+    // Background colors usando AppColors - más separación visual
+    background: '#0F0F0F',
+    onBackground: AppColors.text.dark.primary,
+    
+    // Error colors usando AppColors - más visibles en oscuro
+    error: AppColors.status.error.dark,
+    onError: '#FFFFFF',
+    errorContainer: AppColors.status.error.container.dark,
+    onErrorContainer: '#FFD6D6',
+    
+    // Success colors usando AppColors - mejor contraste
+    success: AppColors.status.success.dark,
+    onSuccess: '#FFFFFF',
+    successContainer: AppColors.status.success.container.dark,
+    onSuccessContainer: '#C8E6C9',
+    
+    // Warning colors usando AppColors - más visibles
+    warning: AppColors.status.warning.dark,
+    onWarning: '#1A1A1A',
+    warningContainer: AppColors.status.warning.container.dark,
+    onWarningContainer: '#FFE0B2',
+    
+    // Info colors usando AppColors - mejor contraste
+    info: AppColors.status.info.dark,
+    onInfo: '#FFFFFF',
+    infoContainer: AppColors.status.info.container.dark,
+    onInfoContainer: '#BBDEFB',
+    
+    // Neutral colors usando AppColors - mayor contraste
+    outline: AppColors.border.dark.primary,
+    outlineVariant: AppColors.border.dark.secondary,
+    shadow: AppColors.special.dark.shadow,
+    scrim: AppColors.special.dark.shadow,
+    inverseSurface: '#E6E1E5',
+    inverseOnSurface: '#2E2D31',
+    inversePrimary: '#006491',
+    
+    // Custom colors usando AppColors - mejor separación
+    cardBackground: AppColors.surface.dark.secondary,
+    divider: AppColors.special.dark.divider,
+    placeholder: AppColors.special.dark.placeholder,
+    disabled: AppColors.text.dark.disabled,
+    
+    // Status colors usando AppColors - mejorados para modo oscuro
+    active: AppColors.interactive.dark.active,
+    inactive: AppColors.interactive.dark.inactive,
+    pending: AppColors.status.warning.dark,
+    completed: AppColors.status.info.dark,
+    archived: '#AB47BC'
   }
 };
 

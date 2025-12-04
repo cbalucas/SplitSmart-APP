@@ -1,47 +1,22 @@
 import { StyleSheet, ViewStyle, TextStyle } from 'react-native';
 import { Theme } from '../../constants/theme';
+import { getAppColors } from '../../constants/colors';
 
-export const createStyles = (theme: Theme) => StyleSheet.create({
+export const createStyles = (theme: Theme) => {
+  const isDarkMode = theme.colors.surface !== '#FFFFFF';
+  const appColors = getAppColors(isDarkMode);
+
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
   } as ViewStyle,
 
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.outline,
-  } as ViewStyle,
-
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  } as ViewStyle,
-
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: theme.colors.onSurface,
+  safeContent: {
     flex: 1,
-  } as TextStyle,
-
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   } as ViewStyle,
 
-  headerSpacer: {
-    width: 40,
-  } as ViewStyle,
+
 
   scrollView: {
     flex: 1,
@@ -53,7 +28,15 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   } as ViewStyle,
 
   card: {
-    marginBottom: 16,
+    marginBottom: 20,
+    shadowColor: theme.colors.shadow,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   } as ViewStyle,
 
   cardTitle: {
@@ -151,8 +134,8 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   } as ViewStyle,
 
   categoryButtonActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryContainer,
+    borderColor: theme.colors.primaryContainer,
   } as ViewStyle,
 
   categoryButtonText: {
@@ -162,7 +145,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   } as TextStyle,
 
   categoryButtonTextActive: {
-    color: theme.colors.onPrimary,
+    color: theme.colors.onPrimaryContainer,
   } as TextStyle,
 
   participantOption: {
@@ -268,15 +251,15 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.outline + '20',
+    borderBottomColor: theme.colors.outline + '60',
     backgroundColor: theme.colors.surface,
     borderRadius: 8,
     marginBottom: 2,
   } as ViewStyle,
 
   unifiedParticipantRowExcluded: {
-    opacity: 0.6,
-    backgroundColor: theme.colors.surfaceVariant + '50',
+    opacity: 0.7,
+    backgroundColor: theme.colors.surfaceVariant + '30',
   } as ViewStyle,
 
   participantToggle: {
@@ -316,11 +299,14 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
 
   excludedLabel: {
     fontSize: 12,
-    color: theme.colors.error,
+    color: theme.colors.onErrorContainer,
     backgroundColor: theme.colors.errorContainer,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.error,
+    fontWeight: '500',
   } as TextStyle,
 
   warningText: {
@@ -332,16 +318,26 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   } as TextStyle,
 
   totalSummary: {
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: theme.colors.primaryContainer + '30',
-    borderRadius: 8,
+    marginTop: 16,
+    padding: 14,
+    backgroundColor: theme.colors.primaryContainer,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.primary + '40',
+    shadowColor: theme.colors.primary,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   } as ViewStyle,
 
   totalSummaryText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: theme.colors.primary,
+    fontSize: 16,
+    fontWeight: '700',
+    color: theme.colors.onPrimaryContainer,
     textAlign: 'center',
   } as TextStyle,
 
@@ -349,7 +345,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.outline + '50',
+    borderTopColor: theme.colors.outline + '60',
   } as ViewStyle,
 
   splitSummaryText: {
@@ -399,3 +395,4 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '500',
   } as TextStyle,
 });
+};

@@ -11,6 +11,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../constants/theme';
+import { LanguageSelector, ThemeToggle } from './index';
 
 export interface HeaderBarProps {
   title: string;
@@ -26,6 +27,12 @@ export interface HeaderBarProps {
   titleColor?: string;
   style?: ViewStyle;
   elevation?: boolean;
+  // Nuevas props para elementos adicionales
+  showThemeToggle?: boolean;
+  showLanguageSelector?: boolean;
+  additionalRightElements?: React.ReactNode;
+  titleAlignment?: 'left' | 'center';
+  useDynamicColors?: boolean; // Verde en dark, azul en light
 }
 
 const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -41,10 +48,25 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   backgroundColor,
   titleColor,
   style,
-  elevation = true
+  elevation = true,
+  showThemeToggle = false,
+  showLanguageSelector = false,
+  additionalRightElements,
+  titleAlignment = 'center',
+  useDynamicColors = false
 }) => {
   const { theme, isDarkMode } = useTheme();
-  const styles = createStyles(theme);
+  
+  // Determinar colores dinámicos
+  const dynamicBackgroundColor = useDynamicColors 
+    ? (isDarkMode ? '#00B359' : '#007AFF')
+    : backgroundColor || theme.colors.surface;
+  
+  const dynamicTitleColor = useDynamicColors 
+    ? '#FFFFFF'
+    : titleColor || theme.colors.onSurface;
+    
+  const styles = createStyles(theme, titleAlignment, dynamicBackgroundColor);
 
   const handleLeftPress = () => {
     if (onLeftPress) {
@@ -109,9 +131,40 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   };
 
   const renderRightElement = () => {
+    const elements = [];
+    
+    // Elementos adicionales personalizados
+    if (additionalRightElements) {
+      elements.push(additionalRightElements);
+    }
+    
+    // ThemeToggle
+    if (showThemeToggle) {
+      elements.push(
+        <ThemeToggle 
+          key="theme-toggle" 
+          size={22} 
+          color={dynamicTitleColor} 
+        />
+      );
+    }
+    
+    // LanguageSelector
+    if (showLanguageSelector) {
+      elements.push(
+        <LanguageSelector 
+          key="language-selector" 
+          size={24} 
+          color={dynamicTitleColor} 
+        />
+      );
+    }
+    
+    // Icono derecho tradicional
     if (rightIcon) {
-      return (
+      elements.push(
         <TouchableOpacity
+          key="right-icon"
           style={styles.actionButton}
           onPress={handleRightPress}
           activeOpacity={0.7}
@@ -119,23 +172,37 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
           <MaterialCommunityIcons
             name={rightIcon as any}
             size={24}
-            color={titleColor || theme.colors.onSurface}
+            color={dynamicTitleColor}
           />
         </TouchableOpacity>
       );
     }
-
+    
+    // Texto derecho tradicional
     if (rightText) {
-      return (
+      elements.push(
         <TouchableOpacity
+          key="right-text"
           style={styles.textButton}
           onPress={handleRightPress}
           activeOpacity={0.7}
         >
-          <Text style={[styles.actionText, { color: titleColor || theme.colors.primary }]}>
+          <Text style={[styles.actionText, { color: dynamicTitleColor }]}>
             {rightText}
           </Text>
         </TouchableOpacity>
+      );
+    }
+    
+    if (elements.length > 0) {
+      return (
+        <View style={styles.rightElementsContainer}>
+          {elements.map((element, index) => (
+            <View key={index} style={styles.rightElementWrapper}>
+              {element}
+            </View>
+          ))}
+        </View>
       );
     }
 
@@ -152,7 +219,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
         style={[
           styles.container,
           {
-            backgroundColor: backgroundColor || theme.colors.surface,
+            backgroundColor: dynamicBackgroundColor,
             elevation: elevation ? theme.elevation.small : 0,
             shadowOpacity: elevation ? 0.1 : 0
           },
@@ -166,7 +233,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
             <Text
               style={[
                 styles.title,
-                { color: titleColor || theme.colors.onSurface }
+                { color: dynamicTitleColor }
               ]}
               numberOfLines={1}
               ellipsizeMode="tail"
@@ -177,7 +244,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
               <Text
                 style={[
                   styles.subtitle,
-                  { color: titleColor ? titleColor + '80' : theme.colors.onSurfaceVariant }
+                  { color: dynamicTitleColor + '80' }
                 ]}
                 numberOfLines={1}
                 ellipsizeMode="tail"
@@ -194,12 +261,17 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   );
 };
 
-const createStyles = (theme: Theme) =>
-  StyleSheet.create({
+const createStyles = (theme: Theme, titleAlignment: 'left' | 'center' = 'center', backgroundColor?: string) => {
+  const isDynamic = backgroundColor && (backgroundColor === '#007AFF' || backgroundColor === '#00B359');
+  const borderColor = isDynamic 
+    ? (backgroundColor === '#007AFF' ? '#0056CC' : '#008A44')
+    : theme.colors.outlineVariant;
+
+  return StyleSheet.create({
     container: {
-      paddingTop: StatusBar.currentHeight || 44, // iOS safe area
+      paddingTop: 50, // Account for status bar
       borderBottomWidth: 1,
-      borderBottomColor: theme.colors.outlineVariant,
+      borderBottomColor: borderColor,
       shadowColor: theme.colors.shadow,
       shadowOffset: { width: 0, height: 2 },
       shadowRadius: 4,
@@ -233,22 +305,33 @@ const createStyles = (theme: Theme) =>
     
     titleContainer: {
       flex: 1,
-      alignItems: 'center',
+      alignItems: titleAlignment === 'left' ? 'flex-start' : 'center',
       justifyContent: 'center',
       paddingHorizontal: theme.spacing.sm,
     } as ViewStyle,
     
     title: {
       ...theme.typography.titleLarge,
-      fontWeight: '600',
-      textAlign: 'center',
+      fontWeight: '700',
+      textAlign: titleAlignment,
+      fontSize: 20,
     } as TextStyle,
     
     subtitle: {
       ...theme.typography.bodySmall,
-      textAlign: 'center',
+      textAlign: titleAlignment,
       marginTop: 2,
     } as TextStyle,
+    
+    rightElementsContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    } as ViewStyle,
+    
+    rightElementWrapper: {
+      marginLeft: 12,
+    } as ViewStyle,
   });
+};
 
 export default HeaderBar;

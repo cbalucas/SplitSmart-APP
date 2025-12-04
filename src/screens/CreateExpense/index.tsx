@@ -19,12 +19,12 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 import { useData } from '../../context/DataContext';
-import { LanguageSelector, ThemeToggle } from '../../components';
 import { Theme } from '../../constants/theme';
 import { 
   Input,
   Button,
-  Card
+  Card,
+  HeaderBar
 } from '../../components';
 import { Participant, Expense, Split } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
@@ -48,6 +48,15 @@ const CreateExpenseScreen: React.FC = () => {
   const { addExpense, updateExpense, getEventParticipants, getExpensesByEvent, getSplitsByEvent, events, expenses } = useData();
   const styles = createStyles(theme);
   const t = createExpenseLanguage[language] || createExpenseLanguage.es;
+
+  // Helper para mostrar alerts con tema
+  const showThemedAlert = (title: string, message: string, buttons?: any[], options?: any) => {
+    const isDarkMode = theme.colors.surface !== '#FFFFFF';
+    Alert.alert(title, message, buttons, {
+      ...options,
+      userInterfaceStyle: isDarkMode ? 'dark' : 'light'
+    });
+  };
   
   const eventId = (route.params as any)?.eventId as string;
   const editingExpenseId = (route.params as any)?.expenseId;
@@ -123,7 +132,7 @@ const CreateExpenseScreen: React.FC = () => {
       } catch (error) {
         console.error('❌ Error loading event data:', error);
         console.error('Error details:', error);
-        Alert.alert(t.alerts.errors.general, t.alerts.errors.loadEvent);
+        showThemedAlert(t.alerts.errors.general, t.alerts.errors.loadEvent);
       }
     };
 
@@ -180,7 +189,7 @@ const CreateExpenseScreen: React.FC = () => {
           }
         } catch (error) {
           console.error('Error loading expense data:', error);
-          Alert.alert(t.alerts.errors.general, t.alerts.errors.loadExpense);
+          showThemedAlert(t.alerts.errors.general, t.alerts.errors.loadExpense);
         }
       }
     };
@@ -195,7 +204,7 @@ const CreateExpenseScreen: React.FC = () => {
                         formData.amount.trim().length > 0;
 
       if (hasChanges) {
-        Alert.alert(
+        showThemedAlert(
           t.alerts.exitConfirm.title,
           t.alerts.exitConfirm.message,
           [
@@ -219,7 +228,7 @@ const CreateExpenseScreen: React.FC = () => {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (status !== 'granted') {
-        Alert.alert(t.alerts.permissions.title, t.alerts.permissions.photos);
+        showThemedAlert(t.alerts.permissions.title, t.alerts.permissions.photos);
         return;
       }
 
@@ -244,7 +253,7 @@ const CreateExpenseScreen: React.FC = () => {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       
       if (status !== 'granted') {
-        Alert.alert(t.alerts.permissions.title, t.alerts.permissions.camera);
+        showThemedAlert(t.alerts.permissions.title, t.alerts.permissions.camera);
         return;
       }
 
@@ -513,7 +522,7 @@ const CreateExpenseScreen: React.FC = () => {
 
         await updateExpense(editingExpenseId, expenseUpdates, splits);
         
-        Alert.alert(
+        showThemedAlert(
           'Gasto actualizado',
           'El gasto se ha actualizado exitosamente',
           [
@@ -564,7 +573,7 @@ const CreateExpenseScreen: React.FC = () => {
         await addExpense(expense, splits);
         console.log('✅ Expense saved successfully');
         
-        Alert.alert(
+        showThemedAlert(
           'Gasto creado',
           'El gasto se ha registrado exitosamente',
           [
@@ -579,7 +588,7 @@ const CreateExpenseScreen: React.FC = () => {
       console.error('Error saving expense:', error);
       console.error('Error details:', JSON.stringify(error));
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      Alert.alert(t.alerts.errors.general, `${t.alerts.errors.saveExpense}: ${errorMessage}`);
+      showThemedAlert(t.alerts.errors.general, `${t.alerts.errors.saveExpense}: ${errorMessage}`);
     }
   };
 
@@ -588,7 +597,7 @@ const CreateExpenseScreen: React.FC = () => {
                       formData.amount.trim().length > 0;
 
     if (hasChanges) {
-      Alert.alert(
+      showThemedAlert(
         t.alerts.exitConfirm.title,
         t.alerts.exitConfirm.message,
         [
@@ -654,17 +663,19 @@ const CreateExpenseScreen: React.FC = () => {
   }, [eventParticipants]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>
-          {isEditing ? t.headerTitle.edit : t.headerTitle.create}
-        </Text>
-        <View style={styles.headerRight}>
-          <LanguageSelector size={26} color={theme.colors.onSurface} />
-          <ThemeToggle size={24} color={theme.colors.onSurface} />
-        </View>
-      </View>
+    <View style={styles.container}>
+      {/* Header with dynamic colors and integrated controls */}
+      <HeaderBar
+        title={isEditing ? t.headerTitle.edit : t.headerTitle.create}
+        titleAlignment="left"
+        useDynamicColors={true}
+        showThemeToggle={true}
+        showLanguageSelector={true}
+        showBackButton={false}
+        elevation={true}
+      />
+      
+      <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
 
       <ScrollView 
         style={styles.scrollView} 
@@ -853,20 +864,20 @@ const CreateExpenseScreen: React.FC = () => {
               />
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <TouchableOpacity
-                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f5f5', paddingVertical: 12, borderRadius: 8 }}
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surfaceVariant, paddingVertical: 12, borderRadius: 8 }}
                   onPress={selectImageSource}
                 >
-                  <MaterialCommunityIcons name="image-edit" size={20} color="#007AFF" />
-                  <Text style={{ marginLeft: 8, fontSize: 14, color: '#007AFF', fontWeight: '500' }}>
+                  <MaterialCommunityIcons name="image-edit" size={20} color={theme.colors.primary} />
+                  <Text style={{ marginLeft: 8, fontSize: 14, color: theme.colors.primary, fontWeight: '500' }}>
                     {t.receiptCard.changeButton}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f5f5', paddingVertical: 12, borderRadius: 8 }}
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surfaceVariant, paddingVertical: 12, borderRadius: 8 }}
                   onPress={removeImage}
                 >
-                  <MaterialCommunityIcons name="delete" size={20} color="#ff4444" />
-                  <Text style={{ marginLeft: 8, fontSize: 14, color: '#ff4444', fontWeight: '500' }}>
+                  <MaterialCommunityIcons name="delete" size={20} color={theme.colors.error} />
+                  <Text style={{ marginLeft: 8, fontSize: 14, color: theme.colors.error, fontWeight: '500' }}>
                     {t.receiptCard.deleteButton}
                   </Text>
                 </TouchableOpacity>
@@ -874,11 +885,11 @@ const CreateExpenseScreen: React.FC = () => {
             </View>
           ) : (
             <TouchableOpacity
-              style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f5f5', paddingVertical: 16, borderRadius: 8, borderWidth: 2, borderColor: '#e0e0e0', borderStyle: 'dashed' }}
+              style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surfaceVariant, paddingVertical: 16, borderRadius: 8, borderWidth: 2, borderColor: theme.colors.outline, borderStyle: 'dashed' }}
               onPress={selectImageSource}
             >
-              <MaterialCommunityIcons name="camera-plus" size={24} color="#666" />
-              <Text style={{ marginLeft: 8, fontSize: 14, color: '#666', fontWeight: '500' }}>
+              <MaterialCommunityIcons name="camera-plus" size={24} color={theme.colors.onSurfaceVariant} />
+              <Text style={{ marginLeft: 8, fontSize: 14, color: theme.colors.onSurfaceVariant, fontWeight: '500' }}>
                 {t.receiptCard.attachButton}
               </Text>
             </TouchableOpacity>
@@ -903,7 +914,7 @@ const CreateExpenseScreen: React.FC = () => {
                 <MaterialCommunityIcons
                   name={cat.icon as any}
                   size={20}
-                  color={formData.category === cat.key ? '#FFFFFF' : getCategoryColor(cat.key)}
+                  color={formData.category === cat.key ? theme.colors.onPrimaryContainer : getCategoryColor(cat.key)}
                 />
                 <Text style={[
                   styles.categoryButtonText,
@@ -926,6 +937,8 @@ const CreateExpenseScreen: React.FC = () => {
           value={formData.date}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          accentColor={theme.colors.surface === '#FFFFFF' ? '#007AFF' : theme.colors.primaryContainer}
+          themeVariant={theme.colors.surface === '#FFFFFF' ? 'light' : 'dark'}
           onChange={(event, selectedDate) => {
             setShowDatePicker(Platform.OS === 'ios');
             if (selectedDate) {
@@ -951,7 +964,9 @@ const CreateExpenseScreen: React.FC = () => {
           style={styles.createButton}
         />
       </View>
-    </SafeAreaView>
+      
+      </SafeAreaView>
+    </View>
   );
 };
 
