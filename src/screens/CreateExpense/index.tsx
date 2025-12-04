@@ -34,7 +34,7 @@ interface ExpenseFormData {
   date: Date;
   category: 'comida' | 'transporte' | 'alojamiento' | 'entretenimiento' | 'compras' | 'salud' | 'educacion' | 'otros';
   payerId: string;
-  splitType: 'equal' | 'custom' | 'percentage';
+  splitType: 'equal';
   splits: ExpenseSplit[];
 }
 
@@ -177,7 +177,7 @@ const CreateExpenseScreen: React.FC = () => {
             if (isEqualSplit) {
               // Es división igual, recalcular con peopleCount
               setTimeout(() => {
-                recalculateSplits(expense.amount.toString(), 'equal');
+                recalculateSplits(expense.amount.toString());
               }, 100);
             }
           }
@@ -317,20 +317,7 @@ const CreateExpenseScreen: React.FC = () => {
       newErrors.splits = 'Los montos de los participantes deben ser mayores a 0';
     }
 
-    // Validar splits
-    if (formData.splits.length > 0 && formData.splitType === 'custom') {
-      const totalSplitAmount = formData.splits.reduce((sum, split) => sum + split.amount, 0);
-      if (Math.abs(totalSplitAmount - amount) > 0.01) {
-        newErrors.splits = 'La suma de las divisiones debe igual al monto total';
-      }
-    }
-
-    if (formData.splits.length > 0 && formData.splitType === 'percentage') {
-      const totalPercentage = formData.splits.reduce((sum, split) => sum + (split.percentage || 0), 0);
-      if (Math.abs(totalPercentage - 100) > 0.01) {
-        newErrors.splits = 'Los porcentajes deben sumar 100%';
-      }
-    }
+    // Las validaciones de splits no son necesarias ya que siempre se divide de forma igual automáticamente
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -338,6 +325,9 @@ const CreateExpenseScreen: React.FC = () => {
 
   // Handlers
   const handleInputChange = (field: keyof ExpenseFormData, value: any) => {
+    // Ignorar cambios de splitType ya que siempre será 'equal'
+    if (field === 'splitType') return;
+    
     setFormData(prev => ({ ...prev, [field]: value }));
     
     // Limpiar error del campo
@@ -347,19 +337,16 @@ const CreateExpenseScreen: React.FC = () => {
       setErrors(newErrors);
     }
 
-    // Recalcular splits cuando cambia el monto o tipo de división
-    if (field === 'amount' || field === 'splitType') {
-      const newAmount = field === 'amount' ? value : formData.amount;
-      const newSplitType = field === 'splitType' ? value : formData.splitType;
-      
+    // Recalcular splits cuando cambia el monto (siempre usando 'equal')
+    if (field === 'amount') {
       // Si hay splits, recalcular
       if (formData.splits.length > 0) {
-        recalculateSplits(newAmount, newSplitType);
+        recalculateSplits(value);
       }
     }
   };
 
-  const recalculateSplits = (amount: string, splitType: string) => {
+  const recalculateSplits = (amount: string) => {
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) return;
 
@@ -367,43 +354,22 @@ const CreateExpenseScreen: React.FC = () => {
     const currentSplits = formData.splits;
     if (currentSplits.length === 0) return;
 
-    let newSplits: ExpenseSplit[] = [];
-
-    switch (splitType) {
-      case 'equal':
-        // Calcular división considerando peopleCount
-        const totalPeopleUnits = currentSplits.reduce((sum, split) => {
-          const peopleCount = split.peopleCount !== undefined ? split.peopleCount : split.defaultPeopleCount || 1;
-          return sum + peopleCount;
-        }, 0);
-        const amountPerUnit = numAmount / totalPeopleUnits;
-        
-        newSplits = currentSplits.map(split => {
-          const peopleCount = split.peopleCount !== undefined ? split.peopleCount : split.defaultPeopleCount || 1;
-          const amount = amountPerUnit * peopleCount;
-          return {
-            ...split,
-            amount,
-            percentage: (peopleCount / totalPeopleUnits) * 100
-          };
-        });
-        break;
-
-      case 'custom':
-        newSplits = currentSplits.map(split => ({
-          ...split,
-          amount: 0,
-          percentage: 0
-        }));
-        break;
-
-      case 'percentage':
-        newSplits = currentSplits.map(split => ({
-          ...split,
-          amount: (numAmount * (split.percentage || 0)) / 100
-        }));
-        break;
-    }
+    // Siempre calcular división igual considerando peopleCount
+    const totalPeopleUnits = currentSplits.reduce((sum, split) => {
+      const peopleCount = split.peopleCount !== undefined ? split.peopleCount : split.defaultPeopleCount || 1;
+      return sum + peopleCount;
+    }, 0);
+    const amountPerUnit = numAmount / totalPeopleUnits;
+    
+    const newSplits = currentSplits.map(split => {
+      const peopleCount = split.peopleCount !== undefined ? split.peopleCount : split.defaultPeopleCount || 1;
+      const amount = amountPerUnit * peopleCount;
+      return {
+        ...split,
+        amount,
+        percentage: (peopleCount / totalPeopleUnits) * 100
+      };
+    });
 
     setFormData(prev => ({ ...prev, splits: newSplits }));
   };
@@ -415,8 +381,8 @@ const CreateExpenseScreen: React.FC = () => {
       // Excluir participante
       const newSplits = formData.splits.filter(split => split.participantId !== participantId);
       
-      // Recalcular automáticamente la división para los participantes restantes
-      const updatedSplits = recalculateSplitsForParticipants(newSplits, formData.splitType, getAmount());
+      // Recalcular automáticamente la división para los participantes restantes (siempre igual)
+      const updatedSplits = recalculateSplitsForParticipants(newSplits, getAmount());
       setFormData(prev => ({ ...prev, splits: updatedSplits }));
     } else {
       // Incluir participante
@@ -433,98 +399,34 @@ const CreateExpenseScreen: React.FC = () => {
       
       const allSplits = [...formData.splits, newSplit];
       
-      // Recalcular automáticamente la división para todos los participantes
-      const updatedSplits = recalculateSplitsForParticipants(allSplits, formData.splitType, amount);
+      // Recalcular automáticamente la división para todos los participantes (siempre igual)
+      const updatedSplits = recalculateSplitsForParticipants(allSplits, amount);
       setFormData(prev => ({ ...prev, splits: updatedSplits }));
     }
   };
 
-  const recalculateSplitsForParticipants = (splits: ExpenseSplit[], splitType: string, amount: number): ExpenseSplit[] => {
+  const recalculateSplitsForParticipants = (splits: ExpenseSplit[], amount: number): ExpenseSplit[] => {
     if (splits.length === 0) return [];
 
-    switch (splitType) {
-      case 'equal':
-        // Calcular división considerando peopleCount
-        const totalPeopleUnits = splits.reduce((sum, split) => {
-          const peopleCount = split.peopleCount !== undefined ? split.peopleCount : split.defaultPeopleCount || 1;
-          return sum + peopleCount;
-        }, 0);
-        const amountPerUnit = amount / totalPeopleUnits;
-        
-        return splits.map(split => {
-          const peopleCount = split.peopleCount !== undefined ? split.peopleCount : split.defaultPeopleCount || 1;
-          const splitAmount = amountPerUnit * peopleCount;
-          return {
-            ...split,
-            amount: splitAmount,
-            percentage: (peopleCount / totalPeopleUnits) * 100
-          };
-        });
-
-      case 'percentage':
-        // Redistribuir porcentajes equitativamente si es nuevo cálculo
-        const distributedPercentage = 100 / splits.length;
-        return splits.map(split => ({
-          ...split,
-          percentage: split.percentage || distributedPercentage,
-          amount: ((split.percentage || distributedPercentage) * amount) / 100
-        }));
-
-      case 'custom':
-        // Para custom, mantener montos existentes, nuevos en 0
-        return splits.map(split => ({
-          ...split,
-          amount: split.amount || 0,
-          percentage: split.amount ? (split.amount / amount) * 100 : 0
-        }));
-
-      default:
-        return splits;
-    }
-  };
-
-  const handleSplitPercentageChange = (participantId: string, value: string) => {
-    const percentage = parseFloat(value) || 0;
-    const amount = (getAmount() * percentage) / 100;
+    // Siempre calcular división igual considerando peopleCount
+    const totalPeopleUnits = splits.reduce((sum, split) => {
+      const peopleCount = split.peopleCount !== undefined ? split.peopleCount : split.defaultPeopleCount || 1;
+      return sum + peopleCount;
+    }, 0);
+    const amountPerUnit = amount / totalPeopleUnits;
     
-    const newSplits = formData.splits.map(split => {
-      if (split.participantId === participantId) {
-        return { ...split, percentage, amount };
-      }
-      return split;
+    return splits.map(split => {
+      const peopleCount = split.peopleCount !== undefined ? split.peopleCount : split.defaultPeopleCount || 1;
+      const splitAmount = amountPerUnit * peopleCount;
+      return {
+        ...split,
+        amount: splitAmount,
+        percentage: (peopleCount / totalPeopleUnits) * 100
+      };
     });
-
-    setFormData(prev => ({ ...prev, splits: newSplits }));
   };
 
-  const handleSplitAmountChange = (participantId: string, value: string) => {
-    const amount = parseFloat(value) || 0;
-    
-    const newSplits = formData.splits.map(split => {
-      if (split.participantId === participantId) {
-        return { ...split, amount };
-      }
-      return split;
-    });
-
-    setFormData(prev => ({ ...prev, splits: newSplits }));
-  };
-
-  const handleSplitChange = (participantId: string, field: 'amount' | 'percentage', value: number) => {
-    const newSplits = formData.splits.map(split => {
-      if (split.participantId === participantId) {
-        if (field === 'amount') {
-          return { ...split, amount: value };
-        } else if (field === 'percentage') {
-          const amount = (parseFloat(formData.amount) * value) / 100;
-          return { ...split, percentage: value, amount };
-        }
-      }
-      return split;
-    });
-
-    setFormData(prev => ({ ...prev, splits: newSplits }));
-  };
+  // Funciones de manejo de splits eliminadas ya que siempre se usa división igual automática
 
   const handlePeopleCountOverride = (participantId: string, override: number | undefined) => {
     const newSplits = formData.splits.map(split => {
@@ -536,10 +438,8 @@ const CreateExpenseScreen: React.FC = () => {
 
     setFormData(prev => ({ ...prev, splits: newSplits }));
 
-    // Recalcular montos si estamos en modo equal
-    if (formData.splitType === 'equal') {
-      recalculateSplits(formData.amount, 'equal');
-    }
+    // Recalcular montos siempre (división igual automática)
+    recalculateSplits(formData.amount);
   };
 
   const getAmount = (): number => {
@@ -570,7 +470,7 @@ const CreateExpenseScreen: React.FC = () => {
           participantId: split.participantId,
           amount: split.amount,
           percentage: split.percentage,
-          type: formData.splitType === 'custom' ? 'fixed' : formData.splitType as 'equal' | 'fixed' | 'percentage',
+          type: 'equal',
           isPaid: split.participantId === formData.payerId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
@@ -616,7 +516,7 @@ const CreateExpenseScreen: React.FC = () => {
           participantId: split.participantId,
           amount: split.amount,
           percentage: split.percentage,
-          type: formData.splitType === 'custom' ? 'fixed' : formData.splitType as 'equal' | 'fixed' | 'percentage',
+          type: 'equal',
           isPaid: split.participantId === formData.payerId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
@@ -885,7 +785,7 @@ const CreateExpenseScreen: React.FC = () => {
                 size={20}
                 color={theme.colors.primary}
               />
-              <Text style={styles.participantName}>{participant.name}</Text>
+              <Text style={styles.payerParticipantName}>{participant.name}</Text>
             </TouchableOpacity>
           ))}
           {errors.payerId && (
@@ -893,138 +793,82 @@ const CreateExpenseScreen: React.FC = () => {
           )}
         </Card>
 
-        {/* Selección de Participantes */}
+        {/* División de Participantes Unificada */}
         <Card style={styles.card}>
-          <Text style={styles.cardTitle}>👥 Participantes Incluidos</Text>
-          <Text style={styles.cardSubtitle}>Selecciona quién participará en este gasto</Text>
-          
-          {eventParticipants.map((participant) => {
-            const isIncluded = formData.splits.some(split => split.participantId === participant.id);
-            return (
-              <TouchableOpacity
-                key={participant.id}
-                style={[
-                  styles.participantCheckbox,
-                  isIncluded && styles.participantCheckboxActive
-                ]}
-                onPress={() => handleParticipantToggle(participant.id)}
-              >
-                <MaterialCommunityIcons
-                  name={isIncluded ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                  size={20}
-                  color={isIncluded ? theme.colors.primary : theme.colors.onSurfaceVariant}
-                />
-                <Text style={[
-                  styles.participantCheckboxText,
-                  isIncluded && styles.participantCheckboxTextActive
+          <Text style={styles.cardTitle}>👥 Participantes y División</Text>
+          <Text style={styles.cardSubtitle}>Selecciona participantes - la división se hará automáticamente de forma igual</Text>
+
+          {/* Lista Unificada de Participantes */}
+          <View style={styles.participantsList}>
+            {eventParticipants.map((participant) => {
+              const split = formData.splits.find(s => s.participantId === participant.id);
+              const isIncluded = !!split;
+              const amount = split?.amount || 0;
+              const percentage = split?.percentage || 0;
+              
+              return (
+                <View key={participant.id} style={[
+                  styles.unifiedParticipantRow,
+                  !isIncluded && styles.unifiedParticipantRowExcluded
                 ]}>
-                  {participant.name}
-                </Text>
-                {!isIncluded && (
-                  <Text style={styles.excludedLabel}>Excluido</Text>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-          
+                  <TouchableOpacity
+                    style={styles.participantToggle}
+                    onPress={() => handleParticipantToggle(participant.id)}
+                  >
+                    <MaterialCommunityIcons
+                      name={isIncluded ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                      size={20}
+                      color={isIncluded ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                    />
+                    <Text style={[
+                      styles.participantName,
+                      isIncluded && styles.participantNameActive,
+                      !isIncluded && styles.participantNameExcluded
+                    ]}>
+                      {participant.name}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {isIncluded && (
+                    <View style={styles.participantAmount}>
+                      <Text style={styles.amountText}>
+                        ${amount.toFixed(2)}
+                      </Text>
+                    </View>
+                  )}
+
+                  {!isIncluded && (
+                    <Text style={styles.excludedLabel}>Excluido</Text>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+
           {formData.splits.length === 0 && (
             <Text style={styles.warningText}>
               ⚠️ Debes incluir al menos un participante
             </Text>
           )}
+          
+          {/* Resumen de totales */}
+          {formData.splits.length > 0 && (
+            <View style={styles.totalSummary}>
+              <Text style={styles.totalSummaryText}>
+                Total: ${formData.splits.reduce((sum, split) => sum + split.amount, 0).toFixed(2)}
+                {formData.splits.length > 1 && ` • ${formData.splits.length} participantes`}
+              </Text>
+            </View>
+          )}
+
         </Card>
 
-        {/* División del Gasto */}
-        <Card style={styles.card}>
-          <Text style={styles.cardTitle}>🧮 División del Gasto</Text>
-          
-          <View style={styles.splitTypeTabs}>
-            {([
-              { key: 'equal', label: 'Igual', icon: 'scale-balance' },
-              { key: 'percentage', label: 'Porcentaje', icon: 'percent' },
-              { key: 'custom', label: 'Personalizado', icon: 'tune' }
-            ] as const).map((type) => (
-              <TouchableOpacity
-                key={type.key}
-                style={[
-                  styles.splitTypeTab,
-                  formData.splitType === type.key && styles.splitTypeTabActive
-                ]}
-                onPress={() => handleInputChange('splitType', type.key)}
-              >
-                <MaterialCommunityIcons
-                  name={type.icon as any}
-                  size={16}
-                  color={formData.splitType === type.key ? theme.colors.onPrimary : theme.colors.onSurfaceVariant}
-                />
-                <Text style={[
-                  styles.splitTypeTabText,
-                  formData.splitType === type.key && styles.splitTypeTabTextActive
-                ]}>
-                  {type.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Split Configuration for Custom/Percentage */}
-          {formData.splitType === 'percentage' && (
-            <View style={styles.splitConfiguration}>
-              <Text style={styles.splitConfigTitle}>Configurar porcentajes:</Text>
-              {formData.splits.map((split) => (
-                <View key={split.participantId} style={styles.splitConfigItem}>
-                  <Text style={styles.splitConfigParticipant}>
-                    {getParticipantName(split.participantId)}
-                  </Text>
-                  <View style={styles.splitConfigInput}>
-                    <Input
-                      value={split.percentage?.toString() || '0'}
-                      onChangeText={(value) => handleSplitPercentageChange(split.participantId, value)}
-                      keyboardType="numeric"
-                      placeholder="0"
-                      containerStyle={styles.percentageInput}
-                    />
-                    <Text style={styles.percentageSymbol}>%</Text>
-                  </View>
-                </View>
-              ))}
-              <Text style={styles.splitTotal}>
-                Total: {formData.splits.reduce((sum, split) => sum + (split.percentage || 0), 0).toFixed(1)}%
-              </Text>
-            </View>
-          )}
-
-          {formData.splitType === 'custom' && (
-            <View style={styles.splitConfiguration}>
-              <Text style={styles.splitConfigTitle}>Configurar montos individuales:</Text>
-              {formData.splits.map((split) => (
-                <View key={split.participantId} style={styles.splitConfigItem}>
-                  <Text style={styles.splitConfigParticipant}>
-                    {getParticipantName(split.participantId)}
-                  </Text>
-                  <View style={styles.splitConfigInput}>
-                    <Text style={styles.currencySymbol}>$</Text>
-                    <Input
-                      value={split.amount.toString()}
-                      onChangeText={(value) => handleSplitAmountChange(split.participantId, value)}
-                      keyboardType="numeric"
-                      placeholder="0.00"
-                      containerStyle={styles.amountInput}
-                    />
-                  </View>
-                </View>
-              ))}
-              <Text style={styles.splitTotal}>
-                Total: ${formData.splits.reduce((sum, split) => sum + split.amount, 0).toFixed(2)}
-              </Text>
-            </View>
-          )}
-
-          {/* Split Preview */}
-          <View style={styles.splitPreview}>
-            <Text style={styles.splitPreviewTitle}>💰 Resumen de la división:</Text>
-            {formData.splits.length > 0 ? (
-              formData.splits.map((split) => {
+        {/* Preview Card - Solo resumen visual, sin edición */}
+        {formData.splits.length > 0 && (
+          <Card style={styles.card}>
+            <Text style={styles.cardTitle}>📊 Vista Previa</Text>
+            <View style={styles.splitPreview}>
+              {formData.splits.map((split) => {
                 const defaultPeopleCount = split.defaultPeopleCount || 1;
                 const currentPeopleCount = split.peopleCount !== undefined ? split.peopleCount : defaultPeopleCount;
                 const hasOverride = split.peopleCount !== undefined && split.peopleCount !== defaultPeopleCount;
@@ -1055,7 +899,7 @@ const CreateExpenseScreen: React.FC = () => {
                           </Text>
                         </View>
                       )}
-                      {formData.splitType === 'equal' && (
+                      {(
                         <TouchableOpacity
                           onPress={() => {
                             Alert.prompt(
@@ -1098,20 +942,12 @@ const CreateExpenseScreen: React.FC = () => {
                       <Text style={styles.splitAmount}>
                         ${split.amount.toFixed(2)}
                       </Text>
-                      {formData.splitType === 'percentage' && (
-                        <Text style={styles.splitPercentage}>
-                          ({split.percentage?.toFixed(1)}%)
-                        </Text>
-                      )}
+
                     </View>
                   </View>
                 );
-              })
-            ) : (
-              <Text style={styles.noParticipantsText}>
-                Selecciona participantes para ver la división
-              </Text>
-            )}
+              })}
+            </View>
             
             {formData.splits.length > 0 && (
               <View style={styles.splitSummary}>
@@ -1120,12 +956,12 @@ const CreateExpenseScreen: React.FC = () => {
                 </Text>
               </View>
             )}
-          </View>
-
-          {errors.splits && (
-            <Text style={styles.errorText}>{errors.splits}</Text>
-          )}
-        </Card>
+            
+            {errors.splits && (
+              <Text style={styles.errorText}>{errors.splits}</Text>
+            )}
+          </Card>
+        )}
 
         {/* Espacio para los botones footer */}
         <View style={styles.footerSpace} />
@@ -1320,43 +1156,13 @@ const createStyles = (theme: Theme) =>
       paddingHorizontal: 8,
     } as ViewStyle,
 
-    participantName: {
+    payerParticipantName: {
       fontSize: 16,
       color: theme.colors.onSurface,
       marginLeft: 12,
     } as TextStyle,
 
-    splitTypeTabs: {
-      flexDirection: 'row',
-      marginBottom: 16,
-      backgroundColor: theme.colors.surfaceVariant,
-      borderRadius: 8,
-      padding: 2,
-    } as ViewStyle,
 
-    splitTypeTab: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 8,
-      paddingHorizontal: 12,
-      borderRadius: 6,
-    } as ViewStyle,
-
-    splitTypeTabActive: {
-      backgroundColor: theme.colors.primary,
-    } as ViewStyle,
-
-    splitTypeTabText: {
-      fontSize: 12,
-      color: theme.colors.onSurfaceVariant,
-      marginLeft: 4,
-    } as TextStyle,
-
-    splitTypeTabTextActive: {
-      color: theme.colors.onPrimary,
-    } as TextStyle,
 
     splitPreview: {
       backgroundColor: theme.colors.surfaceVariant,
@@ -1604,6 +1410,89 @@ const createStyles = (theme: Theme) =>
       fontSize: 16,
       color: theme.colors.onSurfaceVariant,
       fontWeight: '500',
+    } as TextStyle,
+
+    // Nuevos estilos para la interfaz unificada
+    participantsList: {
+      marginTop: 16,
+    } as ViewStyle,
+
+    unifiedParticipantRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 12,
+      paddingHorizontal: 4,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.outline + '20',
+      backgroundColor: theme.colors.surface,
+      borderRadius: 8,
+      marginBottom: 4,
+    } as ViewStyle,
+
+    unifiedParticipantRowExcluded: {
+      opacity: 0.6,
+      backgroundColor: theme.colors.surfaceVariant + '50',
+    } as ViewStyle,
+
+    participantToggle: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    } as ViewStyle,
+
+    participantName: {
+      fontSize: 14,
+      color: theme.colors.onSurfaceVariant,
+      marginLeft: 12,
+      flex: 1,
+    } as TextStyle,
+
+    participantNameActive: {
+      color: theme.colors.onSurface,
+      fontWeight: '500',
+    } as TextStyle,
+
+    participantNameExcluded: {
+      color: theme.colors.onSurfaceVariant,
+      fontStyle: 'italic',
+    } as TextStyle,
+
+    participantAmount: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      minWidth: 80,
+    } as ViewStyle,
+
+    amountText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.primary,
+    } as TextStyle,
+
+    inlineInput: {
+      width: 60,
+      height: 35,
+      fontSize: 13,
+    } as ViewStyle,
+
+    customAmountInput: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    } as ViewStyle,
+
+    totalSummary: {
+      marginTop: 12,
+      padding: 12,
+      backgroundColor: theme.colors.primaryContainer + '30',
+      borderRadius: 8,
+    } as ViewStyle,
+
+    totalSummaryText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.primary,
+      textAlign: 'center',
     } as TextStyle,
   });
 

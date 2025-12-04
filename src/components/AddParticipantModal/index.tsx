@@ -27,6 +27,7 @@ interface AddParticipantModalProps {
   onClose: () => void;
   onAddParticipant: (participant: Participant) => void;
   currentParticipants: Participant[];
+  hasExpenses?: boolean; // Nueva prop para saber si el evento tiene gastos
 }
 
 interface FriendSelectItemProps {
@@ -93,7 +94,8 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
   visible,
   onClose,
   onAddParticipant,
-  currentParticipants
+  currentParticipants,
+  hasExpenses = false
 }) => {
   const { theme } = useTheme();
   const { participants, addParticipant } = useData();
@@ -340,12 +342,28 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
         </Text>
       </TouchableOpacity>
       <TouchableOpacity
-        style={[styles.tab, activeTab === 'bulk' && styles.activeTab]}
+        style={[
+          styles.tab, 
+          activeTab === 'bulk' && styles.activeTab,
+          hasExpenses && styles.restrictedTab
+        ]}
         onPress={() => setActiveTab('bulk')}
       >
-        <Text style={[styles.tabText, activeTab === 'bulk' && styles.activeTabText]}>
+        <Text style={[
+          styles.tabText, 
+          activeTab === 'bulk' && styles.activeTabText,
+          hasExpenses && styles.restrictedTabText
+        ]}>
           Masivo
         </Text>
+        {hasExpenses && (
+          <MaterialCommunityIcons
+            name="information-outline"
+            size={16}
+            color={theme.colors.primary}
+            style={styles.infoIcon}
+          />
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -528,9 +546,28 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       >
         <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
           <Text style={styles.formTitle}>Agregar Participantes Masivos</Text>
-          <Text style={styles.formSubtitle}>
-            Crea múltiples participantes temporales a la vez
-          </Text>
+          
+          {hasExpenses ? (
+            <View style={styles.restrictionContainer}>
+              <MaterialCommunityIcons
+                name="information-outline"
+                size={48}
+                color={theme.colors.onSurfaceVariant}
+                style={styles.restrictionIcon}
+              />
+              <Text style={styles.restrictionTitle}>Carga Masiva Restringida</Text>
+              <Text style={styles.restrictionMessage}>
+                Solo se pueden hacer cargas masivas de participantes cuando el evento no posee ningún gasto cargado hasta el momento.
+              </Text>
+              <Text style={styles.restrictionSuggestion}>
+                Puedes agregar participantes individualmente usando las pestañas "Mis Amigos" o "Nuevo".
+              </Text>
+            </View>
+          ) : (
+            <>
+              <Text style={styles.formSubtitle}>
+                Crea múltiples participantes temporales a la vez
+              </Text>
 
           <View style={styles.bulkTypeSelector}>
             <TouchableOpacity
@@ -629,17 +666,18 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
               </Text>
             </View>
           )}
+              <View style={styles.bottomActions}>
+                <Button
+                  title={bulkType === 'custom' ? 'Crear Participantes' : `Crear ${genericCount} Participantes`}
+                  variant="filled"
+                  size="large"
+                  onPress={handleCreateBulkParticipants}
+                  disabled={bulkType === 'custom' ? !bulkNames.trim() : genericCount < 1}
+                />
+              </View>
+            </>
+          )}
         </ScrollView>
-
-        <View style={styles.bottomActions}>
-          <Button
-            title={bulkType === 'custom' ? 'Crear Participantes' : `Crear ${genericCount} Participantes`}
-            variant="filled"
-            size="large"
-            onPress={handleCreateBulkParticipants}
-            disabled={bulkType === 'custom' ? !bulkNames.trim() : genericCount < 1}
-          />
-        </View>
       </KeyboardAvoidingView>
     );
   };
@@ -1263,6 +1301,55 @@ const createStyles = (theme: Theme) =>
     switchThumbActive: {
       transform: [{ translateX: 20 }],
     } as ViewStyle,
+
+    // Estilos para tab restringida (seleccionable pero con restricciones)
+    restrictedTab: {
+      borderWidth: 1,
+      borderColor: theme.colors.primary,
+    } as ViewStyle,
+
+    restrictedTabText: {
+      color: theme.colors.primary,
+    } as TextStyle,
+
+    infoIcon: {
+      marginLeft: 4,
+    } as ViewStyle,
+
+    // Estilos para mensaje de restricción
+    restrictionContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 40,
+      paddingHorizontal: 30,
+    } as ViewStyle,
+
+    restrictionIcon: {
+      marginBottom: 16,
+    } as ViewStyle,
+
+    restrictionTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: theme.colors.onSurface,
+      textAlign: 'center',
+      marginBottom: 12,
+    } as TextStyle,
+
+    restrictionMessage: {
+      fontSize: 14,
+      lineHeight: 20,
+      color: theme.colors.onSurfaceVariant,
+      textAlign: 'center',
+      marginBottom: 16,
+    } as TextStyle,
+
+    restrictionSuggestion: {
+      fontSize: 13,
+      fontStyle: 'italic',
+      color: theme.colors.primary,
+      textAlign: 'center',
+    } as TextStyle,
   });
 
 export default AddParticipantModal;

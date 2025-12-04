@@ -1664,6 +1664,7 @@ export default function EventDetailScreen() {
         onClose={() => setShowAddParticipantModal(false)}
         onAddParticipant={handleAddParticipant}
         currentParticipants={eventParticipants}
+        hasExpenses={eventExpenses.length > 0}
       />
 
       {/* Modal de Edición de Participante */}
