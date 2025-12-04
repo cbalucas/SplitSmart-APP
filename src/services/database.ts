@@ -650,6 +650,40 @@ class DatabaseService {
     }
   }
 
+  async getExpenses(): Promise<Expense[]> {
+    if (!this.db || !this.isInitialized) {
+      console.error('❌ Database not ready in getExpenses. Initialized:', this.isInitialized);
+      return []; // Return empty array instead of throwing
+    }
+
+    try {
+      console.log('📥 Getting all expenses...');
+      const result = await this.db.getAllAsync(
+        'SELECT * FROM expenses WHERE is_active = 1 ORDER BY date DESC'
+      );
+      
+      console.log(`✅ Found ${result.length} expenses`);
+      
+      return result.map((row: any) => ({
+        id: row.id,
+        eventId: row.event_id,
+        description: row.description,
+        amount: row.amount,
+        currency: row.currency,
+        date: row.date,
+        category: row.category,
+        payerId: row.payer_id,
+        receiptImage: row.receipt_image,
+        isActive: row.is_active === 1,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }));
+    } catch (error) {
+      console.error('❌ Error getting expenses:', error);
+      throw error;
+    }
+  }
+
   // Get only friends (permanent participants)
   async getFriends(): Promise<Participant[]> {
     if (!this.db) throw new Error('Database not initialized');

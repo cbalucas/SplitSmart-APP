@@ -104,16 +104,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
       
       // Load initial data
       console.log('📥 DataContext: Loading initial data...');
-      const [eventsData, participantsData] = await Promise.all([
+      const [eventsData, participantsData, expensesData] = await Promise.all([
         databaseService.getEvents(),
-        databaseService.getParticipants()
+        databaseService.getParticipants(),
+        databaseService.getExpenses()
       ]);
       
-      console.log(`✅ DataContext: Loaded ${eventsData.length} events and ${participantsData.length} participants`);
+      console.log(`✅ DataContext: Loaded ${eventsData.length} events, ${participantsData.length} participants, ${expensesData.length} expenses`);
       
       setEvents(eventsData);
       setParticipants(participantsData);
-      setExpenses([]); // Initialize empty expenses array
+      setExpenses(expensesData);
       console.log('✅ DataContext initialized with SQLite');
     } catch (error) {
       console.error('❌ Error initializing DataContext:', error);
@@ -127,15 +128,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const refreshData = useCallback(async () => {
     try {
-      const [eventsData, participantsData] = await Promise.all([
+      const [eventsData, participantsData, expensesData] = await Promise.all([
         databaseService.getEvents(),
-        databaseService.getParticipants()
+        databaseService.getParticipants(),
+        databaseService.getExpenses()
       ]);
       
       setEvents(eventsData);
       setParticipants(participantsData);
+      setExpenses(expensesData);
       
-      console.log(`📊 Data refreshed: ${eventsData.length} events, ${participantsData.length} participants`);
+      console.log(`📊 Data refreshed: ${eventsData.length} events, ${participantsData.length} participants, ${expensesData.length} expenses`);
     } catch (error) {
       console.error('❌ Error refreshing data:', error);
     }

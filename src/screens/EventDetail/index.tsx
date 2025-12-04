@@ -15,7 +15,7 @@ import {
   Image,
   Switch
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useData } from '../../context/DataContext';
@@ -36,6 +36,7 @@ export default function EventDetailScreen() {
   const route = useRoute();
     const { 
     events, 
+    expenses,
     getExpensesByEvent, 
     getEventParticipants, 
     getSplitsByEvent,
@@ -115,11 +116,46 @@ export default function EventDetailScreen() {
         setDbSettlements([]);
       }
     }
-  }, [eventId, events, getExpensesByEvent, getEventParticipants, getSplitsByEvent, getPaymentsByEvent]);
+  }, [eventId, events, participants, expenses, getExpensesByEvent, getEventParticipants, getSplitsByEvent, getPaymentsByEvent]);
 
   useEffect(() => {
     loadEventData();
   }, [loadEventData]);
+
+  // Efecto para detectar cambios pasivos en datos globales que afecten este evento
+  useEffect(() => {
+    if (!eventId) return;
+    
+    // Solo refrescar si hay cambios relevantes que puedan afectar los cálculos
+    const shouldRefresh = () => {
+      // Verificar si hay cambios en gastos de este evento
+      const currentEventExpenses = expenses.filter(e => e.eventId === eventId);
+      if (currentEventExpenses.length !== eventExpenses.length) return true;
+      
+      // Verificar cambios en los montos de gastos
+      for (const expense of currentEventExpenses) {
+        const localExpense = eventExpenses.find(e => e.id === expense.id);
+        if (!localExpense || localExpense.amount !== expense.amount || localExpense.payerId !== expense.payerId) {
+          return true;
+        }
+      }
+      
+      return false;
+    };
+
+    if (shouldRefresh()) {
+      console.log('🔄 Detectado cambio pasivo en datos del evento, refrescando...');
+      loadEventData();
+    }
+  }, [expenses, eventId, eventExpenses, loadEventData]);
+
+  // Refrescar datos cuando regresamos a la pantalla (ej: después de crear/editar gastos)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('🎯 EventDetail enfocado, refrescando datos...');
+      loadEventData();
+    }, [loadEventData])
+  );
 
   const handleAddExpense = () => {
     if (event?.status === 'closed' || event?.status === 'completed') {
