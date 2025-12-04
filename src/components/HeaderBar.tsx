@@ -11,7 +11,8 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../constants/theme';
-import { LanguageSelector, ThemeToggle } from './index';
+import { LanguageSelector } from './LanguageSelector';
+import { ThemeToggle } from './ThemeToggle';
 
 export interface HeaderBarProps {
   title: string;

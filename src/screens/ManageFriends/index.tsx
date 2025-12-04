@@ -5,10 +5,7 @@ import {
   FlatList,
   TouchableOpacity,
   TextInput,
-  StyleSheet,
-  Alert,
-  ViewStyle,
-  TextStyle
+  Alert
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -16,15 +13,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 import { useData } from '../../context/DataContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { Theme } from '../../constants/theme';
 import { Participant } from '../../types';
-import { Card, Button, LanguageSelector, ThemeToggle } from '../../components';
+import { Card, Button, HeaderBar } from '../../components';
+import { FriendItemProps, NewFriendData, TabType, AVATAR_COLORS } from './types';
+import { createStyles } from './styles';
+import { manageFriendsLanguage } from './language';
 
-interface FriendItemProps {
-  friend: Participant;
-  onPress: () => void;
-  onDelete: () => void;
-}
+
 
 const FriendItem: React.FC<FriendItemProps> = ({ friend, onPress, onDelete }) => {
   const { theme } = useTheme();
@@ -40,31 +35,16 @@ const FriendItem: React.FC<FriendItemProps> = ({ friend, onPress, onDelete }) =>
   };
 
   const getAvatarColor = (name: string) => {
-    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#FF9FF3', '#54A0FF', '#5F27CD'];
-    const index = name.charCodeAt(0) % colors.length;
-    return colors[index];
+    const index = name.charCodeAt(0) % AVATAR_COLORS.length;
+    return AVATAR_COLORS[index];
   };
 
   return (
     <TouchableOpacity style={styles.friendItem} onPress={onPress}>
-      <View style={styles.friendInfo}>
-        <View style={[styles.avatar, { backgroundColor: getAvatarColor(friend.name) }]}>
-          <Text style={styles.avatarText}>{getInitials(friend.name)}</Text>
-        </View>
-        <View style={styles.friendDetails}>
+      <View style={styles.friendHeader}>
+        <View style={styles.friendMainInfo}>
           <Text style={styles.friendName}>{friend.name}</Text>
-          {friend.alias_cbu && (
-            <Text style={styles.friendAlias}>{friend.alias_cbu}</Text>
-          )}
-          {friend.phone && (
-            <Text style={styles.friendPhone}>{friend.phone}</Text>
-          )}
-          {friend.email && (
-            <Text style={styles.friendEmail}>{friend.email}</Text>
-          )}
         </View>
-      </View>
-      <View style={styles.friendActions}>
         <TouchableOpacity
           style={styles.actionButton}
           onPress={onDelete}
@@ -76,6 +56,46 @@ const FriendItem: React.FC<FriendItemProps> = ({ friend, onPress, onDelete }) =>
           />
         </TouchableOpacity>
       </View>
+      {friend.alias_cbu && (
+        <View style={styles.aliasRow}>
+          <MaterialCommunityIcons
+            name="cash"
+            size={14}
+            color={theme.colors.primary}
+            style={styles.contactIcon}
+          />
+          <Text style={styles.friendAlias}>{friend.alias_cbu}</Text>
+        </View>
+      )}
+      {(friend.phone || friend.email) && (
+        <View style={styles.contactRow}>
+          {friend.phone && (
+            <View style={styles.contactItem}>
+              <MaterialCommunityIcons
+                name="phone"
+                size={14}
+                color={theme.colors.onSurfaceVariant}
+                style={styles.contactIcon}
+              />
+              <Text style={styles.friendPhone}>{friend.phone}</Text>
+            </View>
+          )}
+          {friend.phone && friend.email && (
+            <Text style={styles.contactSeparator}>|</Text>
+          )}
+          {friend.email && (
+            <View style={styles.contactItem}>
+              <MaterialCommunityIcons
+                name="email"
+                size={14}
+                color={theme.colors.onSurfaceVariant}
+                style={styles.contactIcon}
+              />
+              <Text style={styles.friendEmail}>{friend.email}</Text>
+            </View>
+          )}
+        </View>
+      )}
     </TouchableOpacity>
   );
 };
@@ -83,16 +103,17 @@ const FriendItem: React.FC<FriendItemProps> = ({ friend, onPress, onDelete }) =>
 const ManageFriendsScreen: React.FC = () => {
   const navigation = useNavigation();
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { language } = useLanguage();
   const { getFriends, addParticipant, updateParticipant, deleteParticipant, refreshData } = useData();
   const styles = createStyles(theme);
+  const t = manageFriendsLanguage[language] || manageFriendsLanguage.es;
 
+  const [activeTab, setActiveTab] = useState<TabType>('list');
   const [searchQuery, setSearchQuery] = useState('');
   const [friends, setFriends] = useState<Participant[]>([]);
   const [filteredFriends, setFilteredFriends] = useState<Participant[]>([]);
-  const [showAddForm, setShowAddForm] = useState(false);
   const [editingFriend, setEditingFriend] = useState<Participant | null>(null);
-  const [newFriend, setNewFriend] = useState({
+  const [newFriend, setNewFriend] = useState<NewFriendData>({
     name: '',
     email: '',
     phone: '',
@@ -130,26 +151,26 @@ const ManageFriendsScreen: React.FC = () => {
 
   const handleDeleteFriend = (friend: Participant) => {
     Alert.alert(
-      'Eliminar Amigo',
-      `¿Estás seguro de que quieres eliminar a ${friend.name} de tu lista de amigos?`,
+      t.alerts.delete.title,
+      t.alerts.delete.message.replace('{name}', friend.name),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t.alerts.delete.cancel, style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: t.alerts.delete.confirm,
           style: 'destructive',
           onPress: async () => {
             try {
               await deleteParticipant(friend.id);
               await loadFriends();
-              Alert.alert('✅ Eliminado', `${friend.name} fue eliminado correctamente`);
+              Alert.alert('', t.alerts.success.deleted.replace('{name}', friend.name));
             } catch (error: any) {
               if (error.message && error.message.includes('still used')) {
                 Alert.alert(
-                  'No se puede eliminar',
-                  `${friend.name} está siendo usado en eventos activos. Para eliminarlo, primero debes quitarlo de todos los eventos.`
+                  t.alerts.error.cantDelete,
+                  t.alerts.error.inUse.replace('{name}', friend.name)
                 );
               } else {
-                Alert.alert('Error', 'No se pudo eliminar el amigo');
+                Alert.alert(t.alerts.error.general, 'No se pudo eliminar el amigo');
               }
             }
           }
@@ -166,12 +187,12 @@ const ManageFriendsScreen: React.FC = () => {
       phone: friend.phone || '',
       alias_cbu: friend.alias_cbu || ''
     });
-    setShowAddForm(true);
+    setActiveTab('new');
   };
 
   const handleSaveFriend = async () => {
     if (!newFriend.name.trim()) {
-      Alert.alert('Error', 'El nombre es obligatorio');
+      Alert.alert(t.alerts.error.general, t.alerts.error.nameRequired);
       return;
     }
 
@@ -185,7 +206,7 @@ const ManageFriendsScreen: React.FC = () => {
           alias_cbu: newFriend.alias_cbu.trim() || undefined,
           updatedAt: new Date().toISOString()
         });
-        Alert.alert('✅ Actualizado', 'Amigo actualizado correctamente');
+        Alert.alert('', t.alerts.success.updated);
       } else {
         // Agregar nuevo amigo
         const friend: Participant = {
@@ -200,45 +221,69 @@ const ManageFriendsScreen: React.FC = () => {
           updatedAt: new Date().toISOString()
         };
         await addParticipant(friend);
-        Alert.alert('✅ Agregado', 'Amigo agregado correctamente');
+        Alert.alert('', t.alerts.success.added);
       }
 
       await loadFriends();
       
-      // Reset form
+      // Reset form and return to list
       setNewFriend({ name: '', email: '', phone: '', alias_cbu: '' });
       setEditingFriend(null);
-      setShowAddForm(false);
+      setActiveTab('list');
     } catch (error) {
-      Alert.alert('Error', `No se pudo ${editingFriend ? 'actualizar' : 'agregar'} el amigo`);
+      Alert.alert(t.alerts.error.general, `No se pudo ${editingFriend ? 'actualizar' : 'agregar'} el amigo`);
     }
   };
 
   const renderHeader = () => (
-    <View style={styles.header}>
-      <Text style={styles.headerTitle}>{t('friends.title')}</Text>
-      <View style={styles.headerRight}>
-        <LanguageSelector size={26} color={theme.colors.onSurface} />
-        <ThemeToggle size={24} color={theme.colors.onSurface} />
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => {
-            if (showAddForm) {
-              setShowAddForm(false);
-              setEditingFriend(null);
-              setNewFriend({ name: '', email: '', phone: '', alias_cbu: '' });
-            } else {
-              setShowAddForm(true);
-            }
-          }}
-        >
-          <MaterialCommunityIcons
-            name={showAddForm ? "close" : "plus"}
-            size={24}
-            color={theme.colors.primary}
-          />
-        </TouchableOpacity>
-      </View>
+    <HeaderBar
+      title={t.screen.title}
+      titleAlignment="left"
+      useDynamicColors={true}
+      showThemeToggle={true}
+      showLanguageSelector={true}
+      showBackButton={false}
+      elevation={true}
+    />
+  );
+
+  const renderTabs = () => (
+    <View style={styles.tabsContainer}>
+      <TouchableOpacity
+        style={[
+          styles.tab,
+          activeTab === 'list' ? styles.activeTab : styles.inactiveTab
+        ]}
+        onPress={() => {
+          setActiveTab('list');
+          // Reset form when switching away from new tab
+          if (activeTab === 'new') {
+            setEditingFriend(null);
+            setNewFriend({ name: '', email: '', phone: '', alias_cbu: '' });
+          }
+        }}
+      >
+        <Text style={[
+          styles.tabText,
+          activeTab === 'list' ? styles.activeTabText : styles.inactiveTabText
+        ]}>
+          {t.tabs.list}
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          styles.tab,
+          activeTab === 'new' ? styles.activeTab : styles.inactiveTab
+        ]}
+        onPress={() => setActiveTab('new')}
+      >
+        <Text style={[
+          styles.tabText,
+          activeTab === 'new' ? styles.activeTabText : styles.inactiveTabText
+        ]}>
+          {t.tabs.new}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -252,7 +297,7 @@ const ManageFriendsScreen: React.FC = () => {
       />
       <TextInput
         style={styles.searchInput}
-        placeholder={`${t('search')} ${t('friends').toLowerCase()}...`}
+        placeholder={t.screen.searchPlaceholder}
         placeholderTextColor={theme.colors.onSurfaceVariant}
         value={searchQuery}
         onChangeText={setSearchQuery}
@@ -260,20 +305,18 @@ const ManageFriendsScreen: React.FC = () => {
     </View>
   );
 
-  const renderAddForm = () => {
-    if (!showAddForm) return null;
-
-    return (
+  const renderNewFriendTab = () => (
+    <View style={styles.newFriendContainer}>
       <Card style={styles.addFormCard}>
         <Text style={styles.addFormTitle}>
-          {editingFriend ? t('friends.edit') : t('friends.add')}
+          {editingFriend ? t.form.editTitle : t.form.addTitle}
         </Text>
         
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>{t('participants.name')} *</Text>
+          <Text style={styles.inputLabel}>{t.form.nameLabel} {t.form.required}</Text>
           <TextInput
             style={styles.input}
-            placeholder={t('participants.name')}
+            placeholder={t.form.namePlaceholder}
             placeholderTextColor={theme.colors.onSurfaceVariant}
             value={newFriend.name}
             onChangeText={(text) => setNewFriend(prev => ({ ...prev, name: text }))}
@@ -281,10 +324,10 @@ const ManageFriendsScreen: React.FC = () => {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>{t('profile.cbu')} ({t('optional')})</Text>
+          <Text style={styles.inputLabel}>{t.form.cbuLabel} {t.form.optional}</Text>
           <TextInput
             style={styles.input}
-            placeholder={t('profile.cbu')}
+            placeholder={t.form.cbuPlaceholder}
             placeholderTextColor={theme.colors.onSurfaceVariant}
             value={newFriend.alias_cbu}
             onChangeText={(text) => setNewFriend(prev => ({ ...prev, alias_cbu: text }))}
@@ -292,10 +335,10 @@ const ManageFriendsScreen: React.FC = () => {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>{t('profile.phone')} ({t('optional')})</Text>
+          <Text style={styles.inputLabel}>{t.form.phoneLabel} {t.form.optional}</Text>
           <TextInput
             style={styles.input}
-            placeholder="+54 9 11 1234-5678"
+            placeholder={t.form.phonePlaceholder}
             placeholderTextColor={theme.colors.onSurfaceVariant}
             value={newFriend.phone}
             onChangeText={(text) => setNewFriend(prev => ({ ...prev, phone: text }))}
@@ -304,10 +347,10 @@ const ManageFriendsScreen: React.FC = () => {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>{t('profile.email')} ({t('optional')})</Text>
+          <Text style={styles.inputLabel}>{t.form.emailLabel} {t.form.optional}</Text>
           <TextInput
             style={styles.input}
-            placeholder="correo@ejemplo.com"
+            placeholder={t.form.emailPlaceholder}
             placeholderTextColor={theme.colors.onSurfaceVariant}
             value={newFriend.email}
             onChangeText={(text) => setNewFriend(prev => ({ ...prev, email: text }))}
@@ -318,18 +361,18 @@ const ManageFriendsScreen: React.FC = () => {
 
         <View style={styles.formButtons}>
           <Button
-            title="Cancelar"
+            title={t.buttons.cancel}
             variant="outlined"
             size="medium"
             onPress={() => {
-              setShowAddForm(false);
+              setActiveTab('list');
               setEditingFriend(null);
               setNewFriend({ name: '', email: '', phone: '', alias_cbu: '' });
             }}
             style={styles.cancelButton}
           />
           <Button
-            title={editingFriend ? "Guardar" : "Agregar"}
+            title={editingFriend ? t.buttons.save : t.buttons.add}
             variant="filled"
             size="medium"
             onPress={handleSaveFriend}
@@ -337,8 +380,8 @@ const ManageFriendsScreen: React.FC = () => {
           />
         </View>
       </Card>
-    );
-  };
+    </View>
+  );
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
@@ -347,28 +390,24 @@ const ManageFriendsScreen: React.FC = () => {
         size={80}
         color={theme.colors.onSurfaceVariant}
       />
-      <Text style={styles.emptyTitle}>No tienes amigos agregados</Text>
+      <Text style={styles.emptyTitle}>{t.empty.title}</Text>
       <Text style={styles.emptySubtitle}>
-        Agrega amigos para poder incluirlos rápidamente en tus eventos
+        {t.empty.subtitle}
       </Text>
       <Button
-        title="Agregar Primer Amigo"
+        title={t.empty.button}
         variant="filled"
         size="medium"
-        onPress={() => setShowAddForm(true)}
+        onPress={() => setActiveTab('new')}
         style={styles.emptyButton}
       />
     </View>
   );
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
-      {renderHeader()}
-      {!showAddForm && renderSearchBar()}
-      
-      {showAddForm ? (
-        renderAddForm()
-      ) : filteredFriends.length === 0 && !searchQuery ? (
+  const renderListTab = () => (
+    <View style={styles.tabContent}>
+      {renderSearchBar()}
+      {filteredFriends.length === 0 && !searchQuery ? (
         renderEmptyState()
       ) : (
         <FlatList
@@ -385,234 +424,20 @@ const ManageFriendsScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
         />
       )}
-    </SafeAreaView>
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      {renderHeader()}
+      <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
+        {renderTabs()}
+        {activeTab === 'list' ? renderListTab() : renderNewFriendTab()}
+      </SafeAreaView>
+    </View>
   );
 };
 
-const createStyles = (theme: Theme) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    } as ViewStyle,
 
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      backgroundColor: theme.colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.outline,
-    } as ViewStyle,
-
-    backButton: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
-    } as ViewStyle,
-
-    headerTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: theme.colors.onSurface,
-      flex: 1,
-    } as TextStyle,
-
-    headerRight: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    } as ViewStyle,
-
-    addButton: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
-    } as ViewStyle,
-
-    searchContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: theme.colors.surface,
-      marginHorizontal: 16,
-      marginVertical: 12,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      borderWidth: 1,
-      borderColor: theme.colors.outline,
-    } as ViewStyle,
-
-    searchIcon: {
-      marginRight: 8,
-    } as ViewStyle,
-
-    searchInput: {
-      flex: 1,
-      fontSize: 16,
-      color: theme.colors.onSurface,
-    } as TextStyle,
-
-    addFormCard: {
-      marginHorizontal: 16,
-      marginBottom: 16,
-      padding: 20,
-    } as ViewStyle,
-
-    addFormTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: theme.colors.onSurface,
-      marginBottom: 16,
-      textAlign: 'center',
-    } as TextStyle,
-
-    inputGroup: {
-      marginBottom: 16,
-    } as ViewStyle,
-
-    inputLabel: {
-      fontSize: 14,
-      fontWeight: '500',
-      color: theme.colors.onSurface,
-      marginBottom: 6,
-    } as TextStyle,
-
-    input: {
-      backgroundColor: theme.colors.surface,
-      borderWidth: 1,
-      borderColor: theme.colors.outline,
-      borderRadius: 8,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      fontSize: 16,
-      color: theme.colors.onSurface,
-    } as ViewStyle,
-
-    formButtons: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginTop: 8,
-    } as ViewStyle,
-
-    cancelButton: {
-      flex: 0.48,
-    } as ViewStyle,
-
-    saveButton: {
-      flex: 0.48,
-    } as ViewStyle,
-
-    listContainer: {
-      paddingHorizontal: 16,
-    } as ViewStyle,
-
-    friendItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: theme.colors.surface,
-      borderRadius: 12,
-      padding: 16,
-      marginBottom: 12,
-      borderWidth: 1,
-      borderColor: theme.colors.outline,
-    } as ViewStyle,
-
-    friendInfo: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flex: 1,
-    } as ViewStyle,
-
-    avatar: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: 12,
-    } as ViewStyle,
-
-    avatarText: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      color: '#FFFFFF',
-    } as TextStyle,
-
-    friendDetails: {
-      flex: 1,
-    } as ViewStyle,
-
-    friendName: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: theme.colors.onSurface,
-    } as TextStyle,
-
-    friendEmail: {
-      fontSize: 14,
-      color: theme.colors.onSurfaceVariant,
-      marginTop: 2,
-    } as TextStyle,
-
-    friendAlias: {
-      fontSize: 14,
-      color: theme.colors.primary,
-      marginTop: 2,
-      fontWeight: '500',
-    } as TextStyle,
-
-    friendPhone: {
-      fontSize: 14,
-      color: theme.colors.onSurfaceVariant,
-      marginTop: 2,
-    } as TextStyle,
-
-    friendActions: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    } as ViewStyle,
-
-    actionButton: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      alignItems: 'center',
-      justifyContent: 'center',
-    } as ViewStyle,
-
-    emptyState: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 32,
-    } as ViewStyle,
-
-    emptyTitle: {
-      fontSize: 20,
-      fontWeight: '600',
-      color: theme.colors.onSurface,
-      marginTop: 16,
-      textAlign: 'center',
-    } as TextStyle,
-
-    emptySubtitle: {
-      fontSize: 16,
-      color: theme.colors.onSurfaceVariant,
-      marginTop: 8,
-      textAlign: 'center',
-      lineHeight: 22,
-    } as TextStyle,
-
-    emptyButton: {
-      marginTop: 24,
-    } as ViewStyle,
-  });
 
 export default ManageFriendsScreen;

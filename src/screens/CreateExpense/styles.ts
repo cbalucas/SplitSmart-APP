@@ -28,8 +28,13 @@ export const createStyles = (theme: Theme) => {
   } as ViewStyle,
 
   card: {
+    backgroundColor: appColors.surface,
+    borderRadius: 16,
+    padding: 20,
     marginBottom: 20,
-    shadowColor: theme.colors.shadow,
+    borderWidth: 1,
+    borderColor: appColors.borderPrimary,
+    shadowColor: appColors.special.shadow,
     shadowOffset: {
       width: 0,
       height: 4,
