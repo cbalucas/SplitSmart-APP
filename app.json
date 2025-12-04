@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "SplitSmart",
+    "slug": "splitsmart",
+    "version": "1.5.0",
+    "orientation": "portrait",
+    "icon": "./assets/splitsmart/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splitsmart/splash-icon-light.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#4B89DC"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cbalucas.splitsmart"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/splitsmart/adaptive-icon.png",
+        "backgroundColor": "#4B89DC"
+      },
+      "package": "com.cbalucas.splitsmart",
+      "versionCode": 9,
+      "permissions": [
+        "USE_FINGERPRINT",
+        "USE_BIOMETRIC",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_EXTERNAL_STORAGE",
+        "CAMERA",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ],
+      "allowBackup": true
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-local-authentication",
+      "expo-sqlite"
+    ],
+    "updates": {
+      "enabled": false
+    },
+    "extra": {
+      "eas": {
+        "projectId": "2c8b125f-76ab-4098-ac31-fdb813efb1aa"
+      }
+    }
+  }
+}

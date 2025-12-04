@@ -1,0 +1,10 @@
+{
+  "common": {
+    "appName": "SplitSmart",
+    "cancel": "Cancelar",
+    "save": "Guardar"
+  },
+  "auth": {
+    "login": "Iniciar Sesión"
+  }
+}

@@ -1,0 +1,1774 @@
+import * as SQLite from 'expo-sqlite';
+import { Event, Participant, Expense, EventParticipant, Split, Payment } from '../types';
+
+class DatabaseService {
+  private db: SQLite.SQLiteDatabase | null = null;
+  private isInitialized: boolean = false;
+  private initPromise: Promise<void> | null = null;
+
+  private async ensureInitialized(): Promise<void> {
+    if (this.isInitialized && this.db) {
+      return;
+    }
+    
+    if (this.initPromise) {
+      await this.initPromise;
+      return;
+    }
+    
+    throw new Error('Database not initialized. Call init() first.');
+  }
+
+  async init() {
+    // If already initializing, wait for it
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+    
+    // If already initialized, return
+    if (this.isInitialized && this.db) {
+      console.log('ℹ️ Database already initialized');
+      return Promise.resolve();
+    }
+    
+    this.initPromise = this._initInternal();
+    await this.initPromise;
+    this.initPromise = null;
+  }
+
+  private async _initInternal() {
+    try {
+      console.log('🔄 Initializing database...');
+      this.db = await SQLite.openDatabaseAsync('splitsmart.db');
+      
+      if (!this.db) {
+        throw new Error('Failed to open database');
+      }
+      
+      console.log('✅ Database opened, creating tables...');
+      await this.createTables();
+      
+      console.log('✅ Tables created, running migrations...');
+      await this.runMigrations();
+      
+      // Test query to verify database is working
+      console.log('🧪 Testing database connection...');
+      await this.db.getAllAsync('SELECT 1 as test');
+      
+      // Verify critical columns exist
+      console.log('🔍 Verifying database schema...');
+      const paymentsInfo = await this.db.getAllAsync('PRAGMA table_info(payments)');
+      const hasReceiptImage = paymentsInfo.some((col: any) => col.name === 'receipt_image');
+      
+      if (!hasReceiptImage) {
+        console.log('⚠️ Missing receipt_image column in payments, forcing re-migration...');
+        await this.runMigrations();
+      }
+      
+      this.isInitialized = true;
+      console.log('✅ Database initialized and tested successfully');
+    } catch (error) {
+      this.isInitialized = false;
+      console.error('❌ Database initialization error:', error);
+      console.error('❌ Attempting to recover...');
+      
+      // Try to recover by deleting and recreating
+      try {
+        await SQLite.deleteDatabaseAsync('splitsmart.db');
+        console.log('🗑️ Deleted corrupted database');
+        
+        this.db = await SQLite.openDatabaseAsync('splitsmart.db');
+        await this.createTables();
+        await this.runMigrations();
+        
+        this.isInitialized = true;
+        console.log('✅ Database recovered successfully');
+      } catch (recoveryError) {
+        this.isInitialized = false;
+        console.error('❌ Failed to recover database:', recoveryError);
+        throw recoveryError;
+      }
+    }
+  }
+
+  private async runMigrations() {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      // Migration: Add is_paid column to splits table if it doesn't exist
+      try {
+        await this.db.execAsync('ALTER TABLE splits ADD COLUMN is_paid INTEGER DEFAULT 0');
+        console.log('✅ Migration: Added is_paid column to splits table');
+      } catch (error: any) {
+        // Column already exists, ignore error
+        if (error.message?.includes('duplicate column name')) {
+          console.log('⚠️ Column is_paid already exists in splits table');
+        } else {
+          console.error('❌ Error adding is_paid column:', error);
+        }
+      }
+
+      // Migration: Add participant_type column to participants table if it doesn't exist
+      try {
+        await this.db.execAsync('ALTER TABLE participants ADD COLUMN participant_type TEXT DEFAULT "temporary"');
+        console.log('✅ Migration: Added participant_type column to participants table');
+      } catch (error: any) {
+        // Column already exists, ignore error
+        if (error.message?.includes('duplicate column name')) {
+          console.log('⚠️ Column participant_type already exists in participants table');
+        } else {
+          console.error('❌ Error adding participant_type column:', error);
+        }
+      }
+
+      // Migration: Add receipt_image column to expenses table if it doesn't exist
+      try {
+        await this.db.execAsync('ALTER TABLE expenses ADD COLUMN receipt_image TEXT');
+        console.log('✅ Migration: Added receipt_image column to expenses table');
+      } catch (error: any) {
+        // Column already exists, ignore error
+        if (error.message?.includes('duplicate column name')) {
+          console.log('⚠️ Column receipt_image already exists in expenses table');
+        } else {
+          console.error('❌ Error adding receipt_image column:', error);
+        }
+      }
+
+      // Migration: Add receipt_image column to payments table if it doesn't exist
+      try {
+        // Check if column exists first
+        const paymentsInfo = await this.db.getAllAsync('PRAGMA table_info(payments)');
+        const hasReceiptImageColumn = paymentsInfo.some((col: any) => col.name === 'receipt_image');
+        
+        if (!hasReceiptImageColumn) {
+          await this.db.execAsync('ALTER TABLE payments ADD COLUMN receipt_image TEXT');
+          console.log('✅ Migration: Added receipt_image column to payments table');
+        } else {
+          console.log('⚠️ Column receipt_image already exists in payments table');
+        }
+      } catch (error: any) {
+        console.error('❌ Error in receipt_image migration for payments:', error);
+      }
+
+      // Migration: Add skip_password column to users table if it doesn't exist
+      try {
+        await this.db.execAsync('ALTER TABLE users ADD COLUMN skip_password INTEGER DEFAULT 0');
+        console.log('✅ Migration: Added skip_password column to users table');
+      } catch (error: any) {
+        // Column already exists, ignore error
+        if (error.message?.includes('duplicate column name')) {
+          console.log('⚠️ Column skip_password already exists in users table');
+        } else {
+          console.error('❌ Error adding skip_password column:', error);
+        }
+      }
+
+      // Migration: Add closed_at column to events table if it doesn't exist
+      try {
+        const eventsInfo = await this.db.getAllAsync('PRAGMA table_info(events)');
+        const hasClosedAt = eventsInfo.some((col: any) => col.name === 'closed_at');
+        
+        if (!hasClosedAt) {
+          await this.db.execAsync('ALTER TABLE events ADD COLUMN closed_at TEXT');
+          console.log('✅ Migration: Added closed_at column to events table');
+        } else {
+          console.log('⚠️ Column closed_at already exists in events table');
+        }
+      } catch (error: any) {
+        console.error('❌ Error in closed_at migration for events:', error);
+      }
+
+      // Migration: Add completed_at column to events table if it doesn't exist
+      try {
+        const eventsInfo = await this.db.getAllAsync('PRAGMA table_info(events)');
+        const hasCompletedAt = eventsInfo.some((col: any) => col.name === 'completed_at');
+        
+        if (!hasCompletedAt) {
+          await this.db.execAsync('ALTER TABLE events ADD COLUMN completed_at TEXT');
+          console.log('✅ Migration: Added completed_at column to events table');
+        } else {
+          console.log('⚠️ Column completed_at already exists in events table');
+        }
+      } catch (error: any) {
+        console.error('❌ Error in completed_at migration for events:', error);
+      }
+
+      // Migration: Update status CHECK constraint to include 'closed'
+      // SQLite doesn't support ALTER to modify CHECK constraints, so we need to recreate the table
+      try {
+        // Check if events table exists and get its schema
+        const tableInfo = await this.db.getAllAsync(`SELECT sql FROM sqlite_master WHERE type='table' AND name='events'`);
+        
+        if (tableInfo.length > 0) {
+          const tableSchema = (tableInfo[0] as any).sql as string;
+          
+          // Check if the constraint includes 'closed'
+          if (tableSchema && !tableSchema.includes("'closed'")) {
+            console.log('🔄 Migrating events table to support "closed" status...');
+            
+            // Get all existing events data
+            const existingEvents = await this.db.getAllAsync('SELECT * FROM events');
+            
+            // Rename old table
+            await this.db.execAsync('ALTER TABLE events RENAME TO events_old');
+            
+            // Create new table with updated constraint
+            await this.db.execAsync(`
+              CREATE TABLE events (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT,
+                start_date TEXT NOT NULL,
+                location TEXT,
+                currency TEXT NOT NULL DEFAULT 'ARS',
+                total_amount REAL DEFAULT 0,
+                status TEXT CHECK(status IN ('active', 'closed', 'completed', 'archived')) DEFAULT 'active',
+                type TEXT CHECK(type IN ('public', 'private')) DEFAULT 'public',
+                category TEXT DEFAULT 'evento',
+                creator_id TEXT,
+                closed_at TEXT,
+                completed_at TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+              )
+            `);
+            
+            // Copy data from old table to new table
+            if (existingEvents.length > 0) {
+              for (const event of existingEvents) {
+                const evt = event as any;
+                await this.db.runAsync(
+                  `INSERT INTO events (id, name, description, start_date, location, currency, total_amount, status, type, category, creator_id, closed_at, completed_at, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                  [
+                    evt.id, evt.name, evt.description, evt.start_date, evt.location,
+                    evt.currency, evt.total_amount, evt.status, evt.type, evt.category,
+                    evt.creator_id, evt.closed_at, evt.completed_at, evt.created_at, evt.updated_at
+                  ]
+                );
+              }
+            }
+            
+            // Drop old table
+            await this.db.execAsync('DROP TABLE events_old');
+            
+            console.log('✅ Migration: Events table updated to support "closed" status');
+          } else {
+            console.log('⚠️ Events table already supports "closed" status');
+          }
+        }
+      } catch (error: any) {
+        console.error('❌ Error migrating events table status constraint:', error);
+      }
+
+    } catch (error) {
+      console.error('❌ Error running migrations:', error);
+    }
+  }
+
+  private async dropAndRecreateDatabase() {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      // Drop all existing tables
+      await this.db.execAsync('DROP TABLE IF EXISTS payments');
+      await this.db.execAsync('DROP TABLE IF EXISTS splits');
+      await this.db.execAsync('DROP TABLE IF EXISTS expenses');
+      await this.db.execAsync('DROP TABLE IF EXISTS event_participants');
+      await this.db.execAsync('DROP TABLE IF EXISTS participants');
+      await this.db.execAsync('DROP TABLE IF EXISTS events');
+      await this.db.execAsync('DROP TABLE IF EXISTS users');
+      
+      console.log('🗑️ Dropped existing tables');
+      await this.createTables();
+    } catch (error) {
+      console.error('❌ Error dropping and recreating database:', error);
+      throw error;
+    }
+  }
+
+  private async createTables() {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      // Events table
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS events (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          description TEXT,
+          start_date TEXT NOT NULL,
+          location TEXT,
+          currency TEXT NOT NULL DEFAULT 'ARS',
+          total_amount REAL DEFAULT 0,
+          status TEXT CHECK(status IN ('active', 'closed', 'completed', 'archived')) DEFAULT 'active',
+          type TEXT CHECK(type IN ('public', 'private')) DEFAULT 'public',
+          category TEXT DEFAULT 'evento',
+          creator_id TEXT,
+          closed_at TEXT,
+          completed_at TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      `);
+
+      // Participants table
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS participants (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          email TEXT,
+          phone TEXT,
+          alias_cbu TEXT,
+          avatar TEXT,
+          is_active INTEGER DEFAULT 1,
+          participant_type TEXT CHECK(participant_type IN ('friend', 'temporary')) DEFAULT 'temporary',
+          created_at TEXT,
+          updated_at TEXT
+        )
+      `);
+
+      // Event Participants relationship table
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS event_participants (
+          id TEXT PRIMARY KEY,
+          event_id TEXT NOT NULL,
+          participant_id TEXT NOT NULL,
+          role TEXT CHECK(role IN ('owner', 'admin', 'member', 'viewer')) DEFAULT 'member',
+          balance REAL DEFAULT 0,
+          joined_at TEXT,
+          FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
+          FOREIGN KEY (participant_id) REFERENCES participants (id) ON DELETE CASCADE,
+          UNIQUE(event_id, participant_id)
+        )
+      `);
+
+      // Expenses table
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS expenses (
+          id TEXT PRIMARY KEY,
+          event_id TEXT NOT NULL,
+          description TEXT NOT NULL,
+          amount REAL NOT NULL,
+          currency TEXT NOT NULL DEFAULT 'USD',
+          date TEXT NOT NULL,
+          category TEXT,
+          payer_id TEXT NOT NULL,
+          receipt_image TEXT,
+          is_active INTEGER DEFAULT 1,
+          created_at TEXT,
+          updated_at TEXT,
+          FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
+          FOREIGN KEY (payer_id) REFERENCES participants (id)
+        )
+      `);
+
+      // Splits table
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS splits (
+          id TEXT PRIMARY KEY,
+          expense_id TEXT NOT NULL,
+          participant_id TEXT NOT NULL,
+          amount REAL NOT NULL,
+          percentage REAL,
+          type TEXT CHECK(type IN ('equal', 'fixed', 'percentage', 'custom')) DEFAULT 'equal',
+          is_paid INTEGER DEFAULT 0,
+          created_at TEXT,
+          updated_at TEXT,
+          FOREIGN KEY (expense_id) REFERENCES expenses (id) ON DELETE CASCADE,
+          FOREIGN KEY (participant_id) REFERENCES participants (id) ON DELETE CASCADE
+        )
+      `);
+
+      // Payments table
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS payments (
+          id TEXT PRIMARY KEY,
+          event_id TEXT NOT NULL,
+          from_participant_id TEXT NOT NULL,
+          to_participant_id TEXT NOT NULL,
+          amount REAL NOT NULL,
+          date TEXT NOT NULL,
+          notes TEXT,
+          receipt_image TEXT,
+          is_confirmed INTEGER DEFAULT 0,
+          created_at TEXT,
+          updated_at TEXT,
+          FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
+          FOREIGN KEY (from_participant_id) REFERENCES participants (id),
+          FOREIGN KEY (to_participant_id) REFERENCES participants (id)
+        )
+      `);
+
+      // Settlements table (liquidaciones)
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS settlements (
+          id TEXT PRIMARY KEY,
+          event_id TEXT NOT NULL,
+          from_participant_id TEXT NOT NULL,
+          from_participant_name TEXT NOT NULL,
+          to_participant_id TEXT NOT NULL,
+          to_participant_name TEXT NOT NULL,
+          amount REAL NOT NULL,
+          is_paid INTEGER DEFAULT 0,
+          receipt_image TEXT,
+          paid_at TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
+          FOREIGN KEY (from_participant_id) REFERENCES participants (id),
+          FOREIGN KEY (to_participant_id) REFERENCES participants (id)
+        )
+      `);
+
+      // Users table for profile data
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS users (
+          id TEXT PRIMARY KEY,
+          username TEXT UNIQUE NOT NULL,
+          email TEXT UNIQUE NOT NULL,
+          password TEXT NOT NULL,
+          name TEXT NOT NULL,
+          phone TEXT,
+          alias_cbu TEXT,
+          preferred_currency TEXT DEFAULT 'ARS',
+          skip_password INTEGER DEFAULT 0,
+          notifications_expense_added INTEGER DEFAULT 1,
+          notifications_payment_received INTEGER DEFAULT 1,
+          notifications_event_updated INTEGER DEFAULT 0,
+          notifications_weekly_report INTEGER DEFAULT 0,
+          privacy_share_email INTEGER DEFAULT 0,
+          privacy_share_phone INTEGER DEFAULT 0,
+          privacy_allow_invitations INTEGER DEFAULT 1,
+          created_at TEXT,
+          updated_at TEXT
+        )
+      `);
+
+      // Create indexes for better performance
+      await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_event_participants_event_id ON event_participants(event_id)`);
+      await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_expenses_event_id ON expenses(event_id)`);
+      await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_splits_expense_id ON splits(expense_id)`);
+      await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_payments_event_id ON payments(event_id)`);
+
+      console.log('✅ All tables created successfully');
+    } catch (error) {
+      console.error('❌ Error creating tables:', error);
+      throw error;
+    }
+  }
+
+  // Events CRUD
+  async createEvent(event: Omit<Event, 'totalAmount'>): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      await this.db.runAsync(
+        `INSERT INTO events (id, name, description, start_date, location, currency, status, type, category, creator_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          event.id,
+          event.name,
+          event.description || null,
+          event.startDate,
+          event.location || null,
+          event.currency,
+          event.status,
+          event.type,
+          event.category || null,
+          event.creatorId || null,
+          event.createdAt,
+          event.updatedAt
+        ]
+      );
+    } catch (error) {
+      console.error('❌ Error creating event:', error);
+      throw error;
+    }
+  }
+
+  async updateEvent(id: string, updates: Partial<Event>): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      // Construir la consulta dinámicamente basada en los campos a actualizar
+      const fields = [];
+      const values = [];
+      
+      if (updates.name !== undefined) {
+        fields.push('name = ?');
+        values.push(updates.name);
+      }
+      if (updates.description !== undefined) {
+        fields.push('description = ?');
+        values.push(updates.description);
+      }
+      if (updates.startDate !== undefined) {
+        fields.push('start_date = ?');
+        values.push(updates.startDate);
+      }
+      if (updates.location !== undefined) {
+        fields.push('location = ?');
+        values.push(updates.location);
+      }
+      if (updates.currency !== undefined) {
+        fields.push('currency = ?');
+        values.push(updates.currency);
+      }
+      if (updates.status !== undefined) {
+        fields.push('status = ?');
+        values.push(updates.status);
+      }
+      if (updates.type !== undefined) {
+        fields.push('type = ?');
+        values.push(updates.type);
+      }
+      if (updates.category !== undefined) {
+        fields.push('category = ?');
+        values.push(updates.category);
+      }
+      if (updates.closedAt !== undefined) {
+        fields.push('closed_at = ?');
+        values.push(updates.closedAt);
+      }
+      if (updates.completedAt !== undefined) {
+        fields.push('completed_at = ?');
+        values.push(updates.completedAt);
+      }
+      
+      // Siempre actualizar updated_at
+      fields.push('updated_at = ?');
+      values.push(new Date().toISOString());
+      
+      // Añadir el ID al final
+      values.push(id);
+      
+      const query = `UPDATE events SET ${fields.join(', ')} WHERE id = ?`;
+      
+      await this.db.runAsync(query, values);
+      
+      console.log('✅ Event updated successfully:', id);
+    } catch (error) {
+      console.error('❌ Error updating event:', error);
+      throw error;
+    }
+  }
+
+  async deleteEvent(id: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      // Eliminar en orden por dependencias
+      await this.db.runAsync('DELETE FROM payments WHERE event_id = ?', [id]);
+      await this.db.runAsync('DELETE FROM splits WHERE expense_id IN (SELECT id FROM expenses WHERE event_id = ?)', [id]);
+      await this.db.runAsync('DELETE FROM expenses WHERE event_id = ?', [id]);
+      await this.db.runAsync('DELETE FROM event_participants WHERE event_id = ?', [id]);
+      await this.db.runAsync('DELETE FROM events WHERE id = ?', [id]);
+      
+      console.log('✅ Event and related data deleted successfully:', id);
+    } catch (error) {
+      console.error('❌ Error deleting event:', error);
+      throw error;
+    }
+  }
+
+  async getEvents(): Promise<Event[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const result = await this.db.getAllAsync('SELECT * FROM events ORDER BY created_at DESC');
+      return result.map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        startDate: row.start_date,
+        location: row.location,
+        currency: row.currency,
+        totalAmount: row.total_amount,
+        status: row.status,
+        type: row.type,
+        category: row.category,
+        creatorId: row.creator_id,
+        closedAt: row.closed_at,
+        completedAt: row.completed_at,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }));
+    } catch (error) {
+      console.error('❌ Error getting events:', error);
+      throw error;
+    }
+  }
+
+  // Participants CRUD
+  async createParticipant(participant: Participant): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      await this.db.runAsync(
+        `INSERT INTO participants (id, name, email, phone, alias_cbu, avatar, is_active, participant_type, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          participant.id,
+          participant.name,
+          participant.email || null,
+          participant.phone || null,
+          participant.alias_cbu || null,
+          participant.avatar || null,
+          participant.isActive ? 1 : 0,
+          participant.participantType || 'temporary',
+          participant.createdAt || new Date().toISOString(),
+          participant.updatedAt || new Date().toISOString()
+        ]
+      );
+    } catch (error) {
+      console.error('❌ Error creating participant:', error);
+      throw error;
+    }
+  }
+
+  async getParticipants(): Promise<Participant[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const result = await this.db.getAllAsync('SELECT * FROM participants WHERE is_active = 1');
+      return result.map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        phone: row.phone,
+        alias_cbu: row.alias_cbu,
+        avatar: row.avatar,
+        isActive: row.is_active === 1,
+        participantType: row.participant_type || 'temporary',
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }));
+    } catch (error) {
+      console.error('❌ Error getting participants:', error);
+      throw error;
+    }
+  }
+
+  // Get only friends (permanent participants)
+  async getFriends(): Promise<Participant[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const result = await this.db.getAllAsync(
+        'SELECT * FROM participants WHERE is_active = 1 AND participant_type = ? ORDER BY name ASC',
+        ['friend']
+      );
+      return result.map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        phone: row.phone,
+        alias_cbu: row.alias_cbu,
+        avatar: row.avatar,
+        isActive: row.is_active === 1,
+        participantType: row.participant_type,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }));
+    } catch (error) {
+      console.error('❌ Error getting friends:', error);
+      throw error;
+    }
+  }
+
+  // Update participant type (convert temporary to friend or vice versa)
+  async updateParticipantType(id: string, type: 'friend' | 'temporary'): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      await this.db.runAsync(
+        'UPDATE participants SET participant_type = ?, updated_at = ? WHERE id = ?',
+        [type, new Date().toISOString(), id]
+      );
+      console.log(`✅ Participant ${id} updated to ${type}`);
+    } catch (error) {
+      console.error('❌ Error updating participant type:', error);
+      throw error;
+    }
+  }
+
+  // Update participant information
+  async updateParticipant(id: string, updates: Partial<Participant>): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const fields: string[] = [];
+      const values: any[] = [];
+
+      if (updates.name !== undefined) {
+        fields.push('name = ?');
+        values.push(updates.name);
+      }
+      if (updates.email !== undefined) {
+        fields.push('email = ?');
+        values.push(updates.email || null);
+      }
+      if (updates.phone !== undefined) {
+        fields.push('phone = ?');
+        values.push(updates.phone || null);
+      }
+      if (updates.alias_cbu !== undefined) {
+        fields.push('alias_cbu = ?');
+        values.push(updates.alias_cbu || null);
+      }
+      if (updates.avatar !== undefined) {
+        fields.push('avatar = ?');
+        values.push(updates.avatar || null);
+      }
+      if (updates.participantType !== undefined) {
+        fields.push('participant_type = ?');
+        values.push(updates.participantType);
+      }
+
+      fields.push('updated_at = ?');
+      values.push(new Date().toISOString());
+      values.push(id);
+
+      await this.db.runAsync(
+        `UPDATE participants SET ${fields.join(', ')} WHERE id = ?`,
+        values
+      );
+      console.log(`✅ Participant ${id} updated successfully`);
+    } catch (error) {
+      console.error('❌ Error updating participant:', error);
+      throw error;
+    }
+  }
+
+  // Delete participant (only if not used in any events)
+  async deleteParticipant(id: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      // Check if participant is used in any event
+      const result = await this.db.getFirstAsync<{ count: number }>(
+        'SELECT COUNT(*) as count FROM event_participants WHERE participant_id = ?',
+        [id]
+      );
+
+      if (result && result.count > 0) {
+        throw new Error('Cannot delete participant: still used in events');
+      }
+
+      await this.db.runAsync('DELETE FROM participants WHERE id = ?', [id]);
+      console.log(`✅ Participant ${id} deleted successfully`);
+    } catch (error) {
+      console.error('❌ Error deleting participant:', error);
+      throw error;
+    }
+  }
+
+  // Event Participants CRUD
+  async addParticipantToEvent(eventParticipant: EventParticipant): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      await this.db.runAsync(
+        `INSERT INTO event_participants (id, event_id, participant_id, role, balance, joined_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          eventParticipant.id,
+          eventParticipant.eventId,
+          eventParticipant.participantId,
+          eventParticipant.role,
+          eventParticipant.balance || 0,
+          eventParticipant.joinedAt || new Date().toISOString()
+        ]
+      );
+    } catch (error) {
+      console.error('❌ Error adding participant to event:', error);
+      throw error;
+    }
+  }
+
+  async getEventParticipants(eventId: string): Promise<(Participant & { role: EventParticipant['role']; balance: number; joinedAt: string })[]> {
+    if (!this.db || !this.isInitialized) {
+      console.error('❌ Database not ready in getEventParticipants. Initialized:', this.isInitialized);
+      return []; // Return empty array instead of throwing
+    }
+
+    try {
+      console.log(`📥 Getting participants for event: ${eventId}`);
+      const result = await this.db.getAllAsync(
+        `SELECT p.*, ep.role, ep.balance, ep.joined_at
+         FROM participants p
+         JOIN event_participants ep ON p.id = ep.participant_id
+         WHERE ep.event_id = ? AND p.is_active = 1`,
+        [eventId]
+      );
+      
+      console.log(`✅ Found ${result.length} participants for event ${eventId}`);
+      
+      return result.map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        phone: row.phone,
+        alias_cbu: row.alias_cbu,
+        avatar: row.avatar,
+        isActive: row.is_active === 1,
+        participantType: row.participant_type || 'temporary',
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        role: row.role,
+        balance: row.balance,
+        joinedAt: row.joined_at
+      }));
+    } catch (error) {
+      console.error('❌ Error getting event participants:', error);
+      console.error('❌ Event ID:', eventId);
+      console.error('❌ Database state:', this.db ? 'initialized' : 'null');
+      return []; // Return empty array instead of throwing
+    }
+  }
+
+  // Expenses CRUD
+  async createExpense(expense: Expense): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      await this.db.runAsync(
+        `INSERT INTO expenses (id, event_id, description, amount, currency, date, category, payer_id, receipt_image, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          expense.id,
+          expense.eventId,
+          expense.description,
+          expense.amount,
+          expense.currency,
+          expense.date,
+          expense.category || null,
+          expense.payerId,
+          expense.receiptImage || null,
+          expense.isActive ? 1 : 0,
+          expense.createdAt || new Date().toISOString(),
+          expense.updatedAt || new Date().toISOString()
+        ]
+      );
+    } catch (error) {
+      console.error('❌ Error creating expense:', error);
+      throw error;
+    }
+  }
+
+  async getExpensesByEvent(eventId: string): Promise<Expense[]> {
+    if (!this.db || !this.isInitialized) {
+      console.error('❌ Database not ready in getExpensesByEvent. Initialized:', this.isInitialized);
+      return []; // Return empty array instead of throwing
+    }
+
+    try {
+      console.log(`📥 Getting expenses for event: ${eventId}`);
+      const result = await this.db.getAllAsync(
+        'SELECT * FROM expenses WHERE event_id = ? AND is_active = 1 ORDER BY date DESC',
+        [eventId]
+      );
+      
+      console.log(`✅ Found ${result.length} expenses for event ${eventId}`);
+      
+      return result.map((row: any) => ({
+        id: row.id,
+        eventId: row.event_id,
+        description: row.description,
+        amount: row.amount,
+        currency: row.currency,
+        date: row.date,
+        category: row.category,
+        payerId: row.payer_id,
+        receiptImage: row.receipt_image,
+        isActive: row.is_active === 1,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }));
+    } catch (error) {
+      console.error('❌ Error getting expenses by event:', error);
+      throw error;
+    }
+  }
+
+  // Splits CRUD
+  async createSplit(split: Split): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      await this.db.runAsync(
+        `INSERT INTO splits (id, expense_id, participant_id, amount, percentage, type, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          split.id,
+          split.expenseId,
+          split.participantId,
+          split.amount,
+          split.percentage || null,
+          split.type || 'equal',
+          split.createdAt || new Date().toISOString(),
+          split.updatedAt || new Date().toISOString()
+        ]
+      );
+    } catch (error) {
+      console.error('❌ Error creating split:', error);
+      throw error;
+    }
+  }
+
+  async getSplitsByExpense(expenseId: string): Promise<Split[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const result = await this.db.getAllAsync(
+        'SELECT * FROM splits WHERE expense_id = ?',
+        [expenseId]
+      );
+      
+      return result.map((row: any) => ({
+        id: row.id,
+        expenseId: row.expense_id,
+        participantId: row.participant_id,
+        amount: row.amount,
+        percentage: row.percentage,
+        type: row.type,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }));
+    } catch (error) {
+      console.error('❌ Error getting splits by expense:', error);
+      throw error;
+    }
+  }
+
+  async getSplitsByEvent(eventId: string): Promise<Split[]> {
+    if (!this.db || !this.isInitialized) {
+      console.error('❌ Database not ready in getSplitsByEvent. Initialized:', this.isInitialized);
+      return []; // Return empty array instead of throwing
+    }
+
+    try {
+      console.log(`📥 Getting splits for event: ${eventId}`);
+      const result = await this.db.getAllAsync(`
+        SELECT s.* FROM splits s
+        INNER JOIN expenses e ON s.expense_id = e.id
+        WHERE e.event_id = ?
+      `, [eventId]);
+      
+      console.log(`✅ Found ${result.length} splits for event ${eventId}`);
+      
+      return result.map((row: any) => ({
+        id: row.id,
+        expenseId: row.expense_id,
+        participantId: row.participant_id,
+        amount: row.amount,
+        percentage: row.percentage,
+        type: row.type,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }));
+    } catch (error) {
+      console.error('❌ Error getting splits by event:', error);
+      console.error('❌ Event ID:', eventId);
+      console.error('❌ Database state:', this.db ? 'initialized' : 'null');
+      return []; // Return empty array instead of throwing
+    }
+  }
+
+  // Payments CRUD
+  async createPayment(payment: Payment): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      await this.db.runAsync(
+        `INSERT INTO payments (id, event_id, from_participant_id, to_participant_id, amount, date, notes, receipt_image, is_confirmed, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          payment.id,
+          payment.eventId,
+          payment.fromParticipantId,
+          payment.toParticipantId,
+          payment.amount,
+          payment.date,
+          payment.notes || null,
+          payment.receiptImage || null,
+          payment.isConfirmed ? 1 : 0,
+          payment.createdAt || new Date().toISOString(),
+          payment.updatedAt || new Date().toISOString()
+        ]
+      );
+    } catch (error) {
+      console.error('❌ Error creating payment:', error);
+      throw error;
+    }
+  }
+
+  async getPaymentsByEvent(eventId: string): Promise<Payment[]> {
+    if (!this.db || !this.isInitialized) {
+      console.error('❌ Database not ready in getPaymentsByEvent. Initialized:', this.isInitialized);
+      return []; // Return empty array instead of throwing
+    }
+
+    try {
+      console.log(`📥 Getting payments for event: ${eventId}`);
+      const result = await this.db.getAllAsync(
+        'SELECT * FROM payments WHERE event_id = ? ORDER BY date DESC',
+        [eventId]
+      );
+      
+      console.log(`✅ Found ${result.length} payments for event ${eventId}`);
+      
+      return result.map((row: any) => ({
+        id: row.id,
+        eventId: row.event_id,
+        fromParticipantId: row.from_participant_id,
+        toParticipantId: row.to_participant_id,
+        amount: row.amount,
+        date: row.date,
+        notes: row.notes,
+        receiptImage: row.receipt_image,
+        isConfirmed: row.is_confirmed === 1,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }));
+    } catch (error) {
+      console.error('❌ Error getting payments by event:', error);
+      console.error('❌ Event ID:', eventId);
+      console.error('❌ Database state:', this.db ? 'initialized' : 'null');
+      return []; // Return empty array instead of throwing
+    }
+  }
+
+  async updatePayment(paymentId: string, updates: Partial<Payment>): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const updateFields: string[] = [];
+      const values: any[] = [];
+
+      if (updates.notes !== undefined) {
+        updateFields.push('notes = ?');
+        values.push(updates.notes);
+      }
+      if (updates.receiptImage !== undefined) {
+        updateFields.push('receipt_image = ?');
+        values.push(updates.receiptImage);
+      }
+      if (updates.isConfirmed !== undefined) {
+        updateFields.push('is_confirmed = ?');
+        values.push(updates.isConfirmed ? 1 : 0);
+      }
+
+      updateFields.push('updated_at = ?');
+      values.push(new Date().toISOString());
+      values.push(paymentId);
+
+      await this.db.runAsync(
+        `UPDATE payments SET ${updateFields.join(', ')} WHERE id = ?`,
+        values
+      );
+    } catch (error) {
+      console.error('❌ Error updating payment:', error);
+      throw error;
+    }
+  }
+
+  // Settlements CRUD
+  async createSettlement(settlement: any): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      await this.db.runAsync(
+        `INSERT INTO settlements (id, event_id, from_participant_id, from_participant_name, to_participant_id, to_participant_name, amount, is_paid, receipt_image, paid_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          settlement.id,
+          settlement.eventId,
+          settlement.fromParticipantId,
+          settlement.fromParticipantName,
+          settlement.toParticipantId,
+          settlement.toParticipantName,
+          settlement.amount,
+          settlement.isPaid ? 1 : 0,
+          settlement.receiptImage || null,
+          settlement.paidAt || null,
+          settlement.createdAt || new Date().toISOString(),
+          settlement.updatedAt || new Date().toISOString()
+        ]
+      );
+      console.log('✅ Settlement created successfully');
+    } catch (error) {
+      console.error('❌ Error creating settlement:', error);
+      throw error;
+    }
+  }
+
+  async getSettlementsByEvent(eventId: string): Promise<any[]> {
+    if (!this.db || !this.isInitialized) {
+      console.error('❌ Database not ready in getSettlementsByEvent');
+      return [];
+    }
+
+    try {
+      const result = await this.db.getAllAsync(
+        'SELECT * FROM settlements WHERE event_id = ? ORDER BY created_at ASC',
+        [eventId]
+      );
+      
+      return result.map((row: any) => ({
+        id: row.id,
+        eventId: row.event_id,
+        fromParticipantId: row.from_participant_id,
+        fromParticipantName: row.from_participant_name,
+        toParticipantId: row.to_participant_id,
+        toParticipantName: row.to_participant_name,
+        amount: row.amount,
+        isPaid: row.is_paid === 1,
+        receiptImage: row.receipt_image,
+        paidAt: row.paid_at,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }));
+    } catch (error) {
+      console.error('❌ Error getting settlements by event:', error);
+      return [];
+    }
+  }
+
+  async updateSettlement(settlementId: string, updates: any): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const updateFields: string[] = [];
+      const values: any[] = [];
+
+      if (updates.isPaid !== undefined) {
+        updateFields.push('is_paid = ?');
+        values.push(updates.isPaid ? 1 : 0);
+      }
+      if (updates.receiptImage !== undefined) {
+        updateFields.push('receipt_image = ?');
+        values.push(updates.receiptImage || null);
+      }
+      if (updates.paidAt !== undefined) {
+        updateFields.push('paid_at = ?');
+        values.push(updates.paidAt || null);
+      }
+
+      updateFields.push('updated_at = ?');
+      values.push(new Date().toISOString());
+      values.push(settlementId);
+
+      await this.db.runAsync(
+        `UPDATE settlements SET ${updateFields.join(', ')} WHERE id = ?`,
+        values
+      );
+      console.log('✅ Settlement updated successfully');
+    } catch (error) {
+      console.error('❌ Error updating settlement:', error);
+      throw error;
+    }
+  }
+
+  async deleteSettlementsByEvent(eventId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      await this.db.runAsync('DELETE FROM settlements WHERE event_id = ?', [eventId]);
+      console.log('✅ Settlements deleted for event');
+    } catch (error) {
+      console.error('❌ Error deleting settlements:', error);
+      throw error;
+    }
+  }
+
+  // Utility methods
+  async clearAllData(): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      await this.db.execAsync('DELETE FROM payments');
+      await this.db.execAsync('DELETE FROM splits');
+      await this.db.execAsync('DELETE FROM expenses');
+      await this.db.execAsync('DELETE FROM event_participants');
+      await this.db.execAsync('DELETE FROM participants');
+      await this.db.execAsync('DELETE FROM events');
+      console.log('✅ All data cleared successfully');
+    } catch (error) {
+      console.error('❌ Error clearing data:', error);
+      throw error;
+    }
+  }
+
+  async resetDatabase(): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      await this.dropAndRecreateDatabase();
+      console.log('✅ Database reset successfully');
+    } catch (error) {
+      console.error('❌ Error resetting database:', error);
+      throw error;
+    }
+  }
+
+  async exportData(): Promise<string> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const [events, participants, expenses, payments] = await Promise.all([
+        this.getEvents(),
+        this.getParticipants(),
+        this.getAllExpenses(),
+        this.getAllPayments()
+      ]);
+
+      const exportData = {
+        version: '1.0',
+        exportDate: new Date().toISOString(),
+        data: {
+          events,
+          participants,
+          expenses,
+          payments
+        }
+      };
+
+      return JSON.stringify(exportData, null, 2);
+    } catch (error) {
+      console.error('❌ Export data error:', error);
+      throw error;
+    }
+  }
+
+  private async getAllExpenses(): Promise<Expense[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const result = await this.db.getAllAsync('SELECT * FROM expenses WHERE is_active = 1');
+      return result.map((row: any) => ({
+        id: row.id,
+        eventId: row.event_id,
+        description: row.description,
+        amount: row.amount,
+        currency: row.currency,
+        date: row.date,
+        category: row.category,
+        payerId: row.payer_id,
+        receiptImage: row.receipt_image,
+        isActive: row.is_active === 1,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }));
+    } catch (error) {
+      console.error('❌ Error getting all expenses:', error);
+      throw error;
+    }
+  }
+
+  private async getAllPayments(): Promise<Payment[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const result = await this.db.getAllAsync('SELECT * FROM payments');
+      return result.map((row: any) => ({
+        id: row.id,
+        eventId: row.event_id,
+        fromParticipantId: row.from_participant_id,
+        toParticipantId: row.to_participant_id,
+        amount: row.amount,
+        date: row.date,
+        notes: row.notes,
+        isConfirmed: row.is_confirmed === 1,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }));
+    } catch (error) {
+      console.error('❌ Error getting all payments:', error);
+      throw error;
+    }
+  }
+
+  async updateExpense(expenseId: string, expense: Partial<Expense>, splits?: Split[]): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const updates: string[] = [];
+      const values: any[] = [];
+
+      if (expense.description !== undefined) {
+        updates.push('description = ?');
+        values.push(expense.description);
+      }
+      if (expense.amount !== undefined) {
+        updates.push('amount = ?');
+        values.push(expense.amount);
+      }
+      if (expense.date !== undefined) {
+        updates.push('date = ?');
+        values.push(expense.date);
+      }
+      if (expense.category !== undefined) {
+        updates.push('category = ?');
+        values.push(expense.category);
+      }
+      if (expense.payerId !== undefined) {
+        updates.push('payer_id = ?');
+        values.push(expense.payerId);
+      }
+      if (expense.currency !== undefined) {
+        updates.push('currency = ?');
+        values.push(expense.currency);
+      }
+
+      updates.push('updated_at = ?');
+      values.push(new Date().toISOString());
+      values.push(expenseId);
+
+      if (updates.length > 0) {
+        await this.db.runAsync(
+          `UPDATE expenses SET ${updates.join(', ')} WHERE id = ?`,
+          values
+        );
+      }
+
+      // Update splits if provided
+      if (splits && splits.length > 0) {
+        // Delete old splits
+        await this.db.runAsync('DELETE FROM splits WHERE expense_id = ?', [expenseId]);
+        
+        // Insert new splits
+        for (const split of splits) {
+          await this.db.runAsync(
+            `INSERT INTO splits (id, expense_id, participant_id, amount, percentage, type, is_paid, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              split.id,
+              expenseId,
+              split.participantId,
+              split.amount,
+              split.percentage || null,
+              split.type || 'equal',
+              split.isPaid ? 1 : 0,
+              split.createdAt || new Date().toISOString(),
+              split.updatedAt || new Date().toISOString()
+            ]
+          );
+        }
+      }
+
+      console.log('✅ Expense updated successfully');
+    } catch (error) {
+      console.error('❌ Error updating expense:', error);
+      throw error;
+    }
+  }
+
+  async deleteExpense(expenseId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      // First delete all splits related to this expense
+      await this.db.runAsync('DELETE FROM splits WHERE expense_id = ?', [expenseId]);
+      
+      // Then delete the expense itself
+      await this.db.runAsync('DELETE FROM expenses WHERE id = ?', [expenseId]);
+      
+      console.log('✅ Expense deleted successfully');
+    } catch (error) {
+      console.error('❌ Error deleting expense:', error);
+      throw error;
+    }
+  }
+
+  async removeParticipantFromEvent(eventId: string, participantId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      // Check if participant has paid any expenses (payer_id)
+      const expenseCount = await this.db.getFirstAsync(
+        'SELECT COUNT(*) as count FROM expenses WHERE payer_id = ?',
+        [participantId]
+      ) as { count: number };
+
+      if (expenseCount.count > 0) {
+        throw new Error('No se puede eliminar un participante que ha pagado gastos. Primero elimina esos gastos.');
+      }
+
+      // If participant is only in splits (not a payer), we can remove them and recalculate splits
+      const splitCount = await this.db.getFirstAsync(
+        'SELECT COUNT(*) as count FROM splits WHERE participant_id = ?',
+        [participantId]
+      ) as { count: number };
+
+      if (splitCount.count > 0) {
+        // Get all expenses where this participant has splits
+        const expensesWithSplits = await this.db.getAllAsync(
+          `SELECT DISTINCT e.id, e.amount, e.event_id 
+           FROM expenses e 
+           INNER JOIN splits s ON e.id = s.expense_id 
+           WHERE s.participant_id = ?`,
+          [participantId]
+        ) as Array<{ id: string; amount: number; event_id: string }>;
+
+        // Remove participant's splits
+        await this.db.runAsync(
+          'DELETE FROM splits WHERE participant_id = ?',
+          [participantId]
+        );
+
+        // Recalculate splits for each affected expense
+        for (const expense of expensesWithSplits) {
+          // Get remaining splits for this expense
+          const remainingSplits = await this.db.getAllAsync(
+            'SELECT * FROM splits WHERE expense_id = ?',
+            [expense.id]
+          ) as Array<any>;
+
+          if (remainingSplits.length > 0) {
+            // Recalculate equal division
+            const amountPerPerson = expense.amount / remainingSplits.length;
+            
+            for (const split of remainingSplits) {
+              await this.db.runAsync(
+                'UPDATE splits SET amount = ?, percentage = ?, updated_at = ? WHERE id = ?',
+                [amountPerPerson, (100 / remainingSplits.length), new Date().toISOString(), split.id]
+              );
+            }
+          }
+        }
+      }
+
+      // Remove participant from event
+      await this.db.runAsync(
+        'DELETE FROM event_participants WHERE event_id = ? AND participant_id = ?',
+        [eventId, participantId]
+      );
+
+      // Delete participant if not in other events
+      const otherEvents = await this.db.getFirstAsync(
+        'SELECT COUNT(*) as count FROM event_participants WHERE participant_id = ?',
+        [participantId]
+      ) as { count: number };
+
+      if (otherEvents.count === 0) {
+        await this.db.runAsync('DELETE FROM participants WHERE id = ?', [participantId]);
+      }
+
+      console.log('✅ Participant removed successfully');
+    } catch (error) {
+      console.error('❌ Error removing participant:', error);
+      throw error;
+    }
+  }
+
+  async addParticipantToAllExpenses(eventId: string, participantId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      // Get all expenses for this event
+      const expenses = await this.db.getAllAsync(
+        'SELECT * FROM expenses WHERE event_id = ?',
+        [eventId]
+      ) as Array<any>;
+
+      for (const expense of expenses) {
+        // Get current splits for this expense
+        const currentSplits = await this.db.getAllAsync(
+          'SELECT * FROM splits WHERE expense_id = ?',
+          [expense.id]
+        ) as Array<any>;
+
+        // Check if participant is already in splits
+        const existingSplit = currentSplits.find(s => s.participant_id === participantId);
+        if (existingSplit) {
+          console.log(`Participant already in expense ${expense.id}, skipping`);
+          continue;
+        }
+
+        // Calculate new split amount with the new participant
+        const newParticipantCount = currentSplits.length + 1;
+        const amountPerPerson = expense.amount / newParticipantCount;
+        const percentagePerPerson = 100 / newParticipantCount;
+
+        // Update existing splits with new amounts
+        for (const split of currentSplits) {
+          await this.db.runAsync(
+            'UPDATE splits SET amount = ?, percentage = ?, updated_at = ? WHERE id = ?',
+            [amountPerPerson, percentagePerPerson, new Date().toISOString(), split.id]
+          );
+        }
+
+        // Add new split for the new participant
+        const newSplitId = `${expense.id}_${participantId}`;
+        await this.db.runAsync(
+          `INSERT INTO splits (id, expense_id, participant_id, amount, percentage, type, is_paid, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            newSplitId,
+            expense.id,
+            participantId,
+            amountPerPerson,
+            percentagePerPerson,
+            'equal',
+            0,
+            new Date().toISOString(),
+            new Date().toISOString()
+          ]
+        );
+      }
+
+      console.log('✅ Participant added to all expenses successfully');
+    } catch (error) {
+      console.error('❌ Error adding participant to expenses:', error);
+      throw error;
+    }
+  }
+
+  // User Profile Functions
+  async getUserProfile(userId: string): Promise<any | null> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    try {
+      const user = await this.db.getFirstAsync(
+        'SELECT * FROM users WHERE id = ?',
+        [userId]
+      );
+      return user || null;
+    } catch (error) {
+      console.error('❌ Error getting user profile:', error);
+      return null;
+    }
+  }
+
+  async getUserByCredential(credential: string): Promise<any | null> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    try {
+      const user = await this.db.getFirstAsync(
+        'SELECT * FROM users WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)',
+        [credential, credential]
+      );
+      return user || null;
+    } catch (error) {
+      console.error('❌ Error getting user by credential:', error);
+      return null;
+    }
+  }
+
+  async createUser(user: {
+    id: string;
+    username: string;
+    email: string;
+    password: string;
+    name: string;
+    phone?: string;
+    alias_cbu?: string;
+    skipPassword?: boolean;
+  }): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      await this.db.runAsync(
+        `INSERT INTO users (id, username, email, password, name, phone, alias_cbu, skip_password, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          user.id,
+          user.username,
+          user.email,
+          user.password,
+          user.name,
+          user.phone || null,
+          user.alias_cbu || null,
+          user.skipPassword ? 1 : 0,
+          new Date().toISOString(),
+          new Date().toISOString()
+        ]
+      );
+      console.log('✅ User created successfully');
+    } catch (error) {
+      console.error('❌ Error creating user:', error);
+      throw error;
+    }
+  }
+
+  async updateUserProfile(userId: string, updates: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    alias_cbu?: string;
+    preferred_currency?: string;
+    skipPassword?: boolean;
+    avatar?: string;
+  }): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const fields: string[] = [];
+      const values: any[] = [];
+
+      if (updates.name !== undefined) {
+        fields.push('name = ?');
+        values.push(updates.name);
+      }
+      if (updates.email !== undefined) {
+        fields.push('email = ?');
+        values.push(updates.email);
+      }
+      if (updates.phone !== undefined) {
+        fields.push('phone = ?');
+        values.push(updates.phone);
+      }
+      if (updates.alias_cbu !== undefined) {
+        fields.push('alias_cbu = ?');
+        values.push(updates.alias_cbu);
+      }
+      if (updates.preferred_currency !== undefined) {
+        fields.push('preferred_currency = ?');
+        values.push(updates.preferred_currency);
+      }
+      if (updates.skipPassword !== undefined) {
+        fields.push('skip_password = ?');
+        values.push(updates.skipPassword ? 1 : 0);
+      }
+      if (updates.avatar !== undefined) {
+        fields.push('avatar = ?');
+        values.push(updates.avatar || null);
+      }
+
+      fields.push('updated_at = ?');
+      values.push(new Date().toISOString());
+      values.push(userId);
+
+      await this.db.runAsync(
+        `UPDATE users SET ${fields.join(', ')} WHERE id = ?`,
+        values
+      );
+
+      console.log('✅ User profile updated successfully');
+    } catch (error) {
+      console.error('❌ Error updating user profile:', error);
+      throw error;
+    }
+  }
+
+  async forceUpdateDemoUser(userId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      await this.db.runAsync(
+        'UPDATE users SET skip_password = 1, updated_at = ? WHERE id = ?',
+        [new Date().toISOString(), userId]
+      );
+
+      console.log('✅ Demo user skip_password forced to 1');
+    } catch (error) {
+      console.error('❌ Error forcing demo user update:', error);
+      throw error;
+    }
+  }
+
+  async updateUserPassword(userId: string, newPassword: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      await this.db.runAsync(
+        'UPDATE users SET password = ?, updated_at = ? WHERE id = ?',
+        [newPassword, new Date().toISOString(), userId]
+      );
+
+      console.log('✅ User password updated successfully');
+    } catch (error) {
+      console.error('❌ Error updating user password:', error);
+      throw error;
+    }
+  }
+
+  async updateUserNotifications(userId: string, notifications: {
+    expenseAdded?: boolean;
+    paymentReceived?: boolean;
+    eventUpdated?: boolean;
+    weeklyReport?: boolean;
+  }): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const fields: string[] = [];
+      const values: any[] = [];
+
+      if (notifications.expenseAdded !== undefined) {
+        fields.push('notifications_expense_added = ?');
+        values.push(notifications.expenseAdded ? 1 : 0);
+      }
+      if (notifications.paymentReceived !== undefined) {
+        fields.push('notifications_payment_received = ?');
+        values.push(notifications.paymentReceived ? 1 : 0);
+      }
+      if (notifications.eventUpdated !== undefined) {
+        fields.push('notifications_event_updated = ?');
+        values.push(notifications.eventUpdated ? 1 : 0);
+      }
+      if (notifications.weeklyReport !== undefined) {
+        fields.push('notifications_weekly_report = ?');
+        values.push(notifications.weeklyReport ? 1 : 0);
+      }
+
+      fields.push('updated_at = ?');
+      values.push(new Date().toISOString());
+      values.push(userId);
+
+      await this.db.runAsync(
+        `UPDATE users SET ${fields.join(', ')} WHERE id = ?`,
+        values
+      );
+
+      console.log('✅ User notifications updated successfully');
+    } catch (error) {
+      console.error('❌ Error updating user notifications:', error);
+      throw error;
+    }
+  }
+
+  async updateUserPrivacy(userId: string, privacy: {
+    shareEmail?: boolean;
+    sharePhone?: boolean;
+    allowInvitations?: boolean;
+  }): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const fields: string[] = [];
+      const values: any[] = [];
+
+      if (privacy.shareEmail !== undefined) {
+        fields.push('privacy_share_email = ?');
+        values.push(privacy.shareEmail ? 1 : 0);
+      }
+      if (privacy.sharePhone !== undefined) {
+        fields.push('privacy_share_phone = ?');
+        values.push(privacy.sharePhone ? 1 : 0);
+      }
+      if (privacy.allowInvitations !== undefined) {
+        fields.push('privacy_allow_invitations = ?');
+        values.push(privacy.allowInvitations ? 1 : 0);
+      }
+
+      fields.push('updated_at = ?');
+      values.push(new Date().toISOString());
+      values.push(userId);
+
+      await this.db.runAsync(
+        `UPDATE users SET ${fields.join(', ')} WHERE id = ?`,
+        values
+      );
+
+      console.log('✅ User privacy settings updated successfully');
+    } catch (error) {
+      console.error('❌ Error updating user privacy:', error);
+      throw error;
+    }
+  }
+}
+
+export const databaseService = new DatabaseService();

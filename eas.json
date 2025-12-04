@@ -1,0 +1,48 @@
+{
+  "cli": {
+    "version": ">= 8.0.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EAS_NO_VCS": "1"
+      },
+      "cache": {
+        "disabled": true
+      }
+    },
+    "production_apk": {
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "env": {
+        "EAS_NO_VCS": "1"
+      }
+    },
+    "production_aab": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EAS_NO_VCS": "1"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EAS_NO_VCS": "1"
+      }
+    }
+  }
+}

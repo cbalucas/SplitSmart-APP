@@ -1,0 +1,138 @@
+# 📋 Guía de Versionado de SplitSmart
+
+## 📊 Sistema de Versiones
+
+### Versión Actual: **v1.1.0** (versionCode: 2)
+
+---
+
+## 🔢 Formato de Versión
+
+La app usa **Versionado Semántico**: `MAJOR.MINOR.PATCH`
+
+```
+v1.1.0
+ │ │ │
+ │ │ └── PATCH: Bug fixes (1.1.0 → 1.1.1)
+ │ └──── MINOR: Nuevas funcionalidades (1.1.0 → 1.2.0)
+ └────── MAJOR: Cambios incompatibles (1.1.0 → 2.0.0)
+```
+
+### Cuándo incrementar cada parte:
+
+- **🔴 MAJOR**: Cambios que rompen compatibilidad
+  - Rediseño completo de la app
+  - Cambios en estructura de base de datos que requieren migración compleja
+  - Eliminación de funcionalidades importantes
+
+- **🟡 MINOR**: Nuevas funcionalidades (compatibles)
+  - Agregar sistema de participantes permanentes
+  - Agregar integración con WhatsApp
+  - Nuevas pantallas o módulos
+
+- **🟢 PATCH**: Correcciones de bugs
+  - Arreglar cálculos incorrectos
+  - Corregir crashes
+  - Mejorar rendimiento
+
+---
+
+## 🚀 Scripts Disponibles
+
+### 1. Incrementar Versión
+
+```powershell
+# Incrementar PATCH (1.1.0 → 1.1.1)
+.\increment-version.ps1 patch
+
+# Incrementar MINOR (1.1.0 → 1.2.0)
+.\increment-version.ps1 minor
+
+# Incrementar MAJOR (1.1.0 → 2.0.0)
+.\increment-version.ps1 major
+```
+
+### 2. Generar APK
+
+```powershell
+# Genera el APK con la versión actual
+.\build-apk.ps1
+```
+
+El APK se generará con el nombre: `SplitSmart-v1.1.0-release.apk`
+
+---
+
+## 📦 Ubicación de Archivos de Versión
+
+- **app.json**: Versión principal de la app
+  ```json
+  "version": "1.1.0",
+  "android": {
+    "versionCode": 2
+  }
+  ```
+
+- **android/app/build.gradle**: Configuración de build Android
+  ```gradle
+  versionCode 2
+  versionName "1.1.0"
+  ```
+
+---
+
+## 📝 Historial de Versiones
+
+### v1.1.0 (versionCode: 2) - 25/11/2025
+**Nuevas Funcionalidades:**
+- ✅ Sistema de tipos de participantes (friend/temporary)
+- ✅ Carga masiva de amigos
+- ✅ Mejoras en mensajes de WhatsApp (agrupación por pagador/destinatario)
+- ✅ Toggle "Guardar como amigo permanente"
+- ✅ Selección múltiple de amigos
+- ✅ ManageFriends filtra solo amigos permanentes
+
+**Bug Fixes:**
+- ✅ Corregido: Splits no se cargaban en SummaryScreen
+- ✅ Corregido: Participantes se reseteaban al editar gasto
+- ✅ Implementado: Delete/Archive de eventos
+- ✅ Eliminado: DatabaseService.ts obsoleto
+
+### v1.0.0 (versionCode: 1) - 20/11/2025
+- 🎉 Lanzamiento inicial
+- ✅ Gestión de eventos
+- ✅ Gestión de participantes
+- ✅ Gestión de gastos
+- ✅ Cálculo de liquidaciones
+- ✅ Tema claro/oscuro
+- ✅ Base de datos SQLite
+
+---
+
+## 🎯 Workflow Recomendado
+
+1. **Haz cambios en el código**
+2. **Decide el tipo de versión** (major/minor/patch)
+3. **Incrementa la versión**: `.\increment-version.ps1 [tipo]`
+4. **Genera el APK**: `.\build-apk.ps1`
+5. **Prueba el APK** en dispositivo
+6. **Actualiza este README** con los cambios en el historial
+
+---
+
+## 📲 APK Generados
+
+Ubicación: `android/app/build/outputs/apk/release/`
+
+Formato de nombre: `SplitSmart-v[VERSION]-release.apk`
+
+Ejemplo: `SplitSmart-v1.1.0-release.apk`
+
+---
+
+## ⚠️ Importante
+
+- **SIEMPRE** incrementa `versionCode` en cada build (automático con script)
+- **NUNCA** uses el mismo `versionCode` para builds diferentes
+- Google Play rechazará APKs con `versionCode` menor o igual al actual
+- Mantén sincronizadas las versiones en `app.json` y `build.gradle` (automático con script)
