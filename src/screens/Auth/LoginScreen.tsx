@@ -1,56 +1,92 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
+import { HeaderBar } from '../../components';
+import { LoginFormData, LoginFormErrors } from './types';
+import { createStyles } from './styles';
+import { loginLanguage } from './language';
 
 export default function LoginScreen() {
-  const [credential, setCredential] = useState('');
-  const [password, setPassword] = useState('');
+  const [formData, setFormData] = useState<LoginFormData>({
+    credential: '',
+    password: ''
+  });
   const [showPassword, setShowPassword] = useState(false);
+  const [showDemoInfo, setShowDemoInfo] = useState(false);
+  const [showFutureInfo, setShowFutureInfo] = useState(false);
   const { login, loading } = useAuth();
-  // Removiendo LanguageContext temporalmente para debugging
-  // const { t } = useLanguage();
+  const { theme } = useTheme();
+  const { language } = useLanguage();
+  
+  const styles = createStyles(theme);
+  const t = loginLanguage[language as keyof typeof loginLanguage] || loginLanguage.es;
 
   const handleLogin = async () => {
-    if (!credential) {
-      Alert.alert('Error', 'Por favor ingresa tu usuario o email');
+    if (!formData.credential) {
+      const isDarkMode = theme.colors.surface !== '#FFFFFF';
+      Alert.alert(t.errors.general, t.errors.credentialRequired, [], {
+        userInterfaceStyle: isDarkMode ? 'dark' : 'light'
+      });
       return;
     }
 
     // Si no hay contraseña ingresada, intentar login sin contraseña (skipPassword)
-    const success = await login(credential, password || '');
+    const success = await login(formData.credential, formData.password || '');
     if (!success) {
-      Alert.alert('Error', 'Credenciales incorrectas. Intenta con:\nUsuario: Demo (sin contraseña)');
+      const isDarkMode = theme.colors.surface !== '#FFFFFF';
+      Alert.alert(t.errors.general, t.errors.invalidCredentials, [], {
+        userInterfaceStyle: isDarkMode ? 'dark' : 'light'
+      });
     }
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
-      <View style={styles.header}>
-        <Text style={styles.title}>SplitSmart</Text>
-        <Text style={styles.subtitle}>Divide gastos inteligentemente</Text>
-      </View>
-
-      <View style={styles.form}>
-        <Text style={styles.label}>Usuario o Email</Text>
+    <View style={styles.container}>
+      {/* Header with theme and language controls only */}
+      <HeaderBar
+        title={t.title}
+        titleAlignment="left"
+        useDynamicColors={true}
+        showThemeToggle={true}
+        showLanguageSelector={true}
+        showBackButton={false}
+        elevation={true}
+      />
+      
+      <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
+        {/* Ícono de la aplicación */}
+        <View style={styles.iconSection}>
+          <Image 
+            source={require('../../../assets/splitsmart/adaptive-icon.png')}
+            style={styles.appIcon}
+            resizeMode="contain"
+          />
+        </View>
+        
+        <View style={styles.form}>
+        <Text style={styles.label}>{t.form.credentialLabel}</Text>
         <TextInput
           style={styles.input}
-          value={credential}
-          onChangeText={setCredential}
-          placeholder="Demo o demo@splitsmart.com"
+          value={formData.credential}
+          onChangeText={(text) => setFormData(prev => ({ ...prev, credential: text }))}
+          placeholder={t.form.credentialPlaceholder}
+          placeholderTextColor={theme.colors.onSurfaceVariant}
           autoCapitalize="none"
           autoCorrect={false}
         />
 
-        <Text style={styles.label}>Contraseña (Demo no requiere)</Text>
+        <Text style={styles.label}>{t.form.passwordLabel}</Text>
         <View style={styles.passwordContainer}>
           <TextInput
             style={styles.passwordInput}
-            value={password}
-            onChangeText={setPassword}
-            placeholder="No requerida para Demo"
+            value={formData.password}
+            onChangeText={(text) => setFormData(prev => ({ ...prev, password: text }))}
+            placeholder={t.form.passwordPlaceholder}
+            placeholderTextColor={theme.colors.onSurfaceVariant}
             secureTextEntry={!showPassword}
           />
           <TouchableOpacity
@@ -60,7 +96,7 @@ export default function LoginScreen() {
             <MaterialCommunityIcons
               name={showPassword ? "eye-off" : "eye"}
               size={24}
-              color="#666"
+              color={theme.colors.onSurfaceVariant}
             />
           </TouchableOpacity>
         </View>
@@ -71,116 +107,55 @@ export default function LoginScreen() {
           disabled={loading ? true : false}
         >
           <Text style={styles.buttonText}>
-            {loading ? 'Ingresando...' : 'Iniciar Sesión'}
+            {loading ? t.form.loginButtonLoading : t.form.loginButton}
           </Text>
         </TouchableOpacity>
 
-        <View style={styles.demoInfo}>
-          <Text style={styles.demoTitle}>🎯 Datos de prueba:</Text>
-          <Text style={styles.demoText}>Usuario: Demo</Text>
-          <Text style={styles.demoText}>Email: demo@splitsmart.com</Text>
-          <Text style={styles.demoText}>✨ Sin contraseña requerida</Text>
+        <TouchableOpacity 
+          style={styles.demoInfoButton}
+          onPress={() => setShowDemoInfo(!showDemoInfo)}
+        >
+          <View style={styles.demoInfoHeader}>
+            <Text style={styles.demoTitle}>{t.demo.title}</Text>
+            <MaterialCommunityIcons
+              name={showDemoInfo ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={theme.colors.primary}
+            />
+          </View>
+          {showDemoInfo && (
+            <View style={styles.demoInfoContent}>
+              <Text style={styles.demoText}>{t.demo.username}</Text>
+              <Text style={styles.demoText}>{t.demo.email}</Text>
+              <Text style={styles.demoText}>{t.demo.passwordNote}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        {/* Leyenda de desarrollo futuro */}
+        <TouchableOpacity 
+          style={styles.futureFeaturesButton}
+          onPress={() => setShowFutureInfo(!showFutureInfo)}
+        >
+          <View style={styles.futureFeaturesHeader}>
+            <Text style={styles.futureFeaturesTitle}>{t.futureFeatures.title}</Text>
+            <MaterialCommunityIcons
+              name={showFutureInfo ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={theme.colors.primary}
+            />
+          </View>
+          {showFutureInfo && (
+            <View style={styles.futureFeaturesContent}>
+              <Text style={styles.futureFeaturesText}>{t.futureFeatures.description}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
         </View>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-    padding: 20
-  },
-  header: {
-    alignItems: 'center',
-    marginTop: 60,
-    marginBottom: 40
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#4B89DC',
-    marginBottom: 8
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center'
-  },
-  form: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 24,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-    marginTop: 16
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#f8f9fa'
-  },
-  passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    backgroundColor: '#f8f9fa'
-  },
-  passwordInput: {
-    flex: 1,
-    padding: 12,
-    fontSize: 16
-  },
-  eyeButton: {
-    padding: 12
-  },
-  button: {
-    backgroundColor: '#4B89DC',
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 24
-  },
-  buttonDisabled: {
-    opacity: 0.6
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600'
-  },
-  demoInfo: {
-    marginTop: 24,
-    padding: 16,
-    backgroundColor: '#f0f7ff',
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#4B89DC'
-  },
-  demoTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#4B89DC',
-    marginBottom: 8
-  },
-  demoText: {
-    fontSize: 13,
-    color: '#666',
-    fontFamily: 'monospace'
-  }
-});
+
+
