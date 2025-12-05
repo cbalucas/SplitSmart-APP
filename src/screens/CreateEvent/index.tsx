@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,37 +16,34 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
-import { Theme } from '../../constants/theme';
+import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import { 
   Input,
-  LanguageSelector,
-  ThemeToggle,
   Button,
-  Card
+  Card,
+  HeaderBar
 } from '../../components';
 import { useData } from '../../context/DataContext';
-
-
-interface EventFormData {
-  name: string;
-  description: string;
-  startDate: Date | null;
-  location: string;
-  currency: 'ARS' | 'USD' | 'EUR' | 'BRL';
-  eventType: 'public' | 'private';
-  category: 'viaje' | 'casa' | 'cena' | 'trabajo' | 'evento' | 'otro';
-}
+import { EventFormData, EventFormErrors, RouteParams } from './types';
+import { createEventLanguage } from './language';
+import { createStyles } from './styles';
 
 const CreateEventScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { theme } = useTheme();
-  const { addEvent, updateEvent, events } = useData();
+  const { language } = useLanguage();
+  const { user } = useAuth();
+  const { addEvent, updateEvent, events, getUserProfile } = useData();
   const insets = useSafeAreaInsets();
   const styles = createStyles(theme, insets);
   
+  // Get translations
+  const t = createEventLanguage[language] || createEventLanguage.es;
+  
   // Detectar si estamos editando o creando
-  const routeParams = route.params as any;
+  const routeParams = route.params as RouteParams;
   const isEditing = routeParams?.mode === 'edit';
   const editingEventId = routeParams?.eventId;
 
@@ -66,16 +63,44 @@ const CreateEventScreen: React.FC = () => {
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Cargar datos del evento si estamos editando - cada vez que la pantalla se enfoca
+  // Cargar moneda preferida del usuario para eventos nuevos
+  const loadUserPreferredCurrency = async () => {
+    if (!user?.id) {
+      console.log('No user ID available for loading preferred currency');
+      return;
+    }
+    
+    try {
+      console.log('ðŸ“¥ Loading user preferred currency...');
+      const userProfile = await getUserProfile(user.id);
+      if (userProfile?.preferred_currency) {
+        console.log('âœ… User preferred currency found:', userProfile.preferred_currency);
+        setFormData(prev => ({
+          ...prev,
+          currency: userProfile.preferred_currency as 'ARS' | 'USD' | 'EUR' | 'BRL'
+        }));
+      } else {
+        console.log('ðŸ’° No preferred currency found in profile, using ARS default');
+      }
+    } catch (error) {
+      console.log('âŒ Could not load user preferred currency:', error);
+      // Mantener ARS como fallback
+    }
+  };
+
   useFocusEffect(
     React.useCallback(() => {
-      console.log('🔍 CreateEvent focused. isEditing:', isEditing, 'eventId:', editingEventId);
+      console.log('ðŸ” CreateEvent focused. isEditing:', isEditing, 'eventId:', editingEventId);
       if (isEditing && editingEventId && events.length > 0) {
-        console.log('📥 Loading event data for editing...');
+        console.log('ðŸ“¥ Loading event data for editing...');
         loadEventData();
       } else if (isEditing && editingEventId && events.length === 0) {
-        console.warn('⚠️ No events loaded yet');
+        console.warn('âš ï¸ No events loaded yet');
+      } else if (!isEditing && user?.id) {
+        console.log('ðŸ’° Loading user preferred currency for new event...');
+        loadUserPreferredCurrency();
       }
-    }, [isEditing, editingEventId, events])
+    }, [isEditing, editingEventId, events, user?.id])
   );
 
   const loadEventData = async () => {
@@ -84,12 +109,12 @@ const CreateEventScreen: React.FC = () => {
     setLoading(true);
     try {
       // Buscar el evento en la lista de eventos (ya disponible desde useData)
-      console.log('🔎 Searching for event:', editingEventId);
-      console.log('📋 Available events:', events.length);
+      console.log('ðŸ”Ž Searching for event:', editingEventId);
+      console.log('ðŸ“‹ Available events:', events.length);
       const eventToEdit = events.find(e => e.id === editingEventId);
       
       if (eventToEdit) {
-        console.log('✅ Event found:', eventToEdit.name);
+        console.log('âœ… Event found:', eventToEdit.name);
         setFormData({
           name: eventToEdit.name,
           description: eventToEdit.description || '',
@@ -99,19 +124,19 @@ const CreateEventScreen: React.FC = () => {
           eventType: eventToEdit.type as 'public' | 'private',
           category: eventToEdit.category as 'viaje' | 'casa' | 'cena' | 'trabajo' | 'evento' | 'otro'
         });
-        console.log('📝 Form data loaded successfully');
+        console.log('ðŸ“ Form data loaded successfully');
       } else {
-        console.error('❌ Event not found in events list');
-        Alert.alert('Error', 'No se encontró el evento');
+        console.error('âŒ Event not found in events list');
+        Alert.alert(t.actions.error, t.validation.eventNotFound);
       }
     } catch (error) {
       console.error('Error loading event data:', error);
-      Alert.alert('Error', 'No se pudieron cargar los datos del evento');
+      Alert.alert(t.actions.error, t.validation.loadEventDataError);
     }
     setLoading(false);
   };
 
-  // Manejar botón back de Android
+  // Manejar botÃ³n back de Android
   useEffect(() => {
     const backAction = () => {
       // Acceder a formData directamente en el momento del evento
@@ -122,11 +147,11 @@ const CreateEventScreen: React.FC = () => {
 
       if (hasChanges) {
         Alert.alert(
-          'Descartar cambios',
-          '¿Estás seguro de que quieres salir? Los cambios no guardados se perderán.',
+          t.actions.discardChanges,
+          t.actions.discardMessage,
           [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Salir', onPress: () => (navigation as any).goBack(), style: 'destructive' }
+            { text: t.actions.cancel, style: 'cancel' },
+            { text: t.actions.exit, onPress: () => (navigation as any).goBack(), style: 'destructive' }
           ]
         );
       } else {
@@ -143,22 +168,22 @@ const CreateEventScreen: React.FC = () => {
     return () => backHandler.remove();
   }, []); // Sin dependencias para que solo se registre una vez
 
-  // Validación del formulario
+  // ValidaciÃ³n del formulario
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = 'El nombre del evento es requerido';
+      newErrors.name = t.validation.nameRequired;
     } else if (formData.name.length > 50) {
-      newErrors.name = 'El nombre no puede exceder 50 caracteres';
+      newErrors.name = t.validation.nameMaxLength;
     }
 
     if (!formData.startDate) {
-      newErrors.startDate = 'La fecha de inicio es requerida';
+      newErrors.startDate = t.validation.dateRequired;
     }
 
     if (formData.description.length > 200) {
-      newErrors.description = 'La descripción no puede exceder 200 caracteres';
+      newErrors.description = t.validation.descriptionMaxLength;
     }
 
     setErrors(newErrors);
@@ -189,11 +214,11 @@ const CreateEventScreen: React.FC = () => {
 
     if (hasChanges) {
       Alert.alert(
-        'Descartar cambios',
-        '¿Estás seguro de que quieres salir? Los cambios no guardados se perderán.',
+        t.actions.discardChanges,
+        t.actions.discardMessage,
         [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Salir', onPress: () => (navigation as any).goBack(), style: 'destructive' }
+          { text: t.actions.cancel, style: 'cancel' },
+          { text: t.actions.exit, onPress: () => (navigation as any).goBack(), style: 'destructive' }
         ]
       );
     } else {
@@ -242,11 +267,11 @@ const CreateEventScreen: React.FC = () => {
       }
       
       Alert.alert(
-        isEditing ? 'Evento actualizado' : 'Evento creado',
-        isEditing ? 'El evento se ha actualizado exitosamente' : 'El evento se ha creado exitosamente',
+        isEditing ? t.actions.eventUpdated : t.actions.eventCreated,
+        isEditing ? t.actions.eventUpdatedSuccess : t.actions.eventCreatedSuccess,
         [
           { 
-            text: 'OK', 
+            text: t.actions.ok, 
             onPress: () => {
               if (isEditing && editingEventId) {
                 // Si estamos editando, volver a EventDetail
@@ -261,7 +286,7 @@ const CreateEventScreen: React.FC = () => {
       );
     } catch (error) {
       console.error('Error creating event:', error);
-      Alert.alert('Error', 'No se pudo crear el evento. Intenta nuevamente.');
+      Alert.alert(t.actions.error, t.validation.createEventError);
     }
   };
 
@@ -278,6 +303,16 @@ const CreateEventScreen: React.FC = () => {
     return symbols[currency as keyof typeof symbols] || '$';
   };
 
+  const getCurrencyFlag = (currency: string): string => {
+    const flags = { 
+      ARS: '🇦🇷', 
+      USD: '🇺🇸', 
+      EUR: '🇪🇺', 
+      BRL: '🇧🇷' 
+    };
+    return flags[currency as keyof typeof flags] || '💰';
+  };
+
   const getCategoryIcon = (category: string): string => {
     const icons = {
       viaje: 'airplane',
@@ -288,6 +323,19 @@ const CreateEventScreen: React.FC = () => {
       otro: 'dots-horizontal'
     };
     return icons[category as keyof typeof icons] || 'calendar';
+  };
+
+  const getCategoryColor = (category: string, isActive: boolean = false): string => {
+    const colors = {
+      viaje: '#2196F3', // Azul para viajes
+      casa: '#4CAF50',  // Verde para casa
+      cena: '#FF9800',  // Naranja para cena
+      trabajo: '#9C27B0', // Morado para trabajo
+      evento: '#F44336',  // Rojo para eventos
+      otro: '#607D8B'     // Gris azulado para otros
+    };
+    const baseColor = colors[category as keyof typeof colors] || '#607D8B';
+    return isActive ? theme.colors.primary : baseColor;
   };
 
   const handleDatePress = () => {
@@ -306,30 +354,29 @@ const CreateEventScreen: React.FC = () => {
 
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
-      {/* Header simple sin botón back customizado */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>
-          {isEditing ? 'Editar Evento' : 'Crear Evento'}
-        </Text>
-        <View style={styles.headerRight}>
-          <LanguageSelector size={26} color={theme.colors.onSurface} />
-          <ThemeToggle size={24} color={theme.colors.onSurface} />
-        </View>
-      </View>
+    <View style={styles.container}>
+      {/* HeaderBar genérico con controles de tema e idioma */}
+      <HeaderBar 
+        title={isEditing ? t.header.editEvent : t.header.createEvent}
+        showThemeToggle={true}
+        showLanguageSelector={true}
+        useDynamicColors={true}
+        titleAlignment="left"
+      />
 
-      <ScrollView 
-        style={styles.scrollView} 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollViewContent}
-      >
-        {/* Información Básica */}
+      <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
+        <ScrollView 
+          style={styles.scrollView} 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollViewContent}
+        >
+        {/* InformaciÃ³n BÃ¡sica */}
         <Card style={StyleSheet.flatten([styles.card])}>
-          <Text style={styles.cardTitle}>Información Básica</Text>
+          <Text style={styles.cardTitle}>{t.form.basicInformation}</Text>
           
           <Input
-            label="Nombre del Evento *"
-            placeholder="Ej: Viaje a Bariloche"
+            label={t.form.eventName}
+            placeholder={t.form.eventNamePlaceholder}
             value={formData.name}
             onChangeText={(text) => handleInputChange('name', text)}
             icon="pencil"
@@ -339,8 +386,8 @@ const CreateEventScreen: React.FC = () => {
           />
 
           <Input
-            label="Descripción (Opcional)"
-            placeholder="Describe de qué trata el evento..."
+            label={t.form.description}
+            placeholder={t.form.descriptionPlaceholder}
             value={formData.description}
             onChangeText={(text) => handleInputChange('description', text)}
             multiline
@@ -351,9 +398,9 @@ const CreateEventScreen: React.FC = () => {
           />
         </Card>
 
-        {/* Fechas y Ubicación */}
+        {/* Fechas y UbicaciÃ³n */}
         <Card style={StyleSheet.flatten([styles.card])}>
-          <Text style={styles.cardTitle}>Fechas y Ubicación</Text>
+          <Text style={styles.cardTitle}>{t.form.datesAndLocation}</Text>
           
           <TouchableOpacity
             style={styles.dateInput}
@@ -367,12 +414,12 @@ const CreateEventScreen: React.FC = () => {
                 style={styles.inputIcon}
               />
               <View style={styles.inputContent}>
-                <Text style={styles.inputLabel}>Fecha de Inicio *</Text>
+                <Text style={styles.inputLabel}>{t.form.startDate}</Text>
                 <Text style={[
                   styles.inputValue,
                   !formData.startDate && styles.placeholder
                 ]}>
-                  {formData.startDate ? formatDate(formData.startDate) : 'Seleccionar fecha'}
+                  {formData.startDate ? formatDate(formData.startDate) : t.form.selectDate}
                 </Text>
               </View>
             </View>
@@ -382,8 +429,8 @@ const CreateEventScreen: React.FC = () => {
           </TouchableOpacity>
 
           <Input
-            label="Ubicación (Opcional)"
-            placeholder="Ej: Bariloche, Argentina"
+            label={t.form.location}
+            placeholder={t.form.locationPlaceholder}
             value={formData.location}
             onChangeText={(text) => handleInputChange('location', text)}
             icon="map-marker-outline"
@@ -391,12 +438,12 @@ const CreateEventScreen: React.FC = () => {
           />
         </Card>
 
-        {/* Configuración Financiera */}
+        {/* ConfiguraciÃ³n Financiera */}
         <Card style={StyleSheet.flatten([styles.card])}>
-          <Text style={styles.cardTitle}>Configuración Financiera</Text>
+          <Text style={styles.cardTitle}>{t.form.financialConfiguration}</Text>
           
           <View style={styles.currencyRow}>
-            <Text style={styles.inputLabel}>Moneda *</Text>
+            <Text style={styles.inputLabel}>{t.form.currency}</Text>
             <View style={styles.currencyButtons}>
               {(['ARS', 'USD', 'EUR', 'BRL'] as const).map((curr) => (
                 <TouchableOpacity
@@ -407,12 +454,17 @@ const CreateEventScreen: React.FC = () => {
                   ]}
                   onPress={() => handleInputChange('currency', curr)}
                 >
-                  <Text style={[
-                    styles.currencyText,
-                    formData.currency === curr && styles.currencyTextActive
-                  ]}>
-                    {curr}
-                  </Text>
+                  <View style={styles.currencyContent}>
+                    <Text style={styles.currencyFlag}>
+                      {getCurrencyFlag(curr)}
+                    </Text>
+                    <Text style={[
+                      styles.currencyText,
+                      formData.currency === curr && styles.currencyTextActive
+                    ]}>
+                      {curr}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               ))}
             </View>
@@ -421,12 +473,12 @@ const CreateEventScreen: React.FC = () => {
 
         </Card>
 
-        {/* Configuración de Privacidad */}
+        {/* ConfiguraciÃ³n de Privacidad */}
         <Card style={StyleSheet.flatten([styles.card])}>
-          <Text style={styles.cardTitle}>Configuración de Privacidad</Text>
+          <Text style={styles.cardTitle}>{t.form.privacyConfiguration}</Text>
           
-          <View style={styles.radioGroup}>
-            <Text style={styles.radioLabel}>Tipo de Evento</Text>
+          <View style={styles.radioRow}>
+            <Text style={styles.inputLabel}>{t.form.eventType}</Text>
             
             <TouchableOpacity
               style={styles.radioOption}
@@ -438,8 +490,8 @@ const CreateEventScreen: React.FC = () => {
                 color={theme.colors.primary}
               />
               <View style={styles.radioContent}>
-                <Text style={styles.radioTitle}>🌐 Público</Text>
-                <Text style={styles.radioDescription}>Visible para todos los usuarios</Text>
+                <Text style={styles.radioTitle}>{t.form.publicEvent}</Text>
+                <Text style={styles.radioDescription}>{t.form.publicEventDescription}</Text>
               </View>
             </TouchableOpacity>
 
@@ -453,22 +505,22 @@ const CreateEventScreen: React.FC = () => {
                 color={theme.colors.primary}
               />
               <View style={styles.radioContent}>
-                <Text style={styles.radioTitle}>🔒 Privado</Text>
-                <Text style={styles.radioDescription}>Solo visible para participantes invitados</Text>
+                <Text style={styles.radioTitle}>{t.form.privateEvent}</Text>
+                <Text style={styles.radioDescription}>{t.form.privateEventDescription}</Text>
               </View>
             </TouchableOpacity>
           </View>
 
           <View style={styles.categoryRow}>
-            <Text style={styles.inputLabel}>Categoría</Text>
+            <Text style={styles.inputLabel}>{t.form.category}</Text>
             <View style={styles.categoryButtons}>
               {([
-                { key: 'viaje', label: 'Viaje', icon: 'airplane' },
-                { key: 'casa', label: 'Casa', icon: 'home' },
-                { key: 'cena', label: 'Cena', icon: 'food' },
-                { key: 'trabajo', label: 'Trabajo', icon: 'briefcase' },
-                { key: 'evento', label: 'Evento', icon: 'calendar' },
-                { key: 'otro', label: 'Otro', icon: 'dots-horizontal' }
+                { key: 'viaje', label: t.form.categories.travel, icon: 'airplane' },
+                { key: 'casa', label: t.form.categories.home, icon: 'home' },
+                { key: 'cena', label: t.form.categories.dinner, icon: 'food' },
+                { key: 'trabajo', label: t.form.categories.work, icon: 'briefcase' },
+                { key: 'evento', label: t.form.categories.event, icon: 'calendar' },
+                { key: 'otro', label: t.form.categories.other, icon: 'dots-horizontal' }
               ] as const).map((cat) => (
                 <TouchableOpacity
                   key={cat.key}
@@ -481,7 +533,7 @@ const CreateEventScreen: React.FC = () => {
                   <MaterialCommunityIcons
                     name={cat.icon as any}
                     size={16}
-                    color={formData.category === cat.key ? theme.colors.onPrimary : theme.colors.onSurfaceVariant}
+                    color={getCategoryColor(cat.key, formData.category === cat.key)}
                   />
                   <Text style={[
                     styles.categoryButtonText,
@@ -499,270 +551,38 @@ const CreateEventScreen: React.FC = () => {
 
         {/* Espacio para los botones footer */}
         <View style={styles.footerSpace} />
-      </ScrollView>
+        </ScrollView>
 
-      {/* DateTimePicker */}
-      {showDatePicker && (
-        <DateTimePicker
-          value={formData.startDate || new Date()}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={onDateChange}
-        />
-      )}
+        {/* DateTimePicker */}
+        {showDatePicker && (
+          <DateTimePicker
+            value={formData.startDate || new Date()}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={onDateChange}
+          />
+        )}
 
-      {/* Botones Footer Sticky */}
+        {/* Botones Footer Sticky */}
       <View style={styles.footer}>
         <Button
-          title="Cancelar"
+          title={t.actions.cancel}
           variant="outlined"
           onPress={handleBack}
           style={StyleSheet.flatten([styles.cancelButton])}
         />
         <Button
-          title="Crear Evento"
+          title={isEditing ? t.actions.updateEvent : t.actions.createEvent}
           variant="filled"
           onPress={handleCreateEvent}
           disabled={!isFormValid()}
           style={StyleSheet.flatten([styles.createButton])}
         />
-      </View>
+        </View>
 
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 };
 
 export default CreateEventScreen;
-
-const createStyles = (theme: Theme, insets: any) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    } as ViewStyle,
-
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      paddingTop: 12, // SafeAreaView handles top inset
-      backgroundColor: theme.colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.outline,
-    } as ViewStyle,
-
-    headerTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: theme.colors.onSurface,
-      flex: 1,
-    } as TextStyle,
-
-    headerRight: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    } as ViewStyle,
-
-    scrollView: {
-      flex: 1,
-      paddingHorizontal: 20,
-    } as ViewStyle,
-
-    scrollViewContent: {
-      paddingBottom: 40, // SafeAreaView handles bottom inset
-    } as ViewStyle,
-
-    card: {
-      marginVertical: 8,
-    } as ViewStyle,
-
-    cardTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: theme.colors.onSurface,
-      marginBottom: 16,
-    } as TextStyle,
-
-    input: {
-      marginBottom: 16,
-    } as ViewStyle,
-
-    dateInput: {
-      marginBottom: 16,
-    } as ViewStyle,
-
-    inputWrapper: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: theme.colors.outline,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      backgroundColor: theme.colors.surface,
-    } as ViewStyle,
-
-    inputIcon: {
-      marginRight: 12,
-    } as ViewStyle,
-
-    inputContent: {
-      flex: 1,
-    } as ViewStyle,
-
-    inputLabel: {
-      fontSize: 12,
-      color: theme.colors.onSurfaceVariant,
-      marginBottom: 2,
-    } as TextStyle,
-
-    inputValue: {
-      fontSize: 16,
-      color: theme.colors.onSurface,
-    } as TextStyle,
-
-    placeholder: {
-      color: theme.colors.onSurfaceVariant,
-    } as TextStyle,
-
-    errorText: {
-      fontSize: 12,
-      color: theme.colors.error,
-      marginTop: 4,
-    } as TextStyle,
-
-    currencyRow: {
-      marginBottom: 16,
-    } as ViewStyle,
-
-    currencyButtons: {
-      flexDirection: 'row',
-      gap: 8,
-      marginTop: 8,
-    } as ViewStyle,
-
-    currencyButton: {
-      flex: 1,
-      padding: 12,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: theme.colors.outline,
-      alignItems: 'center',
-      backgroundColor: theme.colors.surface,
-    } as ViewStyle,
-
-    currencyButtonActive: {
-      backgroundColor: theme.colors.primary,
-      borderColor: theme.colors.primary,
-    } as ViewStyle,
-
-    currencyText: {
-      fontWeight: '600',
-      color: theme.colors.onSurfaceVariant,
-    } as TextStyle,
-
-    currencyTextActive: {
-      color: theme.colors.onPrimary,
-    } as TextStyle,
-
-    radioGroup: {
-      marginBottom: 16,
-    } as ViewStyle,
-
-    radioLabel: {
-      fontSize: 14,
-      fontWeight: '500',
-      color: theme.colors.onSurface,
-      marginBottom: 12,
-    } as TextStyle,
-
-    radioOption: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      marginBottom: 12,
-    } as ViewStyle,
-
-    radioContent: {
-      marginLeft: 12,
-      flex: 1,
-    } as ViewStyle,
-
-    radioTitle: {
-      fontSize: 16,
-      fontWeight: '500',
-      color: theme.colors.onSurface,
-      marginBottom: 2,
-    } as TextStyle,
-
-    radioDescription: {
-      fontSize: 14,
-      color: theme.colors.onSurfaceVariant,
-    } as TextStyle,
-
-    categoryRow: {
-      marginBottom: 16,
-    } as ViewStyle,
-
-    categoryButtons: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 8,
-      marginTop: 8,
-    } as ViewStyle,
-
-    categoryButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: theme.colors.outline,
-      backgroundColor: theme.colors.surface,
-    } as ViewStyle,
-
-    categoryButtonActive: {
-      backgroundColor: theme.colors.primary,
-      borderColor: theme.colors.primary,
-    } as ViewStyle,
-
-    categoryButtonText: {
-      fontSize: 12,
-      color: theme.colors.onSurfaceVariant,
-      marginLeft: 4,
-    } as TextStyle,
-
-    categoryButtonTextActive: {
-      color: theme.colors.onPrimary,
-    } as TextStyle,
-
-
-
-    footerSpace: {
-      height: 100,
-    } as ViewStyle,
-
-    footer: {
-      flexDirection: 'row',
-      paddingHorizontal: 20,
-      paddingVertical: 16,
-      paddingBottom: 16, // SafeAreaView handles bottom inset
-      backgroundColor: theme.colors.surface,
-      borderTopWidth: 1,
-      borderTopColor: theme.colors.outline,
-      gap: 12,
-    } as ViewStyle,
-
-    cancelButton: {
-      flex: 1,
-    } as ViewStyle,
-
-    createButton: {
-      flex: 1,
-    } as ViewStyle,
-
-
-  });
