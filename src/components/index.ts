@@ -7,6 +7,7 @@ export { default as ListItem } from './ListItem';
 export { default as Button } from './Button';
 export { default as EventCard } from './EventCard';
 export { default as MetricsCard } from './MetricsCard';
+export { default as SearchBar } from './SearchBar';
 export { default as AddParticipantModal } from './AddParticipantModal';
 export { LanguageSelector } from './LanguageSelector';
 export { ThemeToggle } from './ThemeToggle';

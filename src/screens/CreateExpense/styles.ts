@@ -62,22 +62,7 @@ export const createStyles = (theme: Theme) => {
     marginBottom: 16,
   } as ViewStyle,
 
-  searchContainer: {
-    position: 'relative',
-    marginBottom: 4,
-  } as ViewStyle,
 
-  searchInput: {
-    flex: 1,
-  } as ViewStyle,
-
-  clearButton: {
-    position: 'absolute',
-    right: 12,
-    top: 42,
-    padding: 4,
-    zIndex: 1,
-  } as ViewStyle,
 
   dateInput: {
     marginBottom: 16,

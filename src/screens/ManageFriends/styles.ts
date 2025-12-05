@@ -71,36 +71,7 @@ export const createStyles = (theme: Theme) => {
 
 
 
-    searchContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: appColors.surface,
-      marginHorizontal: 16,
-      marginVertical: 12,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      borderWidth: 1,
-      borderColor: appColors.borderPrimary,
-      shadowColor: appColors.special.shadow,
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.08,
-      shadowRadius: 4,
-      elevation: 2,
-    } as ViewStyle,
 
-    searchIcon: {
-      marginRight: 8,
-    } as ViewStyle,
-
-    searchInput: {
-      flex: 1,
-      fontSize: 16,
-      color: appColors.textPrimary,
-    } as TextStyle,
 
     newFriendContainer: {
       flex: 1,

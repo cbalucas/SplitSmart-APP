@@ -736,28 +736,11 @@ const CreateExpenseScreen: React.FC = () => {
         <Card style={styles.card}>
           <Text style={styles.cardTitle}>{t.payerCard.title}</Text>
           
-          <View style={styles.searchContainer}>
-            <Input
-              label={t.payerCard.searchLabel}
-              placeholder={t.payerCard.searchPlaceholder}
-              value={payerSearchQuery}
-              onChangeText={setPayerSearchQuery}
-              icon="magnify"
-              containerStyle={styles.searchInput}
-            />
-            {payerSearchQuery.length > 0 && (
-              <TouchableOpacity
-                style={styles.clearButton}
-                onPress={() => setPayerSearchQuery('')}
-              >
-                <MaterialCommunityIcons
-                  name="close-circle"
-                  size={20}
-                  color={theme.colors.onSurfaceVariant}
-                />
-              </TouchableOpacity>
-            )}
-          </View>
+          <SearchBar
+            value={payerSearchQuery}
+            onChangeText={setPayerSearchQuery}
+            placeholder={t.payerCard.searchPlaceholder}
+          />
           
           {sortedParticipantsForPayer.map((participant) => (
             <TouchableOpacity

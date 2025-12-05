@@ -2,47 +2,50 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   FlatList,
   RefreshControl,
   TouchableOpacity,
   TextInput,
   StyleSheet,
-  ViewStyle,
-  TextStyle,
   Alert
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-// import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
-import { Theme } from '../../constants/theme';
+import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import { 
   EventCard, 
   MetricsCard,
-  EventData, 
-  MetricData,
-  LanguageSelector,
-  ThemeToggle,
-  UserAvatar
+  HeaderBar,
+  UserAvatar,
+  SearchBar
 } from '../../components';
 import { useData } from '../../context/DataContext';
+import { HomeEventData, HomeMetricData, HomeScreenState } from './types';
+import { createStyles } from './styles';
+import { homeLanguage } from './language';
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation();
-  const { theme, toggleTheme, isDarkMode } = useTheme();
+  const { theme } = useTheme();
+  const { language } = useLanguage();
+  const { user } = useAuth();
   const { events: dbEvents, loading: dbLoading, refreshData, getEventParticipants, getExpensesByEvent, updateEvent, deleteEvent } = useData();
-  const insets = useSafeAreaInsets();
-  const styles = createStyles(theme, insets);
+  const styles = createStyles(theme);
+  
+  // Get translations
+  const t = homeLanguage[language] || homeLanguage.es;
 
   // Estados
-  const [filteredEvents, setFilteredEvents] = useState<EventData[]>([]);
+  const [filteredEvents, setFilteredEvents] = useState<HomeEventData[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [metrics, setMetrics] = useState<MetricData[]>([]);
+  const [metrics, setMetrics] = useState<HomeMetricData[]>([]);
   const [eventParticipants, setEventParticipants] = useState<{[eventId: string]: number}>({});
   const [eventExpenses, setEventExpenses] = useState<{[eventId: string]: number}>({});
+  const [eventTotals, setEventTotals] = useState<{[eventId: string]: number}>({});
 
   // Cargar participantes y gastos para cada evento
   const loadEventCounts = useCallback(async () => {
@@ -66,13 +69,6 @@ const HomeScreen: React.FC = () => {
     setEventExpenses(expenseCounts);
   }, [dbEvents, getEventParticipants, getExpensesByEvent]);
 
-
-
-
-
-  // Estado para almacenar los montos calculados
-  const [eventTotals, setEventTotals] = useState<{[eventId: string]: number}>({});
-
   // Calcular montos totales basados en gastos
   const calculateEventTotals = useCallback(async () => {
     const totals: {[eventId: string]: number} = {};
@@ -90,7 +86,7 @@ const HomeScreen: React.FC = () => {
     setEventTotals(totals);
   }, [dbEvents, getExpensesByEvent]);
 
-  // Calcular eventos con montos actualizados (sincrono usando los totales calculados)
+  // Calcular eventos con montos actualizados
   const eventsWithAmounts = useMemo(() => {
     return dbEvents.map(event => ({
       id: event.id,
@@ -101,7 +97,8 @@ const HomeScreen: React.FC = () => {
       currency: event.currency,
       status: event.status as 'active' | 'closed' | 'completed' | 'archived',
       participantCount: eventParticipants[event.id] || 0,
-      expenseCount: eventExpenses[event.id] || 0
+      expenseCount: eventExpenses[event.id] || 0,
+      description: event.description
     }));
   }, [dbEvents, eventTotals, eventParticipants, eventExpenses]);
 
@@ -113,7 +110,7 @@ const HomeScreen: React.FC = () => {
     }
   }, [dbEvents, loadEventCounts, calculateEventTotals]);
 
-  // Efectos
+  // Filtrar eventos y actualizar métricas
   useEffect(() => {
     // Filter events based on search query
     if (!searchQuery.trim()) {
@@ -128,39 +125,38 @@ const HomeScreen: React.FC = () => {
 
     // Update metrics based on current events
     const activeCount = eventsWithAmounts.filter(e => e.status === 'active').length;
-    const closedCount = eventsWithAmounts.filter(e => e.status === 'closed').length;
     const completedCount = eventsWithAmounts.filter(e => e.status === 'completed').length;
     const archivedCount = eventsWithAmounts.filter(e => e.status === 'archived').length;
 
-    const newMetrics: MetricData[] = [
+    const newMetrics: HomeMetricData[] = [
       {
         icon: 'calendar-check',
         value: activeCount.toString(),
-        label: 'Eventos Activos',
-        color: '#4CAF50'
-      },
-      {
-        icon: 'lock',
-        value: closedCount.toString(),
-        label: 'Eventos Cerrados',
-        color: '#FF9800'
+        label: t.metrics.active,
+        color: '#4CAF50'  // Verde - igual que active en EventCard
       },
       {
         icon: 'check-circle',
         value: completedCount.toString(),
-        label: 'Completados',
-        color: '#2196F3'
+        label: t.metrics.completed,
+        color: '#FF9800'  // Naranja - igual que completed en EventCard
       },
       {
         icon: 'archive',
         value: archivedCount.toString(),
-        label: 'Archivados',
-        color: '#9E9E9E'
+        label: t.metrics.archived,
+        color: '#9E9E9E'  // Gris - igual que archived en EventCard
       }
     ];
     setMetrics(newMetrics);
-  }, [eventsWithAmounts, searchQuery]);
+  }, [eventsWithAmounts, searchQuery, t.metrics]);
 
+  // Helper para mostrar alerts con traducciones
+  const showAlert = (title: string, message: string, buttons?: any[]) => {
+    Alert.alert(title, message, buttons);
+  };
+
+  // Refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -169,38 +165,39 @@ const HomeScreen: React.FC = () => {
       await calculateEventTotals();
     } catch (error) {
       console.error('Error refreshing events:', error);
-      Alert.alert('Error', 'No se pudieron cargar los eventos');
+      showAlert(t.actions.error, t.alerts.refreshError);
     }
     setRefreshing(false);
-  }, [refreshData, loadEventCounts, calculateEventTotals]);
+  }, [refreshData, loadEventCounts, calculateEventTotals, t.actions.error, t.alerts.refreshError]);
 
-
-
-  const handleEventPress = (event: EventData) => {
+  // Handlers
+  const handleEventPress = (event: HomeEventData) => {
     (navigation as any).navigate('EventDetail', { eventId: event.id });
   };
 
-  const handleEventEdit = (event: EventData) => {
+  const handleEventEdit = (event: HomeEventData) => {
     (navigation as any).navigate('CreateEvent', { eventId: event.id, mode: 'edit' });
   };
 
-  const handleEventArchive = async (event: EventData) => {
-    Alert.alert(
-      'Archivar Evento',
-      `¿Deseas archivar el evento "${event.name}"? Podrás restaurarlo después.`,
+  const handleEventArchive = async (event: HomeEventData) => {
+    const message = t.alerts.archiveMessage.replace('{{eventName}}', event.name);
+    
+    showAlert(
+      t.alerts.archiveTitle,
+      message,
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t.actions.cancel, style: 'cancel' },
         {
-          text: 'Archivar',
+          text: t.actions.archive,
           style: 'default',
           onPress: async () => {
             try {
               await updateEvent(event.id, { status: 'archived' });
               await onRefresh();
-              Alert.alert('Éxito', 'Evento archivado correctamente');
+              showAlert(t.actions.success, t.alerts.archiveSuccess);
             } catch (error) {
               console.error('Error archiving event:', error);
-              Alert.alert('Error', 'No se pudo archivar el evento');
+              showAlert(t.actions.error, t.alerts.archiveError);
             }
           }
         }
@@ -208,23 +205,25 @@ const HomeScreen: React.FC = () => {
     );
   };
 
-  const handleEventDelete = async (event: EventData) => {
-    Alert.alert(
-      '⚠️ Eliminar Evento',
-      `¿Estás seguro de que quieres eliminar "${event.name}"?\n\nEsta acción eliminará:\n• Todos los gastos\n• Todas las divisiones\n• Historial de pagos\n\nEsta acción NO se puede deshacer.`,
+  const handleEventDelete = async (event: HomeEventData) => {
+    const message = t.alerts.deleteMessage.replace('{{eventName}}', event.name);
+    
+    showAlert(
+      t.alerts.deleteTitle,
+      message,
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t.actions.cancel, style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: t.actions.delete,
           style: 'destructive',
           onPress: async () => {
             try {
               await deleteEvent(event.id);
               await onRefresh();
-              Alert.alert('Éxito', 'Evento eliminado correctamente');
+              showAlert(t.actions.success, t.alerts.deleteSuccess);
             } catch (error) {
               console.error('Error deleting event:', error);
-              Alert.alert('Error', 'No se pudo eliminar el evento');
+              showAlert(t.actions.error, t.alerts.deleteError);
             }
           }
         }
@@ -240,68 +239,17 @@ const HomeScreen: React.FC = () => {
     (navigation as any).navigate('ProfileScreen');
   };
 
-  const renderHeader = () => (
-    <View style={styles.headerGradient}>
-      <View style={styles.headerContent}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>Mis Eventos</Text>
-        </View>
-        
-        <View style={styles.headerRight}>
-          <LanguageSelector size={26} color="#FFFFFF" />
-          
-          <ThemeToggle size={24} color="#FFFFFF" />
-          
-          <TouchableOpacity
-            onPress={() => (navigation as any).navigate('ManageFriends')}
-            style={styles.headerButton}
-          >
-            <MaterialCommunityIcons
-              name="account-group"
-              size={24}
-              color="#FFFFFF"
-            />
-          </TouchableOpacity>
-          
-          <UserAvatar
-            size={32}
-            onPress={handleProfilePress}
-          />
-        </View>
-      </View>
-    </View>
-  );
+  const handleManageFriends = () => {
+    (navigation as any).navigate('ManageFriends');
+  };
 
+  // Render functions
   const renderSearchBar = () => (
-    <View style={styles.searchContainer}>
-      <View style={styles.searchBar}>
-        <MaterialCommunityIcons
-          name="magnify"
-          size={20}
-          color={theme.colors.onSurfaceVariant}
-          style={styles.searchIcon}
-        />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Buscar eventos..."
-          placeholderTextColor={theme.colors.onSurfaceVariant}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity
-            onPress={() => setSearchQuery('')}
-            style={styles.clearButton}
-          >
-            <MaterialCommunityIcons
-              name="close"
-              size={20}
-              color={theme.colors.onSurfaceVariant}
-            />
-          </TouchableOpacity>
-        )}
-      </View>
-    </View>
+    <SearchBar
+      value={searchQuery}
+      onChangeText={setSearchQuery}
+      placeholder={t.search.placeholder}
+    />
   );
 
   const renderMetrics = () => (
@@ -318,9 +266,9 @@ const HomeScreen: React.FC = () => {
     </View>
   );
 
-  const renderEventItem = ({ item }: { item: EventData }) => (
+  const renderEventItem = ({ item }: { item: HomeEventData }) => (
     <EventCard
-      event={item}
+      event={item as any} // EventCard usa EventData, compatible con HomeEventData
       onPress={handleEventPress}
       onEdit={handleEventEdit}
       onArchive={handleEventArchive}
@@ -336,12 +284,12 @@ const HomeScreen: React.FC = () => {
         color={theme.colors.onSurfaceVariant}
       />
       <Text style={styles.emptyTitle}>
-        {searchQuery ? 'No se encontraron eventos' : 'No tienes eventos aún'}
+        {searchQuery ? t.emptyState.noSearchResults : t.emptyState.noEvents}
       </Text>
       <Text style={styles.emptySubtitle}>
         {searchQuery 
-          ? 'Intenta con otros términos de búsqueda'
-          : 'Crea tu primer evento y comienza a dividir gastos'
+          ? t.emptyState.tryOtherSearch
+          : t.emptyState.createFirstEvent
         }
       </Text>
       {!searchQuery && (
@@ -349,222 +297,68 @@ const HomeScreen: React.FC = () => {
           style={styles.emptyButton}
           onPress={handleCreateEvent}
         >
-          <Text style={styles.emptyButtonText}>Crear Evento</Text>
+          <Text style={styles.emptyButtonText}>{t.emptyState.createEventButton}</Text>
         </TouchableOpacity>
       )}
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
-      {renderHeader()}
-      {renderSearchBar()}
-      
-      <FlatList
-        data={filteredEvents}
-        renderItem={renderEventItem}
-        keyExtractor={item => item.id}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing || dbLoading}
-            onRefresh={onRefresh}
-            colors={[theme.colors.primary]}
-            tintColor={theme.colors.primary}
-          />
-        }
-        ListHeaderComponent={renderMetrics}
-        ListEmptyComponent={renderEmptyState}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={
-          filteredEvents.length === 0 ? styles.emptyContainer : { paddingBottom: 100 }
-        }
+    <View style={styles.container}>
+      {/* HeaderBar con estructura solicitada: Avatar | Título | ManageFriends | Tema | Idioma */}
+      <HeaderBar 
+        title={t.header.title}
+        titleAlignment="left"
+        useDynamicColors={true}
+        leftIcon="account-circle"
+        rightIcon="account-group"
+        onLeftPress={handleProfilePress}
+        onRightPress={handleManageFriends}
+        showThemeToggle={true}
+        showLanguageSelector={true}
+        elevation={true}
       />
+      
+      <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
+        {renderSearchBar()}
+        
+        <FlatList
+          data={filteredEvents}
+          renderItem={renderEventItem}
+          keyExtractor={item => item.id}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing || dbLoading}
+              onRefresh={onRefresh}
+              colors={[theme.colors.primary]}
+              tintColor={theme.colors.primary}
+            />
+          }
+          ListHeaderComponent={renderMetrics}
+          ListEmptyComponent={renderEmptyState}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={
+            filteredEvents.length === 0 ? styles.emptyContainer : styles.eventsList
+          }
+        />
 
-      {/* Floating Action Button */}
-      <View style={styles.fabContainer}>
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={handleCreateEvent}
-          activeOpacity={0.8}
-        >
-          <MaterialCommunityIcons
-            name="plus"
-            size={28}
-            color="#FFFFFF"
-          />
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+        {/* Floating Action Button */}
+        <View style={styles.fabContainer}>
+          <TouchableOpacity
+            style={styles.fab}
+            onPress={handleCreateEvent}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons
+              name="plus"
+              size={28}
+              color={theme.colors.onPrimary}
+            />
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </View>
   );
 };
 
 export default HomeScreen;
-
-const createStyles = (theme: Theme, insets: any) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    } as ViewStyle,
-
-    headerGradient: {
-      paddingTop: 16, // SafeAreaView handles top inset
-      paddingBottom: 16,
-      backgroundColor: '#4B89DC',
-    } as ViewStyle,
-
-    headerContent: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      marginTop: 8,
-    } as ViewStyle,
-
-    headerLeft: {
-      flex: 1,
-    } as ViewStyle,
-
-    headerTitle: {
-      fontSize: 24,
-      fontWeight: '600',
-      color: '#FFFFFF',
-    } as TextStyle,
-
-    headerRight: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    } as ViewStyle,
-
-    headerButton: {
-      padding: 8,
-      marginLeft: 8,
-    } as ViewStyle,
-
-    avatarButton: {
-      marginLeft: 8,
-    } as ViewStyle,
-
-    avatarPlaceholder: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      backgroundColor: '#FFFFFF',
-      alignItems: 'center',
-      justifyContent: 'center',
-    } as ViewStyle,
-
-    searchContainer: {
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      backgroundColor: theme.colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.outline,
-    } as ViewStyle,
-
-    searchBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: theme.colors.surfaceVariant,
-      borderRadius: 12,
-      paddingHorizontal: 12,
-      height: 40,
-    } as ViewStyle,
-
-    searchIcon: {
-      marginRight: 8,
-    } as ViewStyle,
-
-    searchInput: {
-      flex: 1,
-      fontSize: 16,
-      color: theme.colors.onSurface,
-      paddingVertical: 0,
-    } as TextStyle,
-
-    clearButton: {
-      padding: 4,
-    } as ViewStyle,
-
-    metricsSection: {
-      paddingVertical: 12,
-      paddingHorizontal: 16,
-    } as ViewStyle,
-
-    metricsScrollView: {
-      flexGrow: 0,
-    } as ViewStyle,
-
-    metricsContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'stretch',
-    } as ViewStyle,
-
-    metricCard: {
-      flex: 1,
-      marginHorizontal: 2,
-    } as ViewStyle,
-
-    emptyContainer: {
-      flexGrow: 1,
-    } as ViewStyle,
-
-    emptyState: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 32,
-    } as ViewStyle,
-
-    emptyTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: theme.colors.onSurface,
-      textAlign: 'center',
-      marginTop: 16,
-      marginBottom: 8,
-    } as TextStyle,
-
-    emptySubtitle: {
-      fontSize: 14,
-      color: theme.colors.onSurfaceVariant,
-      textAlign: 'center',
-      lineHeight: 20,
-      marginBottom: 24,
-    } as TextStyle,
-
-    emptyButton: {
-      backgroundColor: theme.colors.primary,
-      paddingHorizontal: 24,
-      paddingVertical: 12,
-      borderRadius: 12,
-    } as ViewStyle,
-
-    emptyButtonText: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: theme.colors.onPrimary,
-    } as TextStyle,
-
-    fabContainer: {
-      position: 'absolute',
-      bottom: insets.bottom + 20, // Respeta el safe area
-      right: 20,
-      zIndex: 1000,
-    } as ViewStyle,
-
-    fab: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      backgroundColor: '#4B89DC',
-      alignItems: 'center',
-      justifyContent: 'center',
-      elevation: 8,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 4.65,
-    } as ViewStyle,
-  });

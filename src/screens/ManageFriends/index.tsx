@@ -14,7 +14,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useData } from '../../context/DataContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { Participant } from '../../types';
-import { Card, Button, HeaderBar } from '../../components';
+import { Card, Button, HeaderBar, SearchBar } from '../../components';
 import { FriendItemProps, NewFriendData, TabType, AVATAR_COLORS } from './types';
 import { createStyles } from './styles';
 import { manageFriendsLanguage } from './language';
@@ -288,21 +288,11 @@ const ManageFriendsScreen: React.FC = () => {
   );
 
   const renderSearchBar = () => (
-    <View style={styles.searchContainer}>
-      <MaterialCommunityIcons
-        name="magnify"
-        size={20}
-        color={theme.colors.onSurfaceVariant}
-        style={styles.searchIcon}
-      />
-      <TextInput
-        style={styles.searchInput}
-        placeholder={t.screen.searchPlaceholder}
-        placeholderTextColor={theme.colors.onSurfaceVariant}
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-      />
-    </View>
+    <SearchBar
+      value={searchQuery}
+      onChangeText={setSearchQuery}
+      placeholder={t.screen.searchPlaceholder}
+    />
   );
 
   const renderNewFriendTab = () => (

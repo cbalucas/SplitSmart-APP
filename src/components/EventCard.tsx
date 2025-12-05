@@ -23,6 +23,7 @@ export interface EventData {
   status: 'active' | 'completed' | 'archived';
   participantCount: number;
   expenseCount: number;
+  description?: string;
 }
 
 export interface EventCardProps {
@@ -78,32 +79,9 @@ const EventCard: React.FC<EventCardProps> = ({
 
 
 
-  const handleMenuPress = () => {
-    Alert.alert(
-      'Opciones del Evento',
-      `¿Qué deseas hacer con "${event.name}"?`,
-      [
-        { text: 'Editar', onPress: () => onEdit?.(event) },
-        { 
-          text: event.status === 'archived' ? 'Desarchivar' : 'Archivar', 
-          onPress: () => onArchive?.(event) 
-        },
-        { text: 'Eliminar', onPress: () => handleDelete(), style: 'destructive' },
-        { text: 'Cancelar', style: 'cancel' }
-      ],
-      { cancelable: true }
-    );
-  };
-
-  const handleDelete = () => {
-    Alert.alert(
-      'Eliminar Evento',
-      '¿Estás seguro de que quieres eliminar este evento? Esta acción no se puede deshacer.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Eliminar', onPress: () => onDelete?.(event), style: 'destructive' }
-      ]
-    );
+  const handleEditPress = (e: any) => {
+    e.stopPropagation();
+    onEdit?.(event);
   };
 
   return (
@@ -113,78 +91,99 @@ const EventCard: React.FC<EventCardProps> = ({
         activeOpacity={0.8}
         style={styles.touchable}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <View style={[
-              styles.statusIndicator,
-              { backgroundColor: getStatusColor(event.status) }
-            ]} />
+        {/* Barra de estado vertical */}
+        <View style={[
+          styles.statusIndicator,
+          { backgroundColor: getStatusColor(event.status) }
+        ]} />
+        
+        <View style={styles.content}>
+          {/* Primera fila: Título y Lápiz */}
+          <View style={styles.titleRow}>
             <Text style={styles.eventName} numberOfLines={1}>
               {event.name}
             </Text>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.totalAmount}>
-              {formatCurrency(event.totalAmount, event.currency)}
-            </Text>
             <TouchableOpacity
-              onPress={handleMenuPress}
-              style={styles.menuButton}
+              onPress={handleEditPress}
+              style={styles.editButton}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <MaterialCommunityIcons
-                name="dots-vertical"
-                size={20}
-                color={theme.colors.onSurfaceVariant}
+                name="pencil"
+                size={18}
+                color={theme.colors.background === '#0F0F0F' ? '#FF5252' : theme.colors.primary}
               />
             </TouchableOpacity>
           </View>
-        </View>
 
-        {/* Body */}
-        <View style={styles.body}>
-          {event.location && (
-            <View style={styles.infoRow}>
+          {/* Segunda fila: Fecha y Monto */}
+          <View style={styles.dateAmountRow}>
+            <View style={styles.dateContainer}>
               <MaterialCommunityIcons
-                name="map-marker-outline"
+                name="calendar"
                 size={16}
-                color={theme.colors.onSurfaceVariant}
+                color="#2196F3"
+              />
+              <Text style={styles.dateText}>
+                {formatDate(event.startDate)}
+              </Text>
+            </View>
+            <Text style={styles.totalAmount}>
+              {formatCurrency(event.totalAmount, event.currency)}
+            </Text>
+          </View>
+
+          {/* Tercera fila: Participantes y Gastos */}
+          <View style={styles.statsMainRow}>
+            <View style={styles.participantsContainer}>
+              <MaterialCommunityIcons
+                name="account-group"
+                size={16}
+                color={theme.colors.background === '#0F0F0F' ? '#FFFFFF' : '#757575'}
+              />
+              <Text style={styles.statText}>
+                {event.participantCount} participante{event.participantCount !== 1 ? 's' : ''}
+              </Text>
+            </View>
+            <View style={styles.expensesContainer}>
+              <MaterialCommunityIcons
+                name="cash-multiple"
+                size={16}
+                color="#388E3C"
+              />
+              <Text style={styles.statText}>
+                {event.expenseCount} gasto{event.expenseCount !== 1 ? 's' : ''}
+              </Text>
+            </View>
+          </View>
+
+          {/* Ubicación */}
+          {event.location && (
+            <View style={styles.singleInfoRow}>
+              <MaterialCommunityIcons
+                name="map-marker"
+                size={16}
+                color="#F44336"
               />
               <Text style={styles.infoText} numberOfLines={1}>
                 {event.location}
               </Text>
             </View>
           )}
-          
-          <View style={styles.infoRow}>
-            <MaterialCommunityIcons
-              name="calendar-outline"
-              size={16}
-              color={theme.colors.onSurfaceVariant}
-            />
-            <Text style={styles.infoText}>
-              {formatDate(event.startDate)}
-            </Text>
-          </View>
 
-          <View style={styles.infoRow}>
-            <MaterialCommunityIcons
-              name="account-group-outline"
-              size={16}
-              color={theme.colors.onSurfaceVariant}
-            />
-            <Text style={styles.infoText}>
-              {event.participantCount} participante{event.participantCount !== 1 ? 's' : ''}
-            </Text>
-          </View>
-        </View>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.expenseCount}>
-            {event.expenseCount} gasto{event.expenseCount !== 1 ? 's' : ''}
-          </Text>
+          {/* Descripción */}
+          {event.description && (
+            <View style={styles.singleInfoRow}>
+              <MaterialCommunityIcons
+                name="text-box"
+                size={16}
+                color="#9E9E9E"
+              />
+              <Text style={styles.infoText} numberOfLines={2}>
+                {event.description}
+              </Text>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
     </Card>
@@ -195,30 +194,36 @@ const createStyles = (theme: Theme) =>
   StyleSheet.create({
     container: {
       marginHorizontal: 16,
-      marginVertical: 8,
+      marginVertical: 6,
     } as ViewStyle,
 
     touchable: {
-      padding: 16,
+      flexDirection: 'row',
+      position: 'relative',
     } as ViewStyle,
 
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 12,
-    } as ViewStyle,
-
-    headerLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
+    content: {
       flex: 1,
+      padding: 12,
+      paddingLeft: 16, // Espacio para la barra vertical
+    } as ViewStyle,
+
+    titleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 4,
     } as ViewStyle,
 
     statusIndicator: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      marginRight: 12,
+      width: 4,
+      height: '100%',
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      bottom: 0,
+      borderTopLeftRadius: 12,
+      borderBottomLeftRadius: 12,
     } as ViewStyle,
 
     eventName: {
@@ -228,46 +233,70 @@ const createStyles = (theme: Theme) =>
       flex: 1,
     } as TextStyle,
 
-    headerRight: {
+    dateAmountRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 4,
+    } as ViewStyle,
+
+    dateContainer: {
       flexDirection: 'row',
       alignItems: 'center',
     } as ViewStyle,
+
+    dateText: {
+      fontSize: 14,
+      color: theme.colors.onSurfaceVariant,
+      marginLeft: 6,
+    } as TextStyle,
 
     totalAmount: {
       fontSize: 16,
       fontWeight: 'bold',
       color: '#2ECC71',
-      marginRight: 8,
     } as TextStyle,
 
-    menuButton: {
+    editButton: {
       padding: 4,
     } as ViewStyle,
 
-    body: {
-      marginBottom: 12,
+    statsMainRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 3,
     } as ViewStyle,
 
-    infoRow: {
+    participantsContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: 6,
+      flex: 1,
+    } as ViewStyle,
+
+    expensesContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      flex: 1,
+    } as ViewStyle,
+
+    statText: {
+      fontSize: 14,
+      color: theme.colors.onSurfaceVariant,
+      marginLeft: 6,
+    } as TextStyle,
+
+    singleInfoRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 2,
     } as ViewStyle,
 
     infoText: {
       fontSize: 14,
       color: theme.colors.onSurfaceVariant,
-      marginLeft: 8,
+      marginLeft: 6,
       flex: 1,
-    } as TextStyle,
-
-    footer: {
-      alignItems: 'flex-start',
-    } as ViewStyle,
-
-    expenseCount: {
-      fontSize: 12,
-      color: theme.colors.onSurfaceVariant,
     } as TextStyle,
   });
 
