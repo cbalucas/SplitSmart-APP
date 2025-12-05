@@ -26,6 +26,7 @@ import {
   Card,
   HeaderBar
 } from '../../components';
+import SearchBar from '../../components/SearchBar';
 import { Participant, Expense, Split } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { 

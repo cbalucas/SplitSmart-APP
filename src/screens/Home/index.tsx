@@ -19,9 +19,9 @@ import {
   EventCard, 
   MetricsCard,
   HeaderBar,
-  UserAvatar,
-  SearchBar
+  UserAvatar
 } from '../../components';
+import SearchBar from '../../components/SearchBar';
 import { useData } from '../../context/DataContext';
 import { HomeEventData, HomeMetricData, HomeScreenState } from './types';
 import { createStyles } from './styles';
