@@ -21,6 +21,8 @@ import { useData } from '../../context/DataContext';
 import { Theme } from '../../constants/theme';
 import { Participant } from '../../types';
 import Button from '../Button';
+import HeaderBar from '../HeaderBar';
+import SearchBar from '../SearchBar';
 
 interface AddParticipantModalProps {
   visible: boolean;
@@ -69,8 +71,8 @@ const FriendSelectItem: React.FC<FriendSelectItemProps> = ({ friend, isSelected,
         </View>
         <View style={styles.friendSelectDetails}>
           <Text style={styles.friendSelectName}>{friend.name}</Text>
-          {friend.email && (
-            <Text style={styles.friendSelectEmail}>{friend.email}</Text>
+          {friend.alias_cbu && (
+            <Text style={styles.friendSelectEmail}>{friend.alias_cbu}</Text>
           )}
         </View>
       </View>
@@ -295,16 +297,13 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
   };
 
   const renderHeader = () => (
-    <View style={styles.header}>
-      <Text style={styles.modalTitle}>Agregar Participantes</Text>
-      <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
-        <MaterialCommunityIcons
-          name="close"
-          size={24}
-          color={theme.colors.onSurface}
-        />
-      </TouchableOpacity>
-    </View>
+    <HeaderBar
+      title="Agregar Participantes"
+      rightIcon="close"
+      onRightPress={handleClose}
+      useDynamicColors={true}
+      elevation={true}
+    />
   );
 
   const handleSelectAllFriends = () => {
@@ -318,28 +317,56 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
     }
   };
 
+  const handleBulkTabPress = () => {
+    if (hasExpenses) {
+      Alert.alert(
+        '🚫 Carga Masiva Restringida',
+        'No se puede usar la carga masiva de participantes cuando el evento ya tiene gastos registrados.\n\nPuedes agregar participantes individualmente usando "Mis Amigos" o "Nuevo".',
+        [{ text: 'Entendido', style: 'default' }]
+      );
+      return;
+    }
+    setActiveTab('bulk');
+  };
+
   const renderTabs = () => (
     <View style={styles.tabContainer}>
       <TouchableOpacity
         style={[styles.tab, activeTab === 'friends' && styles.activeTab]}
         onPress={() => setActiveTab('friends')}
       >
-        <Text style={[styles.tabText, activeTab === 'friends' && styles.activeTabText]}>
-          Mis Amigos
-        </Text>
-        {filteredFriends.length > 0 && (
-          <View style={styles.tabBadge}>
-            <Text style={styles.tabBadgeText}>{filteredFriends.length}</Text>
-          </View>
-        )}
+        <View style={styles.tabContent}>
+          <MaterialCommunityIcons
+            name="account-heart"
+            size={20}
+            color={activeTab === 'friends' ? theme.colors.primary : theme.colors.onSurfaceVariant}
+          />
+          <Text style={[styles.tabText, activeTab === 'friends' && styles.activeTabText]}>
+            Mis Amigos
+          </Text>
+          {filteredFriends.length > 0 && (
+            <View style={styles.tabBadge}>
+              <Text style={styles.tabBadgeText}>{filteredFriends.length}</Text>
+            </View>
+          )}
+        </View>
+        {activeTab === 'friends' && <View style={styles.tabIndicator} />}
       </TouchableOpacity>
       <TouchableOpacity
         style={[styles.tab, activeTab === 'new' && styles.activeTab]}
         onPress={() => setActiveTab('new')}
       >
-        <Text style={[styles.tabText, activeTab === 'new' && styles.activeTabText]}>
-          Nuevo
-        </Text>
+        <View style={styles.tabContent}>
+          <MaterialCommunityIcons
+            name="account-plus"
+            size={20}
+            color={activeTab === 'new' ? theme.colors.primary : theme.colors.onSurfaceVariant}
+          />
+          <Text style={[styles.tabText, activeTab === 'new' && styles.activeTabText]}>
+            Nuevo
+          </Text>
+        </View>
+        {activeTab === 'new' && <View style={styles.tabIndicator} />}
       </TouchableOpacity>
       <TouchableOpacity
         style={[
@@ -347,23 +374,31 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
           activeTab === 'bulk' && styles.activeTab,
           hasExpenses && styles.restrictedTab
         ]}
-        onPress={() => setActiveTab('bulk')}
+        onPress={handleBulkTabPress}
       >
-        <Text style={[
-          styles.tabText, 
-          activeTab === 'bulk' && styles.activeTabText,
-          hasExpenses && styles.restrictedTabText
-        ]}>
-          Masivo
-        </Text>
-        {hasExpenses && (
+        <View style={styles.tabContent}>
           <MaterialCommunityIcons
-            name="information-outline"
-            size={16}
-            color={theme.colors.primary}
-            style={styles.infoIcon}
+            name="account-multiple-plus"
+            size={20}
+            color={hasExpenses ? theme.colors.onSurfaceVariant : (activeTab === 'bulk' ? theme.colors.primary : theme.colors.onSurfaceVariant)}
           />
-        )}
+          <Text style={[
+            styles.tabText, 
+            activeTab === 'bulk' && styles.activeTabText,
+            hasExpenses && styles.restrictedTabText
+          ]}>
+            Masivo
+          </Text>
+          {hasExpenses && (
+            <MaterialCommunityIcons
+              name="information-outline"
+              size={16}
+              color={theme.colors.primary}
+              style={styles.infoIcon}
+            />
+          )}
+        </View>
+        {activeTab === 'bulk' && <View style={styles.tabIndicator} />}
       </TouchableOpacity>
     </View>
   );
@@ -373,21 +408,13 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
 
     return (
       <>
-        <View style={styles.searchContainer}>
-          <MaterialCommunityIcons
-            name="magnify"
-            size={20}
-            color={theme.colors.onSurfaceVariant}
-            style={styles.searchIcon}
-          />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar en mis amigos..."
-            placeholderTextColor={theme.colors.onSurfaceVariant}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Buscar en mis amigos..."
+          showClearButton={true}
+          onClear={() => setSearchQuery('')}
+        />
         
         {filteredFriends.length > 0 && (
           <View style={styles.bulkActionsBar}>
@@ -705,15 +732,13 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Email (Opcional)</Text>
+            <Text style={styles.inputLabel}>CBU/Alias (Opcional)</Text>
             <TextInput
               style={styles.input}
-              placeholder="correo@ejemplo.com"
+              placeholder="Alias o CBU para pagos"
               placeholderTextColor={theme.colors.onSurfaceVariant}
-              value={newParticipant.email}
-              onChangeText={(text) => setNewParticipant(prev => ({ ...prev, email: text }))}
-              keyboardType="email-address"
-              autoCapitalize="none"
+              value={newParticipant.alias_cbu}
+              onChangeText={(text) => setNewParticipant(prev => ({ ...prev, alias_cbu: text }))}
             />
           </View>
 
@@ -730,13 +755,15 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>CBU/Alias (Opcional)</Text>
+            <Text style={styles.inputLabel}>Email (Opcional)</Text>
             <TextInput
               style={styles.input}
-              placeholder="Alias o CBU para pagos"
+              placeholder="correo@ejemplo.com"
               placeholderTextColor={theme.colors.onSurfaceVariant}
-              value={newParticipant.alias_cbu}
-              onChangeText={(text) => setNewParticipant(prev => ({ ...prev, alias_cbu: text }))}
+              value={newParticipant.email}
+              onChangeText={(text) => setNewParticipant(prev => ({ ...prev, email: text }))}
+              keyboardType="email-address"
+              autoCapitalize="none"
             />
           </View>
 
@@ -783,7 +810,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle="fullScreen"
       onRequestClose={handleClose}
     >
       <SafeAreaView style={styles.modalContainer} edges={['top', 'bottom', 'left', 'right']}>
@@ -838,23 +865,28 @@ const createStyles = (theme: Theme) =>
     tabContainer: {
       flexDirection: 'row',
       backgroundColor: theme.colors.surface,
-      paddingHorizontal: 20,
-      paddingBottom: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.outline,
     } as ViewStyle,
 
     tab: {
       flex: 1,
-      flexDirection: 'row',
+      position: 'relative',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 12,
-      marginHorizontal: 4,
-      borderRadius: 8,
-      backgroundColor: theme.colors.surfaceVariant,
+      paddingVertical: 16,
+      paddingHorizontal: 8,
     } as ViewStyle,
 
     activeTab: {
-      backgroundColor: theme.colors.primary,
+      // No background for active tab, indicator will show instead
+    } as ViewStyle,
+
+    tabContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
     } as ViewStyle,
 
     tabText: {
@@ -864,8 +896,19 @@ const createStyles = (theme: Theme) =>
     } as TextStyle,
 
     activeTabText: {
-      color: theme.colors.onPrimary,
+      color: theme.colors.primary,
+      fontWeight: '600',
     } as TextStyle,
+
+    tabIndicator: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: 3,
+      backgroundColor: theme.colors.primary,
+      borderRadius: 1.5,
+    } as ViewStyle,
 
     tabBadge: {
       backgroundColor: theme.colors.secondary,
@@ -881,28 +924,7 @@ const createStyles = (theme: Theme) =>
       color: theme.colors.onSecondary,
     } as TextStyle,
 
-    searchContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: theme.colors.surface,
-      marginHorizontal: 20,
-      marginVertical: 12,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      borderWidth: 1,
-      borderColor: theme.colors.outline,
-    } as ViewStyle,
 
-    searchIcon: {
-      marginRight: 8,
-    } as ViewStyle,
-
-    searchInput: {
-      flex: 1,
-      fontSize: 16,
-      color: theme.colors.onSurface,
-    } as TextStyle,
 
     bulkActionsBar: {
       flexDirection: 'row',
@@ -990,9 +1012,9 @@ const createStyles = (theme: Theme) =>
     } as ViewStyle,
 
     avatar: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: 12,
@@ -1304,12 +1326,13 @@ const createStyles = (theme: Theme) =>
 
     // Estilos para tab restringida (seleccionable pero con restricciones)
     restrictedTab: {
-      borderWidth: 1,
-      borderColor: theme.colors.primary,
+      opacity: 0.6,
+      backgroundColor: theme.colors.surfaceVariant,
     } as ViewStyle,
 
     restrictedTabText: {
-      color: theme.colors.primary,
+      color: theme.colors.onSurfaceVariant,
+      fontStyle: 'italic',
     } as TextStyle,
 
     infoIcon: {

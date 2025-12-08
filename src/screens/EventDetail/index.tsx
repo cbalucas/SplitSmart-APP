@@ -20,20 +20,27 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { Event, Expense, Participant, EventParticipant, Split, Payment, Settlement } from '../../types';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
 import AddParticipantModal from '../../components/AddParticipantModal';
+import HeaderBar from '../../components/HeaderBar';
+import SearchBar from '../../components/SearchBar';
 import { LanguageSelector, ThemeToggle, SettlementItem } from '../../components';
 import { useCalculations } from '../../hooks/useCalculations';
 import { databaseService } from '../../services/database';
 import * as ImagePicker from 'expo-image-picker';
+import { createStyles } from './styles';
 
 const { width } = Dimensions.get('window');
 
 export default function EventDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute();
+  const { theme } = useTheme();
+  const styles = createStyles(theme);
+  
     const { 
     events, 
     expenses,
@@ -71,6 +78,7 @@ export default function EventDetailScreen() {
   
   // Estados de filtros y búsqueda
   const [searchQuery, setSearchQuery] = useState('');
+  const [participantSearchQuery, setParticipantSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('todos');
   const [filterPayer, setFilterPayer] = useState<string>('todos');
   const [sortBy, setSortBy] = useState<'date' | 'amount' | 'description'>('date');
@@ -714,7 +722,7 @@ export default function EventDetailScreen() {
           <MaterialCommunityIcons
             name={tab.icon}
             size={20}
-            color={activeTab === tab.key ? '#007AFF' : '#666'}
+            color={activeTab === tab.key ? theme.colors.primary : theme.colors.onSurfaceVariant}
           />
           <Text style={[
             styles.tabText,
@@ -769,130 +777,27 @@ export default function EventDetailScreen() {
     
     return (
       <View style={styles.tabContent}>
-        {/* Barra de búsqueda y filtros */}
-        <View style={{ padding: 16, backgroundColor: '#fff' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f5f5f5', borderRadius: 8, paddingHorizontal: 12 }}>
-              <MaterialCommunityIcons name="magnify" size={20} color="#666" />
-              <TextInput
-                style={{ flex: 1, paddingVertical: 8, paddingHorizontal: 8, fontSize: 16 }}
-                placeholder="Buscar gastos..."
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <MaterialCommunityIcons name="close-circle" size={20} color="#666" />
-                </TouchableOpacity>
-              )}
-            </View>
-            <TouchableOpacity
-              style={{ marginLeft: 8, padding: 8, backgroundColor: showFilters ? '#007AFF' : '#f5f5f5', borderRadius: 8 }}
-              onPress={() => setShowFilters(!showFilters)}
-            >
-              <MaterialCommunityIcons name="filter-variant" size={20} color={showFilters ? '#fff' : '#666'} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Panel de filtros expandible */}
-          {showFilters && (
-            <View style={{ backgroundColor: '#f5f5f5', borderRadius: 8, padding: 12, marginBottom: 12 }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 8 }}>Ordenar por:</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12 }}>
-                {[
-                  { value: 'date', label: 'Fecha', icon: 'calendar' },
-                  { value: 'amount', label: 'Monto', icon: 'cash' },
-                  { value: 'description', label: 'Nombre', icon: 'alphabetical' }
-                ].map((option) => (
-                  <TouchableOpacity
-                    key={option.value}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      paddingVertical: 6,
-                      paddingHorizontal: 12,
-                      marginRight: 8,
-                      marginBottom: 8,
-                      borderRadius: 16,
-                      backgroundColor: sortBy === option.value ? '#007AFF' : '#fff'
-                    }}
-                    onPress={() => setSortBy(option.value as any)}
-                  >
-                    <MaterialCommunityIcons
-                      name={option.icon as any}
-                      size={16}
-                      color={sortBy === option.value ? '#fff' : '#666'}
-                    />
-                    <Text style={{ marginLeft: 4, fontSize: 14, color: sortBy === option.value ? '#fff' : '#666' }}>
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 8 }}>Filtrar por pagador:</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-                <TouchableOpacity
-                  style={{
-                    paddingVertical: 6,
-                    paddingHorizontal: 12,
-                    marginRight: 8,
-                    borderRadius: 16,
-                    backgroundColor: filterPayer === 'todos' ? '#007AFF' : '#fff'
-                  }}
-                  onPress={() => setFilterPayer('todos')}
-                >
-                  <Text style={{ fontSize: 14, color: filterPayer === 'todos' ? '#fff' : '#666' }}>
-                    Todos
-                  </Text>
-                </TouchableOpacity>
-                {eventParticipants.map((participant) => (
-                  <TouchableOpacity
-                    key={participant.id}
-                    style={{
-                      paddingVertical: 6,
-                      paddingHorizontal: 12,
-                      marginRight: 8,
-                      borderRadius: 16,
-                      backgroundColor: filterPayer === participant.id ? '#007AFF' : '#fff'
-                    }}
-                    onPress={() => setFilterPayer(participant.id)}
-                  >
-                    <Text style={{ fontSize: 14, color: filterPayer === participant.id ? '#fff' : '#666' }}>
-                      {participant.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              {(searchQuery || filterCategory !== 'todos' || filterPayer !== 'todos') && (
-                <TouchableOpacity
-                  style={{ alignItems: 'center', paddingVertical: 8 }}
-                  onPress={() => {
-                    setSearchQuery('');
-                    setFilterCategory('todos');
-                    setFilterPayer('todos');
-                  }}
-                >
-                  <Text style={{ fontSize: 14, color: '#007AFF', fontWeight: '500' }}>
-                    Limpiar filtros
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* Barra de búsqueda simple */}
+        <View style={styles.searchContainer}>
+          <SearchBar
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Buscar gastos..."
+            showClearButton={true}
+            onClear={() => setSearchQuery('')}
+          />
+          
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 8 }}>
             <Text style={{ fontSize: 16, fontWeight: '600' }}>
               💸 Gastos ({filteredExpenses.length}{filteredExpenses.length !== eventExpenses.length ? ` de ${eventExpenses.length}` : ''})
             </Text>
             {event?.status === 'active' && (
               <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#007AFF', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 }}
+                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.primary, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 }}
                 onPress={handleAddExpense}
               >
-                <MaterialCommunityIcons name="plus" size={16} color="#fff" />
-                <Text style={{ color: '#fff', marginLeft: 4, fontSize: 14, fontWeight: '500' }}>Agregar</Text>
+                <MaterialCommunityIcons name="plus" size={16} color={theme.colors.onPrimary} />
+                <Text style={{ color: theme.colors.onPrimary, marginLeft: 4, fontSize: 14, fontWeight: '500' }}>Agregar</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -1035,16 +940,36 @@ export default function EventDetailScreen() {
 
   const renderParticipantesTab = () => {
     // Filtrar solo participantes amigos o temporarios de este evento
-    const visibleParticipants = eventParticipants.filter(p => 
+    let visibleParticipants = eventParticipants.filter(p => 
       p.participantType === 'friend' || 
       (p.participantType === 'temporary' && p.isActive)
     );
 
+    // Filtrar por búsqueda de participantes
+    if (participantSearchQuery.trim()) {
+      visibleParticipants = visibleParticipants.filter(participant =>
+        participant.name.toLowerCase().includes(participantSearchQuery.toLowerCase()) ||
+        (participant.email && participant.email.toLowerCase().includes(participantSearchQuery.toLowerCase())) ||
+        (participant.alias_cbu && participant.alias_cbu.toLowerCase().includes(participantSearchQuery.toLowerCase()))
+      );
+    }
+
     return (
-      <ScrollView style={styles.tabContent}>
+      <View style={styles.tabContent}>
+        {/* Barra de búsqueda de participantes */}
+        <SearchBar
+          value={participantSearchQuery}
+          onChangeText={setParticipantSearchQuery}
+          placeholder="Buscar participantes..."
+          showClearButton={true}
+          onClear={() => setParticipantSearchQuery('')}
+        />
+        
         <Card>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>👥 Participantes ({visibleParticipants.length})</Text>
+            <Text style={styles.sectionTitle}>
+              👥 Participantes ({visibleParticipants.length}{visibleParticipants.length !== eventParticipants.length ? ` de ${eventParticipants.length}` : ''})
+            </Text>
             {event?.status === 'active' && (
               <TouchableOpacity style={styles.addButton} onPress={() => setShowAddParticipantModal(true)}>
                 <MaterialCommunityIcons name="plus" size={16} color="#007AFF" />
@@ -1126,7 +1051,7 @@ export default function EventDetailScreen() {
           })
         )}
       </Card>
-    </ScrollView>
+      </View>
     );
   };
 
@@ -1217,18 +1142,18 @@ export default function EventDetailScreen() {
               {event.location && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16, marginBottom: 8 }}>
                   <MaterialCommunityIcons name="map-marker" size={16} color="#E53935" style={{ marginRight: 4 }} />
-                  <Text style={{ fontSize: 14, color: '#666' }}>{event.location}</Text>
+                  <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant }}>{event.location}</Text>
                 </View>
               )}
               <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16, marginBottom: 8 }}>
                 <MaterialCommunityIcons name="calendar" size={16} color="#1E88E5" style={{ marginRight: 4 }} />
-                <Text style={{ fontSize: 14, color: '#666' }}>
+                <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant }}>
                   {new Date(event.startDate).toLocaleDateString()}
                 </Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                 <MaterialCommunityIcons name="currency-usd" size={16} color="#43A047" style={{ marginRight: 4 }} />
-                <Text style={{ fontSize: 14, color: '#666' }}>Moneda: {event.currency}</Text>
+                <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant }}>Moneda: {event.currency}</Text>
               </View>
             </View>
             
@@ -1237,7 +1162,7 @@ export default function EventDetailScreen() {
               <View style={{ alignItems: 'center' }}>
                 <MaterialCommunityIcons name="account-group" size={20} color="#2196F3" />
                 <Text style={{ fontSize: 18, fontWeight: '700', color: '#333', marginTop: 4 }}>{eventParticipants.length}</Text>
-                <Text style={{ fontSize: 11, color: '#666' }}>Participantes</Text>
+                <Text style={{ fontSize: 11, color: theme.colors.onSurfaceVariant }}>Participantes</Text>
               </View>
               <View style={{ alignItems: 'center' }}>
                 <MaterialCommunityIcons name="receipt" size={20} color="#FF9800" />
@@ -1576,27 +1501,13 @@ export default function EventDetailScreen() {
     }
   };
 
-  if (!event) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.errorContainer}>
-          <MaterialCommunityIcons name="alert-circle" size={48} color="#ff4444" />
-          <Text style={styles.errorText}>Evento no encontrado</Text>
-          <Button
-            title="Volver"
-            onPress={() => navigation.goBack()}
-            style={styles.errorButton}
-          />
-        </View>
-      </View>
-    );
-  }
-
   const handleEditEvent = () => {
+    if (!event) return;
     (navigation as any).navigate('CreateEvent', { eventId: event.id, mode: 'edit' });
   };
 
   const handleDeleteEvent = () => {
+    if (!event) return;
     Alert.alert(
       'Eliminar Evento',
       `¿Estás seguro de que quieres eliminar "${event.name}"? Esta acción no se puede deshacer.`,
@@ -1620,6 +1531,7 @@ export default function EventDetailScreen() {
   };
 
   const showEventOptions = () => {
+    if (!event) return;
     Alert.alert(
       'Opciones del Evento',
       `Selecciona una acción para "${event.name}"`,
@@ -1641,22 +1553,42 @@ export default function EventDetailScreen() {
     );
   };
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title} numberOfLines={1}>{event.name}</Text>
-        <View style={styles.headerRight}>
-          <LanguageSelector size={26} color="#333" />
-          <ThemeToggle size={24} color="#333" />
+  if (!event) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.errorContainer}>
+          <MaterialCommunityIcons name="alert-circle" size={48} color="#ff4444" />
+          <Text style={styles.errorText}>Evento no encontrado</Text>
+          <Button
+            title="Volver"
+            onPress={() => navigation.goBack()}
+            style={styles.errorButton}
+          />
         </View>
       </View>
+    );
+  }
 
-      {/* Tab Bar */}
-      {renderTabBar()}
+  return (
+    <View style={styles.container}>
+      {/* Header */}
+      <HeaderBar
+        title={event.name}
+        showBackButton={true}
+        onLeftPress={() => navigation.goBack()}
+        showThemeToggle={true}
+        showLanguageSelector={true}
+        useDynamicColors={true}
+        elevation={true}
+      />
+      
+      <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
+        {/* Tab Bar */}
+        {renderTabBar()}
 
-      {/* Tab Content */}
-      {renderTabContent()}
+        {/* Tab Content */}
+        {renderTabContent()}
+      </SafeAreaView>
 
       {/* Add Participant Modal */}
       <AddParticipantModal
@@ -1714,7 +1646,7 @@ export default function EventDetailScreen() {
           )}
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
