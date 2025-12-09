@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useData } from '../../context/DataContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { Theme } from '../../constants/theme';
 import { Participant } from '../../types';
 import Button from '../Button';
@@ -101,6 +102,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
 }) => {
   const { theme } = useTheme();
   const { participants, addParticipant } = useData();
+  const { t } = useLanguage();
   const styles = createStyles(theme);
 
   const [activeTab, setActiveTab] = useState<'friends' | 'new' | 'bulk'>('friends');
@@ -152,7 +154,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
 
   const handleAddSelectedFriends = () => {
     if (selectedFriends.size === 0) {
-      Alert.alert('Error', 'Selecciona al menos un amigo para agregar');
+      Alert.alert(t('common.error'), t('addParticipant.error.selectFriends'));
       return;
     }
 
@@ -171,7 +173,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
 
   const handleCreateNewParticipant = async () => {
     if (!newParticipant.name.trim()) {
-      Alert.alert('Error', 'El nombre es obligatorio');
+      Alert.alert(t('common.error'), t('addParticipant.error.nameRequired'));
       return;
     }
 
@@ -203,7 +205,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       onClose();
       
     } catch (error) {
-      Alert.alert('Error', 'No se pudo crear el participante');
+      Alert.alert(t('common.error'), t('addParticipant.error.createParticipant'));
     }
   };
 
@@ -220,7 +222,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
           .filter(name => name.length > 0);
 
         if (names.length === 0) {
-          Alert.alert('Error', 'Ingresa al menos un nombre');
+          Alert.alert(t('common.error'), t('addParticipant.error.atLeastOneName'));
           return;
         }
 
@@ -236,7 +238,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       } else {
         // Crear participantes genéricos
         if (genericCount < 1 || genericCount > 50) {
-          Alert.alert('Error', 'El número debe estar entre 1 y 50');
+          Alert.alert(t('common.error'), t('addParticipant.error.numberRange'));
           return;
         }
 
@@ -266,8 +268,11 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       });
 
       Alert.alert(
-        '✅ Participantes Agregados',
-        `Se agregaron ${participantsToAdd.length} participante${participantsToAdd.length !== 1 ? 's' : ''} correctamente`
+        t('addParticipant.alert.participantsAdded'),
+        t('addParticipant.alert.participantsAddedMessage', {
+          count: participantsToAdd.length,
+          plural: participantsToAdd.length !== 1 ? 's' : ''
+        })
       );
 
       // Reset y cerrar
@@ -278,7 +283,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       onClose();
 
     } catch (error) {
-      Alert.alert('Error', 'No se pudieron crear los participantes');
+      Alert.alert(t('common.error'), t('addParticipant.error.createBulk'));
     }
   };
 
@@ -298,7 +303,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
 
   const renderHeader = () => (
     <HeaderBar
-      title="Agregar Participantes"
+      title={t('addParticipant.title')}
       rightIcon="close"
       onRightPress={handleClose}
       useDynamicColors={true}
@@ -320,9 +325,9 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
   const handleBulkTabPress = () => {
     if (hasExpenses) {
       Alert.alert(
-        '🚫 Carga Masiva Restringida',
-        'No se puede usar la carga masiva de participantes cuando el evento ya tiene gastos registrados.\n\nPuedes agregar participantes individualmente usando "Mis Amigos" o "Nuevo".',
-        [{ text: 'Entendido', style: 'default' }]
+        t('addParticipant.alert.bulkRestricted'),
+        t('addParticipant.alert.bulkRestrictedMessage'),
+        [{ text: t('addParticipant.alert.understood'), style: 'default' }]
       );
       return;
     }
@@ -342,7 +347,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
             color={activeTab === 'friends' ? theme.colors.primary : theme.colors.onSurfaceVariant}
           />
           <Text style={[styles.tabText, activeTab === 'friends' && styles.activeTabText]}>
-            Mis Amigos
+            {t('addParticipant.tabFriends')}
           </Text>
           {filteredFriends.length > 0 && (
             <View style={styles.tabBadge}>
@@ -363,7 +368,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
             color={activeTab === 'new' ? theme.colors.primary : theme.colors.onSurfaceVariant}
           />
           <Text style={[styles.tabText, activeTab === 'new' && styles.activeTabText]}>
-            Nuevo
+            {t('addParticipant.tabNew')}
           </Text>
         </View>
         {activeTab === 'new' && <View style={styles.tabIndicator} />}
@@ -387,7 +392,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
             activeTab === 'bulk' && styles.activeTabText,
             hasExpenses && styles.restrictedTabText
           ]}>
-            Masivo
+            {t('addParticipant.tabBulk')}
           </Text>
           {hasExpenses && (
             <MaterialCommunityIcons
@@ -411,7 +416,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
         <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder="Buscar en mis amigos..."
+          placeholder={t('addParticipant.searchPlaceholder')}
           showClearButton={true}
           onClear={() => setSearchQuery('')}
         />
@@ -428,13 +433,16 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
                 color={theme.colors.primary}
               />
               <Text style={styles.bulkActionText}>
-                {selectedFriends.size === filteredFriends.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                {selectedFriends.size === filteredFriends.length ? t('addParticipant.deselectAll') : t('addParticipant.selectAll')}
               </Text>
             </TouchableOpacity>
             
             {selectedFriends.size > 0 && (
               <Text style={styles.selectionCounter}>
-                {selectedFriends.size} de {filteredFriends.length}
+                {t('addParticipant.selectionCounter', {
+                  selected: selectedFriends.size,
+                  total: filteredFriends.length
+                })}
               </Text>
             )}
           </View>
@@ -454,12 +462,12 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
             size={60}
             color={theme.colors.onSurfaceVariant}
           />
-          <Text style={styles.emptyTitle}>No tienes amigos disponibles</Text>
+          <Text style={styles.emptyTitle}>{t('addParticipant.noFriends')}</Text>
           <Text style={styles.emptySubtitle}>
-            Agrega amigos en la sección "Mis Amigos" para seleccionarlos rápidamente
+            {t('addParticipant.noFriendsDesc')}
           </Text>
           <Button
-            title="Crear Nuevo Participante"
+            title={t('addParticipant.createNewParticipant')}
             variant="outlined"
             size="medium"
             onPress={() => setActiveTab('new')}
@@ -479,7 +487,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
               color={theme.colors.primary}
             />
             <Text style={styles.hintText}>
-              Toca para seleccionar amigos. Puedes elegir varios a la vez.
+              {t('addParticipant.selectHint')}
             </Text>
           </View>
           <FlatList
@@ -507,9 +515,9 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
             size={60}
             color={theme.colors.onSurfaceVariant}
           />
-          <Text style={styles.emptyTitle}>No se encontraron amigos</Text>
+          <Text style={styles.emptyTitle}>{t('addParticipant.noSearchResults')}</Text>
           <Text style={styles.emptySubtitle}>
-            Intenta con otro término de búsqueda
+            {t('addParticipant.noSearchResultsDesc')}
           </Text>
         </View>
       );
@@ -541,18 +549,25 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
                   color={theme.colors.primary}
                 />
                 <Text style={styles.selectedCount}>
-                  {selectedFriends.size} amigo{selectedFriends.size !== 1 ? 's' : ''} seleccionado{selectedFriends.size !== 1 ? 's' : ''}
+                  {t('addParticipant.selectedCount', {
+                    count: selectedFriends.size,
+                    plural: selectedFriends.size !== 1 ? 's' : '',
+                    pluralSelected: selectedFriends.size !== 1 ? 's' : ''
+                  })}
                 </Text>
               </View>
               <TouchableOpacity
                 style={styles.clearSelectionButton}
                 onPress={() => setSelectedFriends(new Set())}
               >
-                <Text style={styles.clearSelectionText}>Limpiar</Text>
+                <Text style={styles.clearSelectionText}>{t('addParticipant.clear')}</Text>
               </TouchableOpacity>
             </View>
             <Button
-              title={`Agregar ${selectedFriends.size > 1 ? `${selectedFriends.size} Amigos` : 'Amigo'}`}
+              title={selectedFriends.size > 1 ? 
+                t('addParticipant.addFriends', { count: selectedFriends.size }) : 
+                t('addParticipant.addFriend')
+              }
               variant="filled"
               size="large"
               onPress={handleAddSelectedFriends}
@@ -572,7 +587,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
-          <Text style={styles.formTitle}>Agregar Participantes Masivos</Text>
+          <Text style={styles.formTitle}>{t('addParticipant.bulkTitle')}</Text>
           
           {hasExpenses ? (
             <View style={styles.restrictionContainer}>
@@ -582,18 +597,18 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
                 color={theme.colors.onSurfaceVariant}
                 style={styles.restrictionIcon}
               />
-              <Text style={styles.restrictionTitle}>Carga Masiva Restringida</Text>
+              <Text style={styles.restrictionTitle}>{t('addParticipant.bulkRestricted')}</Text>
               <Text style={styles.restrictionMessage}>
-                Solo se pueden hacer cargas masivas de participantes cuando el evento no posee ningún gasto cargado hasta el momento.
+                {t('addParticipant.bulkRestrictedMessage')}
               </Text>
               <Text style={styles.restrictionSuggestion}>
-                Puedes agregar participantes individualmente usando las pestañas "Mis Amigos" o "Nuevo".
+                {t('addParticipant.bulkRestrictedSuggestion')}
               </Text>
             </View>
           ) : (
             <>
               <Text style={styles.formSubtitle}>
-                Crea múltiples participantes temporales a la vez
+                {t('addParticipant.bulkSubtitle')}
               </Text>
 
           <View style={styles.bulkTypeSelector}>
@@ -613,7 +628,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
                 styles.bulkTypeButtonText,
                 bulkType === 'custom' && styles.bulkTypeButtonTextActive
               ]}>
-                Nombres Propios
+                {t('addParticipant.customNames')}
               </Text>
             </TouchableOpacity>
 
@@ -633,17 +648,17 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
                 styles.bulkTypeButtonText,
                 bulkType === 'generic' && styles.bulkTypeButtonTextActive
               ]}>
-                Genéricos
+                {t('addParticipant.generic')}
               </Text>
             </TouchableOpacity>
           </View>
 
           {bulkType === 'custom' ? (
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Nombres de Participantes</Text>
+              <Text style={styles.inputLabel}>{t('addParticipant.namesLabel')}</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
-                placeholder="Ingresa un nombre por línea:\n\nJuan Pérez\nMaría García\nCarlos López\n..."
+                placeholder={t('addParticipant.namesPlaceholder')}
                 placeholderTextColor={theme.colors.onSurfaceVariant}
                 value={bulkNames}
                 onChangeText={setBulkNames}
@@ -652,12 +667,12 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
                 textAlignVertical="top"
               />
               <Text style={styles.inputHint}>
-                💡 Escribe un nombre por línea. Sin límite de participantes.
+                {t('addParticipant.namesHint')}
               </Text>
             </View>
           ) : (
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Cantidad de Participantes</Text>
+              <Text style={styles.inputLabel}>{t('addParticipant.quantityLabel')}</Text>
               <View style={styles.peopleCountContainer}>
                 <TouchableOpacity
                   style={styles.peopleCountButton}
@@ -686,16 +701,19 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
                 </TouchableOpacity>
               </View>
               <Text style={styles.peopleCountHint}>
-                Se crearán: Participante 1, Participante 2, ... Participante {genericCount}
+                {t('addParticipant.genericPreview', { count: genericCount })}
               </Text>
               <Text style={styles.inputHint}>
-                💡 Rango: 1 a 50 participantes genéricos
+                {t('addParticipant.genericHint')}
               </Text>
             </View>
           )}
               <View style={styles.bottomActions}>
                 <Button
-                  title={bulkType === 'custom' ? 'Crear Participantes' : `Crear ${genericCount} Participantes`}
+                  title={bulkType === 'custom' ? 
+                    t('addParticipant.createParticipants') : 
+                    t('addParticipant.createGeneric', { count: genericCount })
+                  }
                   variant="filled"
                   size="large"
                   onPress={handleCreateBulkParticipants}
@@ -718,13 +736,13 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
-          <Text style={styles.formTitle}>Crear Nuevo Participante</Text>
+          <Text style={styles.formTitle}>{t('addParticipant.newTitle')}</Text>
           
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Nombre Completo *</Text>
+            <Text style={styles.inputLabel}>{t('addParticipant.fullNameLabel')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Nombre del participante"
+              placeholder={t('addParticipant.fullNamePlaceholder')}
               placeholderTextColor={theme.colors.onSurfaceVariant}
               value={newParticipant.name}
               onChangeText={(text) => setNewParticipant(prev => ({ ...prev, name: text }))}
@@ -732,10 +750,10 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>CBU/Alias (Opcional)</Text>
+            <Text style={styles.inputLabel}>{t('addParticipant.cbuLabel')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Alias o CBU para pagos"
+              placeholder={t('addParticipant.cbuPlaceholder')}
               placeholderTextColor={theme.colors.onSurfaceVariant}
               value={newParticipant.alias_cbu}
               onChangeText={(text) => setNewParticipant(prev => ({ ...prev, alias_cbu: text }))}
@@ -743,10 +761,10 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Teléfono (Opcional)</Text>
+            <Text style={styles.inputLabel}>{t('addParticipant.phoneLabel')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="+54 9 11 1234-5678"
+              placeholder={t('addParticipant.phonePlaceholder')}
               placeholderTextColor={theme.colors.onSurfaceVariant}
               value={newParticipant.phone}
               onChangeText={(text) => setNewParticipant(prev => ({ ...prev, phone: text }))}
@@ -755,10 +773,10 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Email (Opcional)</Text>
+            <Text style={styles.inputLabel}>{t('addParticipant.emailLabel')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="correo@ejemplo.com"
+              placeholder={t('addParticipant.emailPlaceholder')}
               placeholderTextColor={theme.colors.onSurfaceVariant}
               value={newParticipant.email}
               onChangeText={(text) => setNewParticipant(prev => ({ ...prev, email: text }))}
@@ -780,10 +798,10 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
               />
               <View style={styles.toggleTextContainer}>
                 <Text style={[styles.toggleTitle, saveAsFriend && styles.toggleTitleActive]}>
-                  Guardar como amigo permanente
+                  {t('addParticipant.saveAsFriend')}
                 </Text>
                 <Text style={styles.toggleSubtitle}>
-                  Podrás reutilizar este contacto en futuros eventos
+                  {t('addParticipant.saveAsFriendDesc')}
                 </Text>
               </View>
             </View>
@@ -795,7 +813,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
 
         <View style={styles.bottomActions}>
           <Button
-            title={saveAsFriend ? "Guardar Amigo y Agregar" : "Crear y Agregar"}
+            title={saveAsFriend ? t('addParticipant.saveAndAdd') : t('addParticipant.createAndAdd')}
             variant="filled"
             size="large"
             onPress={handleCreateNewParticipant}

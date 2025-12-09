@@ -285,9 +285,9 @@ export default function EventDetailScreen() {
           onPress: async () => {
             try {
               await deleteExpense(expense.id);
-              Alert.alert(t('success'), t('message.expenseDeletedSuccess'));
+              Alert.alert(t('common.success'), t('message.expenseDeletedSuccess'));
             } catch (error) {
-              Alert.alert(t('error'), t('message.expenseDeletedError'));
+              Alert.alert(t('common.error'), t('message.expenseDeletedError'));
             }
           },
         },
@@ -317,7 +317,7 @@ export default function EventDetailScreen() {
 
   const handleSaveEditedParticipant = async (name: string, email?: string, phone?: string, aliasCbu?: string, convertToFriend?: boolean) => {
     if (!editingParticipant || !name.trim()) {
-      Alert.alert(t('error'), t('message.nameRequired'));
+      Alert.alert(t('common.error'), t('message.nameRequired'));
       return;
     }
 
@@ -347,7 +347,7 @@ export default function EventDetailScreen() {
         Alert.alert(`✅ ${t('message.updated')}`, t('message.participantUpdatedSuccess'));
       }
     } catch (error) {
-      Alert.alert(t('error'), t('message.participantUpdatedError'));
+      Alert.alert(t('common.error'), t('message.participantUpdatedError'));
     }
   };
 
@@ -368,10 +368,10 @@ export default function EventDetailScreen() {
             try {
               await removeParticipantFromEvent(event?.id || '', participant.id);
               await loadEventData();
-              Alert.alert(t('success'), t('message.participantDeletedSuccess'));
+              Alert.alert(t('common.success'), t('message.participantDeletedSuccess'));
             } catch (error: any) {
               console.error('Error removing participant:', error);
-              Alert.alert(t('error'), error.message || t('message.participantDeletedError'));
+              Alert.alert(t('common.error'), error.message || t('message.participantDeletedError'));
             }
           },
         },
@@ -389,7 +389,7 @@ export default function EventDetailScreen() {
       await loadEventData();
     } catch (error) {
       console.error('Error toggling settlement paid:', error);
-      Alert.alert(t('error'), t('message.paymentStateError'));
+      Alert.alert(t('common.error'), t('message.paymentStateError'));
     }
   };
 
@@ -402,7 +402,7 @@ export default function EventDetailScreen() {
       Alert.alert('✅', imageUri ? t('message.receiptAdded') : t('message.receiptRemoved'));
     } catch (error) {
       console.error('Error updating settlement receipt:', error);
-      Alert.alert(t('error'), t('message.receiptError'));
+      Alert.alert(t('common.error'), t('message.receiptError'));
     }
   };
 
@@ -413,7 +413,7 @@ export default function EventDetailScreen() {
       `✅ ${t('message.markAsComplete')}`,
       t('message.markAsCompleteDesc'),
       [
-        { text: t('cancel'), style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('message.markComplete'),
           onPress: async () => {
@@ -426,7 +426,7 @@ export default function EventDetailScreen() {
               Alert.alert(`✅ ${t('message.eventCompleted')}`, t('message.eventCompletedDesc'));
             } catch (error) {
               console.error('Error completing event:', error);
-              Alert.alert(t('error'), t('message.eventCompletedError'));
+              Alert.alert(t('common.error'), t('message.eventCompletedError'));
             }
           }
         }
@@ -452,7 +452,7 @@ export default function EventDetailScreen() {
       title,
       message,
       [
-        { text: t('cancel'), style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
           text: buttonText,
           onPress: async () => {
@@ -465,7 +465,7 @@ export default function EventDetailScreen() {
               Alert.alert(successTitle, successMessage);
             } catch (error) {
               console.error(`Error changing event to ${targetStatus}:`, error);
-              Alert.alert(t('error'), t('message.eventStateChangeError'));
+              Alert.alert(t('common.error'), t('message.eventStateChangeError'));
             }
           }
         }
@@ -492,7 +492,7 @@ export default function EventDetailScreen() {
               navigation.goBack();
             } catch (error) {
               console.error('Error archiving event:', error);
-              Alert.alert(t('error'), t('message.eventArchivedError'));
+              Alert.alert(t('common.error'), t('message.eventArchivedError'));
             }
           }
         }
@@ -1069,7 +1069,7 @@ export default function EventDetailScreen() {
           <Card style={{ marginHorizontal: 16, marginBottom: 16 }}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>
-              👥 Participantes ({visibleParticipants.length}{visibleParticipants.length !== eventParticipants.length ? ` de ${eventParticipants.length}` : ''})
+              👥 {t('participants.title')} ({visibleParticipants.length}{visibleParticipants.length !== eventParticipants.length ? ` de ${eventParticipants.length}` : ''})
             </Text>
             {event?.status === 'active' && (
               <TouchableOpacity 
@@ -1084,7 +1084,7 @@ export default function EventDetailScreen() {
                 onPress={() => setShowAddParticipantModal(true)}
               >
                 <MaterialCommunityIcons name="plus" size={16} color={theme.colors.onPrimary} style={{ marginRight: 6 }} />
-                <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 14 }}>Agregar</Text>
+                <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 14 }}>{t('common.add')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -1092,8 +1092,8 @@ export default function EventDetailScreen() {
           {visibleParticipants.length === 0 ? (
             <View style={styles.emptyState}>
               <MaterialCommunityIcons name="account-group" size={48} color={theme.colors.onSurfaceVariant} />
-              <Text style={styles.emptyText}>No hay participantes</Text>
-              <Text style={styles.emptySubtext}>Agrega participantes para dividir los gastos</Text>
+              <Text style={styles.emptyText}>{t('participants.noParticipants')}</Text>
+              <Text style={styles.emptySubtext}>{t('participants.noParticipantsDesc')}</Text>
             </View>
           ) : (
             visibleParticipants.map(participant => {
@@ -1149,9 +1149,9 @@ export default function EventDetailScreen() {
                        '$0.00'}
                     </Text>
                     <Text style={styles.participantBalanceLabel}>
-                      {balance > 0.01 ? 'Se le debe' :
-                       balance < -0.01 ? 'Debe pagar' :
-                       'Equilibrado'}
+                      {balance > 0.01 ? t('participants.owes') :
+                       balance < -0.01 ? t('participants.shouldPay') :
+                       t('participants.balanced')}
                     </Text>
                   </View>
                   {event?.status === 'active' && (
@@ -1557,7 +1557,7 @@ export default function EventDetailScreen() {
       await updatePayment(paymentId, { isConfirmed: !currentStatus });
       await loadEventData();
     } catch (error) {
-      Alert.alert(t('error'), t('message.paymentStateError'));
+      Alert.alert(t('common.error'), t('message.paymentStateError'));
     }
   };
 
@@ -1784,8 +1784,8 @@ export default function EventDetailScreen() {
   const handleDeleteEvent = () => {
     if (!event) return;
     Alert.alert(
-      'Eliminar Evento',
-      `¿Estás seguro de que quieres eliminar "${event.name}"? Esta acción no se puede deshacer.`,
+      t('events.deleteTitle'),
+      t('events.deleteMessage', { name: event.name }),
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -1797,7 +1797,7 @@ export default function EventDetailScreen() {
               Alert.alert(t('common.success'), t('message.eventDeleted'));
               navigation.goBack();
             } catch (error) {
-              Alert.alert(t('error'), t('message.eventDeletedError'));
+              Alert.alert(t('common.error'), t('message.eventDeletedError'));
             }
           }
         }
@@ -1808,15 +1808,15 @@ export default function EventDetailScreen() {
   const showEventOptions = () => {
     if (!event) return;
     Alert.alert(
-      'Opciones del Evento',
-      `Selecciona una acción para "${event.name}"`,
+      t('events.optionsTitle'),
+      t('events.optionsMessage', { name: event.name }),
       [
         {
-          text: 'Editar Evento',
+          text: t('events.editEvent'),
           onPress: handleEditEvent
         },
         {
-          text: 'Eliminar Evento',
+          text: t('events.deleteEvent'),
           onPress: handleDeleteEvent,
           style: 'destructive'
         },
@@ -1906,7 +1906,7 @@ export default function EventDetailScreen() {
           <View style={{ flex: 1 }}>
             {/* Header genérico */}
             <HeaderBar 
-              title="Detalle del Gasto"
+              title={t('expenses.detailTitle')}
               showBackButton={false}
               useDynamicColors={true}
             />
@@ -1916,29 +1916,29 @@ export default function EventDetailScreen() {
                 <Card style={{ margin: 16 }}>
                   {/* 📝 Información General */}
                   <View style={styles.expenseDetailSection}>
-                    <Text style={styles.expenseDetailTitle}>📝 Información General</Text>
+                    <Text style={styles.expenseDetailTitle}>📝 {t('expenses.generalInfo')}</Text>
                     <View style={styles.expenseDetailRow}>
-                      <Text style={styles.expenseDetailLabel}>Descripción:</Text>
+                      <Text style={styles.expenseDetailLabel}>{t('expenses.description')}:</Text>
                       <Text style={styles.expenseDetailValue}>{selectedExpenseForDetail.expense.description}</Text>
                     </View>
                     <View style={styles.expenseDetailRow}>
-                      <Text style={styles.expenseDetailLabel}>Monto:</Text>
+                      <Text style={styles.expenseDetailLabel}>{t('expenses.amount')}:</Text>
                       <Text style={[styles.expenseDetailValue, { color: theme.colors.success, fontWeight: '600' }]}>
                         ${selectedExpenseForDetail.expense.amount.toFixed(2)} {selectedExpenseForDetail.expense.currency}
                       </Text>
                     </View>
                     <View style={styles.expenseDetailRow}>
-                      <Text style={styles.expenseDetailLabel}>Fecha:</Text>
+                      <Text style={styles.expenseDetailLabel}>{t('expenses.date')}:</Text>
                       <Text style={styles.expenseDetailValue}>
                         {new Date(selectedExpenseForDetail.expense.date).toLocaleDateString()}
                       </Text>
                     </View>
                     <View style={styles.expenseDetailRow}>
-                      <Text style={styles.expenseDetailLabel}>Categoría:</Text>
-                      <Text style={styles.expenseDetailValue}>{selectedExpenseForDetail.expense.category || 'Sin categoría'}</Text>
+                      <Text style={styles.expenseDetailLabel}>{t('expenses.category')}:</Text>
+                      <Text style={styles.expenseDetailValue}>{selectedExpenseForDetail.expense.category || t('expenses.noCategory')}</Text>
                     </View>
                     <View style={styles.expenseDetailRow}>
-                      <Text style={styles.expenseDetailLabel}>Pagado por:</Text>
+                      <Text style={styles.expenseDetailLabel}>{t('expenses.paidBy')}:</Text>
                       <Text style={styles.expenseDetailValue}>
                         {eventParticipants.find(p => p.id === selectedExpenseForDetail.expense.payerId)?.name || 'Usuario Demo'}
                       </Text>
@@ -1948,7 +1948,7 @@ export default function EventDetailScreen() {
                   {/* ⛔ Participantes Excluidos */}
                   {selectedExpenseForDetail.excludedParticipants.length > 0 && (
                     <View style={styles.expenseDetailSection}>
-                      <Text style={styles.expenseDetailTitle}>⛔ Participantes Excluidos</Text>
+                      <Text style={styles.expenseDetailTitle}>⛔ {t('expenses.excludedParticipants')}</Text>
                       <Text style={styles.expenseDetailValue}>
                         {selectedExpenseForDetail.excludedParticipants.map((p: any) => p.name).join(', ')}
                       </Text>
@@ -1958,7 +1958,7 @@ export default function EventDetailScreen() {
                   {/* 📊 División del Gasto */}
                   <View style={styles.expenseDetailSection}>
                     <Text style={styles.expenseDetailTitle}>
-                      📊 División del Gasto ({selectedExpenseForDetail.splits.length} participantes)
+                      📊 {t('expenses.expenseDivision')} ({selectedExpenseForDetail.splits.length} {t('expenses.participants')})
                     </Text>
                     {selectedExpenseForDetail.splits.map((split: any) => {
                       const participant = eventParticipants.find(p => p.id === split.participantId);
@@ -1974,7 +1974,7 @@ export default function EventDetailScreen() {
                   {/* 📷 Comprobante */}
                   {selectedExpenseForDetail.expense.receiptImage && (
                     <View style={styles.expenseDetailSection}>
-                      <Text style={styles.expenseDetailTitle}>📷 Comprobante</Text>
+                      <Text style={styles.expenseDetailTitle}>📷 {t('expenses.receipt')}</Text>
                       <TouchableOpacity
                         onPress={() => {
                           setSelectedImage(selectedExpenseForDetail.expense.receiptImage);
@@ -2092,7 +2092,7 @@ const ParticipantInfoModalContent: React.FC<{
               {participant.name}
             </Text>
             <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
-              {participant.participantType === 'friend' ? '👤 Amigo Permanente' : '⏰ Participante Temporal'}
+              {participant.participantType === 'friend' ? `👤 ${t('participants.friendPermanent')}` : `⏰ ${t('participants.temporaryParticipant')}`}
             </Text>
           </View>
 
@@ -2104,7 +2104,7 @@ const ParticipantInfoModalContent: React.FC<{
             marginBottom: 20,
             alignItems: 'center'
           }}>
-            <Text style={{ fontSize: 16, color: theme.colors.onSurfaceVariant, marginBottom: 4 }}>Balance</Text>
+            <Text style={{ fontSize: 16, color: theme.colors.onSurfaceVariant, marginBottom: 4 }}>{t('participants.balance')}</Text>
             <Text style={[
               { fontSize: 28, fontWeight: 'bold' },
               {
@@ -2117,15 +2117,15 @@ const ParticipantInfoModalContent: React.FC<{
                '$0.00'}
             </Text>
             <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant }}>
-              {balance > 0.01 ? 'Se le debe' :
-               balance < -0.01 ? 'Debe pagar' :
-               'Equilibrado'}
+              {balance > 0.01 ? t('participants.owes') :
+               balance < -0.01 ? t('participants.shouldPay') :
+               t('participants.balanced')}
             </Text>
           </View>
 
           {/* Información de contacto */}
           <View style={{ marginBottom: 20 }}>
-            <Text style={{ fontSize: 18, fontWeight: '600', color: theme.colors.onSurface, marginBottom: 12 }}>Información de Contacto</Text>
+            <Text style={{ fontSize: 18, fontWeight: '600', color: theme.colors.onSurface, marginBottom: 12 }}>{t('participants.contactInfo')}</Text>
             
             {participant.email && (
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
@@ -2150,19 +2150,19 @@ const ParticipantInfoModalContent: React.FC<{
             
             {!participant.email && !participant.phone && !participant.alias_cbu && (
               <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant, fontStyle: 'italic' }}>
-                No hay información de contacto disponible
+                {t('participants.noContactInfo')}
               </Text>
             )}
           </View>
 
           {/* Fechas */}
           <View>
-            <Text style={{ fontSize: 18, fontWeight: '600', color: theme.colors.onSurface, marginBottom: 12 }}>Información Adicional</Text>
+            <Text style={{ fontSize: 18, fontWeight: '600', color: theme.colors.onSurface, marginBottom: 12 }}>{t('participants.additionalInfo')}</Text>
             
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
               <MaterialCommunityIcons name="calendar-plus" size={20} color={theme.colors.primary} style={{ marginRight: 12 }} />
               <View>
-                <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant }}>Agregado al evento</Text>
+                <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant }}>{t('participants.addedToEvent')}</Text>
                 <Text style={{ fontSize: 16, color: theme.colors.onSurface }}>
                   {new Date(participant.createdAt).toLocaleDateString('es-ES', {
                     year: 'numeric',
