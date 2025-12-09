@@ -528,7 +528,8 @@ export default function EventDetailScreen() {
         message += `💳 *${cbuAlias}*\n`;
         settlementsForRecipient.forEach((settlement) => {
           const paymentStatus = settlement.isPaid ? ' ✅' : ' ⏳';
-          message += `  • ${settlement.fromParticipantName}: $${formatCurrency(settlement.amount)}${paymentStatus}\n`;
+          const receiptIcon = settlement.receiptImage ? ' 📎' : '';
+          message += `  • ${settlement.fromParticipantName}: $${formatCurrency(settlement.amount)}${paymentStatus}${receiptIcon}\n`;
         });
         message += `\n`;
       });
@@ -582,46 +583,7 @@ export default function EventDetailScreen() {
       message += `* ${p.name}\n`;
     });
     message += `━━━━━━━━━━━━━━━━━━\n`;
-    message += `💸 LIQUIDACIÓN:\n\n`;
-    
-    if (eventExpenses.length > 0) {
-      // Agrupar gastos por pagador
-      const expensesByPayer = eventExpenses.reduce((acc, expense) => {
-        const payerId = expense.payerId;
-        if (!acc[payerId]) {
-          acc[payerId] = [];
-        }
-        acc[payerId].push(expense);
-        return acc;
-      }, {} as Record<string, typeof eventExpenses>);
-
-      // Generar mensaje agrupado por pagador
-      Object.entries(expensesByPayer).forEach(([payerId, expenses]) => {
-        const payer = eventParticipants.find(p => p.id === payerId);
-        message += `_${payer?.name}_\n`;
-        
-        expenses.forEach((expense) => {
-          // Buscar splits para verificar exclusiones
-          const expenseSplits = eventSplits.filter(split => split.expenseId === expense.id);
-          const includedParticipantIds = expenseSplits.map(split => split.participantId);
-          const excludedParticipants = eventParticipants.filter(p => !includedParticipantIds.includes(p.id));
-          
-          let expenseLine = `* ${expense.description}: $${formatCurrency(expense.amount)}`;
-          
-          // Agregar exclusiones si existen
-          if (excludedParticipants.length > 0 && excludedParticipants.length < eventParticipants.length) {
-            const excludedNames = excludedParticipants.map(p => p.name).join(' - ');
-            expenseLine += ` | Excep: ${excludedNames}`;
-          }
-          
-          message += `${expenseLine}\n`;
-        });
-      });
-      
-      message += `\n💵 TOTAL: $${formatCurrency(totalAmount)}\n`;
-    } else {
-      message += `Sin gastos registrados\n`;
-    }
+    message += `💸 LIQUIDACIÓN:\n`;
     
     if (dbSettlements.length > 0) {
       // Agrupar liquidaciones por destinatario (quien recibe el dinero)
@@ -643,16 +605,60 @@ export default function EventDetailScreen() {
         message += `💳 ${cbuAlias}\n`;
         settlementsForRecipient.forEach((settlement) => {
           const paymentStatus = settlement.isPaid ? ' ✅' : ' ⏳';
-          message += `  • ${settlement.fromParticipantName}: $${formatCurrency(settlement.amount)}${paymentStatus}\n`;
+          const receiptIcon = settlement.receiptImage ? ' 📎' : '';
+          message += `  • ${settlement.fromParticipantName}: $${formatCurrency(settlement.amount)}${paymentStatus}${receiptIcon}\n`;
         });
-        message += `\n`;
       });
     } else {
       message += `✅ ¡Todas las cuentas están equilibradas!\n`;
     }
     
     message += `━━━━━━━━━━━━━━━━━━\n`;
-    message += `📝 GASTOS (${eventExpenses.length}):\n\n`;
+    message += `📝 GASTOS (${eventExpenses.length}):\n`;
+    
+    if (eventExpenses.length > 0) {
+      // Agrupar gastos por pagador
+      const expensesByPayer = eventExpenses.reduce((acc, expense) => {
+        const payerId = expense.payerId;
+        if (!acc[payerId]) {
+          acc[payerId] = [];
+        }
+        acc[payerId].push(expense);
+        return acc;
+      }, {} as Record<string, typeof eventExpenses>);
+
+      // Generar mensaje agrupado por pagador
+      Object.entries(expensesByPayer).forEach(([payerId, expenses]) => {
+        const payer = eventParticipants.find(p => p.id === payerId);
+        message += `${payer?.name}\n`;
+        
+        expenses.forEach((expense) => {
+          // Buscar splits para verificar exclusiones
+          const expenseSplits = eventSplits.filter(split => split.expenseId === expense.id);
+          const includedParticipantIds = expenseSplits.map(split => split.participantId);
+          const excludedParticipants = eventParticipants.filter(p => !includedParticipantIds.includes(p.id));
+          
+          let expenseLine = `* ${expense.description}: $${formatCurrency(expense.amount)}`;
+          
+          // Agregar exclusiones si existen
+          if (excludedParticipants.length > 0 && excludedParticipants.length < eventParticipants.length) {
+            const excludedNames = excludedParticipants.map(p => p.name).join(' - ');
+            expenseLine += ` | Excep: ${excludedNames}`;
+          }
+          
+          // Agregar icono de comprobante si existe
+          if (expense.receiptImage) {
+            expenseLine += ' 📎';
+          }
+          
+          message += `${expenseLine}\n`;
+        });
+      });
+      
+      message += `\n💵 TOTAL: $${formatCurrency(totalAmount)}\n`;
+    } else {
+      message += `Sin gastos registrados\n`;
+    }
 
     // Enviar directamente a WhatsApp
     const encodedMessage = encodeURIComponent(message);

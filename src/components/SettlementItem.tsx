@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-na
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 
 interface SettlementItemProps {
   settlement: {
@@ -27,6 +28,7 @@ export const SettlementItem: React.FC<SettlementItemProps> = ({
   disabled = false
 }) => {
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const [showReceiptOptions, setShowReceiptOptions] = useState(false);
 
   const handleTogglePaid = () => {
@@ -38,16 +40,16 @@ export const SettlementItem: React.FC<SettlementItemProps> = ({
     if (disabled) return;
 
     Alert.alert(
-      'Agregar Comprobante',
-      'Elige una opción',
+      t('settlement.addReceipt'),
+      t('settlement.chooseOption'),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Tomar Foto',
+          text: t('settlement.takePhoto'),
           onPress: async () => {
             const { status } = await ImagePicker.requestCameraPermissionsAsync();
             if (status !== 'granted') {
-              Alert.alert('Permiso denegado', 'Necesitamos acceso a la cámara');
+              Alert.alert(t('settlement.permissionDenied'), t('settlement.cameraPermissionDesc'));
               return;
             }
 
@@ -62,24 +64,24 @@ export const SettlementItem: React.FC<SettlementItemProps> = ({
           }
         },
         {
-          text: 'Elegir de Galería',
+          text: t('settlement.chooseFromGallery'),
           onPress: async () => {
             try {
               const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
               if (status !== 'granted') {
                 Alert.alert(
-                  'Permiso requerido', 
-                  'Para seleccionar una imagen de la galería, necesitamos permisos de acceso. Por favor, habilita los permisos en la configuración de la app.',
+                  t('settlement.permissionRequired'), 
+                  t('settlement.galleryPermissionDesc'),
                   [
-                    { text: 'Cancelar', style: 'cancel' },
-                    { text: 'Abrir Configuración', onPress: () => ImagePicker.requestMediaLibraryPermissionsAsync() }
+                    { text: t('common.cancel'), style: 'cancel' },
+                    { text: t('settlement.openSettings'), onPress: () => ImagePicker.requestMediaLibraryPermissionsAsync() }
                   ]
                 );
                 return;
               }
 
               const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaType.Images,
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: true,
                 aspect: [4, 3],
                 quality: 0.7,
@@ -91,12 +93,12 @@ export const SettlementItem: React.FC<SettlementItemProps> = ({
               }
             } catch (error) {
               console.error('Error selecting image:', error);
-              Alert.alert('Error', 'No se pudo abrir la galería. Inténtalo de nuevo.');
+              Alert.alert(t('common.error'), t('settlement.galleryError'));
             }
           }
         },
         ...(settlement.receiptImage ? [{
-          text: 'Eliminar Comprobante',
+          text: t('settlement.deleteReceipt'),
           style: 'destructive' as const,
           onPress: () => onUpdateReceipt(settlement.id, null)
         }] : [])
