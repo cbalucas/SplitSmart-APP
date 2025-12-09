@@ -1907,8 +1907,7 @@ export default function EventDetailScreen() {
             {/* Header genérico */}
             <HeaderBar 
               title="Detalle del Gasto"
-              showBackButton={true}
-              onLeftPress={() => setShowExpenseDetailModal(false)}
+              showBackButton={false}
               useDynamicColors={true}
             />
 
@@ -2029,6 +2028,10 @@ export default function EventDetailScreen() {
         animationType="slide"
         transparent={false}
         statusBarTranslucent={true}
+        onRequestClose={() => {
+          setParticipantInfoModalVisible(false);
+          setSelectedParticipantForInfo(null);
+        }}
       >
         <ParticipantInfoModalContent
           participant={selectedParticipantForInfo}
@@ -2060,8 +2063,7 @@ const ParticipantInfoModalContent: React.FC<{
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <HeaderBar 
         title={t('participant.info')}
-        showBackButton={true}
-        onLeftPress={onClose}
+        showBackButton={false}
         useDynamicColors={true}
       />
 

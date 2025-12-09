@@ -187,16 +187,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     gap: 8
   },
   receiptIconButton: {
-    padding: 6,
-    borderRadius: 6,
-    backgroundColor: theme.colors.primaryContainer,
-    borderWidth: 1,
-    borderColor: theme.colors.primary + '30',
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2
+    padding: 4
   },
   expenseActions: {
     flexDirection: 'row',
