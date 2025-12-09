@@ -13,7 +13,8 @@ import {
   Modal,
   TextInput,
   Image,
-  Switch
+  Switch,
+  BackHandler
 } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -203,6 +204,23 @@ export default function EventDetailScreen() {
   useEffect(() => {
     loadEventData();
   }, [loadEventData]);
+
+  // Manejar el botón back de Android cuando el modal de participante esté abierto
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        if (participantInfoModalVisible) {
+          setParticipantInfoModalVisible(false);
+          setSelectedParticipantForInfo(null);
+          return true; // Prevenir comportamiento por defecto
+        }
+        return false; // Permitir comportamiento por defecto
+      };
+
+      const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => backHandler.remove();
+    }, [participantInfoModalVisible])
+  );
 
   // Sincronizar liquidaciones cuando cambien los cálculos
   useEffect(() => {
