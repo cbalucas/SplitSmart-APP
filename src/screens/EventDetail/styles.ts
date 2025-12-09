@@ -233,7 +233,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'space-between',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0'
+    borderBottomColor: theme.colors.outline
   },
   participantInfo: {
     flexDirection: 'row',
@@ -244,13 +244,13 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#007AFF',
+    backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12
   },
   avatarText: {
-    color: '#fff',
+    color: theme.colors.onPrimary,
     fontSize: 16,
     fontWeight: '600'
   },
@@ -266,12 +266,12 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   participantName: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#333'
+    color: theme.colors.onSurface
   },
   peopleCountBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#007AFF',
+    backgroundColor: theme.colors.primary,
     borderRadius: 12,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -280,13 +280,13 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   peopleCountBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#FFFFFF'
+    color: theme.colors.onPrimary
   },
   friendBadge: {
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#FFF9E6',
+    backgroundColor: theme.colors.success + '20',
     alignItems: 'center',
     justifyContent: 'center'
   },
@@ -294,22 +294,22 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: theme.colors.surfaceVariant,
     alignItems: 'center',
     justifyContent: 'center'
   },
   participantRole: {
     fontSize: 12,
-    color: '#666',
+    color: theme.colors.onSurfaceVariant,
     marginBottom: 2
   },
   participantEmail: {
     fontSize: 12,
-    color: '#999'
+    color: theme.colors.onSurfaceVariant
   },
   participantBreakdown: {
     fontSize: 11,
-    color: '#666',
+    color: theme.colors.onSurfaceVariant,
     marginTop: 2
   },
   participantRightSection: {
@@ -326,7 +326,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   },
   participantBalanceLabel: {
     fontSize: 10,
-    color: '#666',
+    color: theme.colors.onSurfaceVariant,
     textAlign: 'center'
   },
   participantActions: {
@@ -349,28 +349,28 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   eventName: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.onSurface,
     marginBottom: 8
   },
   eventDescription: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.onSurfaceVariant,
     lineHeight: 20,
     marginBottom: 8
   },
   eventLocation: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.onSurfaceVariant,
     marginBottom: 4
   },
   eventDate: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.onSurfaceVariant,
     marginBottom: 4
   },
   eventCurrency: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.onSurfaceVariant,
     marginBottom: 8
   },
   eventStatus: {

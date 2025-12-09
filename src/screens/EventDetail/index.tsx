@@ -205,23 +205,6 @@ export default function EventDetailScreen() {
     loadEventData();
   }, [loadEventData]);
 
-  // Manejar el botón back de Android cuando el modal de participante esté abierto
-  useFocusEffect(
-    useCallback(() => {
-      const onBackPress = () => {
-        if (participantInfoModalVisible) {
-          setParticipantInfoModalVisible(false);
-          setSelectedParticipantForInfo(null);
-          return true; // Prevenir comportamiento por defecto
-        }
-        return false; // Permitir comportamiento por defecto
-      };
-
-      const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-      return () => backHandler.remove();
-    }, [participantInfoModalVisible])
-  );
-
   // Sincronizar liquidaciones cuando cambien los cálculos
   useEffect(() => {
     if (settlements.length > 0 || dbSettlements.length > 0) {
@@ -1150,7 +1133,7 @@ export default function EventDetailScreen() {
                     <MaterialCommunityIcons 
                       name={participant.participantType === 'friend' ? 'heart' : 'clock'} 
                       size={20} 
-                      color={theme.colors.onSuccess} 
+                      color={participant.participantType === 'friend' ? theme.colors.onSuccess : theme.colors.onWarning} 
                     />
                   </View>
                   <View style={styles.participantDetails}>
@@ -1980,14 +1963,16 @@ const ParticipantInfoModalContent: React.FC<{
   balance: number;
 }> = ({ participant, onClose, eventStats, balance }) => {
   const { theme } = useTheme();
+  const { t } = useLanguage();
 
   if (!participant) return null;
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <HeaderBar 
-        title="Información del Participante"
-        showBackButton={false}
+        title={t('participant.info')}
+        showBackButton={true}
+        onLeftPress={onClose}
         useDynamicColors={true}
       />
 
