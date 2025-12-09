@@ -22,6 +22,7 @@ import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { Event, Expense, Participant, EventParticipant, Split, Payment, Settlement } from '../../types';
+import { AppColors } from '../../constants/colors';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
 import AddParticipantModal from '../../components/AddParticipantModal';
@@ -75,6 +76,9 @@ export default function EventDetailScreen() {
   const [collapsedExpenses, setCollapsedExpenses] = useState<Record<string, boolean>>({});
   const [editingParticipant, setEditingParticipant] = useState<Participant | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [settlementsSearchQuery, setSettlementsSearchQuery] = useState('');
+  const [participantInfoModalVisible, setParticipantInfoModalVisible] = useState(false);
+  const [selectedParticipantForInfo, setSelectedParticipantForInfo] = useState<Participant | null>(null);
   
   // Estados de filtros y búsqueda
   const [searchQuery, setSearchQuery] = useState('');
@@ -126,9 +130,90 @@ export default function EventDetailScreen() {
     }
   }, [eventId, events, participants, expenses, getExpensesByEvent, getEventParticipants, getSplitsByEvent, getPaymentsByEvent]);
 
+  // Sincronizar liquidaciones calculadas con la BD
+  const syncSettlementsToDb = useCallback(async () => {
+    if (!eventId || !event) return;
+    if (event.status === 'archived') return; // No sincronizar en eventos archivados
+
+    try {
+      // Obtener liquidaciones actuales de la BD
+      const currentDbSettlements = await databaseService.getSettlementsByEvent(eventId);
+      
+      // Crear un mapa de las liquidaciones existentes por clave compuesta
+      const existingSettlementsMap = new Map(
+        currentDbSettlements.map((s: Settlement) => [`${s.fromParticipantId}_${s.toParticipantId}`, s])
+      );
+
+      // Procesar cada liquidación calculada
+      console.log('💰 === SETTLEMENT SYNC DEBUG ===');
+      console.log('Calculated settlements:', settlements.map(s => `${s.fromParticipantName} → ${s.toParticipantName}: $${s.amount}`));
+      console.log('Existing DB settlements:', currentDbSettlements.map((s: any) => `${s.fromParticipantName} → ${s.toParticipantName}: $${s.amount}`));
+
+      for (const calculatedSettlement of settlements) {
+        const key = `${calculatedSettlement.fromParticipantId}_${calculatedSettlement.toParticipantId}`;
+        const existingSettlement = existingSettlementsMap.get(key);
+
+        console.log(`\nProcessing: ${calculatedSettlement.fromParticipantName} → ${calculatedSettlement.toParticipantName}: $${calculatedSettlement.amount}`);
+        
+        if (existingSettlement) {
+          const amountDiff = Math.abs(existingSettlement.amount - calculatedSettlement.amount);
+          console.log(`  Existing: $${existingSettlement.amount}, New: $${calculatedSettlement.amount}, Diff: $${amountDiff}`);
+          
+          // Actualizar monto si cambió (mantener estado paid)
+          if (amountDiff > 0.01) {
+            console.log(`  ✅ UPDATING settlement ${existingSettlement.id} from $${existingSettlement.amount} to $${calculatedSettlement.amount}`);
+            await databaseService.updateSettlement(existingSettlement.id, {
+              amount: calculatedSettlement.amount,
+              updatedAt: new Date().toISOString()
+            });
+          } else {
+            console.log(`  ⏭️  No update needed (diff < 0.01)`);
+          }
+          existingSettlementsMap.delete(key); // Marcar como procesada
+        } else {
+          // Crear nueva liquidación
+          const newSettlement = {
+            id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            eventId,
+            fromParticipantId: calculatedSettlement.fromParticipantId,
+            fromParticipantName: calculatedSettlement.fromParticipantName,
+            toParticipantId: calculatedSettlement.toParticipantId,
+            toParticipantName: calculatedSettlement.toParticipantName,
+            amount: calculatedSettlement.amount,
+            isPaid: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          await databaseService.createSettlement(newSettlement);
+        }
+      }
+
+      // Eliminar liquidaciones que ya no existen en los cálculos
+      for (const [key, settlement] of existingSettlementsMap.entries()) {
+        console.log(`  🗑️  DELETING obsolete settlement: ${settlement.fromParticipantName} → ${settlement.toParticipantName}: $${settlement.amount}`);
+        await databaseService.deleteSettlement(settlement.id);
+      }
+
+      // Recargar liquidaciones
+      const updatedSettlements = await databaseService.getSettlementsByEvent(eventId);
+      setDbSettlements(updatedSettlements);
+      console.log('Final DB settlements:', updatedSettlements.map((s: any) => `${s.fromParticipantName} → ${s.toParticipantName}: $${s.amount}`));
+      console.log('💰 === END SETTLEMENT SYNC DEBUG ===');
+    } catch (error) {
+      console.error('Error syncing settlements:', error);
+    }
+  }, [eventId, event, settlements]);
+
   useEffect(() => {
     loadEventData();
   }, [loadEventData]);
+
+  // Sincronizar liquidaciones cuando cambien los cálculos
+  useEffect(() => {
+    if (settlements.length > 0 || dbSettlements.length > 0) {
+      syncSettlementsToDb();
+    }
+  }, [settlements, syncSettlementsToDb]);
 
   // Efecto para detectar cambios pasivos en datos globales que afecten este evento
   useEffect(() => {
@@ -166,16 +251,16 @@ export default function EventDetailScreen() {
   );
 
   const handleAddExpense = () => {
-    if (event?.status === 'closed' || event?.status === 'completed') {
-      Alert.alert('Evento Cerrado', 'No se pueden agregar gastos en un evento cerrado');
+    if (event?.status !== 'active') {
+      Alert.alert('Evento No Editable', 'Solo puedes agregar gastos en eventos activos');
       return;
     }
     (navigation as any).navigate('CreateExpense', { eventId });
   };
 
   const handleEditExpense = (expense: Expense) => {
-    if (event?.status === 'closed' || event?.status === 'completed') {
-      Alert.alert('Evento Cerrado', 'No se pueden editar gastos en un evento cerrado');
+    if (event?.status !== 'active') {
+      Alert.alert('Evento No Editable', 'Solo puedes editar gastos en eventos activos');
       return;
     }
     (navigation as any).navigate('CreateExpense', { 
@@ -186,8 +271,8 @@ export default function EventDetailScreen() {
   };
 
   const handleDeleteExpense = (expense: Expense) => {
-    if (event?.status === 'closed' || event?.status === 'completed') {
-      Alert.alert('Evento Cerrado', 'No se pueden eliminar gastos en un evento cerrado');
+    if (event?.status !== 'active') {
+      Alert.alert('Evento No Editable', 'Solo puedes eliminar gastos en eventos activos');
       return;
     }
     Alert.alert(
@@ -212,8 +297,8 @@ export default function EventDetailScreen() {
   };
 
   const handleEditParticipant = (participant: Participant) => {
-    if (event?.status === 'closed' || event?.status === 'completed') {
-      Alert.alert('Evento Cerrado', 'No se pueden editar participantes en un evento cerrado');
+    if (event?.status !== 'active') {
+      Alert.alert('Evento No Editable', 'Solo puedes editar participantes en eventos activos');
       return;
     }
     if (participant.participantType === 'temporary') {
@@ -268,8 +353,8 @@ export default function EventDetailScreen() {
   };
 
   const handleRemoveParticipant = (participant: any) => {
-    if (event?.status === 'closed' || event?.status === 'completed') {
-      Alert.alert('Evento Cerrado', 'No se pueden eliminar participantes en un evento cerrado');
+    if (event?.status !== 'active') {
+      Alert.alert('Evento No Editable', 'Solo puedes eliminar participantes en eventos activos');
       return;
     }
     Alert.alert(
@@ -303,19 +388,6 @@ export default function EventDetailScreen() {
         paidAt: isPaid ? new Date().toISOString() : null
       });
       await loadEventData();
-      
-      // Check if all settlements are paid to auto-complete event
-      const updatedSettlements = await databaseService.getSettlementsByEvent(eventId);
-      const allPaid = updatedSettlements.every((s: any) => s.isPaid);
-      
-      if (allPaid && event?.status === 'closed') {
-        await updateEvent(eventId, {
-          status: 'completed',
-          completedAt: new Date().toISOString()
-        });
-        await loadEventData();
-        Alert.alert('🎉 ¡Evento Completado!', 'Todas las liquidaciones han sido pagadas');
-      }
     } catch (error) {
       console.error('Error toggling settlement paid:', error);
       Alert.alert('Error', 'No se pudo actualizar el estado del pago');
@@ -335,47 +407,27 @@ export default function EventDetailScreen() {
     }
   };
 
-  const handleCloseEvent = async () => {
+  const handleCompleteEvent = async () => {
     if (!event) return;
 
     Alert.alert(
-      '🔒 Cerrar Evento',
-      'Al cerrar el evento no podrás agregar, editar o eliminar gastos ni participantes. Solo podrás marcar las liquidaciones como pagadas.\n\n¿Deseas continuar?',
+      '✅ Marcar como Completo',
+      'Al marcar el evento como completo se bloquearán los gastos y participantes, pero podrás gestionar los pagos de liquidación.\n\n¿Deseas continuar?',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Cerrar Evento',
-          style: 'destructive',
+          text: 'Marcar Completo',
           onPress: async () => {
             try {
-              // Generate settlements from calculated balances
-              await databaseService.deleteSettlementsByEvent(eventId);
-              
-              for (const settlement of settlements) {
-                const newSettlement = {
-                  id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                  eventId,
-                  fromParticipantId: settlement.fromParticipantId,
-                  fromParticipantName: settlement.fromParticipantName,
-                  toParticipantId: settlement.toParticipantId,
-                  toParticipantName: settlement.toParticipantName,
-                  amount: settlement.amount,
-                  isPaid: false,
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString()
-                };
-                await databaseService.createSettlement(newSettlement);
-              }
-
               await updateEvent(eventId, {
-                status: 'closed',
-                closedAt: new Date().toISOString()
+                status: 'completed',
+                completedAt: new Date().toISOString()
               });
               await loadEventData();
-              Alert.alert('✅ Evento Cerrado', 'El evento ha sido cerrado. Ahora solo puedes marcar pagos.');
+              Alert.alert('✅ Evento Completo', 'El evento está marcado como completo. Puedes gestionar los pagos.');
             } catch (error) {
-              console.error('Error closing event:', error);
-              Alert.alert('Error', 'No se pudo cerrar el evento');
+              console.error('Error completing event:', error);
+              Alert.alert('Error', 'No se pudo completar el evento');
             }
           }
         }
@@ -383,27 +435,65 @@ export default function EventDetailScreen() {
     );
   };
 
-  const handleReopenEvent = async () => {
+  const handleReactivateEvent = async (targetStatus: 'active' | 'completed' = 'active') => {
     if (!event) return;
 
+    const isGoingToActive = targetStatus === 'active';
+    const title = isGoingToActive ? '🔓 Reactivar Evento' : '✅ Marcar como Completo';
+    const message = isGoingToActive 
+      ? '¿Deseas reactivar el evento? Podrás volver a editar gastos y participantes.'
+      : '¿Deseas marcar el evento como completo? Se bloquearán los gastos y participantes, pero podrás gestionar pagos.';
+    const buttonText = isGoingToActive ? 'Reactivar' : 'Completar';
+    const successTitle = isGoingToActive ? '✅ Evento Reactivado' : '✅ Evento Completo';
+    const successMessage = isGoingToActive 
+      ? 'El evento está activo nuevamente'
+      : 'El evento está marcado como completo. Puedes gestionar los pagos.';
+
     Alert.alert(
-      '🔓 Reabrir Evento',
-      '¿Deseas reabrir el evento? Podrás volver a editar gastos y participantes.',
+      title,
+      message,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Reabrir',
+          text: buttonText,
           onPress: async () => {
             try {
               await updateEvent(eventId, {
-                status: 'active',
-                closedAt: undefined
+                status: targetStatus,
+                completedAt: targetStatus === 'completed' ? new Date().toISOString() : undefined
               });
               await loadEventData();
-              Alert.alert('✅ Evento Reabierto', 'El evento está activo nuevamente');
+              Alert.alert(successTitle, successMessage);
             } catch (error) {
-              console.error('Error reopening event:', error);
-              Alert.alert('Error', 'No se pudo reabrir el evento');
+              console.error(`Error changing event to ${targetStatus}:`, error);
+              Alert.alert('Error', `No se pudo cambiar el estado del evento`);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleArchiveEvent = async () => {
+    if (!event) return;
+
+    Alert.alert(
+      '📁 Archivar Evento',
+      'El evento archivado solo será visible en el historial. Puedes reactivarlo cuando quieras.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Archivar',
+          onPress: async () => {
+            try {
+              await updateEvent(eventId, {
+                status: 'archived'
+              });
+              Alert.alert('✅ Evento Archivado', 'El evento ha sido archivado correctamente');
+              navigation.goBack();
+            } catch (error) {
+              console.error('Error archiving event:', error);
+              Alert.alert('Error', 'No se pudo archivar el evento');
             }
           }
         }
@@ -807,13 +897,13 @@ export default function EventDetailScreen() {
           <Card>
             {filteredExpenses.length === 0 && eventExpenses.length === 0 ? (
               <View style={styles.emptyState}>
-                <MaterialCommunityIcons name="receipt" size={48} color="#ccc" />
+                <MaterialCommunityIcons name="receipt" size={48} color={theme.colors.onSurfaceVariant} />
                 <Text style={styles.emptyText}>No hay gastos registrados</Text>
                 <Text style={styles.emptySubtext}>Toca "Agregar" para crear el primer gasto</Text>
               </View>
             ) : filteredExpenses.length === 0 ? (
               <View style={styles.emptyState}>
-                <MaterialCommunityIcons name="filter-remove" size={48} color="#ccc" />
+                <MaterialCommunityIcons name="filter-remove" size={48} color={theme.colors.onSurfaceVariant} />
                 <Text style={styles.emptyText}>No se encontraron gastos</Text>
                 <Text style={styles.emptySubtext}>Intenta con otros filtros o búsqueda</Text>
               </View>
@@ -857,8 +947,8 @@ export default function EventDetailScreen() {
                         style={{ width: '100%', height: 150, borderRadius: 8 }}
                         resizeMode="cover"
                       />
-                      <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
-                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: '500' }}>📷 Comprobante</Text>
+                      <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: theme.isDark ? AppColors.special.dark.overlay : AppColors.special.light.overlay, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
+                        <Text style={{ color: theme.isDark ? AppColors.text.dark.onPrimary : AppColors.text.light.onPrimary, fontSize: 12, fontWeight: '500' }}>📷 Comprobante</Text>
                       </View>
                     </TouchableOpacity>
                   )}
@@ -877,7 +967,7 @@ export default function EventDetailScreen() {
                     <MaterialCommunityIcons 
                       name={collapsedExpenses[item.id] ? "chevron-up" : "chevron-down"} 
                       size={20} 
-                      color="#666" 
+                      color={theme.isDark ? AppColors.text.dark.disabled : AppColors.text.light.disabled} 
                     />
                   </TouchableOpacity>
                   
@@ -913,15 +1003,15 @@ export default function EventDetailScreen() {
                           style={styles.actionButton}
                           onPress={() => handleEditExpense(item)}
                         >
-                          <MaterialCommunityIcons name="pencil" size={16} color="#666" />
+                          <MaterialCommunityIcons name="pencil" size={16} color={theme.colors.onSurfaceVariant} />
                           <Text style={styles.actionText}>Editar</Text>
                         </TouchableOpacity>
                         <TouchableOpacity 
                           style={styles.actionButton}
                           onPress={() => handleDeleteExpense(item)}
                         >
-                          <MaterialCommunityIcons name="delete" size={16} color="#ff4444" />
-                          <Text style={[styles.actionText, { color: '#ff4444' }]}>Eliminar</Text>
+                          <MaterialCommunityIcons name="delete" size={16} color={theme.colors.error} />
+                          <Text style={[styles.actionText, { color: theme.colors.error }]}>Eliminar</Text>
                         </TouchableOpacity>
                       </>
                     )}
@@ -956,31 +1046,44 @@ export default function EventDetailScreen() {
 
     return (
       <View style={styles.tabContent}>
-        {/* Barra de búsqueda de participantes */}
-        <SearchBar
-          value={participantSearchQuery}
-          onChangeText={setParticipantSearchQuery}
-          placeholder="Buscar participantes..."
-          showClearButton={true}
-          onClear={() => setParticipantSearchQuery('')}
-        />
+        <View style={{ paddingHorizontal: 16 }}>
+          {/* Barra de búsqueda de participantes */}
+          <SearchBar
+            value={participantSearchQuery}
+            onChangeText={setParticipantSearchQuery}
+            placeholder="Buscar participantes..."
+            showClearButton={true}
+            onClear={() => setParticipantSearchQuery('')}
+          />
+        </View>
         
-        <Card>
+        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+          <Card style={{ marginHorizontal: 16, marginBottom: 16 }}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>
               👥 Participantes ({visibleParticipants.length}{visibleParticipants.length !== eventParticipants.length ? ` de ${eventParticipants.length}` : ''})
             </Text>
             {event?.status === 'active' && (
-              <TouchableOpacity style={styles.addButton} onPress={() => setShowAddParticipantModal(true)}>
-                <MaterialCommunityIcons name="plus" size={16} color="#007AFF" />
-                <Text style={styles.addButtonText}>Agregar</Text>
+              <TouchableOpacity 
+                style={{ 
+                  backgroundColor: theme.colors.primary, 
+                  paddingHorizontal: 12, 
+                  paddingVertical: 8, 
+                  borderRadius: 8, 
+                  flexDirection: 'row', 
+                  alignItems: 'center'
+                }}
+                onPress={() => setShowAddParticipantModal(true)}
+              >
+                <MaterialCommunityIcons name="plus" size={16} color={theme.colors.onPrimary} style={{ marginRight: 6 }} />
+                <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 14 }}>Agregar</Text>
               </TouchableOpacity>
             )}
           </View>
           
           {visibleParticipants.length === 0 ? (
             <View style={styles.emptyState}>
-              <MaterialCommunityIcons name="account-group" size={48} color="#ccc" />
+              <MaterialCommunityIcons name="account-group" size={48} color={theme.colors.onSurfaceVariant} />
               <Text style={styles.emptyText}>No hay participantes</Text>
               <Text style={styles.emptySubtext}>Agrega participantes para dividir los gastos</Text>
             </View>
@@ -992,19 +1095,35 @@ export default function EventDetailScreen() {
             const balance = totalPaid - totalOwed; // Lo que pagó - lo que debe
             
             return (
-              <View key={participant.id} style={styles.participantItem}>
+              <TouchableOpacity 
+                key={participant.id} 
+                style={styles.participantItem}
+                onPress={() => {
+                  setSelectedParticipantForInfo(participant);
+                  setParticipantInfoModalVisible(true);
+                }}
+                activeOpacity={0.7}
+              >
                 <View style={styles.participantInfo}>
-                  <View style={styles.participantAvatar}>
-                    <Text style={styles.avatarText}>
-                      {participant.name.charAt(0).toUpperCase()}
-                    </Text>
+                  <View style={[
+                    styles.participantAvatar, 
+                    { backgroundColor: participant.participantType === 'friend' ? theme.colors.success : theme.colors.warning }
+                  ]}>
+                    <MaterialCommunityIcons 
+                      name={participant.participantType === 'friend' ? 'heart' : 'clock'} 
+                      size={20} 
+                      color={theme.colors.onSuccess} 
+                    />
                   </View>
                   <View style={styles.participantDetails}>
                     <View style={styles.participantNameContainer}>
                       <Text style={styles.participantName}>{participant.name}</Text>
                     </View>
-                    {participant.email && (
-                      <Text style={styles.participantEmail}>{participant.email}</Text>
+                    {participant.alias_cbu && (
+                      <Text style={styles.participantEmail}>💳 {participant.alias_cbu}</Text>
+                    )}
+                    {participant.phone && (
+                      <Text style={styles.participantEmail}>📞 {participant.phone}</Text>
                     )}
                   </View>
                 </View>
@@ -1013,8 +1132,8 @@ export default function EventDetailScreen() {
                     <Text style={[
                       styles.participantBalance,
                       {
-                        color: balance > 0.01 ? '#4CAF50' : 
-                               balance < -0.01 ? '#FF4444' : '#666'
+                        color: balance > 0.01 ? theme.colors.success : 
+                               balance < -0.01 ? theme.colors.error : theme.colors.onSurfaceVariant
                       }
                     ]}>
                       {balance > 0.01 ? `+$${balance.toFixed(2)}` :
@@ -1034,99 +1153,198 @@ export default function EventDetailScreen() {
                           style={styles.editParticipantButton}
                           onPress={() => handleEditParticipant(participant)}
                         >
-                          <MaterialCommunityIcons name="pencil" size={18} color="#007AFF" />
+                          <MaterialCommunityIcons name="pencil" size={18} color={theme.colors.primary} />
                         </TouchableOpacity>
                       )}
                       <TouchableOpacity 
                         style={styles.removeParticipantButton}
                         onPress={() => handleRemoveParticipant(participant)}
                       >
-                        <MaterialCommunityIcons name="close" size={20} color="#ff4444" />
+                        <MaterialCommunityIcons name="close" size={20} color={theme.colors.error} />
                       </TouchableOpacity>
                     </View>
                   )}
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })
         )}
-      </Card>
+          </Card>
+        </ScrollView>
       </View>
     );
   };
 
   const renderResumenTab = () => (
     <ScrollView style={styles.tabContent}>
-      {/* Acciones rápidas + Botones de acción */}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      {/* Header de Acciones Mejorado */}
+      <View style={{ 
+        flexDirection: 'row', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        paddingHorizontal: 16, 
+        paddingVertical: 16,
+        backgroundColor: theme.colors.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.outline + '20'
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <TouchableOpacity 
-            style={{ padding: 8, marginRight: 8 }} 
+            style={{ 
+              backgroundColor: theme.colors.primary + '15',
+              paddingHorizontal: 10,
+              paddingVertical: 10,
+              borderRadius: 8
+            }} 
             onPress={handleShareSummary}
           >
-            <MaterialCommunityIcons name="file-document-outline" size={24} color="#007AFF" />
+            <MaterialCommunityIcons name="whatsapp" size={20} color={theme.colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity 
-            style={{ padding: 8 }} 
+            style={{ 
+              backgroundColor: theme.colors.surfaceVariant,
+              paddingHorizontal: 10,
+              paddingVertical: 10,
+              borderRadius: 8
+            }} 
             onPress={handleShareEvent}
           >
-            <MaterialCommunityIcons name="share-variant" size={24} color="#007AFF" />
+            <MaterialCommunityIcons name="share-variant" size={20} color={theme.colors.onSurfaceVariant} />
           </TouchableOpacity>
         </View>
         
-        {/* Botón Cerrar/Reabrir Evento */}
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {/* Botones de Estado del Evento */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '60%' }}>
           {event?.status === 'active' ? (
-            <TouchableOpacity
-              onPress={settlements.length > 0 ? handleCloseEvent : undefined}
-              disabled={settlements.length === 0}
-              style={{ 
-                backgroundColor: settlements.length > 0 ? '#007AFF' : '#CCCCCC', 
-                paddingHorizontal: 12, 
-                paddingVertical: 8, 
-                borderRadius: 8, 
-                flexDirection: 'row', 
-                alignItems: 'center',
-                opacity: settlements.length > 0 ? 1 : 0.6
-              }}
-            >
-              <MaterialCommunityIcons name="lock" size={16} color="#FFF" style={{ marginRight: 6 }} />
-              <Text style={{ color: '#FFF', fontWeight: '600', fontSize: 14 }}>Cerrar Evento</Text>
-            </TouchableOpacity>
-          ) : event?.status === 'closed' ? (
-            <TouchableOpacity
-              onPress={handleReopenEvent}
-              style={{ backgroundColor: '#FFF', borderWidth: 1, borderColor: '#007AFF', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
-            >
-              <MaterialCommunityIcons name="lock-open" size={16} color="#007AFF" style={{ marginRight: 6 }} />
-              <Text style={{ color: '#007AFF', fontWeight: '600', fontSize: 14 }}>Reabrir</Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                onPress={handleCompleteEvent}
+                style={{ 
+                  backgroundColor: theme.colors.primary, 
+                  paddingHorizontal: 8, 
+                  paddingVertical: 6, 
+                  borderRadius: 6, 
+                  flexDirection: 'row', 
+                  alignItems: 'center'
+                }}
+              >
+                <MaterialCommunityIcons name="check-circle" size={14} color={theme.colors.onPrimary} style={{ marginRight: 4 }} />
+                <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 12 }}>Completar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleArchiveEvent}
+                style={{ 
+                  backgroundColor: theme.colors.surface, 
+                  borderWidth: 1, 
+                  borderColor: theme.colors.outline, 
+                  paddingHorizontal: 8, 
+                  paddingVertical: 6, 
+                  borderRadius: 6, 
+                  flexDirection: 'row', 
+                  alignItems: 'center' 
+                }}
+              >
+                <MaterialCommunityIcons name="archive" size={14} color={theme.colors.onSurfaceVariant} style={{ marginRight: 4 }} />
+                <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 12 }}>Archivar</Text>
+              </TouchableOpacity>
+            </>
+          ) : event?.status === 'completed' ? (
+            <>
+              <TouchableOpacity
+                onPress={() => handleReactivateEvent('active')}
+                style={{ 
+                  backgroundColor: theme.colors.surface, 
+                  borderWidth: 1, 
+                  borderColor: theme.colors.primary, 
+                  paddingHorizontal: 8, 
+                  paddingVertical: 6, 
+                  borderRadius: 6, 
+                  flexDirection: 'row', 
+                  alignItems: 'center' 
+                }}
+              >
+                <MaterialCommunityIcons name="lock-open" size={14} color={theme.colors.primary} style={{ marginRight: 4 }} />
+                <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 12 }}>Reactivar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleArchiveEvent}
+                style={{ 
+                  backgroundColor: theme.colors.surface, 
+                  borderWidth: 1, 
+                  borderColor: theme.colors.outline, 
+                  paddingHorizontal: 8, 
+                  paddingVertical: 6, 
+                  borderRadius: 6, 
+                  flexDirection: 'row', 
+                  alignItems: 'center' 
+                }}
+              >
+                <MaterialCommunityIcons name="archive" size={14} color={theme.colors.onSurfaceVariant} style={{ marginRight: 4 }} />
+                <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 12 }}>Archivar</Text>
+              </TouchableOpacity>
+            </>
+          ) : event?.status === 'archived' ? (
+            <>
+              <TouchableOpacity
+                onPress={() => handleReactivateEvent('active')}
+                style={{ 
+                  backgroundColor: theme.colors.primary, 
+                  paddingHorizontal: 8, 
+                  paddingVertical: 6, 
+                  borderRadius: 6, 
+                  flexDirection: 'row', 
+                  alignItems: 'center' 
+                }}
+              >
+                <MaterialCommunityIcons name="lock-open" size={14} color={theme.colors.onPrimary} style={{ marginRight: 4 }} />
+                <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 12 }}>Reactivar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleReactivateEvent('completed')}
+                style={{ 
+                  backgroundColor: theme.colors.surface, 
+                  borderWidth: 1, 
+                  borderColor: theme.colors.warning, 
+                  paddingHorizontal: 8, 
+                  paddingVertical: 6, 
+                  borderRadius: 6, 
+                  flexDirection: 'row', 
+                  alignItems: 'center' 
+                }}
+              >
+                <MaterialCommunityIcons name="check-circle" size={14} color={theme.colors.warning} style={{ marginRight: 4 }} />
+                <Text style={{ color: theme.colors.warning, fontWeight: '600', fontSize: 12 }}>Completar</Text>
+              </TouchableOpacity>
+            </>
           ) : null}
         </View>
       </View>
 
       {/* Información del evento */}
-      <Card style={{ marginBottom: 16 }}>
+      <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
           <Text style={styles.sectionTitle}>📋 Información del Evento</Text>
           {event && (
             <View style={{ 
-              backgroundColor: event.status === 'active' ? '#E8F5E9' : 
-                             event.status === 'closed' ? '#FFF3E0' :
-                             event.status === 'completed' ? '#E3F2FD' : '#F5F5F5',
+              backgroundColor: event.status === 'active' ? theme.colors.successContainer : 
+                             event.status === 'completed' ? theme.colors.warningContainer :
+                             event.status === 'archived' ? theme.colors.surfaceVariant : theme.colors.successContainer,
               paddingHorizontal: 10,
               paddingVertical: 4,
-              borderRadius: 12
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: event.status === 'active' ? theme.colors.success : 
+                          event.status === 'completed' ? theme.colors.warning : 
+                          theme.colors.outline
             }}>
               <Text style={{ 
-                color: event.status === 'active' ? '#2E7D32' : 
-                       event.status === 'closed' ? '#E65100' :
-                       event.status === 'completed' ? '#1976D2' : '#616161',
+                color: event.status === 'active' ? theme.colors.success : 
+                       event.status === 'completed' ? theme.colors.warning : 
+                       theme.colors.onSurfaceVariant,
                 fontSize: 12,
                 fontWeight: '600'
               }}>
                 {event.status === 'active' ? '🟢 Activo' : 
-                 event.status === 'closed' ? '🔒 Cerrado' :
                  event.status === 'completed' ? '✅ Completado' : '📁 Archivado'}
               </Text>
             </View>
@@ -1134,47 +1352,44 @@ export default function EventDetailScreen() {
         </View>
         {event && (
           <View style={styles.summaryInfo}>
-            <Text style={styles.eventName}>{event.name}</Text>
+            <Text style={[styles.eventName, { color: theme.colors.onSurfaceVariant }]}>{event.name}</Text>
             {event.description && (
-              <Text style={styles.eventDescription}>{event.description}</Text>
+              <Text style={[styles.eventDescription, { color: theme.colors.onSurfaceVariant }]}>{event.description}</Text>
             )}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>
               {event.location && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16, marginBottom: 8 }}>
-                  <MaterialCommunityIcons name="map-marker" size={16} color="#E53935" style={{ marginRight: 4 }} />
+                  <MaterialCommunityIcons name="map-marker" size={16} color={theme.colors.error} style={{ marginRight: 4 }} />
                   <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant }}>{event.location}</Text>
                 </View>
               )}
               <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16, marginBottom: 8 }}>
-                <MaterialCommunityIcons name="calendar" size={16} color="#1E88E5" style={{ marginRight: 4 }} />
+                <MaterialCommunityIcons name="calendar" size={16} color={theme.colors.info} style={{ marginRight: 4 }} />
                 <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant }}>
                   {new Date(event.startDate).toLocaleDateString()}
                 </Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                <MaterialCommunityIcons name="currency-usd" size={16} color="#43A047" style={{ marginRight: 4 }} />
+                <MaterialCommunityIcons name="currency-usd" size={16} color={theme.colors.success} style={{ marginRight: 4 }} />
                 <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant }}>Moneda: {event.currency}</Text>
               </View>
             </View>
             
             {/* Estadísticas inline */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#E0E0E0' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: theme.colors.outline }}>
               <View style={{ alignItems: 'center' }}>
-                <MaterialCommunityIcons name="account-group" size={20} color="#2196F3" />
-                <Text style={{ fontSize: 18, fontWeight: '700', color: '#333', marginTop: 4 }}>{eventParticipants.length}</Text>
-                <Text style={{ fontSize: 11, color: theme.colors.onSurfaceVariant }}>Participantes</Text>
+                <MaterialCommunityIcons name="account-group" size={20} color={theme.colors.info} />
+                <Text style={{ fontSize: 18, fontWeight: '700', color: theme.colors.onSurface, marginTop: 4 }}>{eventParticipants.length}</Text>
               </View>
               <View style={{ alignItems: 'center' }}>
-                <MaterialCommunityIcons name="receipt" size={20} color="#FF9800" />
-                <Text style={{ fontSize: 18, fontWeight: '700', color: '#333', marginTop: 4 }}>{eventExpenses.length}</Text>
-                <Text style={{ fontSize: 11, color: '#666' }}>Gastos</Text>
+                <MaterialCommunityIcons name="wallet" size={20} color={theme.colors.warning} />
+                <Text style={{ fontSize: 18, fontWeight: '700', color: theme.colors.onSurface, marginTop: 4 }}>{eventExpenses.length}</Text>
               </View>
               <View style={{ alignItems: 'center' }}>
-                <MaterialCommunityIcons name="cash" size={20} color="#4CAF50" />
-                <Text style={{ fontSize: 18, fontWeight: '700', color: '#333', marginTop: 4 }}>
+                <MaterialCommunityIcons name="cash" size={20} color={theme.colors.success} />
+                <Text style={{ fontSize: 18, fontWeight: '700', color: theme.colors.onSurface, marginTop: 4 }}>
                   ${calculateTotalExpenses().toFixed(2)}
                 </Text>
-                <Text style={{ fontSize: 11, color: '#666' }}>Total Gastado</Text>
               </View>
             </View>
           </View>
@@ -1182,65 +1397,59 @@ export default function EventDetailScreen() {
       </Card>
 
       {/* Liquidación de cuentas */}
-      <Card style={{ marginBottom: 16 }}>
+      <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <Text style={styles.sectionTitle}>💸 Liquidación de Cuentas</Text>
-          {event?.status === 'closed' && dbSettlements.length > 0 && (
-            <View style={{ backgroundColor: '#FF9800', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 }}>
-              <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '600' }}>
+          {(event?.status === 'active' || event?.status === 'completed') && dbSettlements.length > 0 && (
+            <View style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 }}>
+              <Text style={{ color: theme.colors.onPrimary, fontSize: 12, fontWeight: '600' }}>
                 {dbSettlements.filter((s: Settlement) => s.isPaid).length}/{dbSettlements.length} Pagadas
               </Text>
             </View>
           )}
         </View>
-
-        {event?.status === 'active' && settlements.length > 0 && (
-          <View style={{ backgroundColor: '#FFF3E0', padding: 12, borderRadius: 8, marginBottom: 12 }}>
-            <Text style={{ color: '#E65100', fontSize: 13 }}>
-              ℹ️ Cierra el evento para poder marcar las liquidaciones como pagadas
-            </Text>
+        
+        {dbSettlements.length > 0 && (
+          <View style={styles.searchContainer}>
+            <SearchBar
+              placeholder="Buscar por deudor o acreedor..."
+              value={settlementsSearchQuery}
+              onChangeText={setSettlementsSearchQuery}
+              containerStyle={{ backgroundColor: 'transparent', borderBottomColor: 'transparent', borderTopColor: 'transparent', paddingHorizontal: 0 }}
+              inputContainerStyle={{ backgroundColor: theme.colors.surfaceVariant }}
+              inputStyle={{ color: theme.colors.onSurface }}
+              searchIcon={{ color: theme.colors.onSurfaceVariant }}
+              clearIcon={{ color: theme.colors.onSurfaceVariant }}
+            />
           </View>
         )}
 
-        {(event?.status === 'closed' || event?.status === 'completed') && dbSettlements.length > 0 ? (
+        {dbSettlements.length > 0 ? (
           <View>
-            {dbSettlements.map((settlement: Settlement) => (
-              <SettlementItem
-                key={settlement.id}
-                settlement={settlement}
-                currency={event?.currency || 'ARS'}
-                onTogglePaid={handleToggleSettlementPaid}
-                onUpdateReceipt={handleUpdateSettlementReceipt}
-                disabled={event?.status === 'completed'}
-              />
-            ))}
-          </View>
-        ) : event?.status === 'active' && settlements.length > 0 ? (
-          <View style={styles.settlementsContainer}>
-            {settlements.map((settlement, index) => {
-              const fromParticipant = eventParticipants.find(p => p.id === settlement.fromParticipantId);
-              const toParticipant = eventParticipants.find(p => p.id === settlement.toParticipantId);
-              
-              return (
-                <View key={index} style={styles.settlementItem}>
-                  <Text style={styles.settlementDescription}>
-                    <Text style={{ fontWeight: '600' }}>{fromParticipant?.name}</Text>
-                    {' → '}
-                    <Text style={{ fontWeight: '600' }}>{toParticipant?.name}</Text>
-                  </Text>
-                  <Text style={styles.settlementAmount}>
-                    {event.currency} ${settlement.amount.toFixed(2)}
-                  </Text>
-                </View>
-              );
-            })}
+            {dbSettlements
+              .filter((settlement: Settlement) => {
+                if (!settlementsSearchQuery) return true;
+                const query = settlementsSearchQuery.toLowerCase();
+                return settlement.fromParticipantName.toLowerCase().includes(query) ||
+                       settlement.toParticipantName.toLowerCase().includes(query);
+              })
+              .map((settlement: Settlement) => (
+                <SettlementItem
+                  key={settlement.id}
+                  settlement={settlement}
+                  currency={event?.currency || 'ARS'}
+                  onTogglePaid={handleToggleSettlementPaid}
+                  onUpdateReceipt={handleUpdateSettlementReceipt}
+                  disabled={event?.status === 'archived'}
+                />
+              ))}
           </View>
         ) : (
           <View style={styles.noSettlementsContainer}>
             <MaterialCommunityIcons 
               name="check-circle" 
               size={48} 
-              color="#4CAF50" 
+              color={theme.colors.primary} 
               style={styles.noSettlementsIcon}
             />
             <Text style={styles.noSettlementsTitle}>¡Perfecto!</Text>
@@ -1251,9 +1460,51 @@ export default function EventDetailScreen() {
         )}
       </Card>
 
+      {/* Gastos por Participante */}
+      {(() => {
+        // Calcular gastos por participante (solo los que han pagado)
+        const participantExpenses = eventParticipants.reduce((acc, participant) => {
+          const participantExpenseTotal = eventExpenses
+            .filter(expense => expense.payerId === participant.id)
+            .reduce((sum, expense) => sum + expense.amount, 0);
+          
+          if (participantExpenseTotal > 0) {
+            acc[participant.id] = {
+              name: participant.name,
+              total: participantExpenseTotal,
+              percentage: (participantExpenseTotal / calculateTotalExpenses()) * 100
+            };
+          }
+          return acc;
+        }, {} as Record<string, {name: string, total: number, percentage: number}>);
+
+        return Object.keys(participantExpenses).length > 0 && (
+          <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
+            <Text style={styles.sectionTitle}>👥 Gastos por Participante</Text>
+            {Object.entries(participantExpenses)
+              .sort(([,a], [,b]) => b.total - a.total)
+              .map(([participantId, data]) => (
+                <View key={participantId} style={styles.categoryItem}>
+                  <View style={styles.categoryInfo}>
+                    <Text style={styles.categoryName}>
+                      {data.name}
+                    </Text>
+                    <Text style={styles.categoryPercentage}>
+                      {data.percentage.toFixed(1)}%
+                    </Text>
+                  </View>
+                  <Text style={styles.categoryAmount}>
+                    ${data.total.toFixed(2)} {event?.currency || 'USD'}
+                  </Text>
+                </View>
+              ))}
+          </Card>
+        );
+      })()}
+
       {/* Categorías de gastos */}
       {Object.keys(eventStats.categoryTotals).length > 0 && (
-        <Card style={{ marginBottom: 16 }}>
+        <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
           <Text style={styles.sectionTitle}>📊 Gastos por Categoría</Text>
           {Object.entries(eventStats.categoryTotals).map(([category, total]) => (
             <View key={category} style={styles.categoryItem}>
@@ -1365,18 +1616,18 @@ export default function EventDetailScreen() {
     return (
       <ScrollView style={styles.tabContent}>
         {/* Estadísticas de pagos */}
-        <Card style={{ marginBottom: 16 }}>
+        <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
           <Text style={styles.sectionTitle}>💰 Estado de Pagos</Text>
           <View style={styles.paymentStatsContainer}>
             <View style={styles.paymentStatItem}>
-              <MaterialCommunityIcons name="clock-outline" size={32} color="#FF9800" />
+              <MaterialCommunityIcons name="clock-outline" size={32} color={theme.colors.warning} />
               <Text style={styles.paymentStatValue}>
                 ${totalPending.toFixed(2)}
               </Text>
               <Text style={styles.paymentStatLabel}>Pendiente</Text>
             </View>
             <View style={styles.paymentStatItem}>
-              <MaterialCommunityIcons name="check-circle" size={32} color="#4CAF50" />
+              <MaterialCommunityIcons name="check-circle" size={32} color={theme.colors.success} />
               <Text style={styles.paymentStatValue}>
                 ${totalPaid.toFixed(2)}
               </Text>
@@ -1422,8 +1673,8 @@ export default function EventDetailScreen() {
                       <Switch
                         value={payment.isConfirmed || false}
                         onValueChange={() => handleTogglePayment(payment.id, payment.isConfirmed || false)}
-                        trackColor={{ false: '#ccc', true: '#4CAF50' }}
-                        thumbColor={payment.isConfirmed ? '#fff' : '#f4f3f4'}
+                        trackColor={{ false: theme.colors.outline, true: theme.colors.success }}
+                        thumbColor={payment.isConfirmed ? theme.colors.onPrimary : theme.colors.surfaceVariant}
                       />
                     </View>
 
@@ -1458,7 +1709,7 @@ export default function EventDetailScreen() {
                           style={styles.addReceiptButton}
                           onPress={() => handleAddReceiptToPayment(payment.id)}
                         >
-                          <MaterialCommunityIcons name="camera-plus" size={24} color="#007AFF" />
+                          <MaterialCommunityIcons name="camera-plus" size={24} color={theme.colors.primary} />
                           <Text style={styles.addReceiptText}>Agregar comprobante</Text>
                         </TouchableOpacity>
                       )}
@@ -1472,7 +1723,7 @@ export default function EventDetailScreen() {
               <MaterialCommunityIcons 
                 name="cash-multiple" 
                 size={64} 
-                color="#ccc" 
+                color={theme.colors.outline} 
                 style={styles.emptyIcon}
               />
               <Text style={styles.emptyText}>No hay pagos registrados</Text>
@@ -1557,7 +1808,7 @@ export default function EventDetailScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.errorContainer}>
-          <MaterialCommunityIcons name="alert-circle" size={48} color="#ff4444" />
+          <MaterialCommunityIcons name="alert-circle" size={48} color={theme.colors.error} />
           <Text style={styles.errorText}>Evento no encontrado</Text>
           <Button
             title="Volver"
@@ -1582,13 +1833,13 @@ export default function EventDetailScreen() {
         elevation={true}
       />
       
-      <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
+      <View style={[styles.safeContent, { paddingBottom: 20 }]}>
         {/* Tab Bar */}
         {renderTabBar()}
 
         {/* Tab Content */}
         {renderTabContent()}
-      </SafeAreaView>
+      </View>
 
       {/* Add Participant Modal */}
       <AddParticipantModal
@@ -1609,7 +1860,7 @@ export default function EventDetailScreen() {
           setEditingParticipant(null);
         }}
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#f8f9fa' }} edges={['top', 'bottom', 'left', 'right']}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top', 'bottom', 'left', 'right']}>
           <EditParticipantModalContent
             participant={editingParticipant}
             onSave={handleSaveEditedParticipant}
@@ -1628,13 +1879,13 @@ export default function EventDetailScreen() {
         animationType="fade"
         onRequestClose={() => setShowImageModal(false)}
       >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
+        <View style={{ flex: 1, backgroundColor: theme.isDark ? 'rgba(0,0,0,0.95)' : 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
           <TouchableOpacity
             style={{ position: 'absolute', top: 40, right: 20, zIndex: 10 }}
             onPress={() => setShowImageModal(false)}
           >
-            <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, padding: 8 }}>
-              <MaterialCommunityIcons name="close" size={28} color="#fff" />
+            <View style={{ backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)', borderRadius: 20, padding: 8 }}>
+              <MaterialCommunityIcons name="close" size={28} color={theme.colors.onPrimary} />
             </View>
           </TouchableOpacity>
           {selectedImage && (
@@ -1646,9 +1897,161 @@ export default function EventDetailScreen() {
           )}
         </View>
       </Modal>
+
+      {/* Modal de información del participante */}
+      <Modal
+        visible={participantInfoModalVisible}
+        animationType="slide"
+        transparent={false}
+        statusBarTranslucent={true}
+      >
+        <ParticipantInfoModalContent
+          participant={selectedParticipantForInfo}
+          onClose={() => {
+            setParticipantInfoModalVisible(false);
+            setSelectedParticipantForInfo(null);
+          }}
+          eventStats={eventStats}
+          balance={selectedParticipantForInfo ? balances[selectedParticipantForInfo.id] || 0 : 0}
+        />
+      </Modal>
     </View>
   );
 }
+
+// Componente interno para mostrar información completa del participante
+const ParticipantInfoModalContent: React.FC<{
+  participant: Participant | null;
+  onClose: () => void;
+  eventStats: any;
+  balance: number;
+}> = ({ participant, onClose, eventStats, balance }) => {
+  const { theme } = useTheme();
+
+  if (!participant) return null;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <HeaderBar 
+        title="Información del Participante"
+        showBackButton={true}
+        onLeftPress={onClose}
+        useDynamicColors={true}
+      />
+
+      <ScrollView style={{ flex: 1, padding: 20, backgroundColor: theme.colors.background }}>
+        <Card>
+          {/* Avatar y nombre */}
+          <View style={{ alignItems: 'center', marginBottom: 24 }}>
+            <View style={[
+              { 
+                width: 80, 
+                height: 80, 
+                borderRadius: 40, 
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                marginBottom: 12 
+              },
+              { backgroundColor: participant.participantType === 'friend' ? theme.colors.success : theme.colors.warning }
+            ]}>
+              <MaterialCommunityIcons 
+                name={participant.participantType === 'friend' ? 'heart' : 'clock'} 
+                size={40} 
+                color={theme.colors.onSuccess} 
+              />
+            </View>
+            <Text style={{ fontSize: 24, fontWeight: 'bold', color: theme.colors.onSurface, textAlign: 'center' }}>
+              {participant.name}
+            </Text>
+            <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
+              {participant.participantType === 'friend' ? '👤 Amigo Permanente' : '⏰ Participante Temporal'}
+            </Text>
+          </View>
+
+          {/* Balance */}
+          <View style={{ 
+            backgroundColor: theme.colors.surfaceVariant, 
+            padding: 16, 
+            borderRadius: 12, 
+            marginBottom: 20,
+            alignItems: 'center'
+          }}>
+            <Text style={{ fontSize: 16, color: theme.colors.onSurfaceVariant, marginBottom: 4 }}>Balance</Text>
+            <Text style={[
+              { fontSize: 28, fontWeight: 'bold' },
+              {
+                color: balance > 0.01 ? theme.colors.success : 
+                       balance < -0.01 ? theme.colors.error : theme.colors.onSurfaceVariant
+              }
+            ]}>
+              {balance > 0.01 ? `+$${balance.toFixed(2)}` :
+               balance < -0.01 ? `-$${Math.abs(balance).toFixed(2)}` :
+               '$0.00'}
+            </Text>
+            <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant }}>
+              {balance > 0.01 ? 'Se le debe' :
+               balance < -0.01 ? 'Debe pagar' :
+               'Equilibrado'}
+            </Text>
+          </View>
+
+          {/* Información de contacto */}
+          <View style={{ marginBottom: 20 }}>
+            <Text style={{ fontSize: 18, fontWeight: '600', color: theme.colors.onSurface, marginBottom: 12 }}>Información de Contacto</Text>
+            
+            {participant.email && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <MaterialCommunityIcons name="email" size={20} color={theme.colors.primary} style={{ marginRight: 12 }} />
+                <Text style={{ fontSize: 16, color: theme.colors.onSurface }}>{participant.email}</Text>
+              </View>
+            )}
+            
+            {participant.phone && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <MaterialCommunityIcons name="phone" size={20} color={theme.colors.primary} style={{ marginRight: 12 }} />
+                <Text style={{ fontSize: 16, color: theme.colors.onSurface }}>{participant.phone}</Text>
+              </View>
+            )}
+            
+            {participant.alias_cbu && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <MaterialCommunityIcons name="credit-card" size={20} color={theme.colors.primary} style={{ marginRight: 12 }} />
+                <Text style={{ fontSize: 16, color: theme.colors.onSurface }}>{participant.alias_cbu}</Text>
+              </View>
+            )}
+            
+            {!participant.email && !participant.phone && !participant.alias_cbu && (
+              <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant, fontStyle: 'italic' }}>
+                No hay información de contacto disponible
+              </Text>
+            )}
+          </View>
+
+          {/* Fechas */}
+          <View>
+            <Text style={{ fontSize: 18, fontWeight: '600', color: theme.colors.onSurface, marginBottom: 12 }}>Información Adicional</Text>
+            
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <MaterialCommunityIcons name="calendar-plus" size={20} color={theme.colors.primary} style={{ marginRight: 12 }} />
+              <View>
+                <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant }}>Agregado al evento</Text>
+                <Text style={{ fontSize: 16, color: theme.colors.onSurface }}>
+                  {new Date(participant.createdAt).toLocaleDateString('es-ES', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </Card>
+      </ScrollView>
+    </View>
+  );
+};
 
 // Componente interno para el modal de edición
 const EditParticipantModalContent: React.FC<{
@@ -1656,6 +2059,7 @@ const EditParticipantModalContent: React.FC<{
   onSave: (name: string, email?: string, phone?: string, aliasCbu?: string, convertToFriend?: boolean) => void;
   onCancel: () => void;
 }> = ({ participant, onSave, onCancel }) => {
+  const { theme } = useTheme();
   const [name, setName] = useState(participant?.name || '');
   const [email, setEmail] = useState(participant?.email || '');
   const [phone, setPhone] = useState(participant?.phone || '');
@@ -1666,114 +2070,123 @@ const EditParticipantModalContent: React.FC<{
 
   return (
     <View style={{ flex: 1 }}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onCancel}>
-          <MaterialCommunityIcons name="close" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Editar Participante</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <HeaderBar 
+        title="Editar Participante"
+        showBackButton={true}
+        onLeftPress={onCancel}
+        useDynamicColors={true}
+      />
 
       <ScrollView style={{ flex: 1, padding: 20 }}>
         <Card>
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 6 }}>Nombre *</Text>
+            <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 6, color: theme.colors.onSurface }}>Nombre *</Text>
             <TextInput
               style={{
-                backgroundColor: '#fff',
+                backgroundColor: theme.colors.surface,
                 borderWidth: 1,
-                borderColor: '#ddd',
+                borderColor: theme.colors.outline,
                 borderRadius: 8,
                 paddingHorizontal: 16,
                 paddingVertical: 12,
-                fontSize: 16
+                fontSize: 16,
+                color: theme.colors.onSurface
               }}
               placeholder="Nombre del participante"
+              placeholderTextColor={theme.colors.onSurfaceVariant}
               value={name}
               onChangeText={setName}
             />
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 6 }}>CBU/Alias (Opcional)</Text>
+            <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 6, color: theme.colors.onSurface }}>CBU/Alias (Opcional)</Text>
             <TextInput
               style={{
-                backgroundColor: '#fff',
+                backgroundColor: theme.colors.surface,
                 borderWidth: 1,
-                borderColor: '#ddd',
+                borderColor: theme.colors.outline,
                 borderRadius: 8,
                 paddingHorizontal: 16,
                 paddingVertical: 12,
-                fontSize: 16
+                fontSize: 16,
+                color: theme.colors.onSurface
               }}
               placeholder="Alias o CBU para pagos"
+              placeholderTextColor={theme.colors.onSurfaceVariant}
               value={aliasCbu}
               onChangeText={setAliasCbu}
             />
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 6 }}>Teléfono (Opcional)</Text>
+            <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 6, color: theme.colors.onSurface }}>Teléfono (Opcional)</Text>
             <TextInput
               style={{
-                backgroundColor: '#fff',
+                backgroundColor: theme.colors.surface,
                 borderWidth: 1,
-                borderColor: '#ddd',
+                borderColor: theme.colors.outline,
                 borderRadius: 8,
                 paddingHorizontal: 16,
                 paddingVertical: 12,
-                fontSize: 16
+                fontSize: 16,
+                color: theme.colors.onSurface
               }}
               placeholder="+54 9 11 1234-5678"
+              placeholderTextColor={theme.colors.onSurfaceVariant}
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"
             />
           </View>
 
-          <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 6 }}>Email (Opcional)</Text>
-            <TextInput
-              style={{
-                backgroundColor: '#fff',
-                borderWidth: 1,
-                borderColor: '#ddd',
-                borderRadius: 8,
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                fontSize: 16
-              }}
-              placeholder="correo@ejemplo.com"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
+          {convertToFriend && (
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 6, color: theme.colors.onSurface }}>Email (Opcional)</Text>
+              <TextInput
+                style={{
+                  backgroundColor: theme.colors.surface,
+                  borderWidth: 1,
+                  borderColor: theme.colors.outline,
+                  borderRadius: 8,
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  fontSize: 16,
+                  color: theme.colors.onSurface
+                }}
+                placeholder="correo@ejemplo.com"
+                placeholderTextColor={theme.colors.onSurfaceVariant}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+          )}
 
           <TouchableOpacity
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: '#f0f8ff',
+              backgroundColor: theme.colors.surfaceVariant,
               padding: 12,
               borderRadius: 8,
               marginBottom: 16,
               borderWidth: 1,
-              borderColor: convertToFriend ? '#007AFF' : '#ddd'
+              borderColor: convertToFriend ? theme.colors.primary : theme.colors.outline
             }}
             onPress={() => setConvertToFriend(!convertToFriend)}
           >
             <MaterialCommunityIcons
               name={convertToFriend ? 'checkbox-marked' : 'checkbox-blank-outline'}
               size={24}
-              color="#007AFF"
+              color={theme.colors.primary}
             />
             <View style={{ marginLeft: 12, flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: '#333' }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.onSurface }}>
                 ⭐ Convertir en Amigo Permanente
               </Text>
-              <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
+              <Text style={{ fontSize: 12, color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
                 Aparecerá en "Mis Amigos" y podrás agregarlo fácilmente a otros eventos
               </Text>
             </View>
@@ -1783,19 +2196,19 @@ const EditParticipantModalContent: React.FC<{
             <TouchableOpacity
               style={{
                 flex: 1,
-                backgroundColor: '#f0f0f0',
+                backgroundColor: theme.colors.surfaceVariant,
                 paddingVertical: 14,
                 borderRadius: 8,
                 alignItems: 'center'
               }}
               onPress={onCancel}
             >
-              <Text style={{ fontSize: 16, fontWeight: '600', color: '#666' }}>Cancelar</Text>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: theme.colors.onSurfaceVariant }}>Cancelar</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={{
                 flex: 1,
-                backgroundColor: '#007AFF',
+                backgroundColor: theme.colors.primary,
                 paddingVertical: 14,
                 borderRadius: 8,
                 alignItems: 'center'
@@ -1803,7 +2216,7 @@ const EditParticipantModalContent: React.FC<{
               onPress={() => onSave(name, email, phone, aliasCbu, convertToFriend)}
               disabled={!name.trim()}
             >
-              <Text style={{ fontSize: 16, fontWeight: '600', color: '#fff' }}>Guardar</Text>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: theme.colors.onPrimary }}>Guardar</Text>
             </TouchableOpacity>
           </View>
         </Card>
@@ -1812,735 +2225,3 @@ const EditParticipantModalContent: React.FC<{
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa'
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0'
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8
-  },
-  headerButton: {
-    padding: 8
-  },
-  backButton: {
-    padding: 8
-  },
-  title: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginHorizontal: 16
-  },
-  menuButton: {
-    padding: 8
-  },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0'
-  },
-  tabItem: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 8
-  },
-  activeTabItem: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#007AFF'
-  },
-  tabText: {
-    fontSize: 12,
-    color: '#666',
-    marginLeft: 4,
-    fontWeight: '500'
-  },
-  activeTabText: {
-    color: '#007AFF',
-    fontWeight: '600'
-  },
-  tabContent: {
-    flex: 1,
-    padding: 16,
-    paddingBottom: 20 // Extra padding for bottom navigation
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333'
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#f0f8ff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#007AFF'
-  },
-  addButtonText: {
-    fontSize: 12,
-    color: '#007AFF',
-    fontWeight: '600',
-    marginLeft: 4
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 40
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingVertical: 40
-  },
-  emptyIcon: {
-    marginBottom: 16
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 12,
-    fontWeight: '500'
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#999',
-    marginTop: 4,
-    textAlign: 'center'
-  },
-  expenseItem: {
-    padding: 16,
-    marginBottom: 12,
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#f0f0f0'
-  },
-  expenseHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8
-  },
-  expenseInfo: {
-    flex: 1
-  },
-  expenseDescription: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 4
-  },
-  expenseDate: {
-    fontSize: 12,
-    color: '#666'
-  },
-  expenseAmount: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4CAF50'
-  },
-  expensePaidBy: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8
-  },
-  expenseSplitsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-    paddingTop: 8,
-    paddingVertical: 4,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0'
-  },
-  expenseSplits: {
-    marginTop: 8
-  },
-  splitsTitle: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#666',
-    marginBottom: 4
-  },
-  splitItem: {
-    fontSize: 12,
-    color: '#333',
-    paddingLeft: 8,
-    marginBottom: 2
-  },
-  excludedParticipants: {
-    marginTop: 8,
-    padding: 8,
-    backgroundColor: '#fff3cd',
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#ffeaa7'
-  },
-  excludedTitle: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#856404',
-    marginBottom: 2
-  },
-  excludedNames: {
-    fontSize: 12,
-    color: '#856404',
-    fontStyle: 'italic'
-  },
-  expenseActions: {
-    flexDirection: 'row',
-    gap: 16,
-    marginTop: 12
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 4
-  },
-  actionText: {
-    fontSize: 12,
-    color: '#666',
-    marginLeft: 4
-  },
-  participantItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0'
-  },
-  participantInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1
-  },
-  participantAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#007AFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12
-  },
-  avatarText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600'
-  },
-  participantDetails: {
-    flex: 1
-  },
-  participantNameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 2
-  },
-  participantName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#333'
-  },
-  peopleCountBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    gap: 2
-  },
-  peopleCountBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF'
-  },
-  friendBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#FFF9E6',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  temporaryBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  participantRole: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 2
-  },
-  participantEmail: {
-    fontSize: 12,
-    color: '#999'
-  },
-  participantBreakdown: {
-    fontSize: 11,
-    color: '#666',
-    marginTop: 2
-  },
-
-
-  summaryInfo: {
-    gap: 8
-  },
-  eventName: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8
-  },
-  eventDescription: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-    marginBottom: 8
-  },
-  eventLocation: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4
-  },
-  eventDate: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4
-  },
-  eventCurrency: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8
-  },
-  eventStatus: {
-    fontSize: 14,
-    fontWeight: '500',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    alignSelf: 'flex-start'
-  },
-  statusActive: {
-    backgroundColor: '#e8f5e8',
-    color: '#2e7d32'
-  },
-  statusCompleted: {
-    backgroundColor: '#e3f2fd',
-    color: '#1976d2'
-  },
-  statusArchived: {
-    backgroundColor: '#f3e5f5',
-    color: '#7b1fa2'
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 16
-  },
-  statItem: {
-    alignItems: 'center',
-    flex: 1
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginTop: 8,
-    marginBottom: 4
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center'
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0'
-  },
-  summaryLabel: {
-    fontSize: 14,
-    color: '#666'
-  },
-  summaryAmount: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333'
-  },
-  quickActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12
-  },
-  quickActionButton: {
-    flex: 1,
-    minWidth: '45%',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e0e0e0'
-  },
-  quickActionText: {
-    fontSize: 12,
-    color: '#007AFF',
-    marginTop: 8,
-    textAlign: 'center',
-    fontWeight: '500'
-  },
-  errorContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32
-  },
-  errorText: {
-    fontSize: 18,
-    color: '#ff4444',
-    marginTop: 16,
-    marginBottom: 24,
-    textAlign: 'center'
-  },
-  errorButton: {
-    paddingHorizontal: 32
-  },
-  sectionSubtitle: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 12
-  },
-  balanceItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0'
-  },
-  balanceInfo: {
-    flex: 1
-  },
-  balanceName: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 4
-  },
-  balanceDetails: {
-    flexDirection: 'row'
-  },
-  balanceSubtext: {
-    fontSize: 12,
-    color: '#666'
-  },
-  balanceAmount: {
-    alignItems: 'flex-end'
-  },
-  balanceValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2
-  },
-  balanceLabel: {
-    fontSize: 10,
-    color: '#666',
-    textAlign: 'center'
-  },
-  settlementItem: {
-    padding: 12,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    marginBottom: 8
-  },
-  settlementInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8
-  },
-  settlementText: {
-    flex: 1,
-    fontSize: 14
-  },
-  settlementFrom: {
-    fontWeight: '500',
-    color: '#333'
-  },
-  settlementTo: {
-    fontWeight: '500',
-    color: '#333'
-  },
-  settlementAmount: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4CAF50',
-    textAlign: 'center',
-    marginTop: 4
-  },
-  settlementsContainer: {
-    gap: 12
-  },
-  settlementFromTo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8
-  },
-  settlementParticipant: {
-    alignItems: 'center',
-    flex: 1
-  },
-  settlementArrow: {
-    alignItems: 'center',
-    flex: 0.5
-  },
-  settlementParticipantName: {
-    fontSize: 12,
-    color: '#333',
-    fontWeight: '500',
-    marginTop: 4,
-    textAlign: 'center'
-  },
-  settlementDescription: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-    fontStyle: 'italic'
-  },
-  noSettlementsContainer: {
-    alignItems: 'center',
-    padding: 24
-  },
-  noSettlementsIcon: {
-    marginBottom: 12
-  },
-  noSettlementsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4CAF50',
-    marginBottom: 8
-  },
-  noSettlementsText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center'
-  },
-  participantStats: {
-    alignItems: 'flex-end'
-  },
-  participantBalance: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2
-  },
-  participantBalanceLabel: {
-    fontSize: 10,
-    color: '#666',
-    textAlign: 'center'
-  },
-  settlementButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 4
-  },
-  settlementButtonText: {
-    fontSize: 12,
-    color: '#4CAF50',
-    marginLeft: 4,
-    fontWeight: '500'
-  },
-  categoryItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0'
-  },
-  categoryInfo: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginRight: 12
-  },
-  categoryName: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333'
-  },
-  categoryPercentage: {
-    fontSize: 12,
-    color: '#666',
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10
-  },
-  categoryAmount: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333'
-  },
-  topQuickActionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: 16,
-    marginBottom: 16,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-  },
-  topQuickActionButton: {
-    alignItems: 'center',
-    padding: 8,
-  },
-  participantRightSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  participantActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  editParticipantButton: {
-    padding: 4,
-  },
-  removeParticipantButton: {
-    marginLeft: 4,
-    padding: 4,
-  },
-  paymentStatsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 16,
-    gap: 16
-  },
-  paymentStatItem: {
-    flex: 1,
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12
-  },
-  paymentStatValue: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-    marginTop: 8,
-    marginBottom: 4
-  },
-  paymentStatLabel: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center'
-  },
-  paymentsContainer: {
-    gap: 12
-  },
-  paymentItem: {
-    padding: 12,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0'
-  },
-  paymentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8
-  },
-  paymentParticipants: {
-    flex: 1
-  },
-  paymentFromTo: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 4
-  },
-  paymentAmount: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#007AFF'
-  },
-  paymentDate: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4
-  },
-  paymentNotes: {
-    fontSize: 12,
-    color: '#666',
-    fontStyle: 'italic',
-    marginBottom: 8
-  },
-  receiptSection: {
-    marginTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    paddingTop: 8
-  },
-  receiptThumbnailContainer: {
-    alignItems: 'center'
-  },
-  receiptThumbnail: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-    marginBottom: 4
-  },
-  receiptLabel: {
-    fontSize: 12,
-    color: '#007AFF',
-    fontWeight: '500'
-  },
-  addReceiptButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 8,
-    gap: 8
-  },
-  addReceiptText: {
-    fontSize: 14,
-    color: '#007AFF',
-    fontWeight: '500'
-  }
-});

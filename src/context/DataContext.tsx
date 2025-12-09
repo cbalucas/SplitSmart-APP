@@ -6,6 +6,7 @@ interface DataContextValue {
   events: Event[];
   participants: Participant[];
   expenses: Expense[];
+  splits: Split[];
   loading: boolean;
   // Event methods
   addEvent: (event: Partial<Event>) => Promise<void>;
@@ -51,6 +52,7 @@ const DataContext = createContext<DataContextValue>({
   events: [],
   participants: [],
   expenses: [],
+  splits: [],
   loading: false,
   addEvent: async () => {},
   updateEvent: async () => {},
@@ -89,6 +91,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [events, setEvents] = useState<Event[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [splits, setSplits] = useState<Split[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -104,17 +107,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
       
       // Load initial data
       console.log('📥 DataContext: Loading initial data...');
-      const [eventsData, participantsData, expensesData] = await Promise.all([
+      const [eventsData, participantsData, expensesData, splitsData] = await Promise.all([
         databaseService.getEvents(),
         databaseService.getParticipants(),
-        databaseService.getExpenses()
+        databaseService.getExpenses(),
+        databaseService.getSplits().catch((error) => {
+          console.error('❌ Error loading initial splits, using empty array:', error);
+          return [];
+        })
       ]);
       
-      console.log(`✅ DataContext: Loaded ${eventsData.length} events, ${participantsData.length} participants, ${expensesData.length} expenses`);
+      console.log(`✅ DataContext: Loaded ${eventsData.length} events, ${participantsData.length} participants, ${expensesData.length} expenses, ${splitsData.length} splits`);
       
       setEvents(eventsData);
       setParticipants(participantsData);
       setExpenses(expensesData);
+      setSplits(splitsData);
       console.log('✅ DataContext initialized with SQLite');
     } catch (error) {
       console.error('❌ Error initializing DataContext:', error);
@@ -128,17 +136,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const refreshData = useCallback(async () => {
     try {
-      const [eventsData, participantsData, expensesData] = await Promise.all([
+      const [eventsData, participantsData, expensesData, splitsData] = await Promise.all([
         databaseService.getEvents(),
         databaseService.getParticipants(),
-        databaseService.getExpenses()
+        databaseService.getExpenses(),
+        databaseService.getSplits().catch((error) => {
+          console.error('❌ Error loading splits, using empty array:', error);
+          return [];
+        })
       ]);
       
       setEvents(eventsData);
       setParticipants(participantsData);
       setExpenses(expensesData);
+      setSplits(splitsData);
       
-      console.log(`📊 Data refreshed: ${eventsData.length} events, ${participantsData.length} participants, ${expensesData.length} expenses`);
+      console.log(`📊 Data refreshed: ${eventsData.length} events, ${participantsData.length} participants, ${expensesData.length} expenses, ${splitsData.length} splits`);
     } catch (error) {
       console.error('❌ Error refreshing data:', error);
     }
@@ -444,12 +457,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const getSplitsByEvent = useCallback(async (eventId: string) => {
     try {
-      return await databaseService.getSplitsByEvent(eventId);
+      // Filter splits by eventId from global state
+      const eventExpenses = expenses.filter(e => e.eventId === eventId);
+      const eventExpenseIds = new Set(eventExpenses.map(e => e.id));
+      const eventSplits = splits.filter(s => eventExpenseIds.has(s.expenseId));
+      return eventSplits;
     } catch (error) {
       console.error('❌ Error getting splits by event:', error);
       return [];
     }
-  }, []);
+  }, [expenses, splits]);
 
   // Payment methods
   const createPayment = useCallback(async (payment: Payment) => {
@@ -557,6 +574,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       events,
       participants,
       expenses,
+      splits,
       loading,
       addEvent,
       updateEvent,

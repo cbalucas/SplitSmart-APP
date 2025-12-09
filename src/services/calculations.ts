@@ -33,6 +33,11 @@ export class CalculationService {
     expenses: Expense[],
     splits: Split[]
   ): Balance[] {
+    console.log('🧮 === CALCULATION DEBUG ===');
+    console.log('Participants:', participants.map(p => `${p.name} (${p.id})`));
+    console.log('Expenses:', expenses.map(e => `${e.description}: $${e.amount} paid by ${e.payerId}`));
+    console.log('Splits:', splits.map(s => `${s.participantId} owes $${s.amount} for expense ${s.expenseId}`));
+
     const balances: { [participantId: string]: Balance } = {};
 
     // Initialize balances for all participants
@@ -50,6 +55,7 @@ export class CalculationService {
     expenses.forEach(expense => {
       if (balances[expense.payerId]) {
         balances[expense.payerId].totalPaid += expense.amount;
+        console.log(`${balances[expense.payerId].participantName} paid $${expense.amount} for ${expense.description}`);
       }
     });
 
@@ -57,14 +63,17 @@ export class CalculationService {
     splits.forEach(split => {
       if (balances[split.participantId]) {
         balances[split.participantId].totalOwed += split.amount;
+        console.log(`${balances[split.participantId].participantName} owes $${split.amount}`);
       }
     });
 
     // Calculate net balance (positive = owes money, negative = is owed money)
     Object.values(balances).forEach(balance => {
       balance.balance = balance.totalOwed - balance.totalPaid;
+      console.log(`${balance.participantName}: paid=$${balance.totalPaid}, owes=$${balance.totalOwed}, balance=$${balance.balance}`);
     });
 
+    console.log('🧮 === END CALCULATION DEBUG ===');
     return Object.values(balances);
   }
 

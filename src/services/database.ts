@@ -1010,6 +1010,33 @@ class DatabaseService {
     }
   }
 
+  async getSplits(): Promise<Split[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      console.log('📥 Getting all splits');
+      const rows = await this.db.getAllAsync(
+        `SELECT * FROM splits ORDER BY created_at DESC`
+      );
+      
+      const splits: Split[] = (rows as any[]).map((row: any) => ({
+        id: row.id,
+        expenseId: row.expense_id,
+        participantId: row.participant_id,
+        amount: row.amount,
+        isPaid: Boolean(row.is_paid),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }));
+
+      console.log(`📊 Got ${splits.length} splits`);
+      return splits;
+    } catch (error) {
+      console.error('❌ Error getting all splits:', error);
+      throw error;
+    }
+  }
+
   // Payments CRUD
   async createPayment(payment: Payment): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
@@ -1177,6 +1204,10 @@ class DatabaseService {
       const updateFields: string[] = [];
       const values: any[] = [];
 
+      if (updates.amount !== undefined) {
+        updateFields.push('amount = ?');
+        values.push(updates.amount);
+      }
       if (updates.isPaid !== undefined) {
         updateFields.push('is_paid = ?');
         values.push(updates.isPaid ? 1 : 0);
@@ -1213,6 +1244,18 @@ class DatabaseService {
       console.log('✅ Settlements deleted for event');
     } catch (error) {
       console.error('❌ Error deleting settlements:', error);
+      throw error;
+    }
+  }
+
+  async deleteSettlement(settlementId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      await this.db.runAsync('DELETE FROM settlements WHERE id = ?', [settlementId]);
+      console.log('✅ Settlement deleted successfully');
+    } catch (error) {
+      console.error('❌ Error deleting settlement:', error);
       throw error;
     }
   }

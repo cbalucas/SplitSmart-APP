@@ -5,7 +5,7 @@ export type RootStackParamList = {
   EventDetail: { eventId: string };
   ManageFriends: undefined;
   CreateExpense: { eventId: string; expenseId?: string };
-  SummaryScreen: { eventId: string };
+
   ProfileScreen: undefined;
 };
 
