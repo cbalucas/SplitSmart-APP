@@ -963,5 +963,39 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 12,
     color: theme.colors.onSurfaceVariant,
     marginLeft: 4
+  },
+
+  // Expense detail modal styles
+  expenseDetailSection: {
+    marginBottom: 16
+  },
+  expenseDetailTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.onSurface,
+    marginBottom: 12
+  },
+  expenseDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4
+  },
+  expenseDetailLabel: {
+    fontSize: 14,
+    color: theme.colors.onSurfaceVariant,
+    flex: 1
+  },
+  expenseDetailValue: {
+    fontSize: 14,
+    color: theme.colors.onSurface,
+    fontWeight: '500',
+    flex: 1,
+    textAlign: 'right'
+  },
+  receiptPreview: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8
   }
 });

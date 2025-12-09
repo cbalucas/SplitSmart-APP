@@ -92,6 +92,8 @@ export default function EventDetailScreen() {
   const [showFilters, setShowFilters] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showExpenseDetailModal, setShowExpenseDetailModal] = useState(false);
+  const [selectedExpenseForDetail, setSelectedExpenseForDetail] = useState<any>(null);
 
   // Use calculations hook for balance and settlement calculations
   const { balances, settlements, eventStats } = useCalculations(
@@ -941,7 +943,18 @@ export default function EventDetailScreen() {
               const excludedParticipants = eventParticipants.filter(p => !includedParticipantIds.includes(p.id));
               
               return (
-                <View style={styles.expenseItem}>
+                <TouchableOpacity
+                  style={styles.expenseItem}
+                  onPress={() => {
+                    setSelectedExpenseForDetail({ 
+                      expense: item, 
+                      splits: expenseSplits, 
+                      excludedParticipants 
+                    });
+                    setShowExpenseDetailModal(true);
+                  }}
+                  activeOpacity={0.7}
+                >
                   {/* Primera fila: Descripción | Monto + Icono */}
                   <View style={styles.expenseFirstRow}>
                     <Text style={styles.expenseDescription}>{item.description}</Text>
@@ -953,7 +966,8 @@ export default function EventDetailScreen() {
                       {item.receiptImage && (
                         <TouchableOpacity
                           style={styles.receiptIconButton}
-                          onPress={() => {
+                          onPress={(e) => {
+                            e.stopPropagation();
                             setSelectedImage(item.receiptImage!);
                             setShowImageModal(true);
                           }}
@@ -989,14 +1003,20 @@ export default function EventDetailScreen() {
                       <View style={styles.expenseActions}>
                         <TouchableOpacity 
                           style={styles.actionButton}
-                          onPress={() => handleEditExpense(item)}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleEditExpense(item);
+                          }}
                         >
                           <MaterialCommunityIcons name="pencil" size={16} color={theme.colors.onSurfaceVariant} />
                           <Text style={styles.actionText}>{t('expenses.edit')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity 
                           style={styles.actionButton}
-                          onPress={() => handleDeleteExpense(item)}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleDeleteExpense(item);
+                          }}
                         >
                           <MaterialCommunityIcons name="delete" size={16} color={theme.colors.error} />
                           <Text style={[styles.actionText, { color: theme.colors.error }]}>{t('expenses.delete')}</Text>
@@ -1004,7 +1024,7 @@ export default function EventDetailScreen() {
                       </View>
                     )}
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             }}
             scrollEnabled={false}
@@ -1872,6 +1892,108 @@ export default function EventDetailScreen() {
               setEditingParticipant(null);
             }}
           />
+        </SafeAreaView>
+      </Modal>
+
+      {/* Modal de Detalle del Gasto */}
+      <Modal
+        visible={showExpenseDetailModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowExpenseDetailModal(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top', 'bottom', 'left', 'right']}>
+          <View style={{ flex: 1 }}>
+            {/* Header genérico */}
+            <HeaderBar 
+              title="Detalle del Gasto"
+              showBackButton={true}
+              onLeftPress={() => setShowExpenseDetailModal(false)}
+              useDynamicColors={true}
+            />
+
+            {selectedExpenseForDetail && (
+              <ScrollView style={{ flex: 1 }}>
+                <Card style={{ margin: 16 }}>
+                  {/* 📝 Información General */}
+                  <View style={styles.expenseDetailSection}>
+                    <Text style={styles.expenseDetailTitle}>📝 Información General</Text>
+                    <View style={styles.expenseDetailRow}>
+                      <Text style={styles.expenseDetailLabel}>Descripción:</Text>
+                      <Text style={styles.expenseDetailValue}>{selectedExpenseForDetail.expense.description}</Text>
+                    </View>
+                    <View style={styles.expenseDetailRow}>
+                      <Text style={styles.expenseDetailLabel}>Monto:</Text>
+                      <Text style={[styles.expenseDetailValue, { color: theme.colors.success, fontWeight: '600' }]}>
+                        ${selectedExpenseForDetail.expense.amount.toFixed(2)} {selectedExpenseForDetail.expense.currency}
+                      </Text>
+                    </View>
+                    <View style={styles.expenseDetailRow}>
+                      <Text style={styles.expenseDetailLabel}>Fecha:</Text>
+                      <Text style={styles.expenseDetailValue}>
+                        {new Date(selectedExpenseForDetail.expense.date).toLocaleDateString()}
+                      </Text>
+                    </View>
+                    <View style={styles.expenseDetailRow}>
+                      <Text style={styles.expenseDetailLabel}>Categoría:</Text>
+                      <Text style={styles.expenseDetailValue}>{selectedExpenseForDetail.expense.category || 'Sin categoría'}</Text>
+                    </View>
+                    <View style={styles.expenseDetailRow}>
+                      <Text style={styles.expenseDetailLabel}>Pagado por:</Text>
+                      <Text style={styles.expenseDetailValue}>
+                        {eventParticipants.find(p => p.id === selectedExpenseForDetail.expense.payerId)?.name || 'Usuario Demo'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* ⛔ Participantes Excluidos */}
+                  {selectedExpenseForDetail.excludedParticipants.length > 0 && (
+                    <View style={styles.expenseDetailSection}>
+                      <Text style={styles.expenseDetailTitle}>⛔ Participantes Excluidos</Text>
+                      <Text style={styles.expenseDetailValue}>
+                        {selectedExpenseForDetail.excludedParticipants.map((p: any) => p.name).join(', ')}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* 📊 División del Gasto */}
+                  <View style={styles.expenseDetailSection}>
+                    <Text style={styles.expenseDetailTitle}>
+                      📊 División del Gasto ({selectedExpenseForDetail.splits.length} participantes)
+                    </Text>
+                    {selectedExpenseForDetail.splits.map((split: any) => {
+                      const participant = eventParticipants.find(p => p.id === split.participantId);
+                      return (
+                        <View key={split.id} style={styles.expenseDetailRow}>
+                          <Text style={styles.expenseDetailLabel}>• {participant?.name}:</Text>
+                          <Text style={styles.expenseDetailValue}>${split.amount.toFixed(2)}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+
+                  {/* 📷 Comprobante */}
+                  {selectedExpenseForDetail.expense.receiptImage && (
+                    <View style={styles.expenseDetailSection}>
+                      <Text style={styles.expenseDetailTitle}>📷 Comprobante</Text>
+                      <TouchableOpacity
+                        onPress={() => {
+                          setSelectedImage(selectedExpenseForDetail.expense.receiptImage);
+                          setShowImageModal(true);
+                        }}
+                      >
+                        <Image
+                          source={{ uri: selectedExpenseForDetail.expense.receiptImage }}
+                          style={styles.receiptPreview}
+                          resizeMode="cover"
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </Card>
+              </ScrollView>
+            )}
+          </View>
         </SafeAreaView>
       </Modal>
 
