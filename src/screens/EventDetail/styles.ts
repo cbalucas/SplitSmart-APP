@@ -75,9 +75,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.colors.background
   },
   searchContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: theme.colors.surface
+    paddingVertical: 8
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -606,12 +604,12 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   categoryName: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#333'
+    color: theme.colors.onSurface
   },
   categoryPercentage: {
     fontSize: 12,
-    color: '#666',
-    backgroundColor: '#f0f0f0',
+    color: theme.colors.onSurfaceVariant,
+    backgroundColor: theme.colors.surfaceVariant,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 10
@@ -619,7 +617,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   categoryAmount: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333'
+    color: theme.colors.onSurface
   },
 
   // Payment styles

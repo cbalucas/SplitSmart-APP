@@ -64,20 +64,34 @@ export const SettlementItem: React.FC<SettlementItemProps> = ({
         {
           text: 'Elegir de Galería',
           onPress: async () => {
-            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (status !== 'granted') {
-              Alert.alert('Permiso denegado', 'Necesitamos acceso a la galería');
-              return;
-            }
+            try {
+              const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+              if (status !== 'granted') {
+                Alert.alert(
+                  'Permiso requerido', 
+                  'Para seleccionar una imagen de la galería, necesitamos permisos de acceso. Por favor, habilita los permisos en la configuración de la app.',
+                  [
+                    { text: 'Cancelar', style: 'cancel' },
+                    { text: 'Abrir Configuración', onPress: () => ImagePicker.requestMediaLibraryPermissionsAsync() }
+                  ]
+                );
+                return;
+              }
 
-            const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              allowsEditing: true,
-              quality: 0.7,
-            });
+              const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaType.Images,
+                allowsEditing: true,
+                aspect: [4, 3],
+                quality: 0.7,
+                allowsMultipleSelection: false,
+              });
 
-            if (!result.canceled) {
-              onUpdateReceipt(settlement.id, result.assets[0].uri);
+              if (!result.canceled && result.assets && result.assets.length > 0) {
+                onUpdateReceipt(settlement.id, result.assets[0].uri);
+              }
+            } catch (error) {
+              console.error('Error selecting image:', error);
+              Alert.alert('Error', 'No se pudo abrir la galería. Inténtalo de nuevo.');
             }
           }
         },
@@ -97,7 +111,7 @@ export const SettlementItem: React.FC<SettlementItemProps> = ({
       padding: 16,
       backgroundColor: theme.colors.surface,
       borderRadius: 12,
-      marginBottom: 12,
+      marginBottom: 2,
       opacity: disabled ? 0.6 : 1,
     },
     checkboxContainer: {
@@ -106,10 +120,6 @@ export const SettlementItem: React.FC<SettlementItemProps> = ({
     checkbox: {
       width: 24,
       height: 24,
-      borderRadius: 12,
-      borderWidth: 2,
-      borderColor: settlement.isPaid ? '#4CAF50' : theme.colors.outline,
-      backgroundColor: settlement.isPaid ? '#4CAF50' : 'transparent',
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -150,8 +160,10 @@ export const SettlementItem: React.FC<SettlementItemProps> = ({
         disabled={disabled}
       >
         <View style={styles.checkbox}>
-          {settlement.isPaid && (
-            <MaterialCommunityIcons name="check" size={16} color="#FFFFFF" />
+          {settlement.isPaid ? (
+            <MaterialCommunityIcons name="check-circle" size={24} color="#4CAF50" />
+          ) : (
+            <MaterialCommunityIcons name="circle-outline" size={24} color={theme.colors.outline} />
           )}
         </View>
       </TouchableOpacity>
@@ -167,26 +179,41 @@ export const SettlementItem: React.FC<SettlementItemProps> = ({
         </Text>
       </View>
 
-      {settlement.receiptImage ? (
-        <TouchableOpacity onPress={handleAddReceipt} disabled={disabled}>
-          <Image 
-            source={{ uri: settlement.receiptImage }} 
-            style={styles.receiptThumbnail}
-          />
-        </TouchableOpacity>
-      ) : (
-        <TouchableOpacity 
-          style={styles.receiptButton}
-          onPress={handleAddReceipt}
-          disabled={disabled}
-        >
-          <MaterialCommunityIcons 
-            name="camera-plus" 
-            size={24} 
-            color={disabled ? theme.colors.onSurfaceVariant : theme.colors.primary}
-          />
-        </TouchableOpacity>
-      )}
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {settlement.receiptImage ? (
+          <>
+            <TouchableOpacity onPress={handleAddReceipt} disabled={disabled}>
+              <Image 
+                source={{ uri: settlement.receiptImage }} 
+                style={styles.receiptThumbnail}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={{ marginLeft: 4, padding: 4 }}
+              onPress={() => onUpdateReceipt(settlement.id, null)}
+              disabled={disabled}
+            >
+              <MaterialCommunityIcons 
+                name="close-circle" 
+                size={20} 
+                color={disabled ? theme.colors.onSurfaceVariant : theme.colors.error}
+              />
+            </TouchableOpacity>
+          </>
+        ) : (
+          <TouchableOpacity 
+            style={styles.receiptButton}
+            onPress={handleAddReceipt}
+            disabled={disabled}
+          >
+            <MaterialCommunityIcons 
+              name="camera" 
+              size={24} 
+              color={theme.colors.onSurfaceVariant}
+            />
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 };

@@ -21,6 +21,7 @@ import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context'
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { Event, Expense, Participant, EventParticipant, Split, Payment, Settlement } from '../../types';
 import { AppColors } from '../../constants/colors';
 import Card from '../../components/Card';
@@ -40,6 +41,7 @@ export default function EventDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const styles = createStyles(theme);
   
     const { 
@@ -145,29 +147,19 @@ export default function EventDetailScreen() {
       );
 
       // Procesar cada liquidación calculada
-      console.log('💰 === SETTLEMENT SYNC DEBUG ===');
-      console.log('Calculated settlements:', settlements.map(s => `${s.fromParticipantName} → ${s.toParticipantName}: $${s.amount}`));
-      console.log('Existing DB settlements:', currentDbSettlements.map((s: any) => `${s.fromParticipantName} → ${s.toParticipantName}: $${s.amount}`));
-
       for (const calculatedSettlement of settlements) {
         const key = `${calculatedSettlement.fromParticipantId}_${calculatedSettlement.toParticipantId}`;
         const existingSettlement = existingSettlementsMap.get(key);
-
-        console.log(`\nProcessing: ${calculatedSettlement.fromParticipantName} → ${calculatedSettlement.toParticipantName}: $${calculatedSettlement.amount}`);
         
         if (existingSettlement) {
           const amountDiff = Math.abs(existingSettlement.amount - calculatedSettlement.amount);
-          console.log(`  Existing: $${existingSettlement.amount}, New: $${calculatedSettlement.amount}, Diff: $${amountDiff}`);
           
           // Actualizar monto si cambió (mantener estado paid)
           if (amountDiff > 0.01) {
-            console.log(`  ✅ UPDATING settlement ${existingSettlement.id} from $${existingSettlement.amount} to $${calculatedSettlement.amount}`);
             await databaseService.updateSettlement(existingSettlement.id, {
               amount: calculatedSettlement.amount,
               updatedAt: new Date().toISOString()
             });
-          } else {
-            console.log(`  ⏭️  No update needed (diff < 0.01)`);
           }
           existingSettlementsMap.delete(key); // Marcar como procesada
         } else {
@@ -190,19 +182,23 @@ export default function EventDetailScreen() {
 
       // Eliminar liquidaciones que ya no existen en los cálculos
       for (const [key, settlement] of existingSettlementsMap.entries()) {
-        console.log(`  🗑️  DELETING obsolete settlement: ${settlement.fromParticipantName} → ${settlement.toParticipantName}: $${settlement.amount}`);
         await databaseService.deleteSettlement(settlement.id);
       }
 
       // Recargar liquidaciones
       const updatedSettlements = await databaseService.getSettlementsByEvent(eventId);
       setDbSettlements(updatedSettlements);
-      console.log('Final DB settlements:', updatedSettlements.map((s: any) => `${s.fromParticipantName} → ${s.toParticipantName}: $${s.amount}`));
-      console.log('💰 === END SETTLEMENT SYNC DEBUG ===');
     } catch (error) {
       console.error('Error syncing settlements:', error);
     }
   }, [eventId, event, settlements]);
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('es-AR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  };
 
   useEffect(() => {
     loadEventData();
@@ -252,7 +248,7 @@ export default function EventDetailScreen() {
 
   const handleAddExpense = () => {
     if (event?.status !== 'active') {
-      Alert.alert('Evento No Editable', 'Solo puedes agregar gastos en eventos activos');
+      Alert.alert(t('message.eventNotEditable'), t('message.canOnlyAddExpensesActive'));
       return;
     }
     (navigation as any).navigate('CreateExpense', { eventId });
@@ -260,7 +256,7 @@ export default function EventDetailScreen() {
 
   const handleEditExpense = (expense: Expense) => {
     if (event?.status !== 'active') {
-      Alert.alert('Evento No Editable', 'Solo puedes editar gastos en eventos activos');
+      Alert.alert(t('message.eventNotEditable'), t('message.canOnlyEditExpensesActive'));
       return;
     }
     (navigation as any).navigate('CreateExpense', { 
@@ -272,7 +268,7 @@ export default function EventDetailScreen() {
 
   const handleDeleteExpense = (expense: Expense) => {
     if (event?.status !== 'active') {
-      Alert.alert('Evento No Editable', 'Solo puedes eliminar gastos en eventos activos');
+      Alert.alert(t('message.eventNotEditable'), t('message.canOnlyDeleteExpensesActive'));
       return;
     }
     Alert.alert(
@@ -286,9 +282,9 @@ export default function EventDetailScreen() {
           onPress: async () => {
             try {
               await deleteExpense(expense.id);
-              Alert.alert('Éxito', 'Gasto eliminado correctamente');
+              Alert.alert(t('success'), t('message.expenseDeletedSuccess'));
             } catch (error) {
-              Alert.alert('Error', 'No se pudo eliminar el gasto');
+              Alert.alert(t('error'), t('message.expenseDeletedError'));
             }
           },
         },
@@ -298,7 +294,7 @@ export default function EventDetailScreen() {
 
   const handleEditParticipant = (participant: Participant) => {
     if (event?.status !== 'active') {
-      Alert.alert('Evento No Editable', 'Solo puedes editar participantes en eventos activos');
+      Alert.alert(t('message.eventNotEditable'), t('message.canOnlyEditParticipantsActive'));
       return;
     }
     if (participant.participantType === 'temporary') {
@@ -318,7 +314,7 @@ export default function EventDetailScreen() {
 
   const handleSaveEditedParticipant = async (name: string, email?: string, phone?: string, aliasCbu?: string, convertToFriend?: boolean) => {
     if (!editingParticipant || !name.trim()) {
-      Alert.alert('Error', 'El nombre es obligatorio');
+      Alert.alert(t('error'), t('message.nameRequired'));
       return;
     }
 
@@ -343,18 +339,18 @@ export default function EventDetailScreen() {
       setEditingParticipant(null);
       
       if (convertToFriend) {
-        Alert.alert('✅ Convertido a Amigo', `${name} ahora es un amigo permanente y aparecerá en "Mis Amigos"`);
+        Alert.alert(`✅ ${t('message.convertedToFriend')}`, `${name} ${t('message.nowPermanentFriend')}`);
       } else {
-        Alert.alert('✅ Actualizado', 'Participante actualizado correctamente');
+        Alert.alert(`✅ ${t('message.updated')}`, t('message.participantUpdatedSuccess'));
       }
     } catch (error) {
-      Alert.alert('Error', 'No se pudo actualizar el participante');
+      Alert.alert(t('error'), t('message.participantUpdatedError'));
     }
   };
 
   const handleRemoveParticipant = (participant: any) => {
     if (event?.status !== 'active') {
-      Alert.alert('Evento No Editable', 'Solo puedes eliminar participantes en eventos activos');
+      Alert.alert(t('message.eventNotEditable'), t('message.canOnlyDeleteParticipantsActive'));
       return;
     }
     Alert.alert(
@@ -369,10 +365,10 @@ export default function EventDetailScreen() {
             try {
               await removeParticipantFromEvent(event?.id || '', participant.id);
               await loadEventData();
-              Alert.alert('Éxito', 'Participante eliminado correctamente');
+              Alert.alert(t('success'), t('message.participantDeletedSuccess'));
             } catch (error: any) {
               console.error('Error removing participant:', error);
-              Alert.alert('Error', error.message || 'No se pudo eliminar el participante');
+              Alert.alert(t('error'), error.message || t('message.participantDeletedError'));
             }
           },
         },
@@ -390,7 +386,7 @@ export default function EventDetailScreen() {
       await loadEventData();
     } catch (error) {
       console.error('Error toggling settlement paid:', error);
-      Alert.alert('Error', 'No se pudo actualizar el estado del pago');
+      Alert.alert(t('error'), t('message.paymentStateError'));
     }
   };
 
@@ -400,10 +396,10 @@ export default function EventDetailScreen() {
         receiptImage: imageUri
       });
       await loadEventData();
-      Alert.alert('✅', imageUri ? 'Comprobante agregado' : 'Comprobante eliminado');
+      Alert.alert('✅', imageUri ? t('message.receiptAdded') : t('message.receiptRemoved'));
     } catch (error) {
       console.error('Error updating settlement receipt:', error);
-      Alert.alert('Error', 'No se pudo actualizar el comprobante');
+      Alert.alert(t('error'), t('message.receiptError'));
     }
   };
 
@@ -411,12 +407,12 @@ export default function EventDetailScreen() {
     if (!event) return;
 
     Alert.alert(
-      '✅ Marcar como Completo',
-      'Al marcar el evento como completo se bloquearán los gastos y participantes, pero podrás gestionar los pagos de liquidación.\n\n¿Deseas continuar?',
+      `✅ ${t('message.markAsComplete')}`,
+      t('message.markAsCompleteDesc'),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: 'Marcar Completo',
+          text: t('message.markComplete'),
           onPress: async () => {
             try {
               await updateEvent(eventId, {
@@ -424,10 +420,10 @@ export default function EventDetailScreen() {
                 completedAt: new Date().toISOString()
               });
               await loadEventData();
-              Alert.alert('✅ Evento Completo', 'El evento está marcado como completo. Puedes gestionar los pagos.');
+              Alert.alert(`✅ ${t('message.eventCompleted')}`, t('message.eventCompletedDesc'));
             } catch (error) {
               console.error('Error completing event:', error);
-              Alert.alert('Error', 'No se pudo completar el evento');
+              Alert.alert(t('error'), t('message.eventCompletedError'));
             }
           }
         }
@@ -439,21 +435,21 @@ export default function EventDetailScreen() {
     if (!event) return;
 
     const isGoingToActive = targetStatus === 'active';
-    const title = isGoingToActive ? '🔓 Reactivar Evento' : '✅ Marcar como Completo';
+    const title = isGoingToActive ? `🔓 ${t('message.reactivateEvent')}` : `✅ ${t('message.markAsComplete')}`;
     const message = isGoingToActive 
-      ? '¿Deseas reactivar el evento? Podrás volver a editar gastos y participantes.'
-      : '¿Deseas marcar el evento como completo? Se bloquearán los gastos y participantes, pero podrás gestionar pagos.';
-    const buttonText = isGoingToActive ? 'Reactivar' : 'Completar';
-    const successTitle = isGoingToActive ? '✅ Evento Reactivado' : '✅ Evento Completo';
+      ? t('message.reactivateEventDesc')
+      : t('message.markAsCompleteShort');
+    const buttonText = isGoingToActive ? t('events.reactivate') : t('events.complete');
+    const successTitle = isGoingToActive ? `✅ ${t('message.eventReactivated')}` : `✅ ${t('message.eventCompleted')}`;
     const successMessage = isGoingToActive 
-      ? 'El evento está activo nuevamente'
-      : 'El evento está marcado como completo. Puedes gestionar los pagos.';
+      ? t('message.eventActiveAgain')
+      : t('message.eventCompletedShort');
 
     Alert.alert(
       title,
       message,
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
           text: buttonText,
           onPress: async () => {
@@ -466,7 +462,7 @@ export default function EventDetailScreen() {
               Alert.alert(successTitle, successMessage);
             } catch (error) {
               console.error(`Error changing event to ${targetStatus}:`, error);
-              Alert.alert('Error', `No se pudo cambiar el estado del evento`);
+              Alert.alert(t('error'), t('message.eventStateChangeError'));
             }
           }
         }
@@ -478,22 +474,22 @@ export default function EventDetailScreen() {
     if (!event) return;
 
     Alert.alert(
-      '📁 Archivar Evento',
-      'El evento archivado solo será visible en el historial. Puedes reactivarlo cuando quieras.',
+      `📁 ${t('message.archiveEvent')}`,
+      t('message.archiveEventDesc'),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Archivar',
+          text: t('common.archive'),
           onPress: async () => {
             try {
               await updateEvent(eventId, {
                 status: 'archived'
               });
-              Alert.alert('✅ Evento Archivado', 'El evento ha sido archivado correctamente');
+              Alert.alert(`✅ ${t('message.eventArchived')}`, t('message.eventArchivedDesc'));
               navigation.goBack();
             } catch (error) {
               console.error('Error archiving event:', error);
-              Alert.alert('Error', 'No se pudo archivar el evento');
+              Alert.alert(t('error'), t('message.eventArchivedError'));
             }
           }
         }
@@ -511,39 +507,30 @@ export default function EventDetailScreen() {
     message += `💰 *Total gastado:* ${event.currency} $${totalAmount.toFixed(2)}\n`;
     message += `👥 *Participantes:* ${participantCount}\n\n`;
     
-    message += `💸 *LIQUIDACIÓN DE CUENTAS:*\n`;
-    if (settlements.length > 0) {
+    message += `💸 LIQUIDACIONES:\n\n`;
+    if (dbSettlements.length > 0) {
       // Agrupar liquidaciones por destinatario (quien recibe el dinero)
-      const settlementsByRecipient = settlements.reduce((acc, settlement) => {
-        const toId = settlement.toParticipantId;
-        if (!acc[toId]) {
-          acc[toId] = [];
+      const settlementsByRecipient = dbSettlements.reduce((acc, settlement) => {
+        const toParticipantName = settlement.toParticipantName;
+        if (!acc[toParticipantName]) {
+          acc[toParticipantName] = [];
         }
-        acc[toId].push(settlement);
+        acc[toParticipantName].push(settlement);
         return acc;
-      }, {} as Record<string, typeof settlements>);
+      }, {} as Record<string, typeof dbSettlements>);
 
       // Generar mensaje agrupado por destinatario
-      Object.entries(settlementsByRecipient).forEach(([toId, settlementsForRecipient]) => {
-        const recipient = eventParticipants.find(p => p.id === toId);
-        const recipientName = recipient?.name || '';
-        const cbuAlias = recipient?.alias_cbu || 'CBU no disponible';
+      Object.entries(settlementsByRecipient).forEach(([recipientName, settlementsForRecipient]) => {
+        const recipient = eventParticipants.find(p => p.name === recipientName);
+        const cbuAlias = recipient?.alias_cbu || 'Sin datos';
         
-        message += `*${recipientName}* => ${cbuAlias}\n`;
+        message += `_${recipientName}_\n`;
+        message += `💳 *${cbuAlias}*\n`;
         settlementsForRecipient.forEach((settlement) => {
-          const from = eventParticipants.find(p => p.id === settlement.fromParticipantId);
-          const fromName = from?.name || '';
-          
-          // Verificar si existe un pago confirmado para esta liquidación
-          const payment = eventPayments.find(p => 
-            p.fromParticipantId === settlement.fromParticipantId &&
-            p.toParticipantId === settlement.toParticipantId &&
-            p.isConfirmed
-          );
-          
-          const paymentStatus = payment ? ' ✅ PAGADO' : '';
-          message += `• ${fromName} → ${recipientName}: $${settlement.amount.toFixed(2)}${paymentStatus}\n`;
+          const paymentStatus = settlement.isPaid ? ' ✅' : ' ⏳';
+          message += `  • ${settlement.fromParticipantName}: $${formatCurrency(settlement.amount)}${paymentStatus}\n`;
         });
+        message += `\n`;
       });
     } else {
       message += `✅ ¡Todas las cuentas están equilibradas!\n`;
@@ -561,9 +548,9 @@ export default function EventDetailScreen() {
           // Si WhatsApp no está disponible, copiar al portapapeles como fallback
           Clipboard.setString(message);
           Alert.alert(
-            'WhatsApp no disponible', 
-            'El resumen se copió al portapapeles. Puedes pegarlo en cualquier aplicación.',
-            [{ text: 'OK' }]
+            t('message.whatsappNotAvailable'), 
+            `${t('summary.title')} ${t('message.copiedToClipboard')}`,
+            [{ text: t('ok') }]
           );
         }
       })
@@ -572,9 +559,9 @@ export default function EventDetailScreen() {
         // Si hay error, copiar al portapapeles como fallback
         Clipboard.setString(message);
         Alert.alert(
-          'Error al abrir WhatsApp',
-          'El resumen se copió al portapapeles. Puedes pegarlo en cualquier aplicación.',
-          [{ text: 'OK' }]
+          t('message.whatsappError'),
+          `El resumen ${t('message.copiedToClipboard')}`,
+          [{ text: t('ok') }]
         );
       });
   };
@@ -584,26 +571,19 @@ export default function EventDetailScreen() {
 
     const totalAmount = calculateTotalExpenses();
     
-    let message = `🎉 *${event.name}*\n\n`;
-    
-    if (event.description) {
-      message += `📝 ${event.description}\n\n`;
-    }
-    
-    if (event.location) {
-      message += `📍 *Ubicación:* ${event.location}\n`;
-    }
-    
-    message += `📅 *Fecha:* ${new Date(event.startDate).toLocaleDateString()}\n`;
-    message += `💰 *Moneda:* ${event.currency}\n`;
-    message += `📊 *Estado:* ${event.status === 'active' ? 'Activo' : event.status === 'completed' ? 'Completado' : 'Archivado'}\n\n`;
-    
-    message += `👥 *PARTICIPANTES (${eventParticipants.length}):*\n`;
+    let message = `🎉 EVENTO - ${event.name.toUpperCase()}\n`;
+    message += `━━━━━━━━━━━━━━━━━━\n`;
+    message += `📅 ${new Date(event.startDate).toLocaleDateString('es-AR')}\n`;
+    message += `💵 $${formatCurrency(totalAmount)} ${event.currency}\n`;
+    message += `📊 Estado: ${event.status === 'active' ? t('events.active') : event.status === 'completed' ? t('events.completed') : t('events.archived')}\n`;
+    message += `━━━━━━━━━━━━━━━━━━\n`;
+    message += `👥 PARTICIPANTES (${eventParticipants.length}):\n`;
     eventParticipants.forEach((p) => {
-      message += `• ${p.name}\n`;
+      message += `* ${p.name}\n`;
     });
+    message += `━━━━━━━━━━━━━━━━━━\n`;
+    message += `💸 LIQUIDACIÓN:\n\n`;
     
-    message += `\n💸 *GASTOS (${eventExpenses.length}):*\n`;
     if (eventExpenses.length > 0) {
       // Agrupar gastos por pagador
       const expensesByPayer = eventExpenses.reduce((acc, expense) => {
@@ -618,7 +598,7 @@ export default function EventDetailScreen() {
       // Generar mensaje agrupado por pagador
       Object.entries(expensesByPayer).forEach(([payerId, expenses]) => {
         const payer = eventParticipants.find(p => p.id === payerId);
-        message += `*${payer?.name}*\n`;
+        message += `_${payer?.name}_\n`;
         
         expenses.forEach((expense) => {
           // Buscar splits para verificar exclusiones
@@ -626,7 +606,7 @@ export default function EventDetailScreen() {
           const includedParticipantIds = expenseSplits.map(split => split.participantId);
           const excludedParticipants = eventParticipants.filter(p => !includedParticipantIds.includes(p.id));
           
-          let expenseLine = `• ${expense.description}: $${expense.amount.toFixed(2)}`;
+          let expenseLine = `* ${expense.description}: $${formatCurrency(expense.amount)}`;
           
           // Agregar exclusiones si existen
           if (excludedParticipants.length > 0 && excludedParticipants.length < eventParticipants.length) {
@@ -638,48 +618,41 @@ export default function EventDetailScreen() {
         });
       });
       
-      message += `\n💵 *TOTAL: $${totalAmount.toFixed(2)}*\n`;
+      message += `\n💵 TOTAL: $${formatCurrency(totalAmount)}\n`;
     } else {
       message += `Sin gastos registrados\n`;
     }
     
-    message += `\n💸 *LIQUIDACIÓN:*\n`;
-    if (settlements.length > 0) {
+    if (dbSettlements.length > 0) {
       // Agrupar liquidaciones por destinatario (quien recibe el dinero)
-      const settlementsByRecipient = settlements.reduce((acc, settlement) => {
-        const toId = settlement.toParticipantId;
-        if (!acc[toId]) {
-          acc[toId] = [];
+      const settlementsByRecipient = dbSettlements.reduce((acc, settlement) => {
+        const toParticipantName = settlement.toParticipantName;
+        if (!acc[toParticipantName]) {
+          acc[toParticipantName] = [];
         }
-        acc[toId].push(settlement);
+        acc[toParticipantName].push(settlement);
         return acc;
-      }, {} as Record<string, typeof settlements>);
+      }, {} as Record<string, typeof dbSettlements>);
 
       // Generar mensaje agrupado por destinatario
-      Object.entries(settlementsByRecipient).forEach(([toId, settlementsForRecipient]) => {
-        const recipient = eventParticipants.find(p => p.id === toId);
-        const recipientName = recipient?.name || '';
-        const cbuAlias = recipient?.alias_cbu || 'CBU no disponible';
+      Object.entries(settlementsByRecipient).forEach(([recipientName, settlementsForRecipient]) => {
+        const recipient = eventParticipants.find(p => p.name === recipientName);
+        const cbuAlias = recipient?.alias_cbu || 'Sin datos';
         
-        message += `*${recipientName}* => ${cbuAlias}\n`;
+        message += `${recipientName}\n`;
+        message += `💳 ${cbuAlias}\n`;
         settlementsForRecipient.forEach((settlement) => {
-          const from = eventParticipants.find(p => p.id === settlement.fromParticipantId);
-          const fromName = from?.name || '';
-          
-          // Verificar si existe un pago confirmado para esta liquidación
-          const payment = eventPayments.find(p => 
-            p.fromParticipantId === settlement.fromParticipantId &&
-            p.toParticipantId === settlement.toParticipantId &&
-            p.isConfirmed
-          );
-          
-          const paymentStatus = payment ? ' ✅ PAGADO' : '';
-          message += `• ${fromName} → ${recipientName}: $${settlement.amount.toFixed(2)}${paymentStatus}\n`;
+          const paymentStatus = settlement.isPaid ? ' ✅' : ' ⏳';
+          message += `  • ${settlement.fromParticipantName}: $${formatCurrency(settlement.amount)}${paymentStatus}\n`;
         });
+        message += `\n`;
       });
     } else {
       message += `✅ ¡Todas las cuentas están equilibradas!\n`;
     }
+    
+    message += `━━━━━━━━━━━━━━━━━━\n`;
+    message += `📝 GASTOS (${eventExpenses.length}):\n\n`;
 
     // Enviar directamente a WhatsApp
     const encodedMessage = encodeURIComponent(message);
@@ -693,9 +666,9 @@ export default function EventDetailScreen() {
           // Si WhatsApp no está disponible, copiar al portapapeles como fallback
           Clipboard.setString(message);
           Alert.alert(
-            'WhatsApp no disponible',
-            'El evento se copió al portapapeles. Puedes pegarlo en cualquier aplicación.',
-            [{ text: 'OK' }]
+            t('message.whatsappNotAvailable'),
+            `${t('events.title')} ${t('message.copiedToClipboard')}`,
+            [{ text: t('ok') }]
           );
         }
       })
@@ -704,9 +677,9 @@ export default function EventDetailScreen() {
         // Si hay error, copiar al portapapeles como fallback
         Clipboard.setString(message);
         Alert.alert(
-          'Error al abrir WhatsApp',
-          'El evento se copió al portapapeles. Puedes pegarlo en cualquier aplicación.',
-          [{ text: 'OK' }]
+          t('message.whatsappError'),
+          `El evento ${t('message.copiedToClipboard')}`,
+          [{ text: t('ok') }]
         );
       });
   };
@@ -714,7 +687,7 @@ export default function EventDetailScreen() {
   const handleAddExpenseOld = () => {
     Alert.prompt(
       '💸 Agregar Gasto',
-      'Ingresa la descripción del gasto:',
+      t('message.enterExpenseDescription'),
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -744,7 +717,7 @@ export default function EventDetailScreen() {
                         await addExpense(newExpense);
                         loadEventData();
                         
-                        Alert.alert('✅ Gasto agregado', 'El gasto se agregó correctamente');
+                        Alert.alert(`✅ ${t('message.expenseAdded')}`, t('message.expenseAddedDesc'));
                       }
                     }
                   }
@@ -766,22 +739,22 @@ export default function EventDetailScreen() {
       addExistingParticipantToEvent(eventId, participant)
         .then(() => {
           loadEventData();
-          Alert.alert('✅ Participante agregado', `${participant.name} se agregó al evento`);
+          Alert.alert(`✅ ${t('message.participantAdded')}`, `${participant.name} ${t('message.participantAddedDesc')}`);
         })
         .catch((error) => {
           console.error('Error adding existing participant:', error);
-          Alert.alert('Error', 'No se pudo agregar el participante');
+          Alert.alert(t('error'), t('message.participantAddedError'));
         });
     } else {
       // New participant, create and add to event
       addParticipantToEvent(eventId, participant)
         .then(() => {
           loadEventData();
-          Alert.alert('✅ Participante agregado', `${participant.name} se agregó al evento`);
+          Alert.alert(`✅ ${t('message.participantAdded')}`, `${participant.name} ${t('message.participantAddedDesc')}`);
         })
         .catch((error) => {
           console.error('Error adding new participant:', error);
-          Alert.alert('Error', 'No se pudo agregar el participante');
+          Alert.alert(t('error'), t('message.participantAddedError'));
         });
     }
   };
@@ -797,9 +770,9 @@ export default function EventDetailScreen() {
   const renderTabBar = () => (
     <View style={styles.tabBar}>
       {[
-        { key: 'resumen', title: 'Resumen', icon: 'chart-pie' as const },
-        { key: 'participantes', title: 'Participantes', icon: 'account-group' as const },
-        { key: 'gastos', title: 'Gastos', icon: 'cash' as const }
+        { key: 'resumen', title: t('summary.title'), icon: 'chart-pie' as const },
+        { key: 'participantes', title: t('participants.title'), icon: 'account-group' as const },
+        { key: 'gastos', title: t('expenses.title'), icon: 'cash' as const }
       ].map((tab) => (
         <TouchableOpacity
           key={tab.key}
@@ -862,6 +835,47 @@ export default function EventDetailScreen() {
     return filtered;
   };
 
+  const getFilteredAndSortedSettlements = () => {
+    let filtered = [...dbSettlements];
+
+    // Filtrar por búsqueda
+    if (settlementsSearchQuery.trim()) {
+      const query = settlementsSearchQuery.toLowerCase();
+      filtered = filtered.filter(settlement =>
+        settlement.fromParticipantName.toLowerCase().includes(query) ||
+        settlement.toParticipantName.toLowerCase().includes(query)
+      );
+    }
+
+    // Ordenamiento: Estado > Deudor > Monto > Acreedor
+    // Los pagados van al final
+    filtered.sort((a, b) => {
+      // 1. Por estado: no pagados primero, pagados al final
+      const aIsPaid = a.isPaid || false;
+      const bIsPaid = b.isPaid || false;
+      if (aIsPaid !== bIsPaid) {
+        return aIsPaid ? 1 : -1; // no pagados primero
+      }
+
+      // 2. Por deudor (fromParticipantName)
+      const deudorComparison = a.fromParticipantName.localeCompare(b.fromParticipantName);
+      if (deudorComparison !== 0) {
+        return deudorComparison;
+      }
+
+      // 3. Por monto (descendente - mayor a menor)
+      const montoComparison = b.amount - a.amount;
+      if (montoComparison !== 0) {
+        return montoComparison;
+      }
+
+      // 4. Por acreedor (toParticipantName)
+      return a.toParticipantName.localeCompare(b.toParticipantName);
+    });
+
+    return filtered;
+  };
+
   const renderGastosTab = () => {
     const filteredExpenses = getFilteredAndSortedExpenses();
     
@@ -872,7 +886,7 @@ export default function EventDetailScreen() {
           <SearchBar
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder="Buscar gastos..."
+            placeholder={t('expenses.search')}
             showClearButton={true}
             onClear={() => setSearchQuery('')}
           />
@@ -887,7 +901,7 @@ export default function EventDetailScreen() {
                 onPress={handleAddExpense}
               >
                 <MaterialCommunityIcons name="plus" size={16} color={theme.colors.onPrimary} />
-                <Text style={{ color: theme.colors.onPrimary, marginLeft: 4, fontSize: 14, fontWeight: '500' }}>Agregar</Text>
+                <Text style={{ color: theme.colors.onPrimary, marginLeft: 4, fontSize: 14, fontWeight: '500' }}>{t('add')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -1051,7 +1065,7 @@ export default function EventDetailScreen() {
           <SearchBar
             value={participantSearchQuery}
             onChangeText={setParticipantSearchQuery}
-            placeholder="Buscar participantes..."
+            placeholder={t('participants.search')}
             showClearButton={true}
             onClear={() => setParticipantSearchQuery('')}
           />
@@ -1198,18 +1212,18 @@ export default function EventDetailScreen() {
             }} 
             onPress={handleShareSummary}
           >
-            <MaterialCommunityIcons name="whatsapp" size={20} color={theme.colors.primary} />
+            <MaterialCommunityIcons name="clipboard-check" size={20} color={theme.colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity 
             style={{ 
-              backgroundColor: theme.colors.surfaceVariant,
+              backgroundColor: theme.colors.primary + '15',
               paddingHorizontal: 10,
               paddingVertical: 10,
               borderRadius: 8
             }} 
             onPress={handleShareEvent}
           >
-            <MaterialCommunityIcons name="share-variant" size={20} color={theme.colors.onSurfaceVariant} />
+            <MaterialCommunityIcons name="file-document" size={20} color={theme.colors.primary} />
           </TouchableOpacity>
         </View>
         
@@ -1229,7 +1243,7 @@ export default function EventDetailScreen() {
                 }}
               >
                 <MaterialCommunityIcons name="check-circle" size={14} color={theme.colors.onPrimary} style={{ marginRight: 4 }} />
-                <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 12 }}>Completar</Text>
+                <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 12 }}>{t('events.complete')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleArchiveEvent}
@@ -1245,7 +1259,7 @@ export default function EventDetailScreen() {
                 }}
               >
                 <MaterialCommunityIcons name="archive" size={14} color={theme.colors.onSurfaceVariant} style={{ marginRight: 4 }} />
-                <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 12 }}>Archivar</Text>
+                <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 12 }}>{t('events.archive')}</Text>
               </TouchableOpacity>
             </>
           ) : event?.status === 'completed' ? (
@@ -1264,7 +1278,7 @@ export default function EventDetailScreen() {
                 }}
               >
                 <MaterialCommunityIcons name="lock-open" size={14} color={theme.colors.primary} style={{ marginRight: 4 }} />
-                <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 12 }}>Reactivar</Text>
+                <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 12 }}>{t('events.reactivate')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleArchiveEvent}
@@ -1280,7 +1294,7 @@ export default function EventDetailScreen() {
                 }}
               >
                 <MaterialCommunityIcons name="archive" size={14} color={theme.colors.onSurfaceVariant} style={{ marginRight: 4 }} />
-                <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 12 }}>Archivar</Text>
+                <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 12 }}>{t('events.archive')}</Text>
               </TouchableOpacity>
             </>
           ) : event?.status === 'archived' ? (
@@ -1297,7 +1311,7 @@ export default function EventDetailScreen() {
                 }}
               >
                 <MaterialCommunityIcons name="lock-open" size={14} color={theme.colors.onPrimary} style={{ marginRight: 4 }} />
-                <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 12 }}>Reactivar</Text>
+                <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 12 }}>{t('events.reactivate')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => handleReactivateEvent('completed')}
@@ -1313,7 +1327,7 @@ export default function EventDetailScreen() {
                 }}
               >
                 <MaterialCommunityIcons name="check-circle" size={14} color={theme.colors.warning} style={{ marginRight: 4 }} />
-                <Text style={{ color: theme.colors.warning, fontWeight: '600', fontSize: 12 }}>Completar</Text>
+                <Text style={{ color: theme.colors.warning, fontWeight: '600', fontSize: 12 }}>{t('events.complete')}</Text>
               </TouchableOpacity>
             </>
           ) : null}
@@ -1323,7 +1337,7 @@ export default function EventDetailScreen() {
       {/* Información del evento */}
       <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-          <Text style={styles.sectionTitle}>📋 Información del Evento</Text>
+          <Text style={styles.sectionTitle}>📋 {t('events.information')}</Text>
           {event && (
             <View style={{ 
               backgroundColor: event.status === 'active' ? theme.colors.successContainer : 
@@ -1344,8 +1358,8 @@ export default function EventDetailScreen() {
                 fontSize: 12,
                 fontWeight: '600'
               }}>
-                {event.status === 'active' ? '🟢 Activo' : 
-                 event.status === 'completed' ? '✅ Completado' : '📁 Archivado'}
+                {event.status === 'active' ? `🟢 ${t('events.active')}` : 
+                 event.status === 'completed' ? `✅ ${t('events.completed')}` : `📁 ${t('events.archived')}`}
               </Text>
             </View>
           )}
@@ -1399,50 +1413,66 @@ export default function EventDetailScreen() {
       {/* Liquidación de cuentas */}
       <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <Text style={styles.sectionTitle}>💸 Liquidación de Cuentas</Text>
-          {(event?.status === 'active' || event?.status === 'completed') && dbSettlements.length > 0 && (
-            <View style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 }}>
-              <Text style={{ color: theme.colors.onPrimary, fontSize: 12, fontWeight: '600' }}>
-                {dbSettlements.filter((s: Settlement) => s.isPaid).length}/{dbSettlements.length} Pagadas
-              </Text>
-            </View>
-          )}
+          <Text style={styles.sectionTitle}>💸 {t('summary.settlements')}</Text>
+          {(event?.status === 'active' || event?.status === 'completed') && dbSettlements.length > 0 && (() => {
+            const paidCount = dbSettlements.filter((s: Settlement) => s.isPaid).length;
+            const isAnyPaid = paidCount > 0;
+            return (
+              <View style={{ 
+                backgroundColor: isAnyPaid ? theme.colors.primary : theme.colors.warning, 
+                paddingHorizontal: 12, 
+                paddingVertical: 4, 
+                borderRadius: 12 
+              }}>
+                <Text style={{ 
+                  color: isAnyPaid ? theme.colors.onPrimary : theme.colors.onWarning, 
+                  fontSize: 12, 
+                  fontWeight: '600' 
+                }}>
+                  {paidCount}/{dbSettlements.length} {t('payments.paid')}
+                </Text>
+              </View>
+            );
+          })()}
         </View>
         
-        {dbSettlements.length > 0 && (
-          <View style={styles.searchContainer}>
-            <SearchBar
-              placeholder="Buscar por deudor o acreedor..."
-              value={settlementsSearchQuery}
-              onChangeText={setSettlementsSearchQuery}
-              containerStyle={{ backgroundColor: 'transparent', borderBottomColor: 'transparent', borderTopColor: 'transparent', paddingHorizontal: 0 }}
-              inputContainerStyle={{ backgroundColor: theme.colors.surfaceVariant }}
-              inputStyle={{ color: theme.colors.onSurface }}
-              searchIcon={{ color: theme.colors.onSurfaceVariant }}
-              clearIcon={{ color: theme.colors.onSurfaceVariant }}
-            />
-          </View>
-        )}
-
         {dbSettlements.length > 0 ? (
           <View>
             {dbSettlements
-              .filter((settlement: Settlement) => {
-                if (!settlementsSearchQuery) return true;
-                const query = settlementsSearchQuery.toLowerCase();
-                return settlement.fromParticipantName.toLowerCase().includes(query) ||
-                       settlement.toParticipantName.toLowerCase().includes(query);
+              .sort((a, b) => {
+                // Ordenamiento: Estado > Deudor > Monto > Acreedor
+                // Los pagados van al final
+                const aIsPaid = a.isPaid || false;
+                const bIsPaid = b.isPaid || false;
+                if (aIsPaid !== bIsPaid) {
+                  return aIsPaid ? 1 : -1; // no pagados primero
+                }
+
+                // Por deudor (fromParticipantName)
+                const deudorComparison = a.fromParticipantName.localeCompare(b.fromParticipantName);
+                if (deudorComparison !== 0) {
+                  return deudorComparison;
+                }
+
+                // Por monto (descendente - mayor a menor)
+                const montoComparison = b.amount - a.amount;
+                if (montoComparison !== 0) {
+                  return montoComparison;
+                }
+
+                // Por acreedor (toParticipantName)
+                return a.toParticipantName.localeCompare(b.toParticipantName);
               })
               .map((settlement: Settlement) => (
-                <SettlementItem
-                  key={settlement.id}
-                  settlement={settlement}
-                  currency={event?.currency || 'ARS'}
-                  onTogglePaid={handleToggleSettlementPaid}
-                  onUpdateReceipt={handleUpdateSettlementReceipt}
-                  disabled={event?.status === 'archived'}
-                />
-              ))}
+              <SettlementItem
+                key={settlement.id}
+                settlement={settlement}
+                currency={event?.currency || 'ARS'}
+                onTogglePaid={handleToggleSettlementPaid}
+                onUpdateReceipt={handleUpdateSettlementReceipt}
+                disabled={event?.status === 'archived'}
+              />
+            ))}
           </View>
         ) : (
           <View style={styles.noSettlementsContainer}>
@@ -1480,7 +1510,7 @@ export default function EventDetailScreen() {
 
         return Object.keys(participantExpenses).length > 0 && (
           <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
-            <Text style={styles.sectionTitle}>👥 Gastos por Participante</Text>
+            <Text style={styles.sectionTitle}>👥 {t('expenses.byParticipant')}</Text>
             {Object.entries(participantExpenses)
               .sort(([,a], [,b]) => b.total - a.total)
               .map(([participantId, data]) => (
@@ -1505,7 +1535,7 @@ export default function EventDetailScreen() {
       {/* Categorías de gastos */}
       {Object.keys(eventStats.categoryTotals).length > 0 && (
         <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
-          <Text style={styles.sectionTitle}>📊 Gastos por Categoría</Text>
+          <Text style={styles.sectionTitle}>📊 {t('expenses.byCategory')}</Text>
           {Object.entries(eventStats.categoryTotals).map(([category, total]) => (
             <View key={category} style={styles.categoryItem}>
               <View style={styles.categoryInfo}>
@@ -1533,7 +1563,7 @@ export default function EventDetailScreen() {
       await updatePayment(paymentId, { isConfirmed: !currentStatus });
       await loadEventData();
     } catch (error) {
-      Alert.alert('Error', 'No se pudo actualizar el estado del pago');
+      Alert.alert(t('error'), t('message.paymentStateError'));
     }
   };
 
@@ -1548,16 +1578,16 @@ export default function EventDetailScreen() {
       if (!result.canceled && result.assets[0]) {
         await updatePayment(paymentId, { receiptImage: result.assets[0].uri });
         await loadEventData();
-        Alert.alert('Éxito', 'Comprobante agregado correctamente');
+        Alert.alert(t('success'), t('message.receiptAddedSuccess'));
       }
     } catch (error) {
-      Alert.alert('Error', 'No se pudo agregar el comprobante');
+      Alert.alert(t('error'), t('message.receiptAddedError'));
     }
   };
 
   const handleCreatePaymentsFromSettlements = async () => {
     if (settlements.length === 0) {
-      Alert.alert('Sin liquidaciones', 'No hay liquidaciones pendientes para crear pagos');
+      Alert.alert(t('message.noSettlements'), t('message.noSettlementsDesc'));
       return;
     }
 
@@ -1581,7 +1611,7 @@ export default function EventDetailScreen() {
                   toParticipantId: settlement.toParticipantId,
                   amount: settlement.amount,
                   date: new Date().toISOString(),
-                  notes: 'Pago creado desde liquidación',
+                  notes: t('message.paymentFromSettlement'),
                   isConfirmed: false,
                   createdAt: new Date().toISOString(),
                   updatedAt: new Date().toISOString()
@@ -1593,10 +1623,10 @@ export default function EventDetailScreen() {
               console.log(`✅ Created ${createdCount} payments, reloading event data...`);
               await loadEventData();
               console.log(`✅ Event data reloaded`);
-              Alert.alert('Éxito', `${settlements.length} pago${settlements.length > 1 ? 's' : ''} creado${settlements.length > 1 ? 's' : ''} correctamente`);
+              Alert.alert(t('common.success'), `${settlements.length} ${settlements.length > 1 ? t('message.paymentsCreatedPlural') : t('message.paymentsCreated')}`);
             } catch (error) {
               console.error('❌ Error creating payments from settlements:', error);
-              Alert.alert('Error', 'No se pudieron crear los pagos');
+              Alert.alert(t('common.error'), t('message.couldNotCreatePayments'));
             }
           }
         }
@@ -1770,10 +1800,10 @@ export default function EventDetailScreen() {
           onPress: async () => {
             try {
               await deleteEvent(event.id);
-              Alert.alert('Éxito', 'Evento eliminado correctamente');
+              Alert.alert(t('common.success'), t('message.eventDeleted'));
               navigation.goBack();
             } catch (error) {
-              Alert.alert('Error', 'No se pudo eliminar el evento');
+              Alert.alert(t('error'), t('message.eventDeletedError'));
             }
           }
         }
@@ -1825,15 +1855,14 @@ export default function EventDetailScreen() {
       {/* Header */}
       <HeaderBar
         title={event.name}
-        showBackButton={true}
-        onLeftPress={() => navigation.goBack()}
+        showBackButton={false}
         showThemeToggle={true}
         showLanguageSelector={true}
         useDynamicColors={true}
         elevation={true}
       />
       
-      <View style={[styles.safeContent, { paddingBottom: 20 }]}>
+      <View style={[styles.safeContent, { paddingBottom: Math.max(insets.bottom, 20) }]}>
         {/* Tab Bar */}
         {renderTabBar()}
 
@@ -1934,8 +1963,7 @@ const ParticipantInfoModalContent: React.FC<{
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <HeaderBar 
         title="Información del Participante"
-        showBackButton={true}
-        onLeftPress={onClose}
+        showBackButton={false}
         useDynamicColors={true}
       />
 
@@ -2072,8 +2100,7 @@ const EditParticipantModalContent: React.FC<{
     <View style={{ flex: 1 }}>
       <HeaderBar 
         title="Editar Participante"
-        showBackButton={true}
-        onLeftPress={onCancel}
+        showBackButton={false}
         useDynamicColors={true}
       />
 
