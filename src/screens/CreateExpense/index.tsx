@@ -180,6 +180,12 @@ const CreateExpenseScreen: React.FC = () => {
               splits: loadedSplits
             });
 
+            // Cargar imagen del comprobante si existe
+            if (expense.receiptImage) {
+              console.log('📸 Loading receipt image:', expense.receiptImage);
+              setReceiptImage(expense.receiptImage);
+            }
+
             // IMPORTANTE: Recalcular si es división igual para aplicar peopleCount correctamente
             if (isEqualSplit) {
               // Es división igual, recalcular con peopleCount
@@ -226,50 +232,76 @@ const CreateExpenseScreen: React.FC = () => {
   // Funciones para manejo de imágenes
   const pickImage = async () => {
     try {
+      console.log('📱 ImagePicker available options:', {
+        MediaType: ImagePicker.MediaType,
+        MediaTypeOptions: ImagePicker.MediaTypeOptions
+      });
+      console.log('📱 Requesting media library permissions...');
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      console.log('📱 Media library permission status:', status);
       
       if (status !== 'granted') {
         showThemedAlert(t.alerts.permissions.title, t.alerts.permissions.photos);
         return;
       }
 
+      console.log('📱 Launching image library...');
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         quality: 0.7,
+        allowsMultipleSelection: false,
       });
 
-      if (!result.canceled && result.assets[0]) {
+      console.log('📱 Image picker result:', result);
+
+      if (!result.canceled && result.assets && result.assets[0]) {
         console.log('📸 Image selected:', result.assets[0].uri);
         setReceiptImage(result.assets[0].uri);
+      } else {
+        console.log('📱 Image selection canceled or no assets');
       }
     } catch (error) {
       console.error('❌ Error picking image:', error);
-      Alert.alert(t.alerts.errors.general, t.alerts.errors.selectImage);
+      Alert.alert(
+        'Error al seleccionar imagen', 
+        `No se pudo acceder a la galería. Error: ${error instanceof Error ? error.message : 'Desconocido'}`
+      );
     }
   };
 
   const takePhoto = async () => {
     try {
+      console.log('📱 Requesting camera permissions...');
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      console.log('📱 Camera permission status:', status);
       
       if (status !== 'granted') {
         showThemedAlert(t.alerts.permissions.title, t.alerts.permissions.camera);
         return;
       }
 
+      console.log('📱 Launching camera...');
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         quality: 0.7,
+        mediaTypes: ['images'],
       });
 
-      if (!result.canceled && result.assets[0]) {
+      console.log('📱 Camera result:', result);
+
+      if (!result.canceled && result.assets && result.assets[0]) {
         console.log('📸 Photo taken:', result.assets[0].uri);
         setReceiptImage(result.assets[0].uri);
+      } else {
+        console.log('📱 Photo taking canceled or no assets');
       }
     } catch (error) {
       console.error('❌ Error taking photo:', error);
-      Alert.alert(t.alerts.errors.general, t.alerts.errors.takePhoto);
+      Alert.alert(
+        'Error al tomar foto', 
+        `No se pudo acceder a la cámara. Error: ${error instanceof Error ? error.message : 'Desconocido'}`
+      );
     }
   };
 
@@ -506,6 +538,7 @@ const CreateExpenseScreen: React.FC = () => {
           date: formData.date.toISOString(),
           category: formData.category,
           payerId: formData.payerId,
+          receiptImage: receiptImage || null,
           updatedAt: new Date().toISOString()
         };
 
@@ -521,7 +554,11 @@ const CreateExpenseScreen: React.FC = () => {
           updatedAt: new Date().toISOString()
         }));
 
+        console.log('🔄 Updating expense with receipt image:', receiptImage ? 'Present' : 'None');
+        console.log('📝 Expense updates:', JSON.stringify(expenseUpdates, null, 2));
+        
         await updateExpense(editingExpenseId, expenseUpdates, splits);
+        console.log('✅ Expense updated successfully with receipt image');
         
         showThemedAlert(
           'Gasto actualizado',
@@ -539,6 +576,7 @@ const CreateExpenseScreen: React.FC = () => {
         console.log('Participants count:', eventParticipants.length);
         console.log('Splits count:', formData.splits.length);
         console.log('Receipt image:', receiptImage ? 'Present' : 'None');
+        console.log('Receipt image URI:', receiptImage);
         
         const numericAmount = getNumericValue(formData.amount);
         const expense: Expense = {

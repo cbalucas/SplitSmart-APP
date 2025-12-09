@@ -31,15 +31,27 @@
         "WRITE_EXTERNAL_STORAGE",
         "READ_EXTERNAL_STORAGE",
         "CAMERA",
+        "READ_MEDIA_IMAGES",
         "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.CAMERA",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES"
       ],
       "allowBackup": true
     },
     "plugins": [
       "expo-secure-store",
       "expo-local-authentication",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Esta aplicación necesita acceso a tus fotos para agregar comprobantes a los gastos.",
+          "cameraPermission": "Esta aplicación necesita acceso a la cámara para tomar fotos de comprobantes."
+        }
+      ]
     ],
     "updates": {
       "enabled": false

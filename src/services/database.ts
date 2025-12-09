@@ -1398,6 +1398,10 @@ class DatabaseService {
         updates.push('currency = ?');
         values.push(expense.currency);
       }
+      if (expense.receiptImage !== undefined) {
+        updates.push('receipt_image = ?');
+        values.push(expense.receiptImage);
+      }
 
       updates.push('updated_at = ?');
       values.push(new Date().toISOString());

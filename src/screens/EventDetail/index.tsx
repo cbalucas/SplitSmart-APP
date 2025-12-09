@@ -76,7 +76,7 @@ export default function EventDetailScreen() {
   const [dbSettlements, setDbSettlements] = useState<Settlement[]>([]);
   const [activeTab, setActiveTab] = useState('resumen');
   const [showAddParticipantModal, setShowAddParticipantModal] = useState(false);
-  const [collapsedExpenses, setCollapsedExpenses] = useState<Record<string, boolean>>({});
+
   const [editingParticipant, setEditingParticipant] = useState<Participant | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [settlementsSearchQuery, setSettlementsSearchQuery] = useState('');
@@ -898,35 +898,38 @@ export default function EventDetailScreen() {
             onClear={() => setSearchQuery('')}
           />
           
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 8 }}>
-            <Text style={{ fontSize: 16, fontWeight: '600' }}>
-              💸 Gastos ({filteredExpenses.length}{filteredExpenses.length !== eventExpenses.length ? ` de ${eventExpenses.length}` : ''})
+
+          
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>
+              💸 {t('expenses.title')} ({filteredExpenses.length}{filteredExpenses.length !== eventExpenses.length ? ` de ${eventExpenses.length}` : ''})
             </Text>
             {event?.status === 'active' && (
               <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.primary, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 }}
+                style={styles.addButton}
                 onPress={handleAddExpense}
               >
                 <MaterialCommunityIcons name="plus" size={16} color={theme.colors.onPrimary} />
-                <Text style={{ color: theme.colors.onPrimary, marginLeft: 4, fontSize: 14, fontWeight: '500' }}>{t('add')}</Text>
+                <Text style={styles.addButtonText}>{t('add')}</Text>
               </TouchableOpacity>
             )}
           </View>
         </View>
+
 
         <ScrollView style={{ flex: 1 }}>
           <Card>
             {filteredExpenses.length === 0 && eventExpenses.length === 0 ? (
               <View style={styles.emptyState}>
                 <MaterialCommunityIcons name="receipt" size={48} color={theme.colors.onSurfaceVariant} />
-                <Text style={styles.emptyText}>No hay gastos registrados</Text>
-                <Text style={styles.emptySubtext}>Toca "Agregar" para crear el primer gasto</Text>
+                <Text style={styles.emptyText}>{t('expenses.noExpenses')}</Text>
+                <Text style={styles.emptySubtext}>{t('expenses.noExpensesDesc')}</Text>
               </View>
             ) : filteredExpenses.length === 0 ? (
               <View style={styles.emptyState}>
                 <MaterialCommunityIcons name="filter-remove" size={48} color={theme.colors.onSurfaceVariant} />
-                <Text style={styles.emptyText}>No se encontraron gastos</Text>
-                <Text style={styles.emptySubtext}>Intenta con otros filtros o búsqueda</Text>
+                <Text style={styles.emptyText}>{t('expenses.noResults')}</Text>
+                <Text style={styles.emptySubtext}>{t('expenses.noResultsDesc')}</Text>
               </View>
             ) : (
           <FlatList
@@ -939,102 +942,66 @@ export default function EventDetailScreen() {
               
               return (
                 <View style={styles.expenseItem}>
-                  <View style={styles.expenseHeader}>
-                    <View style={styles.expenseInfo}>
-                      <Text style={styles.expenseDescription}>{item.description}</Text>
-                      <Text style={styles.expenseDate}>
-                        {new Date(item.date).toLocaleDateString()}
+                  {/* Primera fila: Descripción | Monto + Icono */}
+                  <View style={styles.expenseFirstRow}>
+                    <Text style={styles.expenseDescription}>{item.description}</Text>
+                    <View style={styles.expenseRightSection}>
+                      <Text style={styles.expenseAmount}>
+                        ${item.amount.toFixed(2)} {item.currency}
                       </Text>
+                      {/* Icono de comprobante */}
+                      {item.receiptImage && (
+                        <TouchableOpacity
+                          style={styles.receiptIconButton}
+                          onPress={() => {
+                            setSelectedImage(item.receiptImage!);
+                            setShowImageModal(true);
+                          }}
+                        >
+                          <MaterialCommunityIcons 
+                            name="camera" 
+                            size={20} 
+                            color={theme.colors.primary} 
+                          />
+                        </TouchableOpacity>
+                      )}
                     </View>
-                    <Text style={styles.expenseAmount}>
-                      ${item.amount.toFixed(2)} {item.currency}
+                  </View>
+                  
+                  {/* Segunda fila: Pagador | Fecha */}
+                  <View style={styles.expenseSecondRow}>
+                    <Text style={styles.expensePaidBy}>
+                      {t('expenses.paidBy')}: {eventParticipants.find(p => p.id === item.payerId)?.name || 'Usuario Demo'}
+                    </Text>
+                    <Text style={styles.expenseDate}>
+                      {new Date(item.date).toLocaleDateString()}
                     </Text>
                   </View>
-                  <Text style={styles.expensePaidBy}>
-                    Pagado por: {eventParticipants.find(p => p.id === item.payerId)?.name || 'Usuario Demo'}
-                  </Text>
                   
-                  {/* Imagen del comprobante */}
-                  {item.receiptImage && (
-                    <TouchableOpacity
-                      style={{ marginTop: 8, marginBottom: 8 }}
-                      onPress={() => {
-                        setSelectedImage(item.receiptImage!);
-                        setShowImageModal(true);
-                      }}
-                    >
-                      <Image
-                        source={{ uri: item.receiptImage }}
-                        style={{ width: '100%', height: 150, borderRadius: 8 }}
-                        resizeMode="cover"
-                      />
-                      <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: theme.isDark ? AppColors.special.dark.overlay : AppColors.special.light.overlay, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
-                        <Text style={{ color: theme.isDark ? AppColors.text.dark.onPrimary : AppColors.text.light.onPrimary, fontSize: 12, fontWeight: '500' }}>📷 Comprobante</Text>
-                      </View>
-                    </TouchableOpacity>
-                  )}
-                  
-                  {/* División del gasto - Desplegable */}
-                  <TouchableOpacity 
-                    style={styles.expenseSplitsHeader}
-                    onPress={() => setCollapsedExpenses(prev => ({
-                      ...prev,
-                      [item.id]: !prev[item.id]
-                    }))}
-                  >
-                    <Text style={styles.splitsTitle}>
-                      División ({expenseSplits.length} part | {excludedParticipants.length} exc)
+                  {/* Tercera fila: División | Acciones */}
+                  <View style={styles.expenseThirdRow}>
+                    <Text style={styles.expenseDivisionSummary}>
+                      {t('expenses.division')} ({expenseSplits.length} part | {excludedParticipants.length} exc)
                     </Text>
-                    <MaterialCommunityIcons 
-                      name={collapsedExpenses[item.id] ? "chevron-up" : "chevron-down"} 
-                      size={20} 
-                      color={theme.isDark ? AppColors.text.dark.disabled : AppColors.text.light.disabled} 
-                    />
-                  </TouchableOpacity>
-                  
-                  {collapsedExpenses[item.id] && (
-                    <>
-                      <View style={styles.expenseSplits}>
-                        {expenseSplits.map(split => {
-                          const participant = eventParticipants.find(p => p.id === split.participantId);
-                          return (
-                            <Text key={split.id} style={styles.splitItem}>
-                              • {participant?.name}: ${split.amount.toFixed(2)}
-                            </Text>
-                          );
-                        })}
-                      </View>
-                      
-                      {/* Participantes excluidos */}
-                      {excludedParticipants.length > 0 && (
-                        <View style={styles.excludedParticipants}>
-                          <Text style={styles.excludedTitle}>Excluidos:</Text>
-                          <Text style={styles.excludedNames}>
-                            {excludedParticipants.map(p => p.name).join(', ')}
-                          </Text>
-                        </View>
-                      )}
-                    </>
-                  )}
-                  
-                  <View style={styles.expenseActions}>
+                    
+                    {/* Acciones a la derecha */}
                     {event?.status === 'active' && (
-                      <>
+                      <View style={styles.expenseActions}>
                         <TouchableOpacity 
                           style={styles.actionButton}
                           onPress={() => handleEditExpense(item)}
                         >
                           <MaterialCommunityIcons name="pencil" size={16} color={theme.colors.onSurfaceVariant} />
-                          <Text style={styles.actionText}>Editar</Text>
+                          <Text style={styles.actionText}>{t('expenses.edit')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity 
                           style={styles.actionButton}
                           onPress={() => handleDeleteExpense(item)}
                         >
                           <MaterialCommunityIcons name="delete" size={16} color={theme.colors.error} />
-                          <Text style={[styles.actionText, { color: theme.colors.error }]}>Eliminar</Text>
+                          <Text style={[styles.actionText, { color: theme.colors.error }]}>{t('expenses.delete')}</Text>
                         </TouchableOpacity>
-                      </>
+                      </View>
                     )}
                   </View>
                 </View>
@@ -1577,7 +1544,7 @@ export default function EventDetailScreen() {
   const handleAddReceiptToPayment = async (paymentId: string) => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         quality: 0.8,
       });

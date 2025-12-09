@@ -93,14 +93,14 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#f0f8ff',
+    backgroundColor: theme.colors.primaryContainer,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#007AFF'
+    borderColor: theme.colors.primary
   },
   addButtonText: {
     fontSize: 12,
-    color: '#007AFF',
+    color: theme.colors.primary,
     fontWeight: '600',
     marginLeft: 4
   },
@@ -117,13 +117,13 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#666',
+    color: theme.colors.onSurfaceVariant,
     marginTop: 12,
     fontWeight: '500'
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#999',
+    color: theme.colors.onSurfaceVariant,
     marginTop: 4,
     textAlign: 'center'
   },
@@ -132,25 +132,34 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   expenseItem: {
     padding: 16,
     marginBottom: 12,
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.surface,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#f0f0f0'
+    borderColor: theme.colors.outline
   },
-  expenseHeader: {
+  expenseFirstRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 8
   },
-  expenseInfo: {
-    flex: 1
+  expenseSecondRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8
+  },
+  expenseThirdRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
   },
   expenseDescription: {
     fontSize: 16,
     fontWeight: '500',
     color: theme.colors.onSurface,
-    marginBottom: 4
+    flex: 1,
+    marginRight: 8
   },
   expenseDate: {
     fontSize: 12,
@@ -159,70 +168,78 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   expenseAmount: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#4CAF50'
+    color: theme.colors.success
   },
   expensePaidBy: {
     fontSize: 12,
     color: theme.colors.onSurfaceVariant,
-    marginBottom: 8
+    flex: 1
   },
-  expenseSplitsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-    paddingTop: 8,
-    paddingVertical: 4,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.outline
-  },
-  expenseSplits: {
-    marginTop: 8
-  },
-  splitsTitle: {
+  expenseDivisionSummary: {
     fontSize: 12,
-    fontWeight: '500',
     color: theme.colors.onSurfaceVariant,
-    marginBottom: 4
+    flex: 1
   },
-  splitItem: {
-    fontSize: 12,
-    color: theme.colors.onSurface,
-    paddingLeft: 8,
-    marginBottom: 2
+
+  expenseRightSection: {
+    alignItems: 'flex-end',
+    flexDirection: 'row',
+    gap: 8
   },
-  excludedParticipants: {
-    marginTop: 8,
-    padding: 8,
-    backgroundColor: '#fff3cd',
-    borderRadius: 4,
+  receiptIconButton: {
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: theme.colors.primaryContainer,
     borderWidth: 1,
-    borderColor: '#ffeaa7'
-  },
-  excludedTitle: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#856404',
-    marginBottom: 2
-  },
-  excludedNames: {
-    fontSize: 12,
-    color: '#856404',
-    fontStyle: 'italic'
+    borderColor: theme.colors.primary + '30',
+    shadowColor: theme.colors.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2
   },
   expenseActions: {
     flexDirection: 'row',
-    gap: 16,
-    marginTop: 12
+    gap: 16
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6
+  },
+  addButtonText: {
+    color: theme.colors.onPrimary,
+    marginLeft: 4,
+    fontSize: 14,
+    fontWeight: '500'
+  },
+  receiptOverlay: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: theme.colors.surface + 'E0',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4
+  },
+  receiptOverlayText: {
+    color: theme.colors.onSurface,
+    fontSize: 12,
+    fontWeight: '500'
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4
   },
   actionText: {
     fontSize: 12,
-    color: '#666',
+    color: theme.colors.onSurfaceVariant,
     marginLeft: 4
   },
 
@@ -382,16 +399,16 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     alignSelf: 'flex-start'
   },
   statusActive: {
-    backgroundColor: '#e8f5e8',
-    color: '#2e7d32'
+    backgroundColor: theme.colors.successContainer,
+    color: theme.colors.onSuccessContainer
   },
   statusCompleted: {
-    backgroundColor: '#e3f2fd',
-    color: '#1976d2'
+    backgroundColor: theme.colors.infoContainer,
+    color: theme.colors.onInfoContainer
   },
   statusArchived: {
-    backgroundColor: '#f3e5f5',
-    color: '#7b1fa2'
+    backgroundColor: theme.colors.warningContainer,
+    color: theme.colors.onWarningContainer
   },
   statsContainer: {
     flexDirection: 'row',
@@ -405,13 +422,13 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   statValue: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.onSurface,
     marginTop: 8,
     marginBottom: 4
   },
   statLabel: {
     fontSize: 12,
-    color: '#666',
+    color: theme.colors.onSurfaceVariant,
     textAlign: 'center'
   },
   summaryRow: {
@@ -420,16 +437,16 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0'
+    borderBottomColor: theme.colors.outline
   },
   summaryLabel: {
     fontSize: 14,
-    color: '#666'
+    color: theme.colors.onSurfaceVariant
   },
   summaryAmount: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333'
+    color: theme.colors.onSurface
   },
   quickActions: {
     flexDirection: 'row',
@@ -441,14 +458,14 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     minWidth: '45%',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.colors.surfaceVariant,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0'
+    borderColor: theme.colors.outline
   },
   quickActionText: {
     fontSize: 12,
-    color: '#007AFF',
+    color: theme.colors.primary,
     marginTop: 8,
     textAlign: 'center',
     fontWeight: '500'
@@ -457,7 +474,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   // Settlement styles
   settlementItem: {
     padding: 12,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.colors.surfaceVariant,
     borderRadius: 8,
     marginBottom: 8
   },
@@ -473,16 +490,16 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   },
   settlementFrom: {
     fontWeight: '500',
-    color: '#333'
+    color: theme.colors.onSurface
   },
   settlementTo: {
     fontWeight: '500',
-    color: '#333'
+    color: theme.colors.onSurface
   },
   settlementAmount: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#4CAF50',
+    color: theme.colors.success,
     textAlign: 'center',
     marginTop: 4
   },
@@ -505,14 +522,14 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   },
   settlementParticipantName: {
     fontSize: 12,
-    color: '#333',
+    color: theme.colors.onSurface,
     fontWeight: '500',
     marginTop: 4,
     textAlign: 'center'
   },
   settlementDescription: {
     fontSize: 12,
-    color: '#666',
+    color: theme.colors.onSurfaceVariant,
     textAlign: 'center',
     fontStyle: 'italic'
   },
@@ -526,12 +543,12 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   noSettlementsTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#4CAF50',
+    color: theme.colors.success,
     marginBottom: 8
   },
   noSettlementsText: {
     fontSize: 14,
-    color: '#666',
+    color: theme.colors.onSurfaceVariant,
     textAlign: 'center'
   },
   settlementButton: {
@@ -541,7 +558,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   },
   settlementButtonText: {
     fontSize: 12,
-    color: '#4CAF50',
+    color: theme.colors.success,
     marginLeft: 4,
     fontWeight: '500'
   },
@@ -553,7 +570,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0'
+    borderBottomColor: theme.colors.outline
   },
   balanceInfo: {
     flex: 1
@@ -561,7 +578,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   balanceName: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#333',
+    color: theme.colors.onSurface,
     marginBottom: 4
   },
   balanceDetails: {
@@ -569,7 +586,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   },
   balanceSubtext: {
     fontSize: 12,
-    color: '#666'
+    color: theme.colors.onSurfaceVariant
   },
   balanceAmount: {
     alignItems: 'flex-end'
@@ -581,7 +598,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   },
   balanceLabel: {
     fontSize: 10,
-    color: '#666',
+    color: theme.colors.onSurfaceVariant,
     textAlign: 'center'
   },
 
@@ -592,7 +609,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0'
+    borderBottomColor: theme.colors.outline
   },
   categoryInfo: {
     flex: 1,
@@ -631,19 +648,19 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.colors.surfaceVariant,
     borderRadius: 12
   },
   paymentStatValue: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.onSurface,
     marginTop: 8,
     marginBottom: 4
   },
   paymentStatLabel: {
     fontSize: 12,
-    color: '#666',
+    color: theme.colors.onSurfaceVariant,
     textAlign: 'center'
   },
   paymentsContainer: {
@@ -651,10 +668,10 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   },
   paymentItem: {
     padding: 12,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.colors.surfaceVariant,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e0e0e0'
+    borderColor: theme.colors.outline
   },
   paymentHeader: {
     flexDirection: 'row',
@@ -668,29 +685,29 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   paymentFromTo: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#333',
+    color: theme.colors.onSurface,
     marginBottom: 4
   },
   paymentAmount: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#007AFF'
+    color: theme.colors.primary
   },
   paymentDate: {
     fontSize: 12,
-    color: '#666',
+    color: theme.colors.onSurfaceVariant,
     marginBottom: 4
   },
   paymentNotes: {
     fontSize: 12,
-    color: '#666',
+    color: theme.colors.onSurfaceVariant,
     fontStyle: 'italic',
     marginBottom: 8
   },
   receiptSection: {
     marginTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: theme.colors.outline,
     paddingTop: 8
   },
   receiptThumbnailContainer: {
@@ -704,7 +721,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   },
   receiptLabel: {
     fontSize: 12,
-    color: '#007AFF',
+    color: theme.colors.primary,
     fontWeight: '500'
   },
   addReceiptButton: {
@@ -716,7 +733,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   },
   addReceiptText: {
     fontSize: 14,
-    color: '#007AFF',
+    color: theme.colors.primary,
     fontWeight: '500'
   },
 
@@ -729,7 +746,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   },
   errorText: {
     fontSize: 18,
-    color: '#ff4444',
+    color: theme.colors.error,
     marginTop: 16,
     marginBottom: 24,
     textAlign: 'center'
@@ -741,7 +758,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   // Search and filter styles
   searchContainer: {
     padding: 16,
-    backgroundColor: '#fff'
+    backgroundColor: theme.colors.surface
   },
   searchRow: {
     flexDirection: 'row',
@@ -752,7 +769,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.colors.surfaceVariant,
     borderRadius: 8,
     paddingHorizontal: 12
   },
@@ -768,7 +785,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 8
   },
   filtersPanel: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.colors.surfaceVariant,
     borderRadius: 8,
     padding: 12,
     marginBottom: 12
@@ -793,20 +810,20 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 16
   },
   filterOptionActive: {
-    backgroundColor: '#007AFF'
+    backgroundColor: theme.colors.primary
   },
   filterOptionInactive: {
-    backgroundColor: '#fff'
+    backgroundColor: theme.colors.surface
   },
   filterOptionText: {
     marginLeft: 4,
     fontSize: 14
   },
   filterOptionTextActive: {
-    color: '#fff'
+    color: theme.colors.onPrimary
   },
   filterOptionTextInactive: {
-    color: '#666'
+    color: theme.colors.onSurfaceVariant
   },
   clearFiltersButton: {
     alignItems: 'center',
@@ -814,7 +831,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   },
   clearFiltersText: {
     fontSize: 14,
-    color: '#007AFF',
+    color: theme.colors.primary,
     fontWeight: '500'
   },
 
@@ -847,7 +864,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'space-around',
     padding: 16,
     marginBottom: 16,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: theme.colors.surfaceVariant,
     borderRadius: 12,
   },
   topQuickActionButton: {
@@ -860,5 +877,91 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 12,
     color: theme.colors.onSurfaceVariant,
     marginBottom: 12
+  },
+  
+  // Filter styles
+  filtersContainer: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.outline
+  },
+  filtersHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12
+  },
+  filtersTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.onSurface
+  },
+  clearFiltersButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4
+  },
+  clearFiltersText: {
+    fontSize: 12,
+    color: theme.colors.primary,
+    fontWeight: '500'
+  },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8
+  },
+  filterLabel: {
+    fontSize: 14,
+    color: theme.colors.onSurfaceVariant,
+    minWidth: 70,
+    marginRight: 12
+  },
+  filterChipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    flex: 1,
+    gap: 8
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.outline,
+    backgroundColor: theme.colors.surface
+  },
+  filterChipActive: {
+    backgroundColor: theme.colors.primaryContainer,
+    borderColor: theme.colors.primary
+  },
+  filterChipText: {
+    fontSize: 12,
+    color: theme.colors.onSurfaceVariant
+  },
+  filterChipTextActive: {
+    color: theme.colors.onPrimaryContainer,
+    fontWeight: '600'
+  },
+  filterToggleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: theme.colors.surfaceVariant,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.outline,
+    marginHorizontal: 16,
+    marginBottom: 8
+  },
+  filterToggleText: {
+    fontSize: 12,
+    color: theme.colors.onSurfaceVariant,
+    marginLeft: 4
   }
 });
