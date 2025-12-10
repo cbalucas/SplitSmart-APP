@@ -6,8 +6,6 @@ import {
   TouchableOpacity,
   Alert,
   StyleSheet,
-  ViewStyle,
-  TextStyle,
   Switch,
   Modal,
   TextInput,
@@ -20,34 +18,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
-import { useLanguage, Language } from '../../context/LanguageContext';
-import { Theme } from '../../constants/theme';
-import { Card, Button, Input, LanguageSelector, ThemeToggle } from '../../components';
-
-interface UserProfileData {
-  name: string;
-  email: string;
-  phone: string;
-  alias_cbu: string;
-  preferredCurrency: 'ARS' | 'USD' | 'EUR' | 'BRL';
-  notifications: {
-    expenseAdded: boolean;
-    paymentReceived: boolean;
-    eventUpdated: boolean;
-    weeklyReport: boolean;
-  };
-  privacy: {
-    shareEmail: boolean;
-    sharePhone: boolean;
-    allowInvitations: boolean;
-  };
-}
-
-interface ProfileSectionProps {
-  title: string;
-  icon: string;
-  children: React.ReactNode;
-}
+import { useLanguage } from '../../context/LanguageContext';
+import { Card, Button, Input, LanguageSelector, CurrencySelector, ThemeToggle, HeaderBar } from '../../components';
+import { 
+  UserProfileData, 
+  ProfileSectionProps, 
+  SettingItemProps, 
+  ProfileStats,
+  NotificationKey,
+  PrivacyKey
+} from './types';
+import { createStyles } from './styles';
+import { PROFILE_KEYS, NOTIFICATION_KEYS, getLanguageDisplayName, getUserInitials } from './language';
 
 const ProfileSection: React.FC<ProfileSectionProps> = ({ title, icon, children }) => {
   const { theme } = useTheme();
@@ -67,16 +49,6 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ title, icon, children }
     </Card>
   );
 };
-
-interface SettingItemProps {
-  title: string;
-  subtitle?: string;
-  icon: string;
-  value?: string | boolean;
-  type: 'navigation' | 'switch' | 'value';
-  onPress?: () => void;
-  onValueChange?: (value: boolean) => void;
-}
 
 const SettingItem: React.FC<SettingItemProps> = ({ 
   title, 
@@ -138,6 +110,14 @@ const ProfileScreen: React.FC = () => {
   const { theme, toggleTheme, isDarkMode } = useTheme();
   const { user, logout, refreshUser } = useAuth();
   const { language, setLanguage, t } = useLanguage();
+
+  // Helper function to get auto-logout options
+  const getAutoLogoutOptions = () => [
+    { value: 'never' as const, label: t('profile.autoLogoutNever') },
+    { value: '5min' as const, label: t('profile.autoLogout5min') },
+    { value: '15min' as const, label: t('profile.autoLogout15min') },
+    { value: '30min' as const, label: t('profile.autoLogout30min') },
+  ];
   const { 
     events, 
     participants, 
@@ -155,19 +135,22 @@ const ProfileScreen: React.FC = () => {
 
   const [profileData, setProfileData] = useState<UserProfileData>({
     name: user?.name || 'Usuario Demo',
+    username: '', // NUEVO CAMPO
     email: user?.email || 'demo@splitsmart.com',
     phone: '',
-    alias_cbu: '',
+    // alias_cbu: '', // ELIMINADO
     preferredCurrency: 'ARS',
+    autoLogout: 'never',
     notifications: {
       expenseAdded: true,
       paymentReceived: true,
       eventUpdated: false,
-      weeklyReport: false,
+      // weeklyReport: false, // ELIMINADO
     },
     privacy: {
-      shareEmail: false,
-      sharePhone: false,
+      // shareEmail: false, // ELIMINADO
+      // sharePhone: false, // ELIMINADO
+      shareEvent: true, // NUEVO CAMPO
       allowInvitations: true,
     }
   });
@@ -176,11 +159,12 @@ const ProfileScreen: React.FC = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [skipPassword, setSkipPassword] = useState(false);
-  const [stats, setStats] = useState({
+  const [showAutoLogoutOptions, setShowAutoLogoutOptions] = useState(false);
+  const [stats, setStats] = useState<ProfileStats>({
     totalEvents: 0,
     activeEvents: 0,
-    totalExpenses: 0,
-    totalAmountSpent: 0,
+    completedEvents: 0,
+    archivedEvents: 0,
     friendsCount: 0
   });
 
@@ -197,19 +181,22 @@ const ProfileScreen: React.FC = () => {
       if (profile) {
         setProfileData({
           name: profile.name || user.name || 'Usuario Demo',
+          username: profile.username || '', // NUEVO CAMPO
           email: profile.email || user.email || 'demo@splitsmart.com',
           phone: profile.phone || '',
-          alias_cbu: profile.alias_cbu || '',
+          // alias_cbu: profile.alias_cbu || '', // ELIMINADO
           preferredCurrency: profile.preferred_currency || 'ARS',
+          autoLogout: (profile.auto_logout as 'never' | '5min' | '15min' | '30min') || 'never',
           notifications: {
             expenseAdded: profile.notifications_expense_added === 1,
             paymentReceived: profile.notifications_payment_received === 1,
             eventUpdated: profile.notifications_event_updated === 1,
-            weeklyReport: profile.notifications_weekly_report === 1,
+            // weeklyReport: profile.notifications_weekly_report === 1, // ELIMINADO
           },
           privacy: {
-            shareEmail: profile.privacy_share_email === 1,
-            sharePhone: profile.privacy_share_phone === 1,
+            // shareEmail: profile.privacy_share_email === 1, // ELIMINADO
+            // sharePhone: profile.privacy_share_phone === 1, // ELIMINADO
+            shareEvent: profile.privacy_share_event === 1 || true, // NUEVO CAMPO (default true)
             allowInvitations: profile.privacy_allow_invitations === 1,
           }
         });
@@ -223,15 +210,15 @@ const ProfileScreen: React.FC = () => {
   const calculateStats = () => {
     const totalEvents = events.length;
     const activeEvents = events.filter(e => e.status === 'active').length;
-    const totalExpenses = expenses.length;
-    const totalAmountSpent = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-    const friendsCount = participants.length;
+    const completedEvents = events.filter(e => e.status === 'completed').length;
+    const archivedEvents = events.filter(e => e.status === 'archived').length;
+    const friendsCount = participants.filter(p => p.participantType === 'friend').length; // Solo amigos permanentes
 
     setStats({
       totalEvents,
       activeEvents,
-      totalExpenses,
-      totalAmountSpent,
+      completedEvents,
+      archivedEvents,
       friendsCount
     });
   };
@@ -245,9 +232,10 @@ const ProfileScreen: React.FC = () => {
     try {
       await updateUserProfile(user.id, {
         name: profileData.name,
+        username: profileData.username || undefined, // NUEVO CAMPO
         email: profileData.email,
         phone: profileData.phone || undefined,
-        alias_cbu: profileData.alias_cbu || undefined,
+        // alias_cbu: profileData.alias_cbu || undefined, // ELIMINADO
         preferred_currency: profileData.preferredCurrency
       });
 
@@ -256,21 +244,22 @@ const ProfileScreen: React.FC = () => {
         expenseAdded: profileData.notifications.expenseAdded,
         paymentReceived: profileData.notifications.paymentReceived,
         eventUpdated: profileData.notifications.eventUpdated,
-        weeklyReport: profileData.notifications.weeklyReport
+        // weeklyReport: profileData.notifications.weeklyReport // ELIMINADO
       });
 
       // Guardar privacidad
       await updateUserPrivacy(user.id, {
-        shareEmail: profileData.privacy.shareEmail,
-        sharePhone: profileData.privacy.sharePhone,
+        // shareEmail: profileData.privacy.shareEmail, // ELIMINADO
+        // sharePhone: profileData.privacy.sharePhone, // ELIMINADO
+        shareEvent: profileData.privacy.shareEvent, // NUEVO CAMPO
         allowInvitations: profileData.privacy.allowInvitations
       });
 
-      Alert.alert('✅ Guardado', 'Perfil actualizado correctamente');
+      Alert.alert(`✅ ${t('success')}`, t('profile.message.profileSaved'));
       setIsEditing(false);
       await refreshUser();
     } catch (error) {
-      Alert.alert('Error', 'No se pudo guardar el perfil');
+      Alert.alert(t('error'), t('profile.message.profileSaveError'));
     }
   };
 
@@ -279,7 +268,7 @@ const ProfileScreen: React.FC = () => {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (status !== 'granted') {
-        Alert.alert('Permiso requerido', 'Necesitamos permiso para acceder a tus fotos');
+        Alert.alert(t('profile.message.permissionRequired'), t('profile.message.galleryPermission'));
         return;
       }
 
@@ -295,7 +284,7 @@ const ProfileScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('❌ Error picking image:', error);
-      Alert.alert('Error', 'No se pudo seleccionar la imagen');
+      Alert.alert(t('error'), t('profile.message.pickImageError'));
     }
   };
 
@@ -304,7 +293,7 @@ const ProfileScreen: React.FC = () => {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       
       if (status !== 'granted') {
-        Alert.alert('Permiso requerido', 'Necesitamos permiso para acceder a tu cámara');
+        Alert.alert(t('profile.message.permissionRequired'), t('profile.message.cameraPermission'));
         return;
       }
 
@@ -319,7 +308,7 @@ const ProfileScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('❌ Error taking photo:', error);
-      Alert.alert('Error', 'No se pudo tomar la foto');
+      Alert.alert(t('error'), t('profile.message.takePhotoError'));
     }
   };
 
@@ -334,23 +323,23 @@ const ProfileScreen: React.FC = () => {
       console.log('✅ Avatar updated in database, refreshing user...');
       await refreshUser();
       console.log('✅ User refreshed, new avatar:', user?.avatar);
-      Alert.alert('✅ Éxito', 'Foto de perfil actualizada');
+      Alert.alert(`✅ ${t('success')}`, t('profile.message.updateAvatarSuccess'));
     } catch (error) {
       console.error('❌ Error updating avatar:', error);
-      Alert.alert('Error', 'No se pudo actualizar la foto de perfil');
+      Alert.alert(t('error'), t('profile.message.updateAvatarError'));
     }
   };
 
   const handleChangeAvatar = () => {
     Alert.alert(
-      'Cambiar foto de perfil',
-      'Elige una opción',
+      t('profile.message.changeAvatarTitle'),
+      t('profile.message.chooseOption'),
       [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Tomar Foto', onPress: takePhoto },
-        { text: 'Elegir de Galería', onPress: pickImageFromGallery },
+        { text: t('cancel'), style: 'cancel' },
+        { text: t('profile.message.takePhoto'), onPress: takePhoto },
+        { text: t('profile.message.chooseFromGallery'), onPress: pickImageFromGallery },
         ...(user?.avatar ? [{ 
-          text: 'Eliminar Foto', 
+          text: t('profile.message.removePhoto'), 
           style: 'destructive' as const, 
           onPress: async () => {
             if (user?.id) {
@@ -366,44 +355,44 @@ const ProfileScreen: React.FC = () => {
   const handleExportData = async () => {
     try {
       Alert.alert(
-        'Exportar Datos',
-        '¿Qué datos deseas exportar?',
+        t('profile.message.exportDataTitle'),
+        t('profile.message.exportDataMessage'),
         [
           { text: 'Cancelar', style: 'cancel' },
           { 
-            text: 'Todos los datos', 
+            text: t('profile.message.allData'), 
             onPress: async () => {
               try {
                 const data = await exportData();
-                Alert.alert('Éxito', 'Datos exportados correctamente');
+                Alert.alert(t('success'), t('profile.message.exportSuccess'));
                 // TODO: Implementar guardado del archivo
               } catch (error) {
-                Alert.alert('Error', 'No se pudieron exportar los datos');
+                Alert.alert(t('error'), t('profile.message.exportError'));
               }
             }
           }
         ]
       );
     } catch (error) {
-      Alert.alert('Error', 'No se pudieron exportar los datos');
+      Alert.alert(t('error'), t('profile.message.exportError'));
     }
   };
 
   const handleClearData = () => {
     Alert.alert(
-      '⚠️ Eliminar Todos los Datos',
-      'Esta acción eliminará permanentemente todos tus eventos, gastos y participantes. ¿Estás seguro?',
+      t('profile.message.deleteAllDataTitle'),
+      t('profile.message.deleteAllDataMessage'),
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Eliminar Todo',
+          text: t('profile.message.deleteAll'),
           style: 'destructive',
           onPress: async () => {
             try {
               await resetDatabase();
-              Alert.alert('Completado', 'Todos los datos han sido eliminados');
+              Alert.alert(t('success'), t('profile.message.deleteCompleted'));
             } catch (error) {
-              Alert.alert('Error', 'No se pudieron eliminar los datos');
+              Alert.alert(t('error'), t('profile.message.deleteError'));
             }
           }
         }
@@ -413,12 +402,12 @@ const ProfileScreen: React.FC = () => {
 
   const handleLogout = () => {
     Alert.alert(
-      'Cerrar Sesión',
-      '¿Estás seguro de que quieres cerrar sesión?',
+      t('profile.message.logoutTitle'),
+      t('profile.message.logoutMessage'),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: 'Cerrar Sesión',
+          text: t('logout'),
           style: 'destructive',
           onPress: () => {
             logout();
@@ -472,35 +461,16 @@ const ProfileScreen: React.FC = () => {
     }
   };
 
-  const getInitials = (name: string): string => {
-    return name
-      .split(' ')
-      .map(word => word.charAt(0))
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
+
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('profile.title')}</Text>
-        <View style={styles.headerRight}>
-          <LanguageSelector size={26} color={theme.colors.onSurface} />
-          <ThemeToggle size={24} color={theme.colors.onSurface} />
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={() => setIsEditing(!isEditing)}
-          >
-            <MaterialCommunityIcons
-              name={isEditing ? "check" : "pencil"}
-              size={24}
-              color={theme.colors.primary}
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
+      <HeaderBar
+        title={t('profile.title')}
+        showLanguageSelector={true}
+        showThemeToggle={true}
+        backgroundColor="#00B359"
+      />
 
       <ScrollView 
         style={styles.scrollView}
@@ -509,6 +479,16 @@ const ProfileScreen: React.FC = () => {
       >
         {/* Perfil del Usuario */}
         <Card style={styles.profileCard}>
+          <TouchableOpacity
+            style={styles.editIconButton}
+            onPress={() => setIsEditing(!isEditing)}
+          >
+            <MaterialCommunityIcons
+              name={isEditing ? "check" : "pencil"}
+              size={20}
+              color={theme.colors.primary}
+            />
+          </TouchableOpacity>
           <View style={styles.profileHeader}>
             <TouchableOpacity 
               style={styles.avatarContainer}
@@ -523,7 +503,7 @@ const ProfileScreen: React.FC = () => {
               ) : (
                 <View style={[styles.avatar, { backgroundColor: '#4ECDC4' }]}>
                   <Text style={styles.avatarText}>
-                    {getInitials(profileData.name)}
+                    {getUserInitials(profileData.name)}
                   </Text>
                 </View>
               )}
@@ -534,43 +514,34 @@ const ProfileScreen: React.FC = () => {
               )}
             </TouchableOpacity>
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{profileData.name}</Text>
+              <Text style={styles.profileName}>{profileData.username}</Text>
               <Text style={styles.profileEmail}>{profileData.email}</Text>
-              <View style={styles.profileStats}>
-                <Text style={styles.profileStat}>
-                  {stats.totalEvents} eventos • {stats.friendsCount} amigos
-                </Text>
-              </View>
             </View>
           </View>
         </Card>
 
         {/* Estadísticas */}
         <ProfileSection title={t('profile.stats')} icon="chart-line">
-          <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
-              <MaterialCommunityIcons name="calendar-check" size={24} color="#4CAF50" />
-              <Text style={styles.statValue}>{stats.activeEvents}</Text>
-              <Text style={styles.statLabel}>{t('profile.activeEvents')}</Text>
+          <View style={styles.statsContainer}>
+            <View style={styles.statRow}>
+              <MaterialCommunityIcons name="account-group" size={20} color="#9C27B0" />
+              <Text style={styles.statNumber}>{stats.friendsCount}</Text>
+              <Text style={styles.statDescription}>{t('profile.friendsCount')}</Text>
             </View>
-            <View style={styles.statItem}>
-              <MaterialCommunityIcons name="receipt" size={24} color="#FF9800" />
-              <Text style={styles.statValue}>{stats.totalExpenses}</Text>
-              <Text style={styles.statLabel}>{t('profile.totalExpenses')}</Text>
+            <View style={styles.statRow}>
+              <MaterialCommunityIcons name="calendar-check" size={20} color="#4CAF50" />
+              <Text style={styles.statNumber}>{stats.activeEvents}</Text>
+              <Text style={styles.statDescription}>{t('profile.activeEvents')}</Text>
             </View>
-          </View>
-          <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
-              <MaterialCommunityIcons name="cash-multiple" size={24} color="#2196F3" />
-              <Text style={styles.statValue}>
-                ${stats.totalAmountSpent.toFixed(0)}
-              </Text>
-              <Text style={styles.statLabel}>{t('profile.totalSpent')}</Text>
+            <View style={styles.statRow}>
+              <MaterialCommunityIcons name="calendar-check-outline" size={20} color="#2196F3" />
+              <Text style={styles.statNumber}>{stats.completedEvents}</Text>
+              <Text style={styles.statDescription}>{t('profile.completedEvents')}</Text>
             </View>
-            <View style={styles.statItem}>
-              <MaterialCommunityIcons name="account-group" size={24} color="#9C27B0" />
-              <Text style={styles.statValue}>{stats.friendsCount}</Text>
-              <Text style={styles.statLabel}>{t('profile.friendsCount')}</Text>
+            <View style={styles.statRow}>
+              <MaterialCommunityIcons name="archive" size={20} color="#FF9800" />
+              <Text style={styles.statNumber}>{stats.archivedEvents}</Text>
+              <Text style={styles.statDescription}>{t('profile.archivedEvents')}</Text>
             </View>
           </View>
         </ProfileSection>
@@ -586,6 +557,12 @@ const ProfileScreen: React.FC = () => {
                 containerStyle={styles.editInput}
               />
               <Input
+                label={t('profile.username')}
+                value={profileData.username}
+                onChangeText={(value) => setProfileData(prev => ({ ...prev, username: value }))}
+                containerStyle={styles.editInput}
+              />
+              <Input
                 label={t('profile.email')}
                 value={profileData.email}
                 onChangeText={(value) => setProfileData(prev => ({ ...prev, email: value }))}
@@ -597,12 +574,6 @@ const ProfileScreen: React.FC = () => {
                 value={profileData.phone}
                 onChangeText={(value) => setProfileData(prev => ({ ...prev, phone: value }))}
                 keyboardType="phone-pad"
-                containerStyle={styles.editInput}
-              />
-              <Input
-                label={`${t('profile.cbu')} (${t('optional')})`}
-                value={profileData.alias_cbu}
-                onChangeText={(value) => setProfileData(prev => ({ ...prev, alias_cbu: value }))}
                 containerStyle={styles.editInput}
               />
               <Button
@@ -661,12 +632,27 @@ const ProfileScreen: React.FC = () => {
                             : t('profile.skipPasswordDisabled')
                         );
                       } catch (error) {
-                        Alert.alert('Error', 'No se pudo actualizar la configuración');
+                        Alert.alert(t('error'), t('profile.message.settingUpdateError'));
                       }
                     }}
                     trackColor={{ false: theme.colors.outline, true: theme.colors.primary }}
                     thumbColor={theme.colors.surface}
                   />
+                </View>
+              </View>
+
+              <View style={styles.settingItem}>
+                <View style={styles.settingIcon}>
+                  <MaterialCommunityIcons name="fingerprint" size={20} color={theme.colors.onSurfaceVariant} />
+                </View>
+                <View style={styles.settingContent}>
+                  <Text style={styles.settingTitle}>{t('profile.biometricLogin')}</Text>
+                  <Text style={styles.settingSubtitle}>{t('profile.biometricLoginDesc')}</Text>
+                </View>
+                <View style={styles.settingAction}>
+                  <View style={styles.comingSoonBadge}>
+                    <Text style={styles.comingSoonText}>{t('profile.comingSoon')}</Text>
+                  </View>
                 </View>
               </View>
             </ProfileSection>
@@ -680,27 +666,11 @@ const ProfileScreen: React.FC = () => {
               type="value"
               value=""
             />
-            <SettingItem
-              title={t('profile.email')}
-              subtitle={profileData.email}
-              icon="email"
-              type="value"
-              value=""
-            />
             {profileData.phone && (
               <SettingItem
                 title={t('profile.phone')}
                 subtitle={profileData.phone}
                 icon="phone"
-                type="value"
-                value=""
-              />
-            )}
-            {profileData.alias_cbu && (
-              <SettingItem
-                title={t('profile.cbu')}
-                subtitle={profileData.alias_cbu}
-                icon="bank"
                 type="value"
                 value=""
               />
@@ -717,48 +687,120 @@ const ProfileScreen: React.FC = () => {
             type="navigation"
             onPress={toggleTheme}
           />
-          <SettingItem
-            title={t('profile.currency')}
-            subtitle={profileData.preferredCurrency}
-            icon="currency-usd"
-            type="navigation"
-            onPress={() => {
-              Alert.alert('Info', 'Selector de moneda próximamente');
+          <CurrencySelector
+            selectedCurrency={profileData.preferredCurrency}
+            onCurrencyChange={async (currency) => {
+              setProfileData(prev => ({ ...prev, preferredCurrency: currency }));
+              try {
+                await updateUserProfile(user.id, { preferred_currency: currency });
+                console.log('Currency preference updated successfully:', currency);
+              } catch (error) {
+                console.error('Error updating currency preference:', error);
+              }
             }}
+            renderTrigger={(onPress) => (
+              <TouchableOpacity
+                style={styles.settingItem}
+                onPress={onPress}
+              >
+                <View style={styles.settingIcon}>
+                  <MaterialCommunityIcons name="currency-usd" size={20} color={theme.colors.onSurfaceVariant} />
+                </View>
+                <View style={styles.settingContent}>
+                  <Text style={styles.settingTitle}>{t('profile.currency')}</Text>
+                  <Text style={styles.settingSubtitle}>{profileData.preferredCurrency}</Text>
+                </View>
+                <View style={styles.settingAction}>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
+                </View>
+              </TouchableOpacity>
+            )}
           />
-          <SettingItem
-            title={t('profile.language')}
-            subtitle={language === 'es' ? 'Español' : language === 'en' ? 'English' : 'Português'}
-            icon="translate"
-            type="navigation"
-            onPress={() => {
-              Alert.alert(
-                t('message.selectLanguage'),
-                t('message.chooseLanguage'),
-                [
-                  {
-                    text: 'Español',
-                    onPress: () => setLanguage('es'),
-                    style: language === 'es' ? 'default' : 'cancel',
-                  },
-                  {
-                    text: 'English',
-                    onPress: () => setLanguage('en'),
-                    style: language === 'en' ? 'default' : 'cancel',
-                  },
-                  {
-                    text: 'Português',
-                    onPress: () => setLanguage('pt'),
-                    style: language === 'pt' ? 'default' : 'cancel',
-                  },
-                  {
-                    text: t('cancel'),
-                    style: 'cancel',
-                  },
-                ]
-              );
-            }}
+          <LanguageSelector 
+            size={20} 
+            color={theme.colors.onSurfaceVariant}
+            renderTrigger={(onPress) => (
+              <TouchableOpacity
+                style={styles.settingItem}
+                onPress={onPress}
+              >
+                <View style={styles.settingIcon}>
+                  <MaterialCommunityIcons name="translate" size={20} color={theme.colors.onSurfaceVariant} />
+                </View>
+                <View style={styles.settingContent}>
+                  <Text style={styles.settingTitle}>{t('profile.language')}</Text>
+                  <Text style={styles.settingSubtitle}>{getLanguageDisplayName(language)}</Text>
+                </View>
+                <View style={styles.settingAction}>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
+                </View>
+              </TouchableOpacity>
+            )}
           />
+          {/* Auto Logout Section */}
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => setShowAutoLogoutOptions(!showAutoLogoutOptions)}
+          >
+            <View style={styles.settingIcon}>
+              <MaterialCommunityIcons name="timer-outline" size={20} color={theme.colors.onSurfaceVariant} />
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={styles.settingTitle}>{t('profile.autoLogout')}</Text>
+              <Text style={styles.settingSubtitle}>
+                {getAutoLogoutOptions().find(option => option.value === profileData.autoLogout)?.label}
+              </Text>
+            </View>
+            <View style={styles.settingAction}>
+              <MaterialCommunityIcons 
+                name={showAutoLogoutOptions ? "chevron-up" : "chevron-down"} 
+                size={20} 
+                color={theme.colors.onSurfaceVariant} 
+              />
+            </View>
+          </TouchableOpacity>
+          
+          {/* Desplegable con opciones en dos columnas */}
+          {showAutoLogoutOptions && (
+            <View style={styles.dropdownContainer}>
+              <View style={styles.dropdownGrid}>
+                {getAutoLogoutOptions().map((option, index) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.dropdownOption,
+                      index % 2 === 1 && styles.dropdownOptionRight,
+                      profileData.autoLogout === option.value && styles.dropdownOptionSelected
+                    ]}
+                    onPress={async () => {
+                      setProfileData(prev => ({ ...prev, autoLogout: option.value }));
+                      setShowAutoLogoutOptions(false);
+                      try {
+                        await updateUserProfile(user.id, { auto_logout: option.value });
+                        console.log('Auto-logout preference updated:', option.value);
+                      } catch (error) {
+                        console.error('Error updating auto-logout preference:', error);
+                      }
+                    }}
+                  >
+                    <Text style={[
+                      styles.dropdownOptionText,
+                      profileData.autoLogout === option.value && styles.dropdownOptionTextSelected
+                    ]}>
+                      {option.label}
+                    </Text>
+                    {profileData.autoLogout === option.value && (
+                      <MaterialCommunityIcons 
+                        name="check" 
+                        size={16} 
+                        color={theme.colors.primary} 
+                      />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
         </ProfileSection>
 
         {/* Notificaciones */}
@@ -787,37 +829,21 @@ const ProfileScreen: React.FC = () => {
             value={profileData.notifications.eventUpdated}
             onValueChange={(value) => updateNotificationSetting('eventUpdated', value)}
           />
-          <SettingItem
-            title={t('notifications.weeklyReport')}
-            subtitle={t('notifications.weeklyReportDesc')}
-            icon="calendar-week"
-            type="switch"
-            value={profileData.notifications.weeklyReport}
-            onValueChange={(value) => updateNotificationSetting('weeklyReport', value)}
-          />
         </ProfileSection>
 
         {/* Privacidad */}
-        <ProfileSection title="Privacidad" icon="shield-account">
+        <ProfileSection title={t('profile.privacy')} icon="shield-account">
           <SettingItem
-            title="Compartir email"
-            subtitle="Permitir que otros usuarios vean tu email"
-            icon="email-open"
+            title={t('profile.shareEvent')}
+            subtitle={t('profile.shareEventDesc')}
+            icon="share"
             type="switch"
-            value={profileData.privacy.shareEmail}
-            onValueChange={(value) => updatePrivacySetting('shareEmail', value)}
+            value={profileData.privacy.shareEvent}
+            onValueChange={(value) => updatePrivacySetting('shareEvent', value)}
           />
           <SettingItem
-            title="Compartir teléfono"
-            subtitle="Permitir que otros usuarios vean tu teléfono"
-            icon="phone-forward"
-            type="switch"
-            value={profileData.privacy.sharePhone}
-            onValueChange={(value) => updatePrivacySetting('sharePhone', value)}
-          />
-          <SettingItem
-            title="Permitir invitaciones"
-            subtitle="Recibir invitaciones a eventos de otros usuarios"
+            title={t('profile.allowInvitations')}
+            subtitle={t('profile.allowInvitationsDesc')}
             icon="account-plus"
             type="switch"
             value={profileData.privacy.allowInvitations}
@@ -826,17 +852,17 @@ const ProfileScreen: React.FC = () => {
         </ProfileSection>
 
         {/* Datos y Respaldo */}
-        <ProfileSection title="Datos y Respaldo" icon="database">
+        <ProfileSection title={t('profile.dataBackup')} icon="database">
           <SettingItem
-            title="Exportar datos"
-            subtitle="Descargar una copia de tus datos"
+            title={t('profile.exportData')}
+            subtitle={t('profile.exportDataDesc')}
             icon="download"
             type="navigation"
             onPress={handleExportData}
           />
           <SettingItem
-            title="Eliminar todos los datos"
-            subtitle="Borrar permanentemente toda la información"
+            title={t('profile.deleteAllData')}
+            subtitle={t('profile.deleteAllDataDesc')}
             icon="delete-alert"
             type="navigation"
             onPress={handleClearData}
@@ -844,31 +870,31 @@ const ProfileScreen: React.FC = () => {
         </ProfileSection>
 
         {/* Información de la App */}
-        <ProfileSection title="Información" icon="information">
+        <ProfileSection title={t('profile.information')} icon="information">
           <SettingItem
-            title="Versión de la app"
+            title={t('profile.appVersion')}
             subtitle="1.4.1"
             icon="information-outline"
             type="value"
             value=""
           />
           <SettingItem
-            title="Términos de servicio"
+            title={t('profile.termsOfService')}
             icon="file-document"
             type="navigation"
-            onPress={() => Alert.alert('Info', 'Términos de servicio próximamente')}
+            onPress={() => Alert.alert('Info', t('profile.message.termsComingSoon'))}
           />
           <SettingItem
-            title="Política de privacidad"
+            title={t('profile.privacyPolicy')}
             icon="shield-check"
             type="navigation"
-            onPress={() => Alert.alert('Info', 'Política de privacidad próximamente')}
+            onPress={() => Alert.alert('Info', t('profile.message.privacyComingSoon'))}
           />
           <SettingItem
-            title="Contactar soporte"
+            title={t('profile.contactSupport')}
             icon="help-circle"
             type="navigation"
-            onPress={() => Alert.alert('Info', 'Soporte próximamente')}
+            onPress={() => Alert.alert('Info', t('profile.message.supportComingSoon'))}
           />
         </ProfileSection>
 
@@ -923,7 +949,7 @@ const ProfileScreen: React.FC = () => {
                 onPress={async () => {
                   if (newPassword.length >= 6) {
                     if (!user?.id) {
-                      Alert.alert(t('error'), 'No se pudo identificar el usuario');
+                      Alert.alert(t('error'), t('profile.message.userNotFound'));
                       return;
                     }
                     try {
@@ -933,10 +959,10 @@ const ProfileScreen: React.FC = () => {
                       setNewPassword('');
                       Alert.alert(`✅ ${t('profile.passwordUpdated')}`, t('profile.passwordUpdateSuccess'));
                     } catch (error) {
-                      Alert.alert(t('error'), 'No se pudo cambiar la contraseña');
+                      Alert.alert(t('error'), t('profile.message.passwordChangeError'));
                     }
                   } else {
-                    Alert.alert(t('error'), 'La contraseña debe tener al menos 6 caracteres');
+                    Alert.alert(t('error'), t('profile.message.passwordTooShort'));
                   }
                 }}
               >
@@ -949,307 +975,5 @@ const ProfileScreen: React.FC = () => {
     </SafeAreaView>
   );
 };
-
-const createStyles = (theme: Theme) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    } as ViewStyle,
-
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      backgroundColor: theme.colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.outline,
-    } as ViewStyle,
-
-    backButton: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
-    } as ViewStyle,
-
-    headerTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: theme.colors.onSurface,
-      flex: 1,
-    } as TextStyle,
-
-    headerRight: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    } as ViewStyle,
-
-    editButton: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
-    } as ViewStyle,
-
-    scrollView: {
-      flex: 1,
-    } as ViewStyle,
-
-    scrollViewContent: {
-      padding: 20,
-    } as ViewStyle,
-
-    card: {
-      marginBottom: 16,
-    } as ViewStyle,
-
-    profileCard: {
-      marginBottom: 20,
-    } as ViewStyle,
-
-    profileHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    } as ViewStyle,
-
-    avatarContainer: {
-      marginRight: 16,
-      position: 'relative',
-    } as ViewStyle,
-
-    avatar: {
-      width: 60,
-      height: 60,
-      borderRadius: 30,
-      alignItems: 'center',
-      justifyContent: 'center',
-    } as ViewStyle,
-
-    avatarEditOverlay: {
-      position: 'absolute',
-      bottom: 0,
-      right: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.6)',
-      borderRadius: 15,
-      width: 30,
-      height: 30,
-      justifyContent: 'center',
-      alignItems: 'center',
-    } as ViewStyle,
-
-    avatarText: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: '#FFFFFF',
-    } as TextStyle,
-
-    profileInfo: {
-      flex: 1,
-    } as ViewStyle,
-
-    profileName: {
-      fontSize: 20,
-      fontWeight: '600',
-      color: theme.colors.onSurface,
-    } as TextStyle,
-
-    profileEmail: {
-      fontSize: 14,
-      color: theme.colors.onSurfaceVariant,
-      marginTop: 2,
-    } as TextStyle,
-
-    profileStats: {
-      marginTop: 4,
-    } as ViewStyle,
-
-    profileStat: {
-      fontSize: 12,
-      color: theme.colors.onSurfaceVariant,
-    } as TextStyle,
-
-    sectionHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 16,
-    } as ViewStyle,
-
-    sectionTitle: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: theme.colors.onSurface,
-      marginLeft: 8,
-    } as TextStyle,
-
-    statsGrid: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: 16,
-    } as ViewStyle,
-
-    statItem: {
-      flex: 1,
-      alignItems: 'center',
-      paddingVertical: 12,
-    } as ViewStyle,
-
-    statValue: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: theme.colors.onSurface,
-      marginTop: 4,
-    } as TextStyle,
-
-    statLabel: {
-      fontSize: 12,
-      color: theme.colors.onSurfaceVariant,
-      marginTop: 2,
-      textAlign: 'center',
-    } as TextStyle,
-
-    settingItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 12,
-      paddingHorizontal: 4,
-    } as ViewStyle,
-
-    settingIcon: {
-      width: 32,
-      alignItems: 'center',
-      marginRight: 12,
-    } as ViewStyle,
-
-    settingContent: {
-      flex: 1,
-    } as ViewStyle,
-
-    settingTitle: {
-      fontSize: 16,
-      color: theme.colors.onSurface,
-    } as TextStyle,
-
-    settingSubtitle: {
-      fontSize: 14,
-      color: theme.colors.onSurfaceVariant,
-      marginTop: 2,
-    } as TextStyle,
-
-    settingAction: {
-      alignItems: 'flex-end',
-    } as ViewStyle,
-
-    settingValue: {
-      fontSize: 14,
-      color: theme.colors.onSurfaceVariant,
-    } as TextStyle,
-
-    editInput: {
-      marginBottom: 12,
-    } as ViewStyle,
-
-    saveButton: {
-      marginTop: 8,
-    } as ViewStyle,
-
-    logoutCard: {
-      marginTop: 8,
-      borderWidth: 1,
-      borderColor: '#F44336',
-    } as ViewStyle,
-
-    logoutButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 12,
-    } as ViewStyle,
-
-    logoutText: {
-      fontSize: 16,
-      fontWeight: '500',
-      color: '#F44336',
-      marginLeft: 8,
-    } as TextStyle,
-
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: 20,
-    } as ViewStyle,
-
-    modalContent: {
-      backgroundColor: theme.colors.surface,
-      borderRadius: 16,
-      padding: 24,
-      width: '100%',
-      maxWidth: 400,
-    } as ViewStyle,
-
-    modalTitle: {
-      fontSize: 20,
-      fontWeight: '600',
-      color: theme.colors.onSurface,
-      marginBottom: 8,
-    } as TextStyle,
-
-    modalSubtitle: {
-      fontSize: 14,
-      color: theme.colors.onSurfaceVariant,
-      marginBottom: 20,
-    } as TextStyle,
-
-    modalInput: {
-      backgroundColor: theme.colors.background,
-      borderWidth: 1,
-      borderColor: theme.colors.outline,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      fontSize: 16,
-      color: theme.colors.onSurface,
-      marginBottom: 20,
-    } as ViewStyle,
-
-    modalButtons: {
-      flexDirection: 'row',
-      gap: 12,
-    } as ViewStyle,
-
-    modalButton: {
-      flex: 1,
-      paddingVertical: 14,
-      borderRadius: 12,
-      alignItems: 'center',
-    } as ViewStyle,
-
-    modalButtonCancel: {
-      backgroundColor: theme.colors.surfaceVariant,
-    } as ViewStyle,
-
-    modalButtonConfirm: {
-      backgroundColor: theme.colors.primary,
-    } as ViewStyle,
-
-    modalButtonTextCancel: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: theme.colors.onSurfaceVariant,
-    } as TextStyle,
-
-    modalButtonTextConfirm: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: theme.colors.onPrimary,
-    } as TextStyle,
-  });
 
 export default ProfileScreen;

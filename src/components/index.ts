@@ -10,6 +10,7 @@ export { default as MetricsCard } from './MetricsCard';
 export { default as SearchBar } from './SearchBar';
 export { default as AddParticipantModal } from './AddParticipantModal';
 export { LanguageSelector } from './LanguageSelector';
+export { CurrencySelector } from './CurrencySelector';
 export { ThemeToggle } from './ThemeToggle';
 export { UserAvatar } from './UserAvatar';
 export { SettlementItem } from './SettlementItem';

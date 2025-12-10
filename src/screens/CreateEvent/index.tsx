@@ -71,36 +71,61 @@ const CreateEventScreen: React.FC = () => {
     }
     
     try {
-      console.log('ðŸ“¥ Loading user preferred currency...');
+      console.log('Loading user preferred currency...');
       const userProfile = await getUserProfile(user.id);
       if (userProfile?.preferred_currency) {
-        console.log('âœ… User preferred currency found:', userProfile.preferred_currency);
+        console.log('User preferred currency found:', userProfile.preferred_currency);
         setFormData(prev => ({
           ...prev,
           currency: userProfile.preferred_currency as 'ARS' | 'USD' | 'EUR' | 'BRL'
         }));
       } else {
-        console.log('ðŸ’° No preferred currency found in profile, using ARS default');
+        console.log('No preferred currency found in profile, using ARS default');
       }
     } catch (error) {
-      console.log('âŒ Could not load user preferred currency:', error);
+      console.log('Could not load user preferred currency:', error);
       // Mantener ARS como fallback
     }
   };
 
+  const resetFormToDefaults = async () => {
+    try {
+      const userProfile = user?.id ? await getUserProfile(user.id) : null;
+      const preferredCurrency = userProfile?.preferred_currency || 'ARS';
+      
+      setFormData({
+        name: '',
+        description: '',
+        startDate: null,
+        location: '',
+        currency: preferredCurrency as 'ARS' | 'USD' | 'EUR' | 'BRL',
+        eventType: 'public',
+        category: 'evento'
+      });
+      console.log('Form reset with preferred currency:', preferredCurrency);
+    } catch (error) {
+      console.log('Error resetting form:', error);
+    }
+  };
+
+  // Cargar moneda preferida al inicio si es evento nuevo
+  useEffect(() => {
+    if (!isEditing && user?.id) {
+      console.log('Initial load: Loading user preferred currency for new event...');
+      loadUserPreferredCurrency();
+    }
+  }, [user?.id, isEditing]);
+
   useFocusEffect(
     React.useCallback(() => {
-      console.log('ðŸ” CreateEvent focused. isEditing:', isEditing, 'eventId:', editingEventId);
+      console.log('CreateEvent focused. isEditing:', isEditing, 'eventId:', editingEventId);
       if (isEditing && editingEventId && events.length > 0) {
-        console.log('ðŸ“¥ Loading event data for editing...');
+        console.log('Loading event data for editing...');
         loadEventData();
       } else if (isEditing && editingEventId && events.length === 0) {
-        console.warn('âš ï¸ No events loaded yet');
-      } else if (!isEditing && user?.id) {
-        console.log('ðŸ’° Loading user preferred currency for new event...');
-        loadUserPreferredCurrency();
+        console.warn('No events loaded yet');
       }
-    }, [isEditing, editingEventId, events, user?.id])
+    }, [isEditing, editingEventId, events])
   );
 
   const loadEventData = async () => {
@@ -109,12 +134,12 @@ const CreateEventScreen: React.FC = () => {
     setLoading(true);
     try {
       // Buscar el evento en la lista de eventos (ya disponible desde useData)
-      console.log('ðŸ”Ž Searching for event:', editingEventId);
-      console.log('ðŸ“‹ Available events:', events.length);
+      console.log('Searching for event:', editingEventId);
+      console.log('Available events:', events.length);
       const eventToEdit = events.find(e => e.id === editingEventId);
       
       if (eventToEdit) {
-        console.log('âœ… Event found:', eventToEdit.name);
+        console.log('Event found:', eventToEdit.name);
         setFormData({
           name: eventToEdit.name,
           description: eventToEdit.description || '',
@@ -124,9 +149,9 @@ const CreateEventScreen: React.FC = () => {
           eventType: eventToEdit.type as 'public' | 'private',
           category: eventToEdit.category as 'viaje' | 'casa' | 'cena' | 'trabajo' | 'evento' | 'otro'
         });
-        console.log('ðŸ“ Form data loaded successfully');
+        console.log('Form data loaded successfully');
       } else {
-        console.error('âŒ Event not found in events list');
+        console.error('Event not found in events list');
         Alert.alert(t.actions.error, t.validation.eventNotFound);
       }
     } catch (error) {
@@ -277,7 +302,8 @@ const CreateEventScreen: React.FC = () => {
                 // Si estamos editando, volver a EventDetail
                 (navigation as any).navigate('EventDetail', { eventId: editingEventId });
               } else {
-                // Si estamos creando, volver a Home
+                // Si estamos creando, resetear formulario y volver a Home
+                resetFormToDefaults();
                 (navigation as any).navigate('Home');
               }
             }
