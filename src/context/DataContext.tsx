@@ -264,6 +264,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       // Add participant to all existing expenses and recalculate splits
       await databaseService.addParticipantToAllExpenses(eventId, participant.id);
       
+      // Clear existing settlements for this event to avoid duplicates
+      await databaseService.deleteSettlementsByEvent(eventId);
+      
       await refreshData();
       console.log('✅ Participant added to event successfully:', participant.name);
     } catch (error) {
@@ -295,6 +298,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         console.log('⚠️ Participant already associated with event');
         return; // Don't throw error, just return
       }
+
+      // Add participant to all existing expenses and recalculate splits
+      await databaseService.addParticipantToAllExpenses(eventId, participant.id);
+      
+      // Clear existing settlements for this event to avoid duplicates
+      await databaseService.deleteSettlementsByEvent(eventId);
       
       await refreshData();
       console.log('✅ Existing participant added to event successfully:', participant.name);
@@ -561,6 +570,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const removeParticipantFromEvent = useCallback(async (eventId: string, participantId: string) => {
     try {
       await databaseService.removeParticipantFromEvent(eventId, participantId);
+      
+      // Clear existing settlements for this event to avoid orphaned settlements
+      await databaseService.deleteSettlementsByEvent(eventId);
+      
       await refreshData();
       console.log('✅ Participant removed successfully');
     } catch (error) {

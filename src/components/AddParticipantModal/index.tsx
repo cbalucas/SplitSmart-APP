@@ -190,7 +190,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
         updatedAt: new Date().toISOString()
       };
 
-      // If saving as friend, add to global participants list
+      // If saving as friend, add to global participants list first
       if (saveAsFriend) {
         await addParticipant(participant);
       }

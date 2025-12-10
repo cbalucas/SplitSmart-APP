@@ -743,8 +743,8 @@ export default function EventDetailScreen() {
     // Check if participant already exists in global participants list
     const existingParticipant = participants.find(p => p.id === participant.id);
     
-    if (existingParticipant) {
-      // Participant already exists, just add to event
+    if (existingParticipant || participant.participantType === 'friend') {
+      // Participant already exists globally or is marked as friend, just add to event
       addExistingParticipantToEvent(eventId, participant)
         .then(() => {
           loadEventData();
@@ -755,7 +755,7 @@ export default function EventDetailScreen() {
           Alert.alert(t('error'), t('message.participantAddedError'));
         });
     } else {
-      // New participant, create and add to event
+      // New temporary participant, create and add to event
       addParticipantToEvent(eventId, participant)
         .then(() => {
           loadEventData();
