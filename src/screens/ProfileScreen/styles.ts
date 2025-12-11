@@ -236,17 +236,12 @@ export const createStyles = (theme: Theme) =>
       marginTop: 8,
     } as ViewStyle,
 
-    logoutCard: {
-      marginTop: 8,
-      borderWidth: 1,
-      borderColor: '#F44336',
-    } as ViewStyle,
-
     logoutButton: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: 12,
+      width: '100%',
     } as ViewStyle,
 
     logoutText: {

@@ -7,10 +7,7 @@ export interface UserProfileData {
   preferredCurrency: 'ARS' | 'USD' | 'EUR' | 'BRL';
   autoLogout: 'never' | '5min' | '15min' | '30min';
   notifications: {
-    expenseAdded: boolean;
-    paymentReceived: boolean;
-    eventUpdated: boolean;
-    // weeklyReport: boolean; // ELIMINADO
+    paymentReceived: boolean; // Solo notificaciones de pagos recibidos via WhatsApp
   };
   privacy: {
     // shareEmail: boolean; // ELIMINADO
@@ -24,6 +21,7 @@ export interface ProfileSectionProps {
   title: string;
   icon: string;
   children: React.ReactNode;
+  onPress?: () => void;
 }
 
 export interface SettingItemProps {
@@ -45,7 +43,7 @@ export interface ProfileStats {
 }
 
 export type CurrencyType = 'ARS' | 'USD' | 'EUR' | 'BRL';
-export type NotificationKey = 'expenseAdded' | 'paymentReceived' | 'eventUpdated'; // Eliminado 'weeklyReport'
+export type NotificationKey = 'paymentReceived'; // Solo pagos recibidos via WhatsApp
 export type PrivacyKey = 'shareEvent' | 'allowInvitations'; // Eliminados 'shareEmail', 'sharePhone'
 
 // Nueva interfaz para datos de importación

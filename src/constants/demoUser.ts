@@ -1,7 +1,7 @@
 import { User } from '../types';
 
 export const DEMO_USER: User = {
-  id: 'user-demo-001',
+  id: 'demo-user',
   name: 'Demo',
   username: 'Demo',
   email: 'demo@splitsmart.com',

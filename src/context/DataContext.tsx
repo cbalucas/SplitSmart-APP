@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { Event, Participant, Expense, EventParticipant, Split, Payment } from '../types';
 import { databaseService } from '../services/database';
+import { notificationService } from '../services/NotificationService';
+import { useAuth } from './AuthContext';
 
 interface DataContextValue {
   events: Event[];
@@ -46,6 +48,7 @@ interface DataContextValue {
   clearAllData: () => Promise<void>;
   resetDatabase: () => Promise<void>;
   exportData: () => Promise<string>;
+  importData: (importData: any) => Promise<boolean>;
 }
 
 const DataContext = createContext<DataContextValue>({
@@ -84,10 +87,12 @@ const DataContext = createContext<DataContextValue>({
   refreshData: async () => {},
   clearAllData: async () => {},
   resetDatabase: async () => {},
-  exportData: async () => ''
+  exportData: async () => '',
+  importData: async () => false
 });
 
 export function DataProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth(); // Obtener usuario logueado
   const [events, setEvents] = useState<Event[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -265,7 +270,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await databaseService.addParticipantToAllExpenses(eventId, participant.id);
       
       // Clear existing settlements for this event to avoid duplicates
-      await databaseService.deleteSettlementsByEvent(eventId);
+      // Solo eliminar si realmente hay gastos y settlements existentes
+      const expenses = await databaseService.getExpensesByEvent(eventId);
+      if (expenses.length > 0) {
+        const existingSettlements = await databaseService.getSettlementsByEvent(eventId);
+        if (existingSettlements.length > 0) {
+          console.log('🔄 Clearing', existingSettlements.length, 'settlements due to new participant with existing expenses');
+          await databaseService.deleteSettlementsByEvent(eventId);
+        }
+      }
       
       await refreshData();
       console.log('✅ Participant added to event successfully:', participant.name);
@@ -303,7 +316,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await databaseService.addParticipantToAllExpenses(eventId, participant.id);
       
       // Clear existing settlements for this event to avoid duplicates
-      await databaseService.deleteSettlementsByEvent(eventId);
+      // Solo eliminar si realmente hay gastos y settlements existentes
+      const expenses = await databaseService.getExpensesByEvent(eventId);
+      if (expenses.length > 0) {
+        const existingSettlements = await databaseService.getSettlementsByEvent(eventId);
+        if (existingSettlements.length > 0) {
+          console.log('🔄 Clearing', existingSettlements.length, 'existing settlements due to existing participant');
+          await databaseService.deleteSettlementsByEvent(eventId);
+        }
+      }
       
       await refreshData();
       console.log('✅ Existing participant added to event successfully:', participant.name);
@@ -345,6 +366,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateParticipant = useCallback(async (id: string, updates: Partial<Participant>) => {
     try {
       await databaseService.updateParticipant(id, updates);
+      
+      // If name was updated, also update settlement names
+      if (updates.name) {
+        await databaseService.updateSettlementParticipantNames(id, updates.name);
+      }
+      
       await refreshData();
       console.log(`✅ Participant updated successfully`);
     } catch (error) {
@@ -482,6 +509,60 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       await databaseService.createPayment(payment);
       console.log('✅ Payment created successfully');
+      
+      // Enviar notificación WhatsApp al acreedor (quien recibe el pago)
+      try {
+        console.log('🔔 Checking payment notification for recipient:', payment.toParticipantId);
+        
+        const recipient = await databaseService.getParticipantById(payment.toParticipantId);
+        const payer = await databaseService.getParticipantById(payment.fromParticipantId);
+        const event = await databaseService.getEventById(payment.eventId);
+        
+        console.log('👤 Recipient:', recipient?.name, 'Phone:', recipient?.phone);
+        console.log('👤 Payer:', payer?.name);
+        console.log('📅 Event:', event?.name);
+        
+        if (recipient && payer && event) {
+          // Verificar si el usuario ACTUAL (no el recipient) tiene notificaciones activadas
+          // La notificación se envía si el usuario actual quiere recibir notificaciones de pagos
+          let shouldNotify = false;
+          
+          try {
+            // Obtener el perfil del usuario que está logueado actualmente
+            const currentUserId = user?.id || 'demo-user';
+            const currentUserProfile = await databaseService.getUserProfile(currentUserId);
+            console.log('🔔 Current user profile notification setting:', currentUserProfile?.notifications_payment_received);
+            console.log('👤 Logged user ID:', currentUserId);
+            shouldNotify = currentUserProfile?.notifications_payment_received === 1;
+          } catch (profileError) {
+            console.log('⚠️ Could not get logged user profile, assuming no notifications');
+            shouldNotify = false;
+          }
+          
+          if (shouldNotify) {
+            if (recipient.phone) {
+              console.log('📲 Sending WhatsApp notification...');
+              await notificationService.notifyPaymentReceived({
+                payerName: payer.name,
+                amount: payment.amount,
+                eventName: event.name,
+                recipientPhone: recipient.phone,
+                receiptImage: payment.receiptImage
+              });
+              console.log('✅ WhatsApp notification sent successfully');
+            } else {
+              console.log('⚠️ Recipient has no phone number for WhatsApp notification');
+            }
+          } else {
+            console.log('🔕 Recipient notifications disabled or not applicable');
+          }
+        } else {
+          console.log('❌ Missing data for notification - Recipient:', !!recipient, 'Payer:', !!payer, 'Event:', !!event);
+        }
+      } catch (notificationError) {
+        console.log('⚠️ Payment notification failed:', notificationError);
+        // No fallar si la notificación falla
+      }
     } catch (error) {
       console.error('❌ Error creating payment:', error);
       throw error;
@@ -540,10 +621,340 @@ export function DataProvider({ children }: { children: ReactNode }) {
       console.log('✅ Data exported successfully');
       return exportedData;
     } catch (error) {
-      console.error('❌ Error exporting data:', error);
+      console.error('❌ Export error:', error);
       throw error;
     }
   }, []);
+
+  const importData = useCallback(async (importDataPayload: any): Promise<boolean> => {
+    try {
+      console.log('📥 Starting data import to database...');
+      
+      const data = importDataPayload.data || {};
+      
+      // Import in the correct order due to foreign key constraints
+      // 1. Users first (set skip_password = 1 for imported users)
+      if (data.users && data.users.length > 0) {
+        console.log(`📥 Importing ${data.users.length} users...`);
+        for (const user of data.users) {
+          try {
+            // Prepare required fields with safe defaults
+            const userData = {
+              id: user.id,
+              name: user.name || 'Usuario Importado',
+              email: user.email,
+              username: user.username || user.email || `user_${user.id}`, // Username is required and unique
+              password: '', // Empty password for imported users (they use skip_password=1)
+              skip_password: 1, // Always set to 1 for imported users
+              created_at: user.created_at || new Date().toISOString(),
+              updated_at: user.updated_at || new Date().toISOString(),
+              // Optional fields with defaults
+              phone: user.phone || null,
+              preferred_currency: user.preferred_currency || 'ARS',
+              auto_logout: user.auto_logout || 'never'
+            };
+            
+            console.log(`📥 Importing user: ${userData.username} (${userData.email})`);
+            
+            // First, check if username already exists and make it unique if needed
+            let finalUsername = userData.username;
+            let counter = 1;
+            while (true) {
+              try {
+                const existingUser = await databaseService.db.getFirstAsync(
+                  'SELECT id FROM users WHERE username = ? AND id != ?',
+                  [finalUsername, userData.id]
+                );
+                if (!existingUser) break;
+                finalUsername = `${userData.username}_${counter}`;
+                counter++;
+              } catch (checkError) {
+                break; // If check fails, proceed with original username
+              }
+            }
+            userData.username = finalUsername;
+            
+            // Insert user with all required and optional fields
+            await databaseService.db.runAsync(
+              `INSERT OR REPLACE INTO users (
+                id, name, email, username, password, skip_password, 
+                created_at, updated_at, phone, preferred_currency, auto_logout
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                userData.id, userData.name, userData.email, userData.username, userData.password,
+                userData.skip_password, userData.created_at, userData.updated_at,
+                userData.phone, userData.preferred_currency, userData.auto_logout
+              ]
+            );
+            
+            console.log(`✅ User imported: ${userData.username}`);
+            
+            // Import user notifications and privacy settings with separate updates
+            const updates = [];
+            if (user.notifications_payment_received !== undefined) {
+              updates.push({
+                field: 'notifications_payment_received',
+                value: user.notifications_payment_received
+              });
+            }
+            if (user.privacy_share_event !== undefined) {
+              updates.push({
+                field: 'privacy_share_event', 
+                value: user.privacy_share_event
+              });
+            }
+            
+            // Execute updates
+            for (const update of updates) {
+              try {
+                await databaseService.db.runAsync(
+                  `UPDATE users SET ${update.field} = ? WHERE id = ?`,
+                  [update.value, user.id]
+                );
+              } catch (updateError) {
+                console.warn(`⚠️ Could not update ${update.field} for user ${user.id}:`, updateError);
+              }
+            }
+            
+          } catch (userError) {
+            console.error(`❌ Error importing user ${user.id} (${user.email}):`, userError);
+            console.error('❌ User data:', user);
+            throw new Error(`Failed to import user ${user.email}: ${userError.message}`);
+          }
+        }
+      }
+      
+      // 2. Events
+      if (data.events && data.events.length > 0) {
+        console.log(`📥 Importing ${data.events.length} events...`);
+        for (const event of data.events) {
+          try {
+            const eventData = {
+              id: event.id,
+              name: event.name || 'Evento Importado',
+              description: event.description || '',
+              total_amount: event.total_amount || 0,
+              currency: event.currency || 'ARS',
+              status: event.status || 'active',
+              created_by: event.created_by || '',
+              created_at: event.created_at || new Date().toISOString(),
+              updated_at: event.updated_at || new Date().toISOString()
+            };
+            
+            await databaseService.db.runAsync(
+              `INSERT OR REPLACE INTO events (
+                id, name, description, total_amount, currency, status, 
+                created_by, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                eventData.id, eventData.name, eventData.description, eventData.total_amount, 
+                eventData.currency, eventData.status, eventData.created_by, 
+                eventData.created_at, eventData.updated_at
+              ]
+            );
+          } catch (eventError) {
+            console.error(`❌ Error importing event ${event.id}:`, eventError);
+            throw new Error(`Failed to import event ${event.name || event.id}: ${eventError.message}`);
+          }
+        }
+      }
+      
+      // 3. Participants
+      if (data.participants && data.participants.length > 0) {
+        console.log(`📥 Importing ${data.participants.length} participants...`);
+        for (const participant of data.participants) {
+          try {
+            const participantData = {
+              id: participant.id,
+              name: participant.name || 'Participante Importado',
+              email: participant.email || '',
+              phone: participant.phone || null,
+              avatar: null, // avatar set to null
+              participant_type: participant.participant_type || 'temporary',
+              created_at: participant.created_at || new Date().toISOString(),
+              updated_at: participant.updated_at || new Date().toISOString()
+            };
+            
+            await databaseService.db.runAsync(
+              `INSERT OR REPLACE INTO participants (
+                id, name, email, phone, avatar, participant_type, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                participantData.id, participantData.name, participantData.email, participantData.phone,
+                participantData.avatar, participantData.participant_type, 
+                participantData.created_at, participantData.updated_at
+              ]
+            );
+          } catch (participantError) {
+            console.error(`❌ Error importing participant ${participant.id}:`, participantError);
+            throw new Error(`Failed to import participant ${participant.name || participant.id}: ${participantError.message}`);
+          }
+        }
+      }
+      
+      // 4. Event Participants
+      if (data.event_participants && data.event_participants.length > 0) {
+        console.log(`📥 Importing ${data.event_participants.length} event participants...`);
+        for (const ep of data.event_participants) {
+          await databaseService.db.runAsync(
+            `INSERT OR REPLACE INTO event_participants (
+              id, event_id, participant_id, role, joined_at, balance
+            ) VALUES (?, ?, ?, ?, ?, ?)`,
+            [ep.id, ep.event_id, ep.participant_id, ep.role, ep.joined_at, ep.balance || 0]
+          );
+        }
+      }
+      
+      // 5. Expenses
+      if (data.expenses && data.expenses.length > 0) {
+        console.log(`📥 Importing ${data.expenses.length} expenses...`);
+        for (const expense of data.expenses) {
+          try {
+            const expenseData = {
+              id: expense.id,
+              event_id: expense.event_id,
+              description: expense.description || 'Gasto Importado',
+              amount: expense.amount || 0,
+              currency: expense.currency || 'ARS',
+              paid_by: expense.paid_by,
+              receipt_image: null, // receipt_image set to null
+              created_at: expense.created_at || new Date().toISOString(),
+              updated_at: expense.updated_at || new Date().toISOString()
+            };
+            
+            await databaseService.db.runAsync(
+              `INSERT OR REPLACE INTO expenses (
+                id, event_id, description, amount, currency, paid_by, 
+                receipt_image, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                expenseData.id, expenseData.event_id, expenseData.description, expenseData.amount,
+                expenseData.currency, expenseData.paid_by, expenseData.receipt_image,
+                expenseData.created_at, expenseData.updated_at
+              ]
+            );
+          } catch (expenseError) {
+            console.error(`❌ Error importing expense ${expense.id}:`, expenseError);
+            throw new Error(`Failed to import expense ${expense.description || expense.id}: ${expenseError.message}`);
+          }
+        }
+      }
+      
+      // 6. Splits
+      if (data.splits && data.splits.length > 0) {
+        console.log(`📥 Importing ${data.splits.length} splits...`);
+        for (const split of data.splits) {
+          try {
+            const splitData = {
+              id: split.id,
+              expense_id: split.expense_id,
+              participant_id: split.participant_id,
+              amount: split.amount || 0,
+              created_at: split.created_at || new Date().toISOString()
+            };
+            
+            await databaseService.db.runAsync(
+              `INSERT OR REPLACE INTO splits (
+                id, expense_id, participant_id, amount, created_at
+              ) VALUES (?, ?, ?, ?, ?)`,
+              [
+                splitData.id, splitData.expense_id, splitData.participant_id, 
+                splitData.amount, splitData.created_at
+              ]
+            );
+          } catch (splitError) {
+            console.error(`❌ Error importing split ${split.id}:`, splitError);
+            throw new Error(`Failed to import split ${split.id}: ${splitError.message}`);
+          }
+        }
+      }
+      
+      // 7. Payments
+      if (data.payments && data.payments.length > 0) {
+        console.log(`📥 Importing ${data.payments.length} payments...`);
+        for (const payment of data.payments) {
+          try {
+            const paymentData = {
+              id: payment.id,
+              event_id: payment.event_id,
+              from_participant_id: payment.from_participant_id,
+              to_participant_id: payment.to_participant_id,
+              amount: payment.amount || 0,
+              currency: payment.currency || 'ARS',
+              method: payment.method || 'efectivo',
+              receipt_image: null, // receipt_image set to null
+              notes: payment.notes || '',
+              status: payment.status || 'pending',
+              created_at: payment.created_at || new Date().toISOString(),
+              updated_at: payment.updated_at || new Date().toISOString()
+            };
+            
+            await databaseService.db.runAsync(
+              `INSERT OR REPLACE INTO payments (
+                id, event_id, from_participant_id, to_participant_id, amount, 
+                currency, method, receipt_image, notes, status, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                paymentData.id, paymentData.event_id, paymentData.from_participant_id, 
+                paymentData.to_participant_id, paymentData.amount, paymentData.currency, 
+                paymentData.method, paymentData.receipt_image, paymentData.notes, 
+                paymentData.status, paymentData.created_at, paymentData.updated_at
+              ]
+            );
+          } catch (paymentError) {
+            console.error(`❌ Error importing payment ${payment.id}:`, paymentError);
+            throw new Error(`Failed to import payment ${payment.id}: ${paymentError.message}`);
+          }
+        }
+      }
+      
+      // 8. Settlements
+      if (data.settlements && data.settlements.length > 0) {
+        console.log(`📥 Importing ${data.settlements.length} settlements...`);
+        for (const settlement of data.settlements) {
+          try {
+            const settlementData = {
+              id: settlement.id,
+              event_id: settlement.event_id,
+              from_participant_id: settlement.from_participant_id,
+              from_participant_name: settlement.from_participant_name || 'Participante',
+              to_participant_id: settlement.to_participant_id,
+              to_participant_name: settlement.to_participant_name || 'Participante',
+              amount: settlement.amount || 0,
+              created_at: settlement.created_at || new Date().toISOString(),
+              updated_at: settlement.updated_at || new Date().toISOString()
+            };
+            
+            await databaseService.db.runAsync(
+              `INSERT OR REPLACE INTO settlements (
+                id, event_id, from_participant_id, from_participant_name,
+                to_participant_id, to_participant_name, amount, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                settlementData.id, settlementData.event_id, settlementData.from_participant_id,
+                settlementData.from_participant_name, settlementData.to_participant_id, 
+                settlementData.to_participant_name, settlementData.amount,
+                settlementData.created_at, settlementData.updated_at
+              ]
+            );
+          } catch (settlementError) {
+            console.error(`❌ Error importing settlement ${settlement.id}:`, settlementError);
+            throw new Error(`Failed to import settlement ${settlement.id}: ${settlementError.message}`);
+          }
+        }
+      }
+      
+      console.log('✅ All data imported successfully');
+      
+      // Refresh data after import
+      await refreshData();
+      
+      return true;
+    } catch (error) {
+      console.error('❌ Import error:', error);
+      throw error;
+    }
+  }, [refreshData]);
 
   const updateExpense = useCallback(async (expenseId: string, expense: Partial<Expense>, splits?: Split[]) => {
     try {
@@ -572,7 +983,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await databaseService.removeParticipantFromEvent(eventId, participantId);
       
       // Clear existing settlements for this event to avoid orphaned settlements
-      await databaseService.deleteSettlementsByEvent(eventId);
+      // Solo si hay gastos y settlements existentes
+      const expenses = await databaseService.getExpensesByEvent(eventId);
+      if (expenses.length > 0) {
+        const existingSettlements = await databaseService.getSettlementsByEvent(eventId);
+        if (existingSettlements.length > 0) {
+          console.log('🔄 Clearing', existingSettlements.length, 'existing settlements due to participant removal');
+          await databaseService.deleteSettlementsByEvent(eventId);
+        }
+      }
       
       await refreshData();
       console.log('✅ Participant removed successfully');
@@ -619,7 +1038,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       refreshData,
       clearAllData,
       resetDatabase,
-      exportData
+      exportData,
+      importData
     }}>
       {children}
     </DataContext.Provider>

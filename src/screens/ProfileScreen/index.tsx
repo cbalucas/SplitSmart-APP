@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,13 @@ import {
   Switch,
   Modal,
   TextInput,
-  Image
+  Image,
+  Pressable
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,19 +35,24 @@ import {
 import { createStyles } from './styles';
 import { PROFILE_KEYS, NOTIFICATION_KEYS, getLanguageDisplayName, getUserInitials } from './language';
 
-const ProfileSection: React.FC<ProfileSectionProps> = ({ title, icon, children }) => {
+const ProfileSection: React.FC<ProfileSectionProps> = ({ title, icon, children, onPress }) => {
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const styles = createStyles(theme);
+  
+  // Special handling for logout section
+  const isLogout = title === t('logout');
+  const iconColor = isLogout ? '#F44336' : theme.colors.primary;
 
   return (
-    <Card style={styles.card}>
+    <Card style={styles.card} onPress={onPress}>
       <View style={styles.sectionHeader}>
         <MaterialCommunityIcons
           name={icon as any}
           size={20}
-          color={theme.colors.primary}
+          color={iconColor}
         />
-        <Text style={styles.sectionTitle}>{title}</Text>
+        <Text style={[styles.sectionTitle, isLogout && { color: '#F44336' }]}>{title}</Text>
       </View>
       {children}
     </Card>
@@ -108,7 +117,7 @@ const SettingItem: React.FC<SettingItemProps> = ({
 const ProfileScreen: React.FC = () => {
   const navigation = useNavigation();
   const { theme, toggleTheme, isDarkMode } = useTheme();
-  const { user, logout, refreshUser } = useAuth();
+  const { user, logout, refreshUser, initializeAuth } = useAuth();
   const { language, setLanguage, t } = useLanguage();
 
   // Helper function to get auto-logout options
@@ -125,6 +134,7 @@ const ProfileScreen: React.FC = () => {
     clearAllData, 
     resetDatabase, 
     exportData,
+    importData,
     getUserProfile,
     updateUserProfile,
     updateUserPassword,
@@ -142,16 +152,12 @@ const ProfileScreen: React.FC = () => {
     preferredCurrency: 'ARS',
     autoLogout: 'never',
     notifications: {
-      expenseAdded: true,
-      paymentReceived: true,
-      eventUpdated: false,
-      // weeklyReport: false, // ELIMINADO
+      paymentReceived: false, // Por defecto desactivado
     },
     privacy: {
       // shareEmail: false, // ELIMINADO
       // sharePhone: false, // ELIMINADO
       shareEvent: true, // NUEVO CAMPO
-      allowInvitations: true,
     }
   });
 
@@ -167,18 +173,33 @@ const ProfileScreen: React.FC = () => {
     archivedEvents: 0,
     friendsCount: 0
   });
+  const autoLogoutDropdownRef = useRef<View>(null);
 
   useEffect(() => {
     calculateStats();
     loadUserProfile();
   }, [events, expenses, participants]);
 
+  // Función para cerrar dropdown cuando se toca fuera
+  const closeAutoLogoutDropdown = () => {
+    if (showAutoLogoutOptions) {
+      setShowAutoLogoutOptions(false);
+    }
+  };
+
   const loadUserProfile = async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      console.log('⚠️ No user ID available for profile loading');
+      return;
+    }
 
     try {
+      console.log('👤 Loading profile for user ID:', user.id);
       const profile = await getUserProfile(user.id);
       if (profile) {
+        console.log('👤 Loading profile for user:', user.id);
+        console.log('🔔 Profile notifications_payment_received:', profile.notifications_payment_received);
+        
         setProfileData({
           name: profile.name || user.name || 'Usuario Demo',
           username: profile.username || '', // NUEVO CAMPO
@@ -188,16 +209,12 @@ const ProfileScreen: React.FC = () => {
           preferredCurrency: profile.preferred_currency || 'ARS',
           autoLogout: (profile.auto_logout as 'never' | '5min' | '15min' | '30min') || 'never',
           notifications: {
-            expenseAdded: profile.notifications_expense_added === 1,
             paymentReceived: profile.notifications_payment_received === 1,
-            eventUpdated: profile.notifications_event_updated === 1,
-            // weeklyReport: profile.notifications_weekly_report === 1, // ELIMINADO
           },
           privacy: {
             // shareEmail: profile.privacy_share_email === 1, // ELIMINADO
             // sharePhone: profile.privacy_share_phone === 1, // ELIMINADO
             shareEvent: profile.privacy_share_event === 1 || true, // NUEVO CAMPO (default true)
-            allowInvitations: profile.privacy_allow_invitations === 1,
           }
         });
         setSkipPassword(profile.skip_password === 1);
@@ -252,7 +269,6 @@ const ProfileScreen: React.FC = () => {
         // shareEmail: profileData.privacy.shareEmail, // ELIMINADO
         // sharePhone: profileData.privacy.sharePhone, // ELIMINADO
         shareEvent: profileData.privacy.shareEvent, // NUEVO CAMPO
-        allowInvitations: profileData.privacy.allowInvitations
       });
 
       Alert.alert(`✅ ${t('success')}`, t('profile.message.profileSaved'));
@@ -352,22 +368,103 @@ const ProfileScreen: React.FC = () => {
     );
   };
 
+  const saveExportFile = async (jsonData: string) => {
+    try {
+      const now = new Date();
+      const timestamp = now.toISOString().replace(/[:.]/g, '-').replace('T', '_').split('.')[0];
+      const fileName = `SplitSmart_Export_${timestamp}.json`;
+      
+      // Create temporary file
+      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+      await FileSystem.writeAsStringAsync(fileUri, jsonData, {
+        encoding: 'utf8',
+      });
+
+      console.log('📁 File created at:', fileUri);
+
+      // Check if sharing is available
+      const isAvailable = await Sharing.isAvailableAsync();
+      
+      if (isAvailable) {
+        // Share file (user can choose where to save)
+        await Sharing.shareAsync(fileUri, {
+          mimeType: 'application/json',
+          dialogTitle: 'Guardar exportación de SplitSmart',
+          UTI: 'public.json'
+        });
+        
+        console.log('✅ File shared successfully');
+        
+        // Clean up temporary file after sharing
+        try {
+          await FileSystem.deleteAsync(fileUri);
+          console.log('🗑️ Temporary file cleaned up');
+        } catch (cleanupError) {
+          console.warn('⚠️ Could not clean up temporary file:', cleanupError);
+        }
+        
+        return true;
+      } else {
+        // Fallback: show file location (keep file since user needs to access it)
+        Alert.alert(
+          `✅ ${t('success')}`,
+          `Archivo guardado en:\n${fileUri}\n\nPuedes encontrarlo en la carpeta de documentos de la aplicación.`
+        );
+        return true;
+      }
+    } catch (error) {
+      console.error('❌ Error saving file:', error);
+      throw error;
+    }
+  };
+
   const handleExportData = async () => {
     try {
       Alert.alert(
         t('profile.message.exportDataTitle'),
-        t('profile.message.exportDataMessage'),
+        `Se exportarán todas las tablas y tablas relacionadas:\n\n• Usuarios y perfiles\n• Eventos y participantes\n• Gastos y divisiones\n• Pagos y liquidaciones\n• Todas las relaciones\n\n⚠️ Nota: Las imágenes (avatares, comprobantes de gastos y pagos) no se incluyen en la exportación por razones de privacidad y tamaño del archivo.`,
         [
           { text: 'Cancelar', style: 'cancel' },
           { 
-            text: t('profile.message.allData'), 
+            text: 'Exportar Ahora', 
             onPress: async () => {
               try {
+                console.log('🚀 Starting complete data export...');
+                
+                // Generate export data
                 const data = await exportData();
-                Alert.alert(t('success'), t('profile.message.exportSuccess'));
-                // TODO: Implementar guardado del archivo
+                console.log('✅ Export data generated, size:', data.length, 'characters');
+                
+                // Parse the exported data to get record counts
+                const exportedData = JSON.parse(data);
+                const recordCounts = {
+                  users: exportedData.data?.users?.length || 0,
+                  events: exportedData.data?.events?.length || 0,
+                  participants: exportedData.data?.participants?.length || 0,
+                  expenses: exportedData.data?.expenses?.length || 0,
+                  payments: exportedData.data?.payments?.length || 0,
+                  eventParticipants: exportedData.data?.event_participants?.length || 0,
+                  splits: exportedData.data?.splits?.length || 0,
+                  settlements: exportedData.data?.settlements?.length || 0
+                };
+                
+                const totalRecords = Object.values(recordCounts).reduce((sum, count) => sum + count, 0);
+                
+                // Save file and let user choose location
+                const success = await saveExportFile(data);
+                
+                if (success) {
+                  Alert.alert(
+                    `✅ ${t('success')}`, 
+                    `${t('profile.message.exportSuccess')}\n\n📊 Registros exportados (${totalRecords} total):\n• ${recordCounts.users} Usuarios\n• ${recordCounts.events} Eventos\n• ${recordCounts.participants} Participantes\n• ${recordCounts.expenses} Gastos\n• ${recordCounts.payments} Pagos\n• ${recordCounts.eventParticipants} Relaciones evento-participante\n• ${recordCounts.splits} Divisiones\n• ${recordCounts.settlements} Liquidaciones\n\n📁 El archivo se ha guardado correctamente.`
+                  );
+                }
               } catch (error) {
-                Alert.alert(t('error'), t('profile.message.exportError'));
+                console.error('❌ Export error:', error);
+                Alert.alert(
+                  t('error'), 
+                  `${t('profile.message.exportError')}\n\nDetalle: ${error instanceof Error ? error.message : 'Error desconocido'}`
+                );
               }
             }
           }
@@ -375,6 +472,170 @@ const ProfileScreen: React.FC = () => {
       );
     } catch (error) {
       Alert.alert(t('error'), t('profile.message.exportError'));
+    }
+  };
+
+  const handleImportData = async () => {
+    try {
+      console.log('📥 Starting data import process...');
+      
+      // Open file picker
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/json',
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) {
+        console.log('📥 Import cancelled by user');
+        return;
+      }
+
+      console.log('📁 File selected:', result.assets[0].name);
+
+      // Read the selected file
+      const fileUri = result.assets[0].uri;
+      const fileContent = await FileSystem.readAsStringAsync(fileUri, {
+        encoding: 'utf8',
+      });
+
+      console.log('📄 File content read, size:', fileContent.length, 'characters');
+
+      // Parse and validate the import data
+      let importData;
+      try {
+        importData = JSON.parse(fileContent);
+        console.log('📄 File parsed successfully');
+        console.log('📄 Import data keys:', Object.keys(importData));
+        console.log('📄 Metadata:', importData.metadata);
+      } catch (parseError) {
+        console.error('❌ Parse error:', parseError);
+        Alert.alert(
+          t('error'),
+          'El archivo seleccionado no es un JSON válido o está corrupto.'
+        );
+        return;
+      }
+
+      // Validate SplitSmart export format - check multiple possible locations
+      const isValidSplitSmart = 
+        (importData.metadata?.exportedBy === 'SplitSmart') ||
+        (importData.exportedBy === 'SplitSmart') ||
+        (importData.version && importData.data) || // Has version and data structure
+        (importData.appVersion && importData.data); // Has appVersion and data structure
+
+      if (!isValidSplitSmart) {
+        console.log('❌ Validation failed');
+        console.log('❌ Metadata:', importData.metadata);
+        console.log('❌ Version:', importData.version);
+        console.log('❌ Data keys:', importData.data ? Object.keys(importData.data) : 'No data');
+        Alert.alert(
+          t('error'),
+          `El archivo seleccionado no es una exportación válida de SplitSmart.\n\nDetalles técnicos:\n• Metadata: ${JSON.stringify(importData.metadata)}\n• Version: ${importData.version}\n• Estructura: ${importData.data ? 'OK' : 'Missing data'}`
+        );
+        return;
+      }
+
+      // Analyze import data
+      const data = importData.data || {};
+      const importCounts = {
+        users: data.users?.length || 0,
+        events: data.events?.length || 0,
+        participants: data.participants?.length || 0,
+        expenses: data.expenses?.length || 0,
+        payments: data.payments?.length || 0,
+        eventParticipants: data.event_participants?.length || 0,
+        splits: data.splits?.length || 0,
+        settlements: data.settlements?.length || 0
+      };
+
+      const totalRecords = Object.values(importCounts).reduce((sum, count) => sum + count, 0);
+      
+      // Get current data counts for comparison
+      const currentCounts = {
+        users: 1, // Always at least the demo user
+        events: events.length,
+        participants: participants.length,
+        expenses: expenses.length,
+        payments: 0, // We'll need to get this from context if available
+        eventParticipants: 0, // We'll need to calculate this
+        splits: 0, // We'll need to get this from context if available
+        settlements: 0 // We'll need to get this from context if available
+      };
+      
+      const currentTotal = Object.values(currentCounts).reduce((sum, count) => sum + count, 0);
+      
+      // Show confirmation dialog with current vs import comparison
+      Alert.alert(
+        'Confirmar Importación',
+        `COMPARACIÓN DE DATOS:\n\n📊 DATOS ACTUALES (${currentTotal} total):\n• ${currentCounts.users} Usuario${currentCounts.users !== 1 ? 's' : ''} → ${importCounts.users} Usuario${importCounts.users !== 1 ? 's' : ''}\n• ${currentCounts.events} Evento${currentCounts.events !== 1 ? 's' : ''} → ${importCounts.events} Evento${importCounts.events !== 1 ? 's' : ''}\n• ${currentCounts.participants} Participante${currentCounts.participants !== 1 ? 's' : ''} → ${importCounts.participants} Participante${importCounts.participants !== 1 ? 's' : ''}\n• ${currentCounts.expenses} Gasto${currentCounts.expenses !== 1 ? 's' : ''} → ${importCounts.expenses} Gasto${importCounts.expenses !== 1 ? 's' : ''}\n• ${currentCounts.payments} Pago${currentCounts.payments !== 1 ? 's' : ''} → ${importCounts.payments} Pago${importCounts.payments !== 1 ? 's' : ''}\n• ${currentCounts.eventParticipants} Relación${currentCounts.eventParticipants !== 1 ? 'es' : ''} → ${importCounts.eventParticipants} Relación${importCounts.eventParticipants !== 1 ? 'es' : ''}\n• ${currentCounts.splits} División${currentCounts.splits !== 1 ? 'es' : ''} → ${importCounts.splits} División${importCounts.splits !== 1 ? 'es' : ''}\n• ${currentCounts.settlements} Liquidación${currentCounts.settlements !== 1 ? 'es' : ''} → ${importCounts.settlements} Liquidación${importCounts.settlements !== 1 ? 'es' : ''}\n\n📥 TOTAL A IMPORTAR: ${totalRecords} registros\n\n⚠️ IMPORTANTE:\n• Se ELIMINARÁ toda la información (${currentTotal} registros)\n• Las contraseñas NO se importan (acceso directo sin contraseña)\n• Las imágenes NO se importan (avatares y comprobantes)\n\n¿Deseas REEMPLAZAR los datos actuales?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Importar Datos',
+            style: 'destructive',
+            onPress: () => performImport(importData, importCounts, totalRecords)
+          }
+        ]
+      );
+
+    } catch (error) {
+      console.error('❌ Import error:', error);
+      Alert.alert(
+        t('error'),
+        `Error al importar datos:\n\n${error instanceof Error ? error.message : 'Error desconocido'}`
+      );
+    }
+  };
+
+  const performImport = async (importData: any, importCounts: any, totalRecords: number) => {
+    try {
+      console.log('🚀 Starting database import...');
+      
+      // Reset database first
+      await resetDatabase();
+      console.log('🔄 Database reset complete');
+      
+      // Import data using DataContext method (we'll need to add this)
+      const success = await importDataToDatabase(importData);
+      
+      if (success) {
+        // Reinitialize auth to set up current user
+        await initializeAuth();
+        
+        // Wait and refresh
+        setTimeout(async () => {
+          await refreshUser();
+          await loadUserProfile();
+        }, 2000);
+        
+        Alert.alert(
+          `✅ ${t('success')}`,
+          `Importación completada exitosamente.\n\n📊 ${totalRecords} registros importados:\n• ${importCounts.users} Usuarios\n• ${importCounts.events} Eventos\n• ${importCounts.participants} Participantes\n• ${importCounts.expenses} Gastos\n• ${importCounts.payments} Pagos\n• ${importCounts.eventParticipants} Relaciones\n• ${importCounts.splits} Divisiones\n• ${importCounts.settlements} Liquidaciones\n\n📱 La aplicación se reiniciará con los datos importados.`
+        );
+      } else {
+        throw new Error('Error durante el proceso de importación');
+      }
+      
+    } catch (error) {
+      console.error('❌ Import execution error:', error);
+      Alert.alert(
+        t('error'),
+        `Error durante la importación:\n\n${error instanceof Error ? error.message : 'Error desconocido'}\n\nSe recomienda reiniciar la aplicación.`
+      );
+    }
+  };
+
+  // Function to import data to database using DataContext
+  const importDataToDatabase = async (importDataPayload: any): Promise<boolean> => {
+    try {
+      console.log('📥 Importing data to database...', Object.keys(importDataPayload.data || {}));
+      
+      // Use DataContext import function
+      const success = await importData(importDataPayload);
+      return success;
+    } catch (error) {
+      console.error('❌ Import to database failed:', error);
+      throw error;
     }
   };
 
@@ -390,8 +651,20 @@ const ProfileScreen: React.FC = () => {
           onPress: async () => {
             try {
               await resetDatabase();
+              console.log('🔄 Database reset complete, reinitializing auth...');
+              
+              // Reinicializar autenticación para recrear usuario demo
+              await initializeAuth();
+              
+              // Esperar un momento y recargar el perfil
+              setTimeout(async () => {
+                await refreshUser();
+                await loadUserProfile();
+              }, 1500);
+              
               Alert.alert(t('success'), t('profile.message.deleteCompleted'));
             } catch (error) {
+              console.error('❌ Error during reset:', error);
               Alert.alert(t('error'), t('profile.message.deleteError'));
             }
           }
@@ -422,6 +695,9 @@ const ProfileScreen: React.FC = () => {
   };
 
   const updateNotificationSetting = async (key: keyof UserProfileData['notifications'], value: boolean) => {
+    closeAutoLogoutDropdown();
+    console.log('🔔 Updating notification:', key, 'to', value, 'for user:', user?.id);
+    
     setProfileData(prev => ({
       ...prev,
       notifications: {
@@ -435,13 +711,17 @@ const ProfileScreen: React.FC = () => {
         await updateUserNotifications(user.id, {
           [key]: value
         });
+        console.log('✅ Notification setting updated successfully in DB');
       } catch (error) {
-        console.error('Error updating notification setting:', error);
+        console.error('❌ Error updating notification setting:', error);
       }
+    } else {
+      console.error('⚠️ No user ID found for notification update');
     }
   };
 
   const updatePrivacySetting = async (key: keyof UserProfileData['privacy'], value: boolean) => {
+    closeAutoLogoutDropdown();
     setProfileData(prev => ({
       ...prev,
       privacy: {
@@ -478,10 +758,13 @@ const ProfileScreen: React.FC = () => {
         contentContainerStyle={styles.scrollViewContent}
       >
         {/* Perfil del Usuario */}
-        <Card style={styles.profileCard}>
+        <Card style={styles.profileCard} onPress={closeAutoLogoutDropdown}>
           <TouchableOpacity
             style={styles.editIconButton}
-            onPress={() => setIsEditing(!isEditing)}
+            onPress={() => {
+              closeAutoLogoutDropdown();
+              setIsEditing(!isEditing);
+            }}
           >
             <MaterialCommunityIcons
               name={isEditing ? "check" : "pencil"}
@@ -521,7 +804,7 @@ const ProfileScreen: React.FC = () => {
         </Card>
 
         {/* Estadísticas */}
-        <ProfileSection title={t('profile.stats')} icon="chart-line">
+        <ProfileSection title={t('profile.stats')} icon="chart-line" onPress={closeAutoLogoutDropdown}>
           <View style={styles.statsContainer}>
             <View style={styles.statRow}>
               <MaterialCommunityIcons name="account-group" size={20} color="#9C27B0" />
@@ -549,7 +832,7 @@ const ProfileScreen: React.FC = () => {
         {/* Información Personal */}
         {isEditing ? (
           <>
-            <ProfileSection title={t('profile.personalInfo')} icon="account-edit">
+            <ProfileSection title={t('profile.personalInfo')} icon="account-edit" onPress={closeAutoLogoutDropdown}>
               <Input
                 label={t('profile.name')}
                 value={profileData.name}
@@ -583,10 +866,11 @@ const ProfileScreen: React.FC = () => {
               />
             </ProfileSection>
             
-            <ProfileSection title={t('profile.security')} icon="lock">
+            <ProfileSection title={t('profile.security')} icon="lock" onPress={closeAutoLogoutDropdown}>
               <TouchableOpacity
                 style={styles.settingItem}
                 onPress={() => {
+                  closeAutoLogoutDropdown();
                   setNewPassword('');
                   setShowPasswordModal(true);
                 }}
@@ -658,7 +942,7 @@ const ProfileScreen: React.FC = () => {
             </ProfileSection>
           </>
         ) : (
-          <ProfileSection title={t('profile.personalInfo')} icon="account">
+          <ProfileSection title={t('profile.personalInfo')} icon="account" onPress={closeAutoLogoutDropdown}>
             <SettingItem
               title={t('profile.name')}
               subtitle={profileData.name}
@@ -690,6 +974,7 @@ const ProfileScreen: React.FC = () => {
           <CurrencySelector
             selectedCurrency={profileData.preferredCurrency}
             onCurrencyChange={async (currency) => {
+              closeAutoLogoutDropdown();
               setProfileData(prev => ({ ...prev, preferredCurrency: currency }));
               try {
                 await updateUserProfile(user.id, { preferred_currency: currency });
@@ -701,7 +986,10 @@ const ProfileScreen: React.FC = () => {
             renderTrigger={(onPress) => (
               <TouchableOpacity
                 style={styles.settingItem}
-                onPress={onPress}
+                onPress={() => {
+                  closeAutoLogoutDropdown();
+                  onPress();
+                }}
               >
                 <View style={styles.settingIcon}>
                   <MaterialCommunityIcons name="currency-usd" size={20} color={theme.colors.onSurfaceVariant} />
@@ -722,7 +1010,10 @@ const ProfileScreen: React.FC = () => {
             renderTrigger={(onPress) => (
               <TouchableOpacity
                 style={styles.settingItem}
-                onPress={onPress}
+                onPress={() => {
+                  closeAutoLogoutDropdown();
+                  onPress();
+                }}
               >
                 <View style={styles.settingIcon}>
                   <MaterialCommunityIcons name="translate" size={20} color={theme.colors.onSurfaceVariant} />
@@ -738,81 +1029,84 @@ const ProfileScreen: React.FC = () => {
             )}
           />
           {/* Auto Logout Section */}
-          <TouchableOpacity
-            style={styles.settingItem}
-            onPress={() => setShowAutoLogoutOptions(!showAutoLogoutOptions)}
-          >
-            <View style={styles.settingIcon}>
-              <MaterialCommunityIcons name="timer-outline" size={20} color={theme.colors.onSurfaceVariant} />
-            </View>
-            <View style={styles.settingContent}>
-              <Text style={styles.settingTitle}>{t('profile.autoLogout')}</Text>
-              <Text style={styles.settingSubtitle}>
-                {getAutoLogoutOptions().find(option => option.value === profileData.autoLogout)?.label}
-              </Text>
-            </View>
-            <View style={styles.settingAction}>
-              <MaterialCommunityIcons 
-                name={showAutoLogoutOptions ? "chevron-up" : "chevron-down"} 
-                size={20} 
-                color={theme.colors.onSurfaceVariant} 
-              />
-            </View>
-          </TouchableOpacity>
-          
-          {/* Desplegable con opciones en dos columnas */}
-          {showAutoLogoutOptions && (
-            <View style={styles.dropdownContainer}>
-              <View style={styles.dropdownGrid}>
-                {getAutoLogoutOptions().map((option, index) => (
-                  <TouchableOpacity
-                    key={option.value}
-                    style={[
-                      styles.dropdownOption,
-                      index % 2 === 1 && styles.dropdownOptionRight,
-                      profileData.autoLogout === option.value && styles.dropdownOptionSelected
-                    ]}
-                    onPress={async () => {
-                      setProfileData(prev => ({ ...prev, autoLogout: option.value }));
-                      setShowAutoLogoutOptions(false);
-                      try {
-                        await updateUserProfile(user.id, { auto_logout: option.value });
-                        console.log('Auto-logout preference updated:', option.value);
-                      } catch (error) {
-                        console.error('Error updating auto-logout preference:', error);
-                      }
-                    }}
-                  >
-                    <Text style={[
-                      styles.dropdownOptionText,
-                      profileData.autoLogout === option.value && styles.dropdownOptionTextSelected
-                    ]}>
-                      {option.label}
-                    </Text>
-                    {profileData.autoLogout === option.value && (
-                      <MaterialCommunityIcons 
-                        name="check" 
-                        size={16} 
-                        color={theme.colors.primary} 
-                      />
-                    )}
-                  </TouchableOpacity>
-                ))}
+          <View ref={autoLogoutDropdownRef}>
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                setShowAutoLogoutOptions(!showAutoLogoutOptions);
+              }}
+            >
+              <View style={styles.settingItem}>
+              <View style={styles.settingIcon}>
+                <MaterialCommunityIcons name="timer-outline" size={20} color={theme.colors.onSurfaceVariant} />
               </View>
-            </View>
-          )}
+              <View style={styles.settingContent}>
+                <Text style={styles.settingTitle}>{t('profile.autoLogout')}</Text>
+                <Text style={styles.settingSubtitle}>
+                  {getAutoLogoutOptions().find(option => option.value === profileData.autoLogout)?.label}
+                </Text>
+              </View>
+              <View style={styles.settingAction}>
+                <MaterialCommunityIcons 
+                  name={showAutoLogoutOptions ? "chevron-up" : "chevron-down"} 
+                  size={20} 
+                  color={theme.colors.onSurfaceVariant} 
+                />
+              </View>
+              </View>
+            </Pressable>
+            
+            {/* Desplegable con opciones en dos columnas */}
+            {showAutoLogoutOptions && (
+              <Pressable 
+                style={styles.dropdownContainer}
+                onPress={(e) => {
+                  e.stopPropagation();
+                }}
+              >
+                <View style={styles.dropdownGrid}>
+                  {getAutoLogoutOptions().map((option, index) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.dropdownOption,
+                        index % 2 === 1 && styles.dropdownOptionRight,
+                        profileData.autoLogout === option.value && styles.dropdownOptionSelected
+                      ]}
+                      onPress={async () => {
+                        setProfileData(prev => ({ ...prev, autoLogout: option.value }));
+                        setShowAutoLogoutOptions(false);
+                        try {
+                          await updateUserProfile(user.id, { auto_logout: option.value });
+                          console.log('Auto-logout preference updated:', option.value);
+                        } catch (error) {
+                          console.error('Error updating auto-logout preference:', error);
+                        }
+                      }}
+                    >
+                      <Text style={[
+                        styles.dropdownOptionText,
+                        profileData.autoLogout === option.value && styles.dropdownOptionTextSelected
+                      ]}>
+                        {option.label}
+                      </Text>
+                      {profileData.autoLogout === option.value && (
+                        <MaterialCommunityIcons 
+                          name="check" 
+                          size={16} 
+                          color={theme.colors.primary} 
+                        />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </Pressable>
+            )}
+          </View>
         </ProfileSection>
 
         {/* Notificaciones */}
-        <ProfileSection title={t('profile.notifications')} icon="bell">
-          <SettingItem
-            title={t('notifications.expenseAdded')}
-            subtitle={t('notifications.expenseAddedDesc')}
-            icon="receipt-text"
-            type="switch"
-            value={profileData.notifications.expenseAdded}
-            onValueChange={(value) => updateNotificationSetting('expenseAdded', value)}
-          />
+        <ProfileSection title={t('profile.notifications')} icon="bell" onPress={closeAutoLogoutDropdown}>
           <SettingItem
             title={t('notifications.paymentReceived')}
             subtitle={t('notifications.paymentReceivedDesc')}
@@ -821,44 +1115,41 @@ const ProfileScreen: React.FC = () => {
             value={profileData.notifications.paymentReceived}
             onValueChange={(value) => updateNotificationSetting('paymentReceived', value)}
           />
-          <SettingItem
-            title={t('notifications.eventUpdated')}
-            subtitle={t('notifications.eventUpdatedDesc')}
-            icon="calendar-edit"
-            type="switch"
-            value={profileData.notifications.eventUpdated}
-            onValueChange={(value) => updateNotificationSetting('eventUpdated', value)}
-          />
         </ProfileSection>
 
         {/* Privacidad */}
-        <ProfileSection title={t('profile.privacy')} icon="shield-account">
-          <SettingItem
-            title={t('profile.shareEvent')}
-            subtitle={t('profile.shareEventDesc')}
-            icon="share"
-            type="switch"
-            value={profileData.privacy.shareEvent}
-            onValueChange={(value) => updatePrivacySetting('shareEvent', value)}
-          />
-          <SettingItem
-            title={t('profile.allowInvitations')}
-            subtitle={t('profile.allowInvitationsDesc')}
-            icon="account-plus"
-            type="switch"
-            value={profileData.privacy.allowInvitations}
-            onValueChange={(value) => updatePrivacySetting('allowInvitations', value)}
-          />
+        <ProfileSection title={t('profile.privacy')} icon="shield-account" onPress={closeAutoLogoutDropdown}>
+          <View style={styles.settingItem}>
+            <View style={styles.settingIcon}>
+              <MaterialCommunityIcons name="share" size={20} color={theme.colors.onSurfaceVariant} />
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={styles.settingTitle}>{t('profile.shareEvent')}</Text>
+              <Text style={styles.settingSubtitle}>{t('profile.shareEventDesc')}</Text>
+            </View>
+            <View style={styles.settingAction}>
+              <View style={styles.comingSoonBadge}>
+                <Text style={styles.comingSoonText}>{t('profile.comingSoon')}</Text>
+              </View>
+            </View>
+          </View>
         </ProfileSection>
 
         {/* Datos y Respaldo */}
-        <ProfileSection title={t('profile.dataBackup')} icon="database">
+        <ProfileSection title={t('profile.dataBackup')} icon="database" onPress={closeAutoLogoutDropdown}>
           <SettingItem
             title={t('profile.exportData')}
             subtitle={t('profile.exportDataDesc')}
-            icon="download"
+            icon="database-export"
             type="navigation"
             onPress={handleExportData}
+          />
+          <SettingItem
+            title={t('profile.importData')}
+            subtitle={t('profile.importDataDesc')}
+            icon="database-import"
+            type="navigation"
+            onPress={handleImportData}
           />
           <SettingItem
             title={t('profile.deleteAllData')}
@@ -870,7 +1161,7 @@ const ProfileScreen: React.FC = () => {
         </ProfileSection>
 
         {/* Información de la App */}
-        <ProfileSection title={t('profile.information')} icon="information">
+        <ProfileSection title={t('profile.information')} icon="information" onPress={closeAutoLogoutDropdown}>
           <SettingItem
             title={t('profile.appVersion')}
             subtitle="1.4.1"
@@ -899,16 +1190,9 @@ const ProfileScreen: React.FC = () => {
         </ProfileSection>
 
         {/* Cerrar Sesión */}
-        <Card style={StyleSheet.flatten([styles.card, styles.logoutCard])}>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <MaterialCommunityIcons
-              name="logout"
-              size={20}
-              color="#F44336"
-            />
-            <Text style={styles.logoutText}>{t('logout')}</Text>
-          </TouchableOpacity>
-        </Card>
+        <ProfileSection title={t('logout')} icon="logout" onPress={handleLogout}>
+          {/* El onPress se maneja en la ProfileSection, no necesita TouchableOpacity interno */}
+        </ProfileSection>
       </ScrollView>
 
       {/* Modal de Cambio de Contraseña */}

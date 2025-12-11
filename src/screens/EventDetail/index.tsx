@@ -141,6 +141,8 @@ export default function EventDetailScreen() {
     if (event.status === 'archived') return; // No sincronizar en eventos archivados
 
     try {
+      console.log('💾 Starting settlement sync for event:', eventId);
+      console.log('  📊 Calculated settlements:', settlements.length);
       // Obtener liquidaciones actuales de la BD
       const currentDbSettlements = await databaseService.getSettlementsByEvent(eventId);
       
@@ -149,6 +151,10 @@ export default function EventDetailScreen() {
         currentDbSettlements.map((s: Settlement) => [`${s.fromParticipantId}_${s.toParticipantId}`, s])
       );
 
+      console.log('  💾 Existing settlements in DB:', currentDbSettlements.length);
+      
+      let created = 0, updated = 0, deleted = 0;
+      
       // Procesar cada liquidación calculada
       for (const calculatedSettlement of settlements) {
         const key = `${calculatedSettlement.fromParticipantId}_${calculatedSettlement.toParticipantId}`;
@@ -163,6 +169,7 @@ export default function EventDetailScreen() {
               amount: calculatedSettlement.amount,
               updatedAt: new Date().toISOString()
             });
+            updated++;
           }
           existingSettlementsMap.delete(key); // Marcar como procesada
         } else {
@@ -180,13 +187,17 @@ export default function EventDetailScreen() {
             updatedAt: new Date().toISOString()
           };
           await databaseService.createSettlement(newSettlement);
+          created++;
         }
       }
 
       // Eliminar liquidaciones que ya no existen en los cálculos
       for (const [key, settlement] of existingSettlementsMap.entries()) {
         await databaseService.deleteSettlement(settlement.id);
+        deleted++;
       }
+      
+      console.log(`✅ Settlement sync completed - Created: ${created}, Updated: ${updated}, Deleted: ${deleted}`);
 
       // Recargar liquidaciones
       const updatedSettlements = await databaseService.getSettlementsByEvent(eventId);
@@ -208,11 +219,19 @@ export default function EventDetailScreen() {
   }, [loadEventData]);
 
   // Sincronizar liquidaciones cuando cambien los cálculos
+  // Usar timeout para evitar múltiples ejecuciones
   useEffect(() => {
-    if (settlements.length > 0 || dbSettlements.length > 0) {
-      syncSettlementsToDb();
-    }
-  }, [settlements, syncSettlementsToDb]);
+    if (!eventId || !event || event.status === 'archived') return;
+    
+    const syncTimeout = setTimeout(() => {
+      if (settlements.length > 0) {
+        console.log('🔄 Syncing settlements to DB after calculations change');
+        syncSettlementsToDb();
+      }
+    }, 500); // Delay para agrupar cambios
+    
+    return () => clearTimeout(syncTimeout);
+  }, [eventId, event, settlements, syncSettlementsToDb]);
 
   // Efecto para detectar cambios pasivos en datos globales que afecten este evento
   useEffect(() => {
@@ -382,10 +401,38 @@ export default function EventDetailScreen() {
   // Settlement handlers
   const handleToggleSettlementPaid = async (settlementId: string, isPaid: boolean) => {
     try {
+      // Obtener datos de la liquidación
+      const settlement = dbSettlements.find(s => s.id === settlementId);
+      if (!settlement) {
+        Alert.alert(t('common.error'), 'Liquidación no encontrada');
+        return;
+      }
+
+      // Actualizar liquidación
       await databaseService.updateSettlement(settlementId, {
         isPaid,
         paidAt: isPaid ? new Date().toISOString() : null
       });
+
+      // Si se marca como pagada, crear el Payment y enviar notificación
+      if (isPaid && eventId) {
+        const newPayment: Payment = {
+          id: `payment_${Date.now()}_${Math.random()}`,
+          eventId,
+          fromParticipantId: settlement.fromParticipantId,
+          toParticipantId: settlement.toParticipantId,
+          amount: settlement.amount,
+          date: new Date().toISOString(),
+          notes: t('message.paymentFromSettlement'),
+          receiptImage: settlement.receiptImage, // Pasar el comprobante de la settlement
+          isConfirmed: true, // Ya está confirmado al marcar la liquidación
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        console.log('💳 Creating payment from settlement:', newPayment);
+        await createPayment(newPayment);
+      }
+      
       await loadEventData();
     } catch (error) {
       console.error('Error toggling settlement paid:', error);

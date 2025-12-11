@@ -163,6 +163,45 @@ class DatabaseService {
         }
       }
 
+      // Migration: Add avatar column to users table if it doesn't exist
+      try {
+        await this.db.execAsync('ALTER TABLE users ADD COLUMN avatar TEXT');
+        console.log('✅ Migration: Added avatar column to users table');
+      } catch (error: any) {
+        // Column already exists, ignore error
+        if (error.message?.includes('duplicate column name')) {
+          console.log('⚠️ Column avatar already exists in users table');
+        } else {
+          console.error('❌ Error adding avatar column:', error);
+        }
+      }
+
+      // Migration: Add auto_logout column to users table if it doesn't exist
+      try {
+        await this.db.execAsync('ALTER TABLE users ADD COLUMN auto_logout TEXT DEFAULT "never"');
+        console.log('✅ Migration: Added auto_logout column to users table');
+      } catch (error: any) {
+        // Column already exists, ignore error
+        if (error.message?.includes('duplicate column name')) {
+          console.log('⚠️ Column auto_logout already exists in users table');
+        } else {
+          console.error('❌ Error adding auto_logout column:', error);
+        }
+      }
+
+      // Migration: Add privacy_share_event column to users table if it doesn't exist
+      try {
+        await this.db.execAsync('ALTER TABLE users ADD COLUMN privacy_share_event INTEGER DEFAULT 1');
+        console.log('✅ Migration: Added privacy_share_event column to users table');
+      } catch (error: any) {
+        // Column already exists, ignore error
+        if (error.message?.includes('duplicate column name')) {
+          console.log('⚠️ Column privacy_share_event already exists in users table');
+        } else {
+          console.error('❌ Error adding privacy_share_event column:', error);
+        }
+      }
+
       // Migration: Add closed_at column to events table if it doesn't exist
       try {
         const eventsInfo = await this.db.getAllAsync('PRAGMA table_info(events)');
@@ -259,6 +298,14 @@ class DatabaseService {
         }
       } catch (error: any) {
         console.error('❌ Error migrating events table status constraint:', error);
+      }
+
+      // Migration: Actualizar usuarios existentes - cambiar default notifications_payment_received a 0
+      try {
+        const result = await this.db.runAsync('UPDATE users SET notifications_payment_received = 0 WHERE notifications_payment_received = 1');
+        console.log('✅ Updated', result.changes, 'existing users notification preferences to default OFF');
+      } catch (error: any) {
+        console.log('⚠️ Error updating notification preferences:', error);
       }
 
     } catch (error) {
@@ -431,15 +478,18 @@ class DatabaseService {
           name TEXT NOT NULL,
           phone TEXT,
           alias_cbu TEXT,
+          avatar TEXT,
           preferred_currency TEXT DEFAULT 'ARS',
+          auto_logout TEXT DEFAULT 'never',
           skip_password INTEGER DEFAULT 0,
           notifications_expense_added INTEGER DEFAULT 1,
-          notifications_payment_received INTEGER DEFAULT 1,
+          notifications_payment_received INTEGER DEFAULT 0,
           notifications_event_updated INTEGER DEFAULT 0,
           notifications_weekly_report INTEGER DEFAULT 0,
           privacy_share_email INTEGER DEFAULT 0,
           privacy_share_phone INTEGER DEFAULT 0,
           privacy_allow_invitations INTEGER DEFAULT 1,
+          privacy_share_event INTEGER DEFAULT 1,
           created_at TEXT,
           updated_at TEXT
         )
@@ -600,6 +650,47 @@ class DatabaseService {
     }
   }
 
+  async getEventById(eventId: string): Promise<Event | null> {
+    if (!this.db || !this.isInitialized) {
+      console.error('❌ Database not ready in getEventById. Initialized:', this.isInitialized);
+      return null;
+    }
+
+    try {
+      console.log(`📥 Getting event by ID: ${eventId}`);
+      const result = await this.db.getFirstAsync(
+        'SELECT * FROM events WHERE id = ?',
+        [eventId]
+      );
+      
+      if (!result) {
+        console.log(`❌ Event not found: ${eventId}`);
+        return null;
+      }
+
+      return {
+        id: result.id,
+        name: result.name,
+        description: result.description,
+        startDate: result.start_date,
+        location: result.location,
+        currency: result.currency,
+        totalAmount: result.total_amount,
+        status: result.status,
+        type: result.type,
+        category: result.category,
+        creatorId: result.creator_id,
+        closedAt: result.closed_at,
+        completedAt: result.completed_at,
+        createdAt: result.created_at,
+        updatedAt: result.updated_at
+      };
+    } catch (error) {
+      console.error('❌ Error getting event by ID:', error);
+      return null;
+    }
+  }
+
   // Participants CRUD
   async createParticipant(participant: Participant): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
@@ -647,6 +738,42 @@ class DatabaseService {
     } catch (error) {
       console.error('❌ Error getting participants:', error);
       throw error;
+    }
+  }
+
+  async getParticipantById(participantId: string): Promise<Participant | null> {
+    if (!this.db || !this.isInitialized) {
+      console.error('❌ Database not ready in getParticipantById. Initialized:', this.isInitialized);
+      return null;
+    }
+
+    try {
+      console.log(`📥 Getting participant by ID: ${participantId}`);
+      const result = await this.db.getFirstAsync(
+        'SELECT * FROM participants WHERE id = ? AND is_active = 1',
+        [participantId]
+      );
+      
+      if (!result) {
+        console.log(`❌ Participant not found: ${participantId}`);
+        return null;
+      }
+
+      return {
+        id: result.id,
+        name: result.name,
+        email: result.email,
+        phone: result.phone,
+        alias_cbu: result.alias_cbu,
+        avatar: result.avatar,
+        isActive: result.is_active === 1,
+        participantType: result.participant_type || 'temporary',
+        createdAt: result.created_at,
+        updatedAt: result.updated_at
+      };
+    } catch (error) {
+      console.error('❌ Error getting participant by ID:', error);
+      return null;
     }
   }
 
@@ -1220,6 +1347,14 @@ class DatabaseService {
         updateFields.push('paid_at = ?');
         values.push(updates.paidAt || null);
       }
+      if (updates.fromParticipantName !== undefined) {
+        updateFields.push('from_participant_name = ?');
+        values.push(updates.fromParticipantName);
+      }
+      if (updates.toParticipantName !== undefined) {
+        updateFields.push('to_participant_name = ?');
+        values.push(updates.toParticipantName);
+      }
 
       updateFields.push('updated_at = ?');
       values.push(new Date().toISOString());
@@ -1260,6 +1395,29 @@ class DatabaseService {
     }
   }
 
+  async updateSettlementParticipantNames(participantId: string, newName: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      // Update settlements where this participant is the sender (from)
+      await this.db.runAsync(
+        'UPDATE settlements SET from_participant_name = ?, updated_at = ? WHERE from_participant_id = ?',
+        [newName, new Date().toISOString(), participantId]
+      );
+
+      // Update settlements where this participant is the receiver (to)
+      await this.db.runAsync(
+        'UPDATE settlements SET to_participant_name = ?, updated_at = ? WHERE to_participant_id = ?',
+        [newName, new Date().toISOString(), participantId]
+      );
+
+      console.log(`✅ Settlement names updated for participant ${participantId}`);
+    } catch (error) {
+      console.error('❌ Error updating settlement names:', error);
+      throw error;
+    }
+  }
+
   // Utility methods
   async clearAllData(): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
@@ -1294,24 +1452,84 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      const [events, participants, expenses, payments] = await Promise.all([
+      console.log('📦 Starting complete data export...');
+      
+      const [
+        users,
+        events, 
+        participants, 
+        expenses, 
+        payments,
+        eventParticipants,
+        splits,
+        settlements
+      ] = await Promise.all([
+        this.getAllUsers(),
         this.getEvents(),
         this.getParticipants(),
         this.getAllExpenses(),
-        this.getAllPayments()
+        this.getAllPayments(),
+        this.getAllEventParticipants(),
+        this.getAllSplits(),
+        this.getAllSettlements()
       ]);
 
+      // Calculate statistics
+      const totalAmount = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+      
       const exportData = {
-        version: '1.0',
+        version: '2.0',
         exportDate: new Date().toISOString(),
+        appVersion: '1.4.1',
+        metadata: {
+          exportedBy: 'SplitSmart',
+          version: '2.0',
+          exportDate: new Date().toISOString(),
+          appVersion: '1.4.1'
+        },
         data: {
+          // Main entities
+          users,
           events,
           participants,
           expenses,
-          payments
+          payments,
+          
+          // Relationships
+          event_participants: eventParticipants,
+          splits,
+          settlements,
+        },
+        statistics: {
+          totalEvents: events.length,
+          totalParticipants: participants.length,
+          totalExpenses: expenses.length,
+          totalPayments: payments.length,
+          totalAmount: totalAmount,
+          friendsCount: participants.filter(p => p.participantType === 'friend').length,
+          activeEvents: events.filter(e => e.status === 'active').length,
+          completedEvents: events.filter(e => e.status === 'completed').length
+        },
+        integrity: {
+          recordCounts: {
+            users: users.length,
+            events: events.length,
+            participants: participants.length,
+            expenses: expenses.length,
+            payments: payments.length,
+            event_participants: eventParticipants.length,
+            splits: splits.length,
+            settlements: settlements.length
+          }
+        },
+        notes: {
+          imageExclusion: 'Images (avatars, receipts) are not included in this export for privacy and file size reasons',
+          dataIntegrity: 'All relational data and foreign keys are preserved for complete restoration'
         }
       };
 
+      console.log('✅ Export completed successfully');
+      console.log('📊 Export statistics:', exportData.statistics);
       return JSON.stringify(exportData, null, 2);
     } catch (error) {
       console.error('❌ Export data error:', error);
@@ -1357,12 +1575,110 @@ class DatabaseService {
         amount: row.amount,
         date: row.date,
         notes: row.notes,
+        receiptImage: row.receipt_image,
         isConfirmed: row.is_confirmed === 1,
         createdAt: row.created_at,
         updatedAt: row.updated_at
       }));
     } catch (error) {
       console.error('❌ Error getting all payments:', error);
+      throw error;
+    }
+  }
+
+  private async getAllUsers(): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const result = await this.db.getAllAsync('SELECT * FROM users');
+      return result.map((row: any) => ({
+        id: row.id,
+        username: row.username,
+        email: row.email,
+        name: row.name,
+        phone: row.phone,
+        alias_cbu: row.alias_cbu,
+        preferred_currency: row.preferred_currency,
+        skip_password: row.skip_password === 1,
+        notifications_expense_added: row.notifications_expense_added === 1,
+        notifications_payment_received: row.notifications_payment_received === 1,
+        notifications_event_updated: row.notifications_event_updated === 1,
+        notifications_weekly_report: row.notifications_weekly_report === 1,
+        privacy_share_email: row.privacy_share_email === 1,
+        privacy_share_phone: row.privacy_share_phone === 1,
+        privacy_allow_invitations: row.privacy_allow_invitations === 1,
+        created_at: row.created_at,
+        updated_at: row.updated_at
+        // Note: password and avatar are excluded for security and privacy
+      }));
+    } catch (error) {
+      console.error('❌ Error getting all users:', error);
+      throw error;
+    }
+  }
+
+  private async getAllEventParticipants(): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const result = await this.db.getAllAsync('SELECT * FROM event_participants');
+      return result.map((row: any) => ({
+        id: row.id,
+        event_id: row.event_id,
+        participant_id: row.participant_id,
+        role: row.role,
+        balance: row.balance,
+        joined_at: row.joined_at
+      }));
+    } catch (error) {
+      console.error('❌ Error getting all event participants:', error);
+      throw error;
+    }
+  }
+
+  private async getAllSplits(): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const result = await this.db.getAllAsync('SELECT * FROM splits');
+      return result.map((row: any) => ({
+        id: row.id,
+        expense_id: row.expense_id,
+        participant_id: row.participant_id,
+        amount: row.amount,
+        percentage: row.percentage,
+        type: row.type,
+        is_paid: row.is_paid === 1,
+        created_at: row.created_at,
+        updated_at: row.updated_at
+      }));
+    } catch (error) {
+      console.error('❌ Error getting all splits:', error);
+      throw error;
+    }
+  }
+
+  private async getAllSettlements(): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const result = await this.db.getAllAsync('SELECT * FROM settlements');
+      return result.map((row: any) => ({
+        id: row.id,
+        event_id: row.event_id,
+        from_participant_id: row.from_participant_id,
+        from_participant_name: row.from_participant_name,
+        to_participant_id: row.to_participant_id,
+        to_participant_name: row.to_participant_name,
+        amount: row.amount,
+        is_paid: row.is_paid === 1,
+        receipt_image: row.receipt_image,
+        paid_at: row.paid_at,
+        created_at: row.created_at,
+        updated_at: row.updated_at
+      }));
+    } catch (error) {
+      console.error('❌ Error getting all settlements:', error);
       throw error;
     }
   }
@@ -1612,10 +1928,18 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
     
     try {
+      console.log('👤 Getting user profile for ID:', userId);
       const user = await this.db.getFirstAsync(
         'SELECT * FROM users WHERE id = ?',
         [userId]
       );
+      
+      if (user) {
+        console.log('💾 Profile found - notifications_payment_received:', user.notifications_payment_received);
+      } else {
+        console.log('⚠️ No profile found for user ID:', userId);
+      }
+      
       return user || null;
     } catch (error) {
       console.error('❌ Error getting user profile:', error);
@@ -1775,6 +2099,27 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
+      console.log('💾 Updating notifications in DB for user:', userId, 'with:', notifications);
+      
+      // Verificar si el usuario existe
+      const existingUser = await this.getUserProfile(userId);
+      
+      if (!existingUser) {
+        console.log('👤 User not found, creating demo user:', userId);
+        // Crear usuario demo si no existe
+        await this.createUser({
+          id: userId,
+          name: 'Usuario Demo',
+          username: 'demo',
+          email: 'demo@splitsmart.com',
+          avatar: null,
+          skipPassword: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        console.log('✅ Demo user created successfully');
+      }
+      
       const fields: string[] = [];
       const values: any[] = [];
 
@@ -1799,12 +2144,12 @@ class DatabaseService {
       values.push(new Date().toISOString());
       values.push(userId);
 
-      await this.db.runAsync(
-        `UPDATE users SET ${fields.join(', ')} WHERE id = ?`,
-        values
-      );
-
-      console.log('✅ User notifications updated successfully');
+      const query = `UPDATE users SET ${fields.join(', ')} WHERE id = ?`;
+      console.log('💾 SQL Query:', query, 'Values:', values);
+      
+      const result = await this.db.runAsync(query, values);
+      
+      console.log('✅ User notifications updated successfully. Rows affected:', result.changes);
     } catch (error) {
       console.error('❌ Error updating user notifications:', error);
       throw error;

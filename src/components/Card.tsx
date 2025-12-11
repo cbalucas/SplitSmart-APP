@@ -2,7 +2,8 @@ import React from 'react';
 import {
   View,
   StyleSheet,
-  ViewStyle
+  ViewStyle,
+  TouchableOpacity
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../constants/theme';
@@ -26,6 +27,14 @@ const Card: React.FC<CardProps> = ({
 }) => {
   const { theme } = useTheme();
   const styles = createStyles(theme, variant, padding, elevation);
+
+  if (onPress) {
+    return (
+      <TouchableOpacity style={[styles.container, style]} onPress={onPress} activeOpacity={0.7}>
+        {children}
+      </TouchableOpacity>
+    );
+  }
 
   return (
     <View style={[styles.container, style]}>
