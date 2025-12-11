@@ -22,6 +22,7 @@ export interface ProfileSectionProps {
   icon: string;
   children: React.ReactNode;
   onPress?: () => void;
+  rightAction?: React.ReactNode;
 }
 
 export interface SettingItemProps {

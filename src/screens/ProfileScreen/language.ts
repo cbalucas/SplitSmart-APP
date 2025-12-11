@@ -80,6 +80,12 @@ export const PROFILE_KEYS = {
   PRIVACY_POLICY: 'profile.privacyPolicy',
   CONTACT_SUPPORT: 'profile.contactSupport',
   
+  // Modal Keys
+  ABOUT_TITLE: 'profile.about.title',
+  TERMS_TITLE: 'profile.terms.title',
+  PRIVACY_TITLE: 'profile.privacy.title',
+  SUPPORT_TITLE: 'profile.support.title',
+  
   // Common
   OPTIONAL: 'optional',
   CANCEL: 'cancel',

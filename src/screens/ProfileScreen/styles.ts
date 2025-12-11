@@ -75,14 +75,11 @@ export const createStyles = (theme: Theme) =>
     } as ViewStyle,
 
     editIconButton: {
-      position: 'absolute',
-      top: 12,
-      right: 12,
-      width: 35,
-      height: 35,
-      borderRadius: 17.5,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
       backgroundColor: theme.colors.surface,
-      borderWidth: 2,
+      borderWidth: 1,
       borderColor: theme.colors.outline,
       justifyContent: 'center',
       alignItems: 'center',
@@ -136,19 +133,37 @@ export const createStyles = (theme: Theme) =>
       marginTop: 2,
     } as TextStyle,
 
-
+    profileUsername: {
+      fontSize: 12,
+      color: theme.colors.primary,
+      marginTop: 1,
+      fontStyle: 'italic',
+    } as TextStyle,
 
     sectionHeader: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'space-between',
       marginBottom: 16,
+    } as ViewStyle,
+
+    sectionHeaderLeft: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      flex: 1,
+      gap: 8,
+    } as ViewStyle,
+
+    sectionHeaderRight: {
+      marginLeft: 8,
     } as ViewStyle,
 
     sectionTitle: {
       fontSize: 16,
       fontWeight: '600',
       color: theme.colors.onSurface,
-      marginLeft: 8,
+      lineHeight: 20,
+      marginTop: 0,
     } as TextStyle,
 
     statsContainer: {
@@ -233,22 +248,35 @@ export const createStyles = (theme: Theme) =>
     } as ViewStyle,
 
     saveButton: {
-      marginTop: 8,
+      flex: 1,
+      backgroundColor: theme.colors.primary,
+      height: 48,
+    } as ViewStyle,
+
+    logoutCard: {
+      marginBottom: 20,
+      marginTop: 10,
     } as ViewStyle,
 
     logoutButton: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 12,
+      paddingVertical: 16,
+      paddingHorizontal: 24,
       width: '100%',
+      borderRadius: 12,
+      backgroundColor: 'rgba(244, 67, 54, 0.05)',
+      borderWidth: 1,
+      borderColor: 'rgba(244, 67, 54, 0.2)',
     } as ViewStyle,
 
     logoutText: {
       fontSize: 16,
-      fontWeight: '500',
+      fontWeight: '600',
       color: '#F44336',
-      marginLeft: 8,
+      marginLeft: 10,
+      textAlign: 'center',
     } as TextStyle,
 
     modalOverlay: {
@@ -368,5 +396,294 @@ export const createStyles = (theme: Theme) =>
     dropdownOptionTextSelected: {
       color: theme.colors.primary,
       fontWeight: '600',
+    } as TextStyle,
+
+    editButtonsContainer: {
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      gap: 12,
+      marginTop: 16,
+      height: 48,
+    } as ViewStyle,
+
+    cancelButton: {
+      flex: 1,
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      borderColor: theme.colors.outline,
+      height: 48,
+      borderRadius: 12,
+    } as ViewStyle,
+
+
+
+    cancelButtonText: {
+      color: theme.colors.onSurface,
+      fontWeight: '600',
+    } as TextStyle,
+
+    saveButtonText: {
+      color: theme.colors.onPrimary,
+      fontWeight: '600',
+    } as TextStyle,
+
+    // Estilos del Changelog Modal
+    changelogModalContent: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: 16,
+      padding: 20,
+      width: '95%',
+      maxHeight: '85%',
+      minHeight: 400,
+    } as ViewStyle,
+
+    changelogHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingBottom: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.outline,
+      marginBottom: 16,
+    } as ViewStyle,
+
+    closeButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: theme.colors.surfaceVariant,
+      justifyContent: 'center',
+      alignItems: 'center',
+    } as ViewStyle,
+
+    changelogContent: {
+      flexGrow: 1,
+      paddingHorizontal: 4,
+      paddingBottom: 8,
+    } as ViewStyle,
+
+    versionBlock: {
+      marginBottom: 8,
+      backgroundColor: theme.colors.background,
+      borderRadius: 10,
+      padding: 12,
+      marginHorizontal: 8,
+      borderWidth: 1,
+      borderColor: theme.colors.outline,
+      elevation: 1,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 1,
+    } as ViewStyle,
+
+    versionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingBottom: 8,
+    } as ViewStyle,
+
+    versionContent: {
+      marginTop: 12,
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.outline,
+    } as ViewStyle,
+
+    versionNumber: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: theme.colors.primary,
+    } as TextStyle,
+
+    versionDate: {
+      fontSize: 14,
+      color: theme.colors.onSurfaceVariant,
+      fontStyle: 'italic',
+      marginLeft: 12,
+    } as TextStyle,
+
+    versionSummary: {
+      fontSize: 13,
+      color: theme.colors.primary,
+      fontWeight: '500',
+      opacity: 0.8,
+    } as TextStyle,
+
+    currentVersionBlock: {
+      backgroundColor: theme.colors.surface,
+      borderColor: theme.colors.primary,
+      borderWidth: 2,
+      elevation: 3,
+      shadowColor: theme.colors.primary,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+    } as ViewStyle,
+
+    currentVersionNumber: {
+      color: theme.colors.primary,
+      fontWeight: '700',
+    } as TextStyle,
+
+    currentVersionDate: {
+      color: theme.colors.onSurface,
+      fontWeight: '500',
+    } as TextStyle,
+
+    changelogSection: {
+      marginBottom: 8,
+    } as ViewStyle,
+
+
+
+    changelogItem: {
+      fontSize: 14,
+      color: theme.colors.onSurfaceVariant,
+      lineHeight: 20,
+      marginBottom: 4,
+    } as TextStyle,
+
+    versionBadge: {
+      backgroundColor: theme.colors.surfaceVariant,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+      borderWidth: 1,
+      borderColor: theme.colors.outline,
+    } as ViewStyle,
+
+    versionBadgeText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.colors.primary,
+    } as TextStyle,
+
+    // Estilos para Modal Acerca de
+    aboutSection: {
+      marginBottom: 20,
+    } as ViewStyle,
+
+    aboutTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: theme.colors.primary,
+      marginBottom: 12,
+      textAlign: 'center',
+    } as TextStyle,
+
+    aboutSectionTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.onSurface,
+      marginBottom: 8,
+    } as TextStyle,
+
+    aboutDescription: {
+      fontSize: 14,
+      color: theme.colors.onSurfaceVariant,
+      lineHeight: 20,
+      textAlign: 'justify',
+    } as TextStyle,
+
+    aboutItem: {
+      fontSize: 14,
+      color: theme.colors.onSurfaceVariant,
+      lineHeight: 20,
+      marginBottom: 4,
+      flex: 1,
+      marginLeft: 8,
+    } as TextStyle,
+
+    featureItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+      paddingLeft: 8,
+    } as ViewStyle,
+
+    // Estilos para Modal Términos de Servicio
+    termsSection: {
+      marginBottom: 20,
+    } as ViewStyle,
+
+    termsTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.primary,
+      marginBottom: 8,
+    } as TextStyle,
+
+    termsText: {
+      fontSize: 14,
+      color: theme.colors.onSurfaceVariant,
+      lineHeight: 20,
+      marginBottom: 8,
+      textAlign: 'justify',
+    } as TextStyle,
+
+    // Estilos para Modal Política de Privacidad
+    privacySection: {
+      marginBottom: 20,
+    } as ViewStyle,
+
+    privacyTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.primary,
+      marginBottom: 8,
+    } as TextStyle,
+
+    privacyText: {
+      fontSize: 14,
+      color: theme.colors.onSurfaceVariant,
+      lineHeight: 20,
+      marginBottom: 4,
+      textAlign: 'justify',
+    } as TextStyle,
+
+    // Estilos para Modal Contactar Soporte
+    supportSection: {
+      marginBottom: 20,
+    } as ViewStyle,
+
+    supportTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: theme.colors.primary,
+      marginBottom: 12,
+      textAlign: 'center',
+    } as TextStyle,
+
+    supportSectionTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.onSurface,
+      marginBottom: 8,
+    } as TextStyle,
+
+    supportText: {
+      fontSize: 14,
+      color: theme.colors.onSurfaceVariant,
+      lineHeight: 20,
+      marginBottom: 4,
+      textAlign: 'justify',
+    } as TextStyle,
+
+    contactItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 12,
+      backgroundColor: theme.colors.surfaceVariant,
+      borderRadius: 8,
+      marginBottom: 8,
+      gap: 12,
+    } as ViewStyle,
+
+    contactText: {
+      fontSize: 14,
+      color: theme.colors.onSurface,
+      fontWeight: '500',
     } as TextStyle,
   });

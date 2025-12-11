@@ -10,7 +10,8 @@ import {
   Modal,
   TextInput,
   Image,
-  Pressable
+  Pressable,
+  Linking
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -35,7 +36,7 @@ import {
 import { createStyles } from './styles';
 import { PROFILE_KEYS, NOTIFICATION_KEYS, getLanguageDisplayName, getUserInitials } from './language';
 
-const ProfileSection: React.FC<ProfileSectionProps> = ({ title, icon, children, onPress }) => {
+const ProfileSection: React.FC<ProfileSectionProps> = ({ title, icon, children, onPress, rightAction }) => {
   const { theme } = useTheme();
   const { t } = useLanguage();
   const styles = createStyles(theme);
@@ -47,12 +48,19 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ title, icon, children, 
   return (
     <Card style={styles.card} onPress={onPress}>
       <View style={styles.sectionHeader}>
-        <MaterialCommunityIcons
-          name={icon as any}
-          size={20}
-          color={iconColor}
-        />
-        <Text style={[styles.sectionTitle, isLogout && { color: '#F44336' }]}>{title}</Text>
+        <View style={styles.sectionHeaderLeft}>
+          <MaterialCommunityIcons
+            name={icon as any}
+            size={20}
+            color={iconColor}
+          />
+          <Text style={[styles.sectionTitle, isLogout && { color: '#F44336' }]}>{title}</Text>
+        </View>
+        {rightAction && (
+          <View style={styles.sectionHeaderRight}>
+            {rightAction}
+          </View>
+        )}
       </View>
       {children}
     </Card>
@@ -166,6 +174,12 @@ const ProfileScreen: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
   const [skipPassword, setSkipPassword] = useState(false);
   const [showAutoLogoutOptions, setShowAutoLogoutOptions] = useState(false);
+  const [showChangelogModal, setShowChangelogModal] = useState(false);
+  const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
   const [stats, setStats] = useState<ProfileStats>({
     totalEvents: 0,
     activeEvents: 0,
@@ -185,6 +199,16 @@ const ProfileScreen: React.FC = () => {
     if (showAutoLogoutOptions) {
       setShowAutoLogoutOptions(false);
     }
+  };
+
+  const toggleVersionExpanded = (version: string) => {
+    const newExpandedVersions = new Set(expandedVersions);
+    if (newExpandedVersions.has(version)) {
+      newExpandedVersions.delete(version);
+    } else {
+      newExpandedVersions.add(version);
+    }
+    setExpandedVersions(newExpandedVersions);
   };
 
   const loadUserProfile = async () => {
@@ -243,6 +267,31 @@ const ProfileScreen: React.FC = () => {
   const handleSaveProfile = async () => {
     if (!user?.id) {
       Alert.alert('Error', 'No se pudo identificar el usuario');
+      return;
+    }
+
+    // Validar campos requeridos
+    const requiredFields = [
+      { field: profileData.name?.trim(), name: 'Nombre' },
+      { field: profileData.username?.trim(), name: 'Usuario' },
+      { field: profileData.email?.trim(), name: 'Email' },
+    ];
+
+    const emptyFields = requiredFields.filter(item => !item.field);
+    
+    if (emptyFields.length > 0) {
+      Alert.alert(
+        'Campos Requeridos', 
+        `Los siguientes campos son obligatorios:\n\n${emptyFields.map(f => `• ${f.name}`).join('\n')}`,
+        [{ text: 'Entendido', style: 'default' }]
+      );
+      return;
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(profileData.email)) {
+      Alert.alert('Email Inválido', 'Por favor ingresa un email válido');
       return;
     }
 
@@ -759,24 +808,10 @@ const ProfileScreen: React.FC = () => {
       >
         {/* Perfil del Usuario */}
         <Card style={styles.profileCard} onPress={closeAutoLogoutDropdown}>
-          <TouchableOpacity
-            style={styles.editIconButton}
-            onPress={() => {
-              closeAutoLogoutDropdown();
-              setIsEditing(!isEditing);
-            }}
-          >
-            <MaterialCommunityIcons
-              name={isEditing ? "check" : "pencil"}
-              size={20}
-              color={theme.colors.primary}
-            />
-          </TouchableOpacity>
           <View style={styles.profileHeader}>
             <TouchableOpacity 
               style={styles.avatarContainer}
-              onPress={isEditing ? handleChangeAvatar : undefined}
-              disabled={!isEditing}
+              onPress={handleChangeAvatar}
             >
               {user?.avatar ? (
                 <Image 
@@ -790,20 +825,22 @@ const ProfileScreen: React.FC = () => {
                   </Text>
                 </View>
               )}
-              {isEditing && (
-                <View style={styles.avatarEditOverlay}>
-                  <MaterialCommunityIcons name="camera" size={24} color="#FFFFFF" />
-                </View>
-              )}
+              <View style={styles.avatarEditOverlay}>
+                <MaterialCommunityIcons name="camera" size={20} color="#FFFFFF" />
+              </View>
             </TouchableOpacity>
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{profileData.username}</Text>
-              <Text style={styles.profileEmail}>{profileData.email}</Text>
+              <Text style={styles.profileName}>{profileData.name || 'Usuario Sin Nombre'}</Text>
+              <Text style={styles.profileEmail}>{profileData.email || 'Sin email configurado'}</Text>
+              {profileData.username && (
+                <Text style={styles.profileUsername}>@{profileData.username}</Text>
+              )}
             </View>
           </View>
         </Card>
 
         {/* Estadísticas */}
+        {!isEditing && (
         <ProfileSection title={t('profile.stats')} icon="chart-line" onPress={closeAutoLogoutDropdown}>
           <View style={styles.statsContainer}>
             <View style={styles.statRow}>
@@ -828,25 +865,30 @@ const ProfileScreen: React.FC = () => {
             </View>
           </View>
         </ProfileSection>
+        )}
 
         {/* Información Personal */}
         {isEditing ? (
           <>
-            <ProfileSection title={t('profile.personalInfo')} icon="account-edit" onPress={closeAutoLogoutDropdown}>
+            <ProfileSection 
+              title={t('profile.personalInfo')} 
+              icon="account-edit" 
+              onPress={closeAutoLogoutDropdown}
+            >
               <Input
-                label={t('profile.name')}
+                label={`${t('profile.name')} *`}
                 value={profileData.name}
                 onChangeText={(value) => setProfileData(prev => ({ ...prev, name: value }))}
                 containerStyle={styles.editInput}
               />
               <Input
-                label={t('profile.username')}
+                label={`${t('profile.username')} *`}
                 value={profileData.username}
                 onChangeText={(value) => setProfileData(prev => ({ ...prev, username: value }))}
                 containerStyle={styles.editInput}
               />
               <Input
-                label={t('profile.email')}
+                label={`${t('profile.email')} *`}
                 value={profileData.email}
                 onChangeText={(value) => setProfileData(prev => ({ ...prev, email: value }))}
                 keyboardType="email-address"
@@ -859,11 +901,31 @@ const ProfileScreen: React.FC = () => {
                 keyboardType="phone-pad"
                 containerStyle={styles.editInput}
               />
-              <Button
-                title={t('profile.saveChanges')}
-                onPress={handleSaveProfile}
-                style={styles.saveButton}
-              />
+              
+              {/* Botones de acción en el pie */}
+              <View style={styles.editButtonsContainer}>
+                <Button
+                  title={t('cancel')}
+                  variant="outlined"
+                  size="medium"
+                  onPress={() => {
+                    closeAutoLogoutDropdown();
+                    setIsEditing(false);
+                    // Recargar datos originales
+                    loadUserProfile();
+                  }}
+                  style={styles.cancelButton}
+                  textStyle={styles.cancelButtonText}
+                />
+                <Button
+                  title={t('profile.saveChanges')}
+                  variant="filled"
+                  size="medium"
+                  onPress={handleSaveProfile}
+                  style={styles.saveButton}
+                  textStyle={styles.saveButtonText}
+                />
+              </View>
             </ProfileSection>
             
             <ProfileSection title={t('profile.security')} icon="lock" onPress={closeAutoLogoutDropdown}>
@@ -942,11 +1004,44 @@ const ProfileScreen: React.FC = () => {
             </ProfileSection>
           </>
         ) : (
-          <ProfileSection title={t('profile.personalInfo')} icon="account" onPress={closeAutoLogoutDropdown}>
+          <ProfileSection 
+            title={t('profile.personalInfo')} 
+            icon="account" 
+            onPress={closeAutoLogoutDropdown}
+            rightAction={
+              <TouchableOpacity
+                style={styles.editIconButton}
+                onPress={() => {
+                  closeAutoLogoutDropdown();
+                  setIsEditing(true);
+                }}
+              >
+                <MaterialCommunityIcons
+                  name="pencil"
+                  size={20}
+                  color={theme.colors.primary}
+                />
+              </TouchableOpacity>
+            }
+          >
             <SettingItem
               title={t('profile.name')}
-              subtitle={profileData.name}
+              subtitle={profileData.name || 'No especificado'}
               icon="account"
+              type="value"
+              value=""
+            />
+            <SettingItem
+              title={t('profile.username')}
+              subtitle={profileData.username || 'No especificado'}
+              icon="account-circle"
+              type="value"
+              value=""
+            />
+            <SettingItem
+              title={t('profile.email')}
+              subtitle={profileData.email || 'No especificado'}
+              icon="email"
               type="value"
               value=""
             />
@@ -963,6 +1058,7 @@ const ProfileScreen: React.FC = () => {
         )}
 
         {/* Preferencias */}
+        {!isEditing && (
         <ProfileSection title={t('profile.preferences')} icon="cog">
           <SettingItem
             title={t('profile.theme')}
@@ -1104,8 +1200,10 @@ const ProfileScreen: React.FC = () => {
             )}
           </View>
         </ProfileSection>
+        )}
 
         {/* Notificaciones */}
+        {!isEditing && (
         <ProfileSection title={t('profile.notifications')} icon="bell" onPress={closeAutoLogoutDropdown}>
           <SettingItem
             title={t('notifications.paymentReceived')}
@@ -1116,8 +1214,10 @@ const ProfileScreen: React.FC = () => {
             onValueChange={(value) => updateNotificationSetting('paymentReceived', value)}
           />
         </ProfileSection>
+        )}
 
         {/* Privacidad */}
+        {!isEditing && (
         <ProfileSection title={t('profile.privacy')} icon="shield-account" onPress={closeAutoLogoutDropdown}>
           <View style={styles.settingItem}>
             <View style={styles.settingIcon}>
@@ -1134,8 +1234,10 @@ const ProfileScreen: React.FC = () => {
             </View>
           </View>
         </ProfileSection>
+        )}
 
         {/* Datos y Respaldo */}
+        {!isEditing && (
         <ProfileSection title={t('profile.dataBackup')} icon="database" onPress={closeAutoLogoutDropdown}>
           <SettingItem
             title={t('profile.exportData')}
@@ -1159,40 +1261,71 @@ const ProfileScreen: React.FC = () => {
             onPress={handleClearData}
           />
         </ProfileSection>
+        )}
 
         {/* Información de la App */}
+        {!isEditing && (
         <ProfileSection title={t('profile.information')} icon="information" onPress={closeAutoLogoutDropdown}>
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => setShowChangelogModal(true)}
+          >
+            <View style={styles.settingIcon}>
+              <MaterialCommunityIcons name="information-outline" size={20} color={theme.colors.onSurfaceVariant} />
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={styles.settingTitle}>{t('profile.appVersion')}</Text>
+            </View>
+            <View style={styles.settingAction}>
+              <View style={styles.versionBadge}>
+                <Text style={styles.versionBadgeText}>v1.1.0</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
           <SettingItem
-            title={t('profile.appVersion')}
-            subtitle="1.4.1"
-            icon="information-outline"
-            type="value"
-            value=""
+            title={t('profile.aboutApp')}
+            icon="information"
+            type="navigation"
+            onPress={() => setShowAboutModal(true)}
           />
           <SettingItem
             title={t('profile.termsOfService')}
             icon="file-document"
             type="navigation"
-            onPress={() => Alert.alert('Info', t('profile.message.termsComingSoon'))}
+            onPress={() => setShowTermsModal(true)}
           />
           <SettingItem
             title={t('profile.privacyPolicy')}
             icon="shield-check"
             type="navigation"
-            onPress={() => Alert.alert('Info', t('profile.message.privacyComingSoon'))}
+            onPress={() => setShowPrivacyModal(true)}
           />
           <SettingItem
             title={t('profile.contactSupport')}
             icon="help-circle"
             type="navigation"
-            onPress={() => Alert.alert('Info', t('profile.message.supportComingSoon'))}
+            onPress={() => setShowSupportModal(true)}
           />
         </ProfileSection>
+        )}
 
         {/* Cerrar Sesión */}
-        <ProfileSection title={t('logout')} icon="logout" onPress={handleLogout}>
-          {/* El onPress se maneja en la ProfileSection, no necesita TouchableOpacity interno */}
-        </ProfileSection>
+        {!isEditing && (
+          <Card style={[styles.card, styles.logoutCard]}>
+            <TouchableOpacity 
+              style={styles.logoutButton}
+              onPress={handleLogout}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons 
+                name="logout" 
+                size={22} 
+                color="#F44336" 
+              />
+              <Text style={styles.logoutText}>{t('logout')}</Text>
+            </TouchableOpacity>
+          </Card>
+        )}
       </ScrollView>
 
       {/* Modal de Cambio de Contraseña */}
@@ -1253,6 +1386,513 @@ const ProfileScreen: React.FC = () => {
                 <Text style={styles.modalButtonTextConfirm}>{t('profile.updatePassword')}</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de Changelog */}
+      <Modal
+        visible={showChangelogModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowChangelogModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.changelogModalContent}>
+            <View style={styles.changelogHeader}>
+              <Text style={styles.modalTitle}>Historial de Versiones</Text>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => setShowChangelogModal(false)}
+              >
+                <MaterialCommunityIcons name="close" size={24} color={theme.colors.onSurface} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView 
+              style={styles.changelogContent} 
+              showsVerticalScrollIndicator={true}
+              contentContainerStyle={{ flexGrow: 1 }}
+              nestedScrollEnabled={true}
+            >
+              {/* Versión 1.1.0 - Versión Consolidada */}
+              <TouchableOpacity 
+                style={[styles.versionBlock, styles.currentVersionBlock]} 
+                onPress={() => toggleVersionExpanded('1.1.0')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.versionHeader}>
+                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.1.0 (Actual)</Text>
+                  <Text style={[styles.versionDate, styles.currentVersionDate]}>11 Dic 2025</Text>
+                  <MaterialCommunityIcons 
+                    name={expandedVersions.has('1.1.0') ? 'chevron-up' : 'chevron-down'} 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
+                </View>
+                {expandedVersions.has('1.1.0') && (
+                  <View style={styles.versionContent}>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>✨ Nuevas Funcionalidades Avanzadas</Text>
+                      <Text style={styles.changelogItem}>• Gestión avanzada de eventos y participantes</Text>
+                      <Text style={styles.changelogItem}>• Sistema completo de exportación/importación</Text>
+                      <Text style={styles.changelogItem}>• Notificaciones WhatsApp integradas</Text>
+                      <Text style={styles.changelogItem}>• Temas claro/oscuro</Text>
+                      <Text style={styles.changelogItem}>• Soporte para múltiples monedas</Text>
+                      <Text style={styles.changelogItem}>• Auto-logout configurable</Text>
+                      <Text style={styles.changelogItem}>• Sistema de privacidad y notificaciones</Text>
+                      <Text style={styles.changelogItem}>• Gestión completa de liquidaciones</Text>
+                      <Text style={styles.changelogItem}>• Avatar editable con cámara/galería</Text>
+                      <Text style={styles.changelogItem}>• Modal de historial de versiones</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🎉 Mejoras de Interfaz</Text>
+                      <Text style={styles.changelogItem}>• Perfil de usuario completamente renovado</Text>
+                      <Text style={styles.changelogItem}>• Validaciones mejoradas en formularios</Text>
+                      <Text style={styles.changelogItem}>• Botones de edición más intuitivos</Text>
+                      <Text style={styles.changelogItem}>• Avatar editable directamente</Text>
+                      <Text style={styles.changelogItem}>• Interfaz de liquidaciones mejorada</Text>
+                      <Text style={styles.changelogItem}>• Cálculos de gastos optimizados</Text>
+                      <Text style={styles.changelogItem}>• Rendimiento general mejorado</Text>
+                      <Text style={styles.changelogItem}>• Interfaz de usuario refinada</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🐛 Correcciones y Estabilidad</Text>
+                      <Text style={styles.changelogItem}>• Alineación de botones en modo edición</Text>
+                      <Text style={styles.changelogItem}>• Visibilidad mejorada en modo oscuro</Text>
+                      <Text style={styles.changelogItem}>• Errores de validación de campos corregidos</Text>
+                      <Text style={styles.changelogItem}>• Problemas de base de datos solucionados</Text>
+                      <Text style={styles.changelogItem}>• Migraciones de esquema implementadas</Text>
+                      <Text style={styles.changelogItem}>• Duplicaciones de liquidaciones solucionadas</Text>
+                      <Text style={styles.changelogItem}>• Persistencia de notificaciones corregida</Text>
+                      <Text style={styles.changelogItem}>• Iconos alineados correctamente</Text>
+                      <Text style={styles.changelogItem}>• Estabilidad general mejorada</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Versión 1.0.0 - Origen */}
+              <TouchableOpacity 
+                style={styles.versionBlock} 
+                onPress={() => toggleVersionExpanded('1.0.0')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.versionHeader}>
+                  <Text style={styles.versionNumber}>v1.0.0</Text>
+                  <Text style={styles.versionDate}>1 Oct 2025</Text>
+                  <MaterialCommunityIcons 
+                    name={expandedVersions.has('1.0.0') ? 'chevron-up' : 'chevron-down'} 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
+                </View>
+                {expandedVersions.has('1.0.0') && (
+                  <View style={styles.versionContent}>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🚀 Lanzamiento Inicial - La Base de Todo</Text>
+                      <Text style={styles.changelogItem}>• Gestión de gastos compartidos</Text>
+                      <Text style={styles.changelogItem}>• Creación y administración de eventos</Text>
+                      <Text style={styles.changelogItem}>• Cálculos automáticos de liquidaciones</Text>
+                      <Text style={styles.changelogItem}>• Sistema de usuarios y perfiles básico</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>💡 El Origen</Text>
+                      <Text style={styles.changelogItem}>• Primera versión funcional de SplitSmart</Text>
+                      <Text style={styles.changelogItem}>• Base arquitectónica de la aplicación</Text>
+                      <Text style={styles.changelogItem}>• Fundamentos del sistema de gastos compartidos</Text>
+                      <Text style={styles.changelogItem}>• Punto de partida para la evolución hacia v1.1.0</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Acerca de */}
+      <Modal
+        visible={showAboutModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowAboutModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.changelogModalContent}>
+            <View style={styles.changelogHeader}>
+              <Text style={styles.modalTitle}>{t('profile.about.title')}</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowAboutModal(false)}
+              >
+                <MaterialCommunityIcons name="close" size={24} color={theme.colors.onSurface} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView
+              style={styles.changelogContent} 
+              showsVerticalScrollIndicator={true}
+              contentContainerStyle={{ padding: 16 }}
+            >
+              {/* Introducción Principal */}
+              <View style={styles.aboutSection}>
+                <MaterialCommunityIcons 
+                  name="account-group" 
+                  size={64} 
+                  color={theme.colors.primary} 
+                  style={{ alignSelf: 'center', marginBottom: 16 }}
+                />
+                <Text style={styles.aboutTitle}>SplitSmart v1.1.0</Text>
+                <Text style={styles.aboutDescription}>
+                  {t('profile.about.appDescription')}
+                </Text>
+              </View>
+              
+              {/* Características Principales */}
+              <View style={styles.aboutSection}>
+                <Text style={styles.aboutSectionTitle}>{t('profile.about.keyFeatures')}</Text>
+                
+                <View style={styles.featureItem}>
+                  <MaterialCommunityIcons name="check-circle" size={20} color={theme.colors.primary} />
+                  <Text style={styles.aboutItem}>{t('profile.about.feature1')}</Text>
+                </View>
+                
+                <View style={styles.featureItem}>
+                  <MaterialCommunityIcons name="account-group" size={20} color={theme.colors.primary} />
+                  <Text style={styles.aboutItem}>{t('profile.about.feature2')}</Text>
+                </View>
+                
+                <View style={styles.featureItem}>
+                  <MaterialCommunityIcons name="calculator" size={20} color={theme.colors.primary} />
+                  <Text style={styles.aboutItem}>{t('profile.about.feature3')}</Text>
+                </View>
+                
+                <View style={styles.featureItem}>
+                  <MaterialCommunityIcons name="chart-line" size={20} color={theme.colors.primary} />
+                  <Text style={styles.aboutItem}>{t('profile.about.feature4')}</Text>
+                </View>
+                
+                <View style={styles.featureItem}>
+                  <MaterialCommunityIcons name="cellphone" size={20} color={theme.colors.primary} />
+                  <Text style={styles.aboutItem}>{t('profile.about.feature5')}</Text>
+                </View>
+                
+                <View style={styles.featureItem}>
+                  <MaterialCommunityIcons name="shield-check" size={20} color="#4CAF50" />
+                  <Text style={styles.aboutItem}>{t('profile.about.feature6')}</Text>
+                </View>
+              </View>
+
+              {/* Información Técnica */}
+              <View style={[styles.aboutSection, { backgroundColor: theme.colors.surfaceVariant, padding: 16, borderRadius: 12 }]}>
+                <Text style={styles.aboutSectionTitle}>{t('profile.about.techSpecs')}</Text>
+                <Text style={styles.aboutDescription}>
+                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.version')}:</Text> 1.1.0{'\n'}
+                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.platform')}</Text>{'\n'}
+                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.database')}</Text>{'\n'}
+                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.languages')}</Text>
+                </Text>
+              </View>
+
+              {/* Seguridad y Privacidad */}
+              <View style={styles.aboutSection}>
+                <Text style={styles.aboutSectionTitle}>🔒 Compromiso de Privacidad</Text>
+                <Text style={styles.aboutDescription}>
+                  • <Text style={{ fontWeight: 'bold' }}>Cero recopilación de datos:</Text> No enviamos información a servidores{'\n'}
+                  • <Text style={{ fontWeight: 'bold' }}>Control total:</Text> Tú decides qué datos guardar y por cuánto tiempo{'\n'}
+                  • <Text style={{ fontWeight: 'bold' }}>Funcionalidad offline:</Text> Trabaja sin conexión a internet{'\n'}
+                  • <Text style={{ fontWeight: 'bold' }}>Exportación libre:</Text> Llévate tus datos cuando quieras
+                </Text>
+              </View>
+
+              {/* Estadísticas */}
+              <View style={styles.aboutSection}>
+                <Text style={styles.aboutSectionTitle}>{t('profile.about.statistics')}</Text>
+                <Text style={styles.aboutDescription}>
+                  {t('profile.about.users')}{'\n'}
+                  {t('profile.about.events')}{'\n'}
+                  {t('profile.about.calculations')}
+                </Text>
+              </View>
+
+              {/* Desarrollo */}
+              <View style={styles.aboutSection}>
+                <Text style={styles.aboutSectionTitle}>👥 Equipo de Desarrollo</Text>
+                <Text style={styles.aboutDescription}>
+                  SplitSmart es desarrollado con pasión por un equipo dedicado a crear herramientas financieras 
+                  simples, seguras y efectivas para la vida cotidiana. Nuestro compromiso es mantener tu privacidad 
+                  como máxima prioridad mientras ofrecemos la mejor experiencia posible.
+                </Text>
+              </View>
+
+              {/* Contacto */}
+              <View style={styles.aboutSection}>
+                <Text style={styles.aboutSectionTitle}>{t('profile.about.contact')}</Text>
+                <Text style={styles.aboutDescription}>
+                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.email')}</Text> soporte@splitsmart.com{'\n'}
+                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.whatsapp')}</Text> +54 351 617-5809 {t('profile.about.whatsappNote')}{'\n'}
+                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.hours')}</Text> {t('profile.about.hoursValue')}
+                </Text>
+              </View>
+
+              {/* Copyright */}
+              <View style={[styles.aboutSection, { alignItems: 'center', borderTopWidth: 1, borderTopColor: theme.colors.outline, paddingTop: 20 }]}>
+                <Text style={[styles.aboutDescription, { textAlign: 'center', fontSize: 12, color: theme.colors.onSurfaceVariant }]}>
+                  {t('profile.about.copyright')}{'\n'}
+                  {t('profile.about.madeWith')}
+                </Text>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Términos de Servicio */}
+      <Modal
+        visible={showTermsModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowTermsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.changelogModalContent}>
+            <View style={styles.changelogHeader}>
+              <Text style={styles.modalTitle}>{t('profile.terms.title')}</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowTermsModal(false)}
+              >
+                <MaterialCommunityIcons name="close" size={24} color={theme.colors.onSurface} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView
+              style={styles.changelogContent} 
+              showsVerticalScrollIndicator={true}
+              contentContainerStyle={{ flexGrow: 1 }}
+            >
+              <View style={styles.termsSection}>
+                <Text style={styles.termsTitle}>{t('profile.terms.acceptance')}</Text>
+                <Text style={styles.termsText}>
+                  {t('profile.terms.acceptanceText')}
+                </Text>
+              </View>
+
+              <View style={styles.termsSection}>
+                <Text style={styles.termsTitle}>{t('profile.terms.appDescription')}</Text>
+                <Text style={styles.termsText}>
+                  {t('profile.terms.appDescriptionText')}
+                </Text>
+              </View>
+
+              <View style={styles.termsSection}>
+                <Text style={styles.termsTitle}>{t('profile.terms.userResponsibilities')}</Text>
+                <Text style={styles.termsText}>
+                  {t('profile.terms.userResponsibilitiesText')}
+                </Text>
+              </View>
+
+              <View style={styles.termsSection}>
+                <Text style={styles.termsTitle}>{t('profile.terms.dataPrivacy')}</Text>
+                <Text style={styles.termsText}>
+                  {t('profile.terms.dataPrivacyText')}
+                </Text>
+              </View>
+
+              <View style={styles.termsSection}>
+                <Text style={styles.termsTitle}>{t('profile.terms.limitations')}</Text>
+                <Text style={styles.termsText}>
+                  {t('profile.terms.limitationsText')}
+                </Text>
+              </View>
+
+              <View style={styles.termsSection}>
+                <Text style={styles.termsTitle}>{t('profile.terms.modifications')}</Text>
+                <Text style={styles.termsText}>
+                  {t('profile.terms.modificationsText')}
+                </Text>
+              </View>
+
+              <View style={styles.termsSection}>
+                <Text style={styles.termsTitle}>{t('profile.terms.contact')}</Text>
+                <Text style={styles.termsText}>
+                  {t('profile.terms.contactText')}
+                </Text>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Política de Privacidad */}
+      <Modal
+        visible={showPrivacyModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowPrivacyModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.changelogModalContent}>
+            <View style={styles.changelogHeader}>
+              <Text style={styles.modalTitle}>{t('profile.privacy.title')}</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowPrivacyModal(false)}
+              >
+                <MaterialCommunityIcons name="close" size={24} color={theme.colors.onSurface} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView
+              style={styles.changelogContent} 
+              showsVerticalScrollIndicator={true}
+              contentContainerStyle={{ flexGrow: 1 }}
+            >
+              <View style={styles.privacySection}>
+                <Text style={styles.privacyTitle}>{t('profile.privacy.introduction')}</Text>
+                <Text style={styles.privacyText}>
+                  {t('profile.privacy.introductionText')}
+                </Text>
+              </View>
+
+              <View style={styles.privacySection}>
+                <Text style={styles.privacyTitle}>{t('profile.privacy.dataStorage')}</Text>
+                <Text style={styles.privacyText}>
+                  {t('profile.privacy.dataStorageText')}
+                </Text>
+              </View>
+
+              <View style={styles.privacySection}>
+                <Text style={styles.privacyTitle}>{t('profile.privacy.dataCollection')}</Text>
+                <Text style={styles.privacyText}>
+                  {t('profile.privacy.dataCollectionText')}
+                </Text>
+              </View>
+
+              <View style={styles.privacySection}>
+                <Text style={styles.privacyTitle}>{t('profile.privacy.dataUse')}</Text>
+                <Text style={styles.privacyText}>
+                  {t('profile.privacy.dataUseText')}
+                </Text>
+              </View>
+
+              <View style={styles.privacySection}>
+                <Text style={styles.privacyTitle}>{t('profile.privacy.dataSharing')}</Text>
+                <Text style={styles.privacyText}>
+                  {t('profile.privacy.dataSharingText')}
+                </Text>
+              </View>
+
+              <View style={styles.privacySection}>
+                <Text style={styles.privacyTitle}>{t('profile.privacy.dataSecurity')}</Text>
+                <Text style={styles.privacyText}>
+                  {t('profile.privacy.dataSecurityText')}
+                </Text>
+              </View>
+
+              <View style={styles.privacySection}>
+                <Text style={styles.privacyTitle}>{t('profile.privacy.userRights')}</Text>
+                <Text style={styles.privacyText}>
+                  {t('profile.privacy.userRightsText')}
+                </Text>
+              </View>
+
+              <View style={styles.privacySection}>
+                <Text style={styles.privacyTitle}>{t('profile.privacy.contact')}</Text>
+                <Text style={styles.privacyText}>
+                  {t('profile.privacy.contactText')}
+                </Text>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Contactar Soporte */}
+      <Modal
+        visible={showSupportModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowSupportModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.changelogModalContent}>
+            <View style={styles.changelogHeader}>
+              <Text style={styles.modalTitle}>{t('profile.support.title')}</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowSupportModal(false)}
+              >
+                <MaterialCommunityIcons name="close" size={24} color={theme.colors.onSurface} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView
+              style={styles.changelogContent} 
+              showsVerticalScrollIndicator={true}
+              contentContainerStyle={{ flexGrow: 1 }}
+            >
+              <View style={styles.supportSection}>
+                <Text style={styles.supportTitle}>{t('profile.support.description')}</Text>
+                <Text style={styles.supportText}>
+                  {t('profile.support.description')}
+                </Text>
+              </View>
+
+              <View style={styles.supportSection}>
+                <Text style={styles.supportSectionTitle}>{t('profile.support.contactMethods')}</Text>
+                <TouchableOpacity 
+                  style={styles.contactItem}
+                  onPress={() => Alert.alert('Email', 'soporte@splitsmart.com')}
+                >
+                  <MaterialCommunityIcons name="email" size={20} color={theme.colors.primary} />
+                  <Text style={styles.contactText}>soporte@splitsmart.com</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.supportSection}>
+                <TouchableOpacity 
+                  style={styles.contactItem}
+                  onPress={() => {
+                    const message = encodeURIComponent("Hola! Necesito ayuda con SplitSmart");
+                    Linking.openURL(`whatsapp://send?phone=5493516175809&text=${message}`);
+                  }}
+                >
+                  <MaterialCommunityIcons name="whatsapp" size={20} color="#25D366" />
+                  <Text style={styles.contactText}>+54 351 617-5809 {t('profile.support.whatsappNote')}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.supportSection}>
+                <Text style={styles.supportSectionTitle}>{t('profile.support.reportIssue')}</Text>
+                <Text style={styles.supportText}>
+                  {t('profile.support.reportIssueText')}
+                </Text>
+                <Text style={styles.supportText}>{t('profile.support.reportItem1')}</Text>
+                <Text style={styles.supportText}>{t('profile.support.reportItem2')}</Text>
+                <Text style={styles.supportText}>{t('profile.support.reportItem3')}</Text>
+                <Text style={styles.supportText}>{t('profile.support.reportItem4')}</Text>
+              </View>
+
+              <View style={styles.supportSection}>
+                <Text style={styles.supportSectionTitle}>{t('profile.support.responseTime')}</Text>
+                <Text style={styles.supportText}>
+                  {t('profile.support.responseTimeText')}
+                </Text>
+              </View>
+
+              <View style={styles.supportSection}>
+                <Text style={styles.supportSectionTitle}>{t('profile.support.beforeContact')}</Text>
+                <Text style={styles.supportText}>
+                  {t('profile.support.beforeContactText')}
+                </Text>
+                <Text style={styles.supportText}>{t('profile.support.beforeItem1')}</Text>
+                <Text style={styles.supportText}>{t('profile.support.beforeItem2')}</Text>
+                <Text style={styles.supportText}>{t('profile.support.beforeItem3')}</Text>
+                <Text style={styles.supportText}>{t('profile.support.beforeItem4')}</Text>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>

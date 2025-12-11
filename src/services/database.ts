@@ -308,6 +308,14 @@ class DatabaseService {
         console.log('⚠️ Error updating notification preferences:', error);
       }
 
+      // Migration: Initialize app versions data
+      try {
+        await this.initializeVersionHistory();
+        console.log('✅ Migration: Version history initialized');
+      } catch (error: any) {
+        console.error('❌ Error initializing version history:', error);
+      }
+
     } catch (error) {
       console.error('❌ Error running migrations:', error);
     }
@@ -331,6 +339,136 @@ class DatabaseService {
     } catch (error) {
       console.error('❌ Error dropping and recreating database:', error);
       throw error;
+    }
+  }
+
+  // ===== VERSION MANAGEMENT METHODS =====
+  private async initializeVersionHistory() {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      // Check if versions already exist
+      const existingVersions = await this.db.getAllAsync('SELECT COUNT(*) as count FROM app_versions');
+      const versionCount = (existingVersions[0] as any)?.count || 0;
+
+      if (versionCount === 0) {
+        console.log('🔄 Initializing version history...');
+        
+        // Insert version 1.0.0 - Foundation
+        await this.db.runAsync(`
+          INSERT INTO app_versions (
+            version, version_name, release_date, is_current, 
+            changelog_improvements, changelog_features, changelog_bugfixes, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          '1.0.0',
+          'Lanzamiento Inicial',
+          '1 Oct 2025',
+          0, // Not current version
+          JSON.stringify([]),
+          JSON.stringify([
+            'Gestión de gastos compartidos',
+            'Creación y administración de eventos',
+            'Cálculos automáticos de liquidaciones',
+            'Sistema de usuarios y perfiles básico'
+          ]),
+          JSON.stringify([]),
+          '2025-10-01T00:00:00.000Z'
+        ]);
+
+        // Insert consolidated version 1.1.0 with all evolved features
+        await this.db.runAsync(`
+          INSERT INTO app_versions (
+            version, version_name, release_date, is_current, 
+            changelog_improvements, changelog_features, changelog_bugfixes, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          '1.1.0',
+          'Versión Consolidada',
+          '11 Dic 2025',
+          1, // Is current version
+          JSON.stringify([
+            'Perfil de usuario completamente renovado',
+            'Validaciones mejoradas en formularios',
+            'Botones de edición más intuitivos',
+            'Avatar editable directamente',
+            'Interfaz de liquidaciones mejorada',
+            'Cálculos de gastos optimizados',
+            'Rendimiento general mejorado',
+            'Interfaz de usuario refinada'
+          ]),
+          JSON.stringify([
+            'Gestión avanzada de eventos y participantes',
+            'Sistema completo de exportación/importación',
+            'Notificaciones WhatsApp integradas',
+            'Temas claro/oscuro',
+            'Soporte para múltiples monedas',
+            'Auto-logout configurable',
+            'Sistema de privacidad y notificaciones',
+            'Gestión completa de liquidaciones',
+            'Avatar editable con cámara/galería',
+            'Modal de historial de versiones'
+          ]),
+          JSON.stringify([
+            'Alineación de botones en modo edición',
+            'Visibilidad mejorada en modo oscuro',
+            'Errores de validación de campos',
+            'Problemas de base de datos corregidos',
+            'Migraciones de esquema implementadas',
+            'Duplicaciones de liquidaciones solucionadas',
+            'Persistencia de notificaciones corregida',
+            'Iconos alineados correctamente',
+            'Estabilidad general mejorada'
+          ]),
+          new Date().toISOString()
+        ]);
+
+        console.log('✅ Version history initialized with consolidated v1.1.0');
+      } else {
+        console.log('⚠️ Version history already exists');
+      }
+    } catch (error) {
+      console.error('❌ Error initializing version history:', error);
+      throw error;
+    }
+  }
+
+  async getCurrentVersion(): Promise<{ version: string; versionName: string } | null> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    try {
+      const result = await this.db.getFirstAsync(
+        'SELECT version, version_name FROM app_versions WHERE is_current = 1 ORDER BY created_at DESC LIMIT 1'
+      ) as any;
+      
+      return result ? { 
+        version: result.version, 
+        versionName: result.version_name || result.version 
+      } : null;
+    } catch (error) {
+      console.error('❌ Error getting current version:', error);
+      return null;
+    }
+  }
+
+  async getVersionHistory(): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    try {
+      const versions = await this.db.getAllAsync(`
+        SELECT * FROM app_versions 
+        ORDER BY created_at DESC
+      `);
+      
+      return versions.map((v: any) => ({
+        ...v,
+        changelog_improvements: v.changelog_improvements ? JSON.parse(v.changelog_improvements) : [],
+        changelog_features: v.changelog_features ? JSON.parse(v.changelog_features) : [],
+        changelog_bugfixes: v.changelog_bugfixes ? JSON.parse(v.changelog_bugfixes) : []
+      }));
+    } catch (error) {
+      console.error('❌ Error getting version history:', error);
+      return [];
     }
   }
 
@@ -496,12 +634,28 @@ class DatabaseService {
       `);
 
       // Create indexes for better performance
+      // App Versions table for version history management
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS app_versions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          version TEXT UNIQUE NOT NULL,
+          version_name TEXT,
+          release_date TEXT NOT NULL,
+          is_current INTEGER DEFAULT 0,
+          changelog_improvements TEXT,
+          changelog_features TEXT,
+          changelog_bugfixes TEXT,
+          created_at TEXT NOT NULL
+        )
+      `);
+
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_event_participants_event_id ON event_participants(event_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_expenses_event_id ON expenses(event_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_splits_expense_id ON splits(expense_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_payments_event_id ON payments(event_id)`);
+      await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_app_versions_current ON app_versions(is_current)`);
 
-      console.log('✅ All tables created successfully');
+      console.log('✅ All tables and indexes created successfully');
     } catch (error) {
       console.error('❌ Error creating tables:', error);
       throw error;
