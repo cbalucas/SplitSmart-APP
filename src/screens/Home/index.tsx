@@ -310,7 +310,12 @@ const HomeScreen: React.FC = () => {
         title={t.header.title}
         titleAlignment="left"
         useDynamicColors={true}
-        leftIcon="account-circle"
+        leftAvatar={
+          <UserAvatar 
+            size={40}
+            onPress={handleProfilePress}
+          />
+        }
         rightIcon="account-group"
         onLeftPress={handleProfilePress}
         onRightPress={handleManageFriends}

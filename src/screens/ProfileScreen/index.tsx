@@ -796,6 +796,7 @@ const ProfileScreen: React.FC = () => {
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
       <HeaderBar
         title={t('profile.title')}
+        titleAlignment="left"
         showLanguageSelector={true}
         showThemeToggle={true}
         backgroundColor="#00B359"

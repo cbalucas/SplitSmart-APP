@@ -18,6 +18,7 @@ export interface HeaderBarProps {
   title: string;
   subtitle?: string;
   leftIcon?: string;
+  leftAvatar?: React.ReactNode;
   rightIcon?: string;
   leftText?: string;
   rightText?: string;
@@ -40,6 +41,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   title,
   subtitle,
   leftIcon,
+  leftAvatar,
   rightIcon,
   leftText,
   rightText,
@@ -95,6 +97,14 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
             color={titleColor || theme.colors.onSurface}
           />
         </TouchableOpacity>
+      );
+    }
+
+    if (leftAvatar) {
+      return (
+        <View style={styles.avatarButton}>
+          {leftAvatar}
+        </View>
       );
     }
 
@@ -291,6 +301,13 @@ const createStyles = (theme: Theme, titleAlignment: 'left' | 'center' = 'center'
       alignItems: 'center',
       justifyContent: 'center',
       borderRadius: theme.borderRadius.full,
+    } as ViewStyle,
+    
+    avatarButton: {
+      width: 40,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
     } as ViewStyle,
     
     textButton: {

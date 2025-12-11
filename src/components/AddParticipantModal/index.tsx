@@ -304,6 +304,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
   const renderHeader = () => (
     <HeaderBar
       title={t('addParticipant.title')}
+      titleAlignment="left"
       rightIcon="close"
       onRightPress={handleClose}
       useDynamicColors={true}

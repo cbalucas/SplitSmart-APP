@@ -1896,6 +1896,7 @@ export default function EventDetailScreen() {
       {/* Header */}
       <HeaderBar
         title={event.name}
+        titleAlignment="left"
         showBackButton={false}
         showThemeToggle={true}
         showLanguageSelector={true}
@@ -1954,6 +1955,7 @@ export default function EventDetailScreen() {
             {/* Header genérico */}
             <HeaderBar 
               title={t('expenses.detailTitle')}
+              titleAlignment="left"
               showBackButton={false}
               useDynamicColors={true}
             />
@@ -2110,6 +2112,7 @@ const ParticipantInfoModalContent: React.FC<{
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <HeaderBar 
         title={t('participant.info')}
+        titleAlignment="left"
         showBackButton={false}
         useDynamicColors={true}
       />
@@ -2247,6 +2250,7 @@ const EditParticipantModalContent: React.FC<{
     <View style={{ flex: 1 }}>
       <HeaderBar 
         title="Editar Participante"
+        titleAlignment="left"
         showBackButton={false}
         useDynamicColors={true}
       />
