@@ -47,6 +47,7 @@ interface DataContextValue {
   refreshData: () => Promise<void>;
   clearAllData: () => Promise<void>;
   resetDatabase: () => Promise<void>;
+  nukeDatabase: () => Promise<void>;
   exportData: () => Promise<string>;
   importData: (importData: any) => Promise<boolean>;
 }
@@ -87,6 +88,7 @@ const DataContext = createContext<DataContextValue>({
   refreshData: async () => {},
   clearAllData: async () => {},
   resetDatabase: async () => {},
+  nukeDatabase: async () => {},
   exportData: async () => '',
   importData: async () => false
 });
@@ -615,6 +617,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const nukeDatabase = useCallback(async () => {
+    try {
+      await databaseService.nukeDatabase();
+      setEvents([]);
+      setParticipants([]);
+      setExpenses([]);
+      console.log('✅ Database nuked successfully');
+    } catch (error) {
+      console.error('❌ Error nuking database:', error);
+      throw error;
+    }
+  }, []);
+
   const exportData = useCallback(async () => {
     try {
       const exportedData = await databaseService.exportData();
@@ -869,51 +884,96 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
       }
       
-      // 7. Payments
-      if (data.payments && data.payments.length > 0) {
-        console.log(`📥 Importing ${data.payments.length} payments...`);
-        for (const payment of data.payments) {
+      // 7. Transactions (nuevo formato unificado) o Payments (formato legacy)
+      if (data.transactions && data.transactions.length > 0) {
+        console.log(`📥 Importing ${data.transactions.length} transactions...`);
+        for (const transaction of data.transactions) {
           try {
-            const paymentData = {
-              id: payment.id,
-              event_id: payment.event_id,
-              from_participant_id: payment.from_participant_id,
-              to_participant_id: payment.to_participant_id,
-              amount: payment.amount || 0,
-              currency: payment.currency || 'ARS',
-              method: payment.method || 'efectivo',
+            const transactionData = {
+              id: transaction.id,
+              event_id: transaction.eventId,
+              from_participant_id: transaction.fromParticipantId,
+              from_participant_name: transaction.fromParticipantName || 'Participante',
+              to_participant_id: transaction.toParticipantId,
+              to_participant_name: transaction.toParticipantName || 'Participante',
+              amount: transaction.amount || 0,
+              type: transaction.type || 'manual',
+              status: transaction.status || 'pending',
+              date: transaction.date || new Date().toISOString(),
+              notes: transaction.notes || null,
               receipt_image: null, // receipt_image set to null
-              notes: payment.notes || '',
-              status: payment.status || 'pending',
-              created_at: payment.created_at || new Date().toISOString(),
-              updated_at: payment.updated_at || new Date().toISOString()
+              created_at: transaction.createdAt || new Date().toISOString(),
+              updated_at: transaction.updatedAt || new Date().toISOString(),
+              confirmed_at: transaction.confirmedAt || null
             };
             
-            await databaseService.db.runAsync(
-              `INSERT OR REPLACE INTO payments (
-                id, event_id, from_participant_id, to_participant_id, amount, 
-                currency, method, receipt_image, notes, status, created_at, updated_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            await databaseService.db!.runAsync(
+              `INSERT OR REPLACE INTO transactions (
+                id, event_id, from_participant_id, from_participant_name, to_participant_id, to_participant_name,
+                amount, type, status, date, notes, receipt_image, created_at, updated_at, confirmed_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
-                paymentData.id, paymentData.event_id, paymentData.from_participant_id, 
-                paymentData.to_participant_id, paymentData.amount, paymentData.currency, 
-                paymentData.method, paymentData.receipt_image, paymentData.notes, 
-                paymentData.status, paymentData.created_at, paymentData.updated_at
+                transactionData.id, transactionData.event_id, transactionData.from_participant_id, 
+                transactionData.from_participant_name, transactionData.to_participant_id, transactionData.to_participant_name,
+                transactionData.amount, transactionData.type, transactionData.status, transactionData.date,
+                transactionData.notes, transactionData.receipt_image, transactionData.created_at, 
+                transactionData.updated_at, transactionData.confirmed_at
+              ]
+            );
+          } catch (transactionError) {
+            console.error(`❌ Error importing transaction ${transaction.id}:`, transactionError);
+            throw new Error(`Failed to import transaction ${transaction.id}: ${(transactionError as Error).message}`);
+          }
+        }
+      } else if (data.payments && data.payments.length > 0) {
+        // Formato legacy: convertir payments a transactions
+        console.log(`📥 Importing ${data.payments.length} payments (legacy format)...`);
+        for (const payment of data.payments) {
+          try {
+            const transactionData = {
+              id: payment.id,
+              event_id: payment.eventId || payment.event_id,
+              from_participant_id: payment.fromParticipantId || payment.from_participant_id,
+              from_participant_name: 'Manual Payment',
+              to_participant_id: payment.toParticipantId || payment.to_participant_id,
+              to_participant_name: 'Manual Payment',
+              amount: payment.amount || 0,
+              type: 'manual',
+              status: payment.isConfirmed ? 'confirmed' : 'pending',
+              date: payment.date || new Date().toISOString(),
+              notes: payment.notes || null,
+              receipt_image: null,
+              created_at: payment.createdAt || payment.created_at || new Date().toISOString(),
+              updated_at: payment.updatedAt || payment.updated_at || new Date().toISOString(),
+              confirmed_at: payment.isConfirmed ? payment.date : null
+            };
+            
+            await databaseService.db!.runAsync(
+              `INSERT OR REPLACE INTO transactions (
+                id, event_id, from_participant_id, from_participant_name, to_participant_id, to_participant_name,
+                amount, type, status, date, notes, receipt_image, created_at, updated_at, confirmed_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                transactionData.id, transactionData.event_id, transactionData.from_participant_id, 
+                transactionData.from_participant_name, transactionData.to_participant_id, transactionData.to_participant_name,
+                transactionData.amount, transactionData.type, transactionData.status, transactionData.date,
+                transactionData.notes, transactionData.receipt_image, transactionData.created_at, 
+                transactionData.updated_at, transactionData.confirmed_at
               ]
             );
           } catch (paymentError) {
             console.error(`❌ Error importing payment ${payment.id}:`, paymentError);
-            throw new Error(`Failed to import payment ${payment.id}: ${paymentError.message}`);
+            throw new Error(`Failed to import payment ${payment.id}: ${(paymentError as Error).message}`);
           }
         }
       }
       
-      // 8. Settlements
-      if (data.settlements && data.settlements.length > 0) {
-        console.log(`📥 Importing ${data.settlements.length} settlements...`);
+      // 8. Settlements (formato legacy - solo si no hay transactions)
+      if (data.settlements && data.settlements.length > 0 && (!data.transactions || data.transactions.length === 0)) {
+        console.log(`📥 Importing ${data.settlements.length} settlements (legacy format)...`);
         for (const settlement of data.settlements) {
           try {
-            const settlementData = {
+            const transactionData = {
               id: settlement.id,
               event_id: settlement.event_id,
               from_participant_id: settlement.from_participant_id,
@@ -921,25 +981,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
               to_participant_id: settlement.to_participant_id,
               to_participant_name: settlement.to_participant_name || 'Participante',
               amount: settlement.amount || 0,
+              type: 'calculated',
+              status: settlement.is_paid === 1 ? 'confirmed' : 'pending',
+              date: settlement.paid_at || settlement.created_at || new Date().toISOString(),
+              notes: null,
+              receipt_image: settlement.receipt_image || null,
               created_at: settlement.created_at || new Date().toISOString(),
-              updated_at: settlement.updated_at || new Date().toISOString()
+              updated_at: settlement.updated_at || new Date().toISOString(),
+              confirmed_at: settlement.is_paid === 1 ? settlement.paid_at : null
             };
             
-            await databaseService.db.runAsync(
-              `INSERT OR REPLACE INTO settlements (
-                id, event_id, from_participant_id, from_participant_name,
-                to_participant_id, to_participant_name, amount, created_at, updated_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            await databaseService.db!.runAsync(
+              `INSERT OR REPLACE INTO transactions (
+                id, event_id, from_participant_id, from_participant_name, to_participant_id, to_participant_name,
+                amount, type, status, date, notes, receipt_image, created_at, updated_at, confirmed_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
-                settlementData.id, settlementData.event_id, settlementData.from_participant_id,
-                settlementData.from_participant_name, settlementData.to_participant_id, 
-                settlementData.to_participant_name, settlementData.amount,
-                settlementData.created_at, settlementData.updated_at
+                transactionData.id, transactionData.event_id, transactionData.from_participant_id,
+                transactionData.from_participant_name, transactionData.to_participant_id, transactionData.to_participant_name,
+                transactionData.amount, transactionData.type, transactionData.status, transactionData.date,
+                transactionData.notes, transactionData.receipt_image, transactionData.created_at,
+                transactionData.updated_at, transactionData.confirmed_at
               ]
             );
           } catch (settlementError) {
             console.error(`❌ Error importing settlement ${settlement.id}:`, settlementError);
-            throw new Error(`Failed to import settlement ${settlement.id}: ${settlementError.message}`);
+            throw new Error(`Failed to import settlement ${settlement.id}: ${(settlementError as Error).message}`);
           }
         }
       }
@@ -1038,6 +1105,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       refreshData,
       clearAllData,
       resetDatabase,
+      nukeDatabase,
       exportData,
       importData
     }}>

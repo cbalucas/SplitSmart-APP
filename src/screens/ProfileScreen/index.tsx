@@ -24,6 +24,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { databaseService } from '../../services/database';
 import { Card, Button, Input, LanguageSelector, CurrencySelector, ThemeToggle, HeaderBar } from '../../components';
 import { 
   UserProfileData, 
@@ -140,7 +141,8 @@ const ProfileScreen: React.FC = () => {
     participants, 
     expenses, 
     clearAllData, 
-    resetDatabase, 
+    resetDatabase,
+    nukeDatabase, 
     exportData,
     importData,
     getUserProfile,
@@ -180,6 +182,15 @@ const ProfileScreen: React.FC = () => {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
+  const [showDatabaseStatsModal, setShowDatabaseStatsModal] = useState(false);
+  const [showTechInfo, setShowTechInfo] = useState(false);
+  const [showMainTables, setShowMainTables] = useState(false);
+  const [showRelationTables, setShowRelationTables] = useState(false);
+  const [databaseStats, setDatabaseStats] = useState<{
+    tables: { [tableName: string]: number };
+    totalRecords: number;
+    databaseSize: string;
+  } | null>(null);
   const [stats, setStats] = useState<ProfileStats>({
     totalEvents: 0,
     activeEvents: 0,
@@ -467,6 +478,25 @@ const ProfileScreen: React.FC = () => {
     }
   };
 
+  const handleShowDatabaseStats = async () => {
+    try {
+      console.log('📊 Loading database statistics...');
+      
+      // Ejecutar diagnóstico para identificar problemas
+      await databaseService.diagnoseTables();
+      
+      const stats = await databaseService.getDatabaseStats();
+      setDatabaseStats(stats);
+      setShowDatabaseStatsModal(true);
+    } catch (error) {
+      console.error('❌ Error loading database stats:', error);
+      Alert.alert(
+        t('error'),
+        'No se pudieron cargar las estadísticas de la base de datos'
+      );
+    }
+  };
+
   const handleExportData = async () => {
     try {
       Alert.alert(
@@ -640,9 +670,9 @@ const ProfileScreen: React.FC = () => {
     try {
       console.log('🚀 Starting database import...');
       
-      // Reset database first
-      await resetDatabase();
-      console.log('🔄 Database reset complete');
+      // Nuke database completely to remove legacy tables
+      await nukeDatabase();
+      console.log('🔄 Database nuked and recreated');
       
       // Import data using DataContext method (we'll need to add this)
       const success = await importDataToDatabase(importData);
@@ -699,7 +729,7 @@ const ProfileScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await resetDatabase();
+              await nukeDatabase();
               console.log('🔄 Database reset complete, reinitializing auth...');
               
               // Reinicializar autenticación para recrear usuario demo
@@ -1241,6 +1271,13 @@ const ProfileScreen: React.FC = () => {
         {!isEditing && (
         <ProfileSection title={t('profile.dataBackup')} icon="database" onPress={closeAutoLogoutDropdown}>
           <SettingItem
+            title="Estadísticas de Datos"
+            subtitle="Ver cantidad de registros por tabla"
+            icon="chart-bar"
+            type="navigation"
+            onPress={handleShowDatabaseStats}
+          />
+          <SettingItem
             title={t('profile.exportData')}
             subtitle={t('profile.exportDataDesc')}
             icon="database-export"
@@ -1644,6 +1681,208 @@ const ProfileScreen: React.FC = () => {
                   {t('profile.about.madeWith')}
                 </Text>
               </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Estadísticas de la Base de Datos */}
+      <Modal
+        visible={showDatabaseStatsModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowDatabaseStatsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.databaseStatsModalContent}>
+            <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ fontSize: 18, fontWeight: 'bold', color: theme.colors.onSurface }}>📊 Estadísticas Datos</Text>
+              <TouchableOpacity
+                onPress={() => setShowDatabaseStatsModal(false)}
+              >
+                <MaterialCommunityIcons name="close" size={26} color={theme.colors.onSurface} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView
+              style={[styles.changelogContent]} 
+              showsVerticalScrollIndicator={true}
+              contentContainerStyle={{ padding: 20, paddingTop: 10, flexGrow: 1 }}
+              nestedScrollEnabled={true}
+            >
+              {databaseStats ? (
+                <>
+                  {/* Resumen */}
+                  <View style={{ backgroundColor: theme.colors.surface, borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}>
+                      <Text style={{ color: theme.colors.onSurface, fontSize: 14 }}>Total de registros:</Text>
+                      <Text style={{ color: theme.colors.primary, fontSize: 16, fontWeight: 'bold' }}>{databaseStats.totalRecords.toLocaleString()}</Text>
+                    </View>
+                    <View style={{ height: 1, backgroundColor: theme.colors.outline, marginVertical: 8, opacity: 0.3 }} />
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}>
+                      <Text style={{ color: theme.colors.onSurface, fontSize: 14 }}>Tamaño de base de datos:</Text>
+                      <Text style={{ color: theme.colors.primary, fontSize: 16, fontWeight: 'bold' }}>{databaseStats.databaseSize}</Text>
+                    </View>
+                  </View>
+
+                  {/* Tablas Principales */}
+                  <TouchableOpacity 
+                    onPress={() => setShowMainTables(!showMainTables)}
+                    style={{ 
+                      backgroundColor: theme.colors.surfaceVariant, 
+                      borderRadius: 8, 
+                      padding: 12,
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: 8
+                    }}
+                  >
+                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 14, fontWeight: '500' }}>📋 Tablas Principales</Text>
+                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 16 }}>{showMainTables ? '▼' : '▶'}</Text>
+                  </TouchableOpacity>
+                  
+                  {showMainTables && (
+                    <View style={{ backgroundColor: theme.colors.surface, borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                      {Object.entries(databaseStats.tables)
+                        .filter(([tableName]) => {
+                          const mainTables = ['users', 'events', 'participants', 'expenses', 'transactions', 'payments_legacy', 'settlements_legacy', 'document_views', 'splits', 'app_versions', 'sqlite_sequence', 'expense_splits'];
+                          return mainTables.includes(tableName);
+                        })
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([tableName, count], index, array) => {
+                          const friendlyNames: { [key: string]: string } = {
+                            'users': 'Usuarios',
+                            'events': 'Eventos', 
+                            'participants': 'Participantes',
+                            'expenses': 'Gastos',
+                            'transactions': 'Transacciones',
+                            'payments_legacy': 'Pagos (Legacy)',
+                            'settlements_legacy': 'Liquidaciones (Legacy)',
+                            'document_views': 'Vistas de Documentos',
+                            'expense_splits': 'Divisiones de Gastos',
+                            'splits': 'Divisiones',
+                            'app_versions': 'Versiones de App',
+                            'sqlite_sequence': 'Secuencias SQLite'
+                          };
+                          
+                          const displayName = friendlyNames[tableName] || `📄 ${tableName} (Desconocida)`;
+                          const percentage = databaseStats.totalRecords > 0 
+                            ? ((count / databaseStats.totalRecords) * 100).toFixed(1)
+                            : '0.0';
+                          
+                          return (
+                            <View key={tableName}>
+                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 }}>
+                                <Text style={{ color: theme.colors.onSurface, fontSize: 14, flex: 1 }}>{displayName}</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                  <Text style={{ color: theme.colors.primary, fontSize: 14, fontWeight: 'bold' }}>{count.toLocaleString()}</Text>
+                                  <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 12, minWidth: 40, textAlign: 'right' }}>({percentage}%)</Text>
+                                </View>
+                              </View>
+                              {index < array.length - 1 && (
+                                <View style={{ height: 1, backgroundColor: theme.colors.outline, marginVertical: 4, opacity: 0.3 }} />
+                              )}
+                            </View>
+                          );
+                        })
+                      }
+                    </View>
+                  )}
+
+                  {/* Tablas de Relación */}
+                  <TouchableOpacity 
+                    onPress={() => setShowRelationTables(!showRelationTables)}
+                    style={{ 
+                      backgroundColor: theme.colors.surfaceVariant, 
+                      borderRadius: 8, 
+                      padding: 12,
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: 8
+                    }}
+                  >
+                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 14, fontWeight: '500' }}>🔗 Tablas de Relación</Text>
+                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 16 }}>{showRelationTables ? '▼' : '▶'}</Text>
+                  </TouchableOpacity>
+                  
+                  {showRelationTables && (
+                    <View style={{ backgroundColor: theme.colors.surface, borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                      {Object.entries(databaseStats.tables)
+                        .filter(([tableName]) => {
+                          const relationTables = ['event_participants', 'participant_inclusion_rules', 'user_settings', 'user_preferences'];
+                          const mainTables = ['users', 'events', 'participants', 'expenses', 'transactions', 'payments_legacy', 'settlements_legacy', 'document_views', 'splits', 'app_versions', 'sqlite_sequence', 'expense_splits'];
+                          return relationTables.includes(tableName) || (!mainTables.includes(tableName));
+                        })
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([tableName, count], index, array) => {
+                          const friendlyNames: { [key: string]: string } = {
+                            'event_participants': 'Evento-Participantes',
+                            'participant_inclusion_rules': 'Reglas de Inclusión',
+                            'user_settings': 'Configuración de Usuario',
+                            'user_preferences': 'Preferencias de Usuario'
+                          };
+                          
+                          const displayName = friendlyNames[tableName] || `🔗 ${tableName} (Relacional)`;
+                          const percentage = databaseStats.totalRecords > 0 
+                            ? ((count / databaseStats.totalRecords) * 100).toFixed(1)
+                            : '0.0';
+                          
+                          return (
+                            <View key={tableName}>
+                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 }}>
+                                <Text style={{ color: theme.colors.onSurface, fontSize: 14, flex: 1 }}>{displayName}</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                  <Text style={{ color: theme.colors.primary, fontSize: 14, fontWeight: 'bold' }}>{count.toLocaleString()}</Text>
+                                  <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 12, minWidth: 40, textAlign: 'right' }}>({percentage}%)</Text>
+                                </View>
+                              </View>
+                              {index < array.length - 1 && (
+                                <View style={{ height: 1, backgroundColor: theme.colors.outline, marginVertical: 4, opacity: 0.3 }} />
+                              )}
+                            </View>
+                          );
+                        })
+                      }
+                    </View>
+                  )}
+
+                  {/* Información Técnica */}
+                  <TouchableOpacity 
+                    onPress={() => setShowTechInfo(!showTechInfo)}
+                    style={{ 
+                      backgroundColor: theme.colors.surfaceVariant, 
+                      borderRadius: 8, 
+                      padding: 12,
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 14 }}>ℹ️ Información técnica</Text>
+                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 16 }}>{showTechInfo ? '▼' : '▶'}</Text>
+                  </TouchableOpacity>
+                  
+                  {showTechInfo && (
+                    <View style={{ backgroundColor: theme.colors.surface, borderRadius: 8, padding: 12, marginTop: 8 }}>
+                      <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 12, lineHeight: 16 }}>
+                        • Datos del estado actual local{"\n"}
+                        • Tablas "Legacy" del sistema anterior{"\n"}
+                        • "Transacciones" unifica el nuevo sistema{"\n"}
+                        • Porcentajes calculados sobre el total
+                      </Text>
+                    </View>
+                  )}
+                </>
+              ) : (
+                <View style={[styles.aboutSection, { alignItems: 'center', paddingVertical: 40 }]}>
+                  <MaterialCommunityIcons name="loading" size={48} color={theme.colors.primary} />
+                  <Text style={[styles.aboutDescription, { marginTop: 16, textAlign: 'center' }]}>
+                    Cargando estadísticas...
+                  </Text>
+                </View>
+              )}
             </ScrollView>
           </View>
         </View>

@@ -437,6 +437,25 @@ export const createStyles = (theme: Theme) =>
       minHeight: 400,
     } as ViewStyle,
 
+    // Modal adaptativo para estadísticas de base de datos
+    databaseStatsModalContent: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: 16,
+      padding: 0,
+      width: '90%',
+      maxHeight: '85%',
+      flexShrink: 1, // Permite que se reduzca si es necesario
+      // Removemos minHeight y height fijo para que sea adaptativo
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      elevation: 5,
+    } as ViewStyle,
+
     changelogHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -457,9 +476,9 @@ export const createStyles = (theme: Theme) =>
     } as ViewStyle,
 
     changelogContent: {
-      flexGrow: 1,
       paddingHorizontal: 4,
       paddingBottom: 8,
+      maxHeight: undefined, // Permitir que se expanda según el contenido
     } as ViewStyle,
 
     versionBlock: {

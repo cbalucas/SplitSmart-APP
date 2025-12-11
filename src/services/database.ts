@@ -1,4 +1,5 @@
 import * as SQLite from 'expo-sqlite';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Event, Participant, Expense, EventParticipant, Split, Payment } from '../types';
 
 class DatabaseService {
@@ -55,14 +56,13 @@ class DatabaseService {
       console.log('🧪 Testing database connection...');
       await this.db.getAllAsync('SELECT 1 as test');
       
-      // Verify critical columns exist
+      // Verify new unified table exists
       console.log('🔍 Verifying database schema...');
-      const paymentsInfo = await this.db.getAllAsync('PRAGMA table_info(payments)');
-      const hasReceiptImage = paymentsInfo.some((col: any) => col.name === 'receipt_image');
+      const transactionsInfo = await this.db.getAllAsync('PRAGMA table_info(transactions)');
       
-      if (!hasReceiptImage) {
-        console.log('⚠️ Missing receipt_image column in payments, forcing re-migration...');
-        await this.runMigrations();
+      if (transactionsInfo.length === 0) {
+        console.log('⚠️ Transactions table missing, running migrations...');
+        await this.createTables();
       }
       
       this.isInitialized = true;
@@ -134,21 +134,7 @@ class DatabaseService {
         }
       }
 
-      // Migration: Add receipt_image column to payments table if it doesn't exist
-      try {
-        // Check if column exists first
-        const paymentsInfo = await this.db.getAllAsync('PRAGMA table_info(payments)');
-        const hasReceiptImageColumn = paymentsInfo.some((col: any) => col.name === 'receipt_image');
-        
-        if (!hasReceiptImageColumn) {
-          await this.db.execAsync('ALTER TABLE payments ADD COLUMN receipt_image TEXT');
-          console.log('✅ Migration: Added receipt_image column to payments table');
-        } else {
-          console.log('⚠️ Column receipt_image already exists in payments table');
-        }
-      } catch (error: any) {
-        console.error('❌ Error in receipt_image migration for payments:', error);
-      }
+      // Migration obsoleta removida - payments table ya no existe, ahora se usa transactions
 
       // Migration: Add skip_password column to users table if it doesn't exist
       try {
@@ -325,14 +311,21 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      // Drop all existing tables
-      await this.db.execAsync('DROP TABLE IF EXISTS payments');
+      // Drop all existing tables including problematic legacy ones
+      await this.db.execAsync('DROP TABLE IF EXISTS transactions');
       await this.db.execAsync('DROP TABLE IF EXISTS splits');
       await this.db.execAsync('DROP TABLE IF EXISTS expenses');
       await this.db.execAsync('DROP TABLE IF EXISTS event_participants');
       await this.db.execAsync('DROP TABLE IF EXISTS participants');
       await this.db.execAsync('DROP TABLE IF EXISTS events');
       await this.db.execAsync('DROP TABLE IF EXISTS users');
+      await this.db.execAsync('DROP TABLE IF EXISTS app_versions');
+      // Drop problematic legacy tables
+      await this.db.execAsync('DROP TABLE IF EXISTS settlements_legacy');
+      await this.db.execAsync('DROP TABLE IF EXISTS payments_legacy');
+      await this.db.execAsync('DROP TABLE IF EXISTS document_views');
+      await this.db.execAsync('DROP TABLE IF EXISTS expense_splits');
+      await this.db.execAsync('DROP TABLE IF EXISTS participant_inclusion_rules');
       
       console.log('🗑️ Dropped existing tables');
       await this.createTables();
@@ -565,29 +558,9 @@ class DatabaseService {
         )
       `);
 
-      // Payments table
+      // Transactions table unificada (liquidaciones + pagos)
       await this.db.execAsync(`
-        CREATE TABLE IF NOT EXISTS payments (
-          id TEXT PRIMARY KEY,
-          event_id TEXT NOT NULL,
-          from_participant_id TEXT NOT NULL,
-          to_participant_id TEXT NOT NULL,
-          amount REAL NOT NULL,
-          date TEXT NOT NULL,
-          notes TEXT,
-          receipt_image TEXT,
-          is_confirmed INTEGER DEFAULT 0,
-          created_at TEXT,
-          updated_at TEXT,
-          FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
-          FOREIGN KEY (from_participant_id) REFERENCES participants (id),
-          FOREIGN KEY (to_participant_id) REFERENCES participants (id)
-        )
-      `);
-
-      // Settlements table (liquidaciones)
-      await this.db.execAsync(`
-        CREATE TABLE IF NOT EXISTS settlements (
+        CREATE TABLE IF NOT EXISTS transactions (
           id TEXT PRIMARY KEY,
           event_id TEXT NOT NULL,
           from_participant_id TEXT NOT NULL,
@@ -595,16 +568,30 @@ class DatabaseService {
           to_participant_id TEXT NOT NULL,
           to_participant_name TEXT NOT NULL,
           amount REAL NOT NULL,
-          is_paid INTEGER DEFAULT 0,
+          
+          -- TIPO Y ESTADO UNIFICADO
+          type TEXT NOT NULL CHECK (type IN ('calculated', 'manual')) DEFAULT 'calculated',
+          status TEXT NOT NULL CHECK (status IN ('pending', 'confirmed', 'cancelled')) DEFAULT 'pending',
+          
+          -- METADATOS
+          date TEXT NOT NULL,
+          notes TEXT,
           receipt_image TEXT,
-          paid_at TEXT,
+          
+          -- AUDITORIA
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL,
+          confirmed_at TEXT,
+          
+          -- RELACIONES
           FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
           FOREIGN KEY (from_participant_id) REFERENCES participants (id),
           FOREIGN KEY (to_participant_id) REFERENCES participants (id)
         )
       `);
+
+      // Migrar datos existentes si existen las tablas anteriores
+      await this.migrateOldTablesToTransactions();
 
       // Users table for profile data
       await this.db.execAsync(`
@@ -652,7 +639,7 @@ class DatabaseService {
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_event_participants_event_id ON event_participants(event_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_expenses_event_id ON expenses(event_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_splits_expense_id ON splits(expense_id)`);
-      await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_payments_event_id ON payments(event_id)`);
+      await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_transactions_event_id ON transactions(event_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_app_versions_current ON app_versions(is_current)`);
 
       console.log('✅ All tables and indexes created successfully');
@@ -763,7 +750,7 @@ class DatabaseService {
 
     try {
       // Eliminar en orden por dependencias
-      await this.db.runAsync('DELETE FROM payments WHERE event_id = ?', [id]);
+      await this.db.runAsync('DELETE FROM transactions WHERE event_id = ?', [id]);
       await this.db.runAsync('DELETE FROM splits WHERE expense_id IN (SELECT id FROM expenses WHERE event_id = ?)', [id]);
       await this.db.runAsync('DELETE FROM expenses WHERE event_id = ?', [id]);
       await this.db.runAsync('DELETE FROM event_participants WHERE event_id = ?', [id]);
@@ -1318,32 +1305,59 @@ class DatabaseService {
     }
   }
 
-  // Payments CRUD
-  async createPayment(payment: Payment): Promise<void> {
+  // Transactions CRUD (Unificado)
+  async createTransaction(transaction: any): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
       await this.db.runAsync(
-        `INSERT INTO payments (id, event_id, from_participant_id, to_participant_id, amount, date, notes, receipt_image, is_confirmed, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO transactions (id, event_id, from_participant_id, from_participant_name, to_participant_id, to_participant_name, 
+         amount, type, status, date, notes, receipt_image, created_at, updated_at, confirmed_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          payment.id,
-          payment.eventId,
-          payment.fromParticipantId,
-          payment.toParticipantId,
-          payment.amount,
-          payment.date,
-          payment.notes || null,
-          payment.receiptImage || null,
-          payment.isConfirmed ? 1 : 0,
-          payment.createdAt || new Date().toISOString(),
-          payment.updatedAt || new Date().toISOString()
+          transaction.id,
+          transaction.eventId,
+          transaction.fromParticipantId,
+          transaction.fromParticipantName,
+          transaction.toParticipantId,
+          transaction.toParticipantName,
+          transaction.amount,
+          transaction.type || 'manual',
+          transaction.status || 'pending',
+          transaction.date || new Date().toISOString(),
+          transaction.notes || null,
+          transaction.receiptImage || null,
+          transaction.createdAt || new Date().toISOString(),
+          transaction.updatedAt || new Date().toISOString(),
+          transaction.status === 'confirmed' ? (transaction.confirmedAt || transaction.date) : null
         ]
       );
+      console.log('✅ Transaction created successfully');
     } catch (error) {
-      console.error('❌ Error creating payment:', error);
+      console.error('❌ Error creating transaction:', error);
       throw error;
     }
+  }
+
+  // Método legacy para compatibilidad
+  async createPayment(payment: Payment): Promise<void> {
+    const transaction = {
+      id: payment.id,
+      eventId: payment.eventId,
+      fromParticipantId: payment.fromParticipantId,
+      fromParticipantName: 'Manual Payment',
+      toParticipantId: payment.toParticipantId,
+      toParticipantName: 'Manual Payment',
+      amount: payment.amount,
+      type: 'manual',
+      status: payment.isConfirmed ? 'confirmed' : 'pending',
+      date: payment.date,
+      notes: payment.notes,
+      receiptImage: payment.receiptImage,
+      createdAt: payment.createdAt,
+      updatedAt: payment.updatedAt
+    };
+    await this.createTransaction(transaction);
   }
 
   async getPaymentsByEvent(eventId: string): Promise<Payment[]> {
@@ -1355,8 +1369,8 @@ class DatabaseService {
     try {
       console.log(`📥 Getting payments for event: ${eventId}`);
       const result = await this.db.getAllAsync(
-        'SELECT * FROM payments WHERE event_id = ? ORDER BY date DESC',
-        [eventId]
+        'SELECT * FROM transactions WHERE event_id = ? AND type = ? ORDER BY date DESC',
+        [eventId, 'manual']
       );
       
       console.log(`✅ Found ${result.length} payments for event ${eventId}`);
@@ -1370,7 +1384,7 @@ class DatabaseService {
         date: row.date,
         notes: row.notes,
         receiptImage: row.receipt_image,
-        isConfirmed: row.is_confirmed === 1,
+        isConfirmed: row.status === 'confirmed',
         createdAt: row.created_at,
         updatedAt: row.updated_at
       }));
@@ -1379,6 +1393,51 @@ class DatabaseService {
       console.error('❌ Event ID:', eventId);
       console.error('❌ Database state:', this.db ? 'initialized' : 'null');
       return []; // Return empty array instead of throwing
+    }
+  }
+
+  async getTransactionsByEvent(eventId: string, type?: 'calculated' | 'manual'): Promise<any[]> {
+    if (!this.db || !this.isInitialized) {
+      console.error('❌ Database not ready in getTransactionsByEvent. Initialized:', this.isInitialized);
+      return [];
+    }
+
+    try {
+      let query = 'SELECT * FROM transactions WHERE event_id = ?';
+      let params = [eventId];
+      
+      if (type) {
+        query += ' AND type = ?';
+        params.push(type);
+      }
+      
+      query += ' ORDER BY created_at DESC';
+      
+      const transactions = await this.db.getAllAsync(query, params);
+      
+      return transactions.map((t: any) => ({
+        id: t.id,
+        eventId: t.event_id,
+        fromParticipantId: t.from_participant_id,
+        fromParticipantName: t.from_participant_name,
+        toParticipantId: t.to_participant_id,
+        toParticipantName: t.to_participant_name,
+        amount: t.amount,
+        type: t.type,
+        status: t.status,
+        date: t.date,
+        notes: t.notes,
+        receiptImage: t.receipt_image,
+        createdAt: t.created_at,
+        updatedAt: t.updated_at,
+        confirmedAt: t.confirmed_at,
+        // Campos legacy para compatibilidad
+        isConfirmed: t.status === 'confirmed',
+        isPaid: t.status === 'confirmed'
+      }));
+    } catch (error) {
+      console.error('❌ Error getting transactions by event:', error);
+      return [];
     }
   }
 
@@ -1398,8 +1457,15 @@ class DatabaseService {
         values.push(updates.receiptImage);
       }
       if (updates.isConfirmed !== undefined) {
-        updateFields.push('is_confirmed = ?');
-        values.push(updates.isConfirmed ? 1 : 0);
+        updateFields.push('status = ?');
+        values.push(updates.isConfirmed ? 'confirmed' : 'pending');
+        if (updates.isConfirmed) {
+          updateFields.push('confirmed_at = ?');
+          values.push(new Date().toISOString());
+        } else {
+          updateFields.push('confirmed_at = ?');
+          values.push(null);
+        }
       }
 
       updateFields.push('updated_at = ?');
@@ -1407,7 +1473,7 @@ class DatabaseService {
       values.push(paymentId);
 
       await this.db.runAsync(
-        `UPDATE payments SET ${updateFields.join(', ')} WHERE id = ?`,
+        `UPDATE transactions SET ${updateFields.join(', ')} WHERE id = ? AND type = 'manual'`,
         values
       );
     } catch (error) {
@@ -1416,69 +1482,7 @@ class DatabaseService {
     }
   }
 
-  // Settlements CRUD
-  async createSettlement(settlement: any): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
-
-    try {
-      await this.db.runAsync(
-        `INSERT INTO settlements (id, event_id, from_participant_id, from_participant_name, to_participant_id, to_participant_name, amount, is_paid, receipt_image, paid_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          settlement.id,
-          settlement.eventId,
-          settlement.fromParticipantId,
-          settlement.fromParticipantName,
-          settlement.toParticipantId,
-          settlement.toParticipantName,
-          settlement.amount,
-          settlement.isPaid ? 1 : 0,
-          settlement.receiptImage || null,
-          settlement.paidAt || null,
-          settlement.createdAt || new Date().toISOString(),
-          settlement.updatedAt || new Date().toISOString()
-        ]
-      );
-      console.log('✅ Settlement created successfully');
-    } catch (error) {
-      console.error('❌ Error creating settlement:', error);
-      throw error;
-    }
-  }
-
-  async getSettlementsByEvent(eventId: string): Promise<any[]> {
-    if (!this.db || !this.isInitialized) {
-      console.error('❌ Database not ready in getSettlementsByEvent');
-      return [];
-    }
-
-    try {
-      const result = await this.db.getAllAsync(
-        'SELECT * FROM settlements WHERE event_id = ? ORDER BY created_at ASC',
-        [eventId]
-      );
-      
-      return result.map((row: any) => ({
-        id: row.id,
-        eventId: row.event_id,
-        fromParticipantId: row.from_participant_id,
-        fromParticipantName: row.from_participant_name,
-        toParticipantId: row.to_participant_id,
-        toParticipantName: row.to_participant_name,
-        amount: row.amount,
-        isPaid: row.is_paid === 1,
-        receiptImage: row.receipt_image,
-        paidAt: row.paid_at,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at
-      }));
-    } catch (error) {
-      console.error('❌ Error getting settlements by event:', error);
-      return [];
-    }
-  }
-
-  async updateSettlement(settlementId: string, updates: any): Promise<void> {
+  async updateTransaction(transactionId: string, updates: any): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
@@ -1489,17 +1493,29 @@ class DatabaseService {
         updateFields.push('amount = ?');
         values.push(updates.amount);
       }
-      if (updates.isPaid !== undefined) {
-        updateFields.push('is_paid = ?');
-        values.push(updates.isPaid ? 1 : 0);
+      if (updates.status !== undefined) {
+        updateFields.push('status = ?');
+        values.push(updates.status);
+        // Auto-set confirmed_at when status becomes confirmed
+        if (updates.status === 'confirmed') {
+          updateFields.push('confirmed_at = ?');
+          values.push(updates.confirmedAt || new Date().toISOString());
+        } else if (updates.status === 'pending' || updates.status === 'cancelled') {
+          updateFields.push('confirmed_at = ?');
+          values.push(null);
+        }
+      }
+      if (updates.date !== undefined) {
+        updateFields.push('date = ?');
+        values.push(updates.date);
+      }
+      if (updates.notes !== undefined) {
+        updateFields.push('notes = ?');
+        values.push(updates.notes || null);
       }
       if (updates.receiptImage !== undefined) {
         updateFields.push('receipt_image = ?');
         values.push(updates.receiptImage || null);
-      }
-      if (updates.paidAt !== undefined) {
-        updateFields.push('paid_at = ?');
-        values.push(updates.paidAt || null);
       }
       if (updates.fromParticipantName !== undefined) {
         updateFields.push('from_participant_name = ?');
@@ -1512,25 +1528,83 @@ class DatabaseService {
 
       updateFields.push('updated_at = ?');
       values.push(new Date().toISOString());
-      values.push(settlementId);
+      values.push(transactionId);
 
       await this.db.runAsync(
-        `UPDATE settlements SET ${updateFields.join(', ')} WHERE id = ?`,
+        `UPDATE transactions SET ${updateFields.join(', ')} WHERE id = ?`,
         values
       );
-      console.log('✅ Settlement updated successfully');
+      console.log('✅ Transaction updated successfully');
     } catch (error) {
-      console.error('❌ Error updating settlement:', error);
+      console.error('❌ Error updating transaction:', error);
       throw error;
     }
+  }
+
+  // Settlements CRUD
+  // Método legacy para compatibilidad con settlements
+  async createSettlement(settlement: any): Promise<void> {
+    const transaction = {
+      id: settlement.id,
+      eventId: settlement.eventId,
+      fromParticipantId: settlement.fromParticipantId,
+      fromParticipantName: settlement.fromParticipantName,
+      toParticipantId: settlement.toParticipantId,
+      toParticipantName: settlement.toParticipantName,
+      amount: settlement.amount,
+      type: 'calculated',
+      status: settlement.isPaid ? 'confirmed' : 'pending',
+      date: settlement.paidAt || settlement.createdAt || new Date().toISOString(),
+      receiptImage: settlement.receiptImage,
+      createdAt: settlement.createdAt,
+      updatedAt: settlement.updatedAt,
+      confirmedAt: settlement.isPaid ? settlement.paidAt : null
+    };
+    await this.createTransaction(transaction);
+  }
+
+  // Método legacy para compatibilidad con settlements
+  async getSettlementsByEvent(eventId: string): Promise<any[]> {
+    const transactions = await this.getTransactionsByEvent(eventId, 'calculated');
+    return transactions.map(t => ({
+      id: t.id,
+      eventId: t.eventId,
+      fromParticipantId: t.fromParticipantId,
+      fromParticipantName: t.fromParticipantName,
+      toParticipantId: t.toParticipantId,
+      toParticipantName: t.toParticipantName,
+      amount: t.amount,
+      isPaid: t.status === 'confirmed',
+      receiptImage: t.receiptImage,
+      paidAt: t.confirmedAt,
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt
+    }));
+  }
+
+  // Método legacy para compatibilidad con settlements  
+  async updateSettlement(settlementId: string, updates: any): Promise<void> {
+    const transactionUpdates: any = {};
+    
+    if (updates.amount !== undefined) transactionUpdates.amount = updates.amount;
+    if (updates.isPaid !== undefined) {
+      transactionUpdates.status = updates.isPaid ? 'confirmed' : 'pending';
+      transactionUpdates.confirmedAt = updates.isPaid ? (updates.paidAt || new Date().toISOString()) : null;
+    }
+    if (updates.receiptImage !== undefined) transactionUpdates.receiptImage = updates.receiptImage;
+    if (updates.paidAt !== undefined) transactionUpdates.confirmedAt = updates.paidAt;
+    if (updates.fromParticipantName !== undefined) transactionUpdates.fromParticipantName = updates.fromParticipantName;
+    if (updates.toParticipantName !== undefined) transactionUpdates.toParticipantName = updates.toParticipantName;
+    
+    await this.updateTransaction(settlementId, transactionUpdates);
   }
 
   async deleteSettlementsByEvent(eventId: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      await this.db.runAsync('DELETE FROM settlements WHERE event_id = ?', [eventId]);
-      console.log('✅ Settlements deleted for event');
+      await this.db.runAsync('DELETE FROM transactions WHERE event_id = ? AND type = ?', [eventId, 'calculated']);
+      console.log('✅ Calculated transactions (settlements) deleted for event');
     } catch (error) {
       console.error('❌ Error deleting settlements:', error);
       throw error;
@@ -1541,8 +1615,8 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      await this.db.runAsync('DELETE FROM settlements WHERE id = ?', [settlementId]);
-      console.log('✅ Settlement deleted successfully');
+      await this.db.runAsync('DELETE FROM transactions WHERE id = ? AND type = ?', [settlementId, 'calculated']);
+      console.log('✅ Transaction (settlement) deleted successfully');
     } catch (error) {
       console.error('❌ Error deleting settlement:', error);
       throw error;
@@ -1553,16 +1627,16 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      // Update settlements where this participant is the sender (from)
+      // Update transactions where this participant is the sender (from)
       await this.db.runAsync(
-        'UPDATE settlements SET from_participant_name = ?, updated_at = ? WHERE from_participant_id = ?',
-        [newName, new Date().toISOString(), participantId]
+        'UPDATE transactions SET from_participant_name = ?, updated_at = ? WHERE from_participant_id = ? AND type = ?',
+        [newName, new Date().toISOString(), participantId, 'calculated']
       );
 
-      // Update settlements where this participant is the receiver (to)
+      // Update transactions where this participant is the receiver (to)
       await this.db.runAsync(
-        'UPDATE settlements SET to_participant_name = ?, updated_at = ? WHERE to_participant_id = ?',
-        [newName, new Date().toISOString(), participantId]
+        'UPDATE transactions SET to_participant_name = ?, updated_at = ? WHERE to_participant_id = ? AND type = ?',
+        [newName, new Date().toISOString(), participantId, 'calculated']
       );
 
       console.log(`✅ Settlement names updated for participant ${participantId}`);
@@ -1573,17 +1647,89 @@ class DatabaseService {
   }
 
   // Utility methods
-  async clearAllData(): Promise<void> {
+  async clearAllData(includeVersions: boolean = false): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      await this.db.execAsync('DELETE FROM payments');
-      await this.db.execAsync('DELETE FROM splits');
-      await this.db.execAsync('DELETE FROM expenses');
-      await this.db.execAsync('DELETE FROM event_participants');
-      await this.db.execAsync('DELETE FROM participants');
-      await this.db.execAsync('DELETE FROM events');
-      console.log('✅ All data cleared successfully');
+      // Obtener todas las tablas de datos (excluyendo solo system tables de SQLite)
+      const tables = await this.db.getAllAsync(
+        `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`
+      );
+
+      console.log('📋 Tables found in database:', tables.map((t: any) => t.name).join(', '));
+      console.log(`🗑️ Clear mode: ${includeVersions ? 'Including app versions' : 'Preserving app versions'}`);
+
+      // Borrar datos de cada tabla encontrada
+      let clearedCount = 0;
+      for (const table of tables as any[]) {
+        const tableName = table.name;
+        try {
+          // Verificar si la tabla existe y es accesible
+          const tableInfo = await this.db.getAllAsync(`PRAGMA table_info(${tableName})`);
+          
+          if (!tableInfo || tableInfo.length === 0) {
+            console.warn(`⚠️ Table ${tableName} appears to not exist or be inaccessible, skipping...`);
+            continue;
+          }
+          
+          // Verificar si la tabla tiene datos antes de borrar
+          const countResult = await this.db.getFirstAsync(
+            `SELECT COUNT(*) as count FROM ${tableName}`
+          ) as any;
+          const recordCount = countResult?.count || 0;
+          
+          if (recordCount > 0) {
+            // Manejar app_versions según el parámetro
+            if (tableName === 'app_versions' && !includeVersions) {
+              console.log(`ℹ️ Preserving app_versions table (${recordCount} records) - contains version history`);
+            } else {
+              // Intentar borrar con DELETE first
+              try {
+                await this.db.execAsync(`DELETE FROM ${tableName}`);
+                console.log(`🗑️ Cleared table: ${tableName} (${recordCount} records deleted)`);
+                clearedCount++;
+              } catch (deleteError) {
+                console.warn(`⚠️ DELETE failed for ${tableName}, trying alternative method:`, deleteError);
+                try {
+                  // Método alternativo
+                  await this.db.execAsync(`DELETE FROM ${tableName}`);
+                  await this.db.execAsync(`UPDATE sqlite_sequence SET seq = 0 WHERE name = '${tableName}'`);
+                  console.log(`🗑️ Force cleared table: ${tableName}`);
+                  clearedCount++;
+                } catch (truncateError) {
+                  console.error(`❌ Could not clear table ${tableName} with any method:`, truncateError);
+                }
+              }
+            }
+          } else {
+            console.log(`ℹ️ Table ${tableName} was already empty`);
+          }
+        } catch (error) {
+          console.warn(`⚠️ Could not access table ${tableName}:`, error);
+        }
+      }
+      
+      // Reiniciar secuencias de autoincremento
+      try {
+        await this.db.execAsync('DELETE FROM sqlite_sequence');
+        console.log('🔄 Reset autoincrement sequences');
+      } catch (error) {
+        console.warn('⚠️ Could not reset sequences:', error);
+      }
+      
+      // After clearing data, also drop problematic legacy tables that keep regenerating
+      try {
+        console.log('🗑️ Removing problematic legacy tables...');
+        await this.db.execAsync('DROP TABLE IF EXISTS settlements_legacy');
+        await this.db.execAsync('DROP TABLE IF EXISTS document_views'); 
+        await this.db.execAsync('DROP TABLE IF EXISTS expense_splits');
+        await this.db.execAsync('DROP TABLE IF EXISTS participant_inclusion_rules');
+        console.log('✅ Problematic legacy tables removed');
+      } catch (error) {
+        console.warn('⚠️ Could not remove legacy tables:', error);
+      }
+
+      console.log(`✅ All data cleared successfully. ${clearedCount} tables processed.`);
     } catch (error) {
       console.error('❌ Error clearing data:', error);
       throw error;
@@ -1602,6 +1748,39 @@ class DatabaseService {
     }
   }
 
+  async nukeDatabase(): Promise<void> {
+    try {
+      console.log('💥 Nuking database - complete destruction and recreation...');
+      
+      // Close current database connection
+      if (this.db) {
+        await this.db.closeAsync();
+        this.db = null;
+      }
+
+      // Delete the entire database file
+      const dbPath = `${FileSystem.documentDirectory}SQLite/splitsmart.db`;
+      
+      try {
+        const fileInfo = await FileSystem.getInfoAsync(dbPath);
+        if (fileInfo.exists) {
+          await FileSystem.deleteAsync(dbPath);
+          console.log('💥 Database file deleted');
+        }
+      } catch (deleteError) {
+        console.warn('⚠️ Could not delete database file:', deleteError);
+      }
+
+      // Recreate from scratch
+      console.log('🔄 Recreating database from scratch...');
+      await this.init();
+      console.log('✅ Database nuked and recreated successfully');
+    } catch (error) {
+      console.error('❌ Error nuking database:', error);
+      throw error;
+    }
+  }
+
   async exportData(): Promise<string> {
     if (!this.db) throw new Error('Database not initialized');
 
@@ -1613,20 +1792,48 @@ class DatabaseService {
         events, 
         participants, 
         expenses, 
-        payments,
+        transactions,
         eventParticipants,
-        splits,
-        settlements
+        splits
       ] = await Promise.all([
         this.getAllUsers(),
         this.getEvents(),
         this.getParticipants(),
         this.getAllExpenses(),
-        this.getAllPayments(),
+        this.getAllTransactions(),
         this.getAllEventParticipants(),
-        this.getAllSplits(),
-        this.getAllSettlements()
+        this.getAllSplits()
       ]);
+
+      // Para compatibilidad con importación, separar transactions en payments y settlements
+      const payments = transactions.filter(t => t.type === 'manual').map(t => ({
+        id: t.id,
+        eventId: t.eventId,
+        fromParticipantId: t.fromParticipantId,
+        toParticipantId: t.toParticipantId,
+        amount: t.amount,
+        date: t.date,
+        notes: t.notes,
+        receiptImage: t.receiptImage,
+        isConfirmed: t.status === 'confirmed',
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt
+      }));
+
+      const settlements = transactions.filter(t => t.type === 'calculated').map(t => ({
+        id: t.id,
+        event_id: t.eventId,
+        from_participant_id: t.fromParticipantId,
+        from_participant_name: t.fromParticipantName,
+        to_participant_id: t.toParticipantId,
+        to_participant_name: t.toParticipantName,
+        amount: t.amount,
+        is_paid: t.status === 'confirmed' ? 1 : 0,
+        receipt_image: t.receiptImage,
+        paid_at: t.confirmedAt,
+        created_at: t.createdAt,
+        updated_at: t.updatedAt
+      }));
 
       // Calculate statistics
       const totalAmount = expenses.reduce((sum, expense) => sum + expense.amount, 0);
@@ -1647,18 +1854,23 @@ class DatabaseService {
           events,
           participants,
           expenses,
+          transactions, // Nueva tabla unificada
+          
+          // Legacy format para compatibilidad
           payments,
+          settlements,
           
           // Relationships
           event_participants: eventParticipants,
           splits,
-          settlements,
         },
         statistics: {
           totalEvents: events.length,
           totalParticipants: participants.length,
           totalExpenses: expenses.length,
+          totalTransactions: transactions.length,
           totalPayments: payments.length,
+          totalSettlements: settlements.length,
           totalAmount: totalAmount,
           friendsCount: participants.filter(p => p.participantType === 'friend').length,
           activeEvents: events.filter(e => e.status === 'active').length,
@@ -1670,6 +1882,7 @@ class DatabaseService {
             events: events.length,
             participants: participants.length,
             expenses: expenses.length,
+            transactions: transactions.length,
             payments: payments.length,
             event_participants: eventParticipants.length,
             splits: splits.length,
@@ -1720,7 +1933,7 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      const result = await this.db.getAllAsync('SELECT * FROM payments');
+      const result = await this.db.getAllAsync('SELECT * FROM transactions WHERE type = \'manual\'');
       return result.map((row: any) => ({
         id: row.id,
         eventId: row.event_id,
@@ -1730,12 +1943,40 @@ class DatabaseService {
         date: row.date,
         notes: row.notes,
         receiptImage: row.receipt_image,
-        isConfirmed: row.is_confirmed === 1,
+        isConfirmed: row.status === 'confirmed',
         createdAt: row.created_at,
         updatedAt: row.updated_at
       }));
     } catch (error) {
       console.error('❌ Error getting all payments:', error);
+      throw error;
+    }
+  }
+
+  private async getAllTransactions(): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const result = await this.db.getAllAsync('SELECT * FROM transactions');
+      return result.map((row: any) => ({
+        id: row.id,
+        eventId: row.event_id,
+        fromParticipantId: row.from_participant_id,
+        fromParticipantName: row.from_participant_name,
+        toParticipantId: row.to_participant_id,
+        toParticipantName: row.to_participant_name,
+        amount: row.amount,
+        type: row.type,
+        status: row.status,
+        date: row.date,
+        notes: row.notes,
+        receiptImage: row.receipt_image,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        confirmedAt: row.confirmed_at
+      }));
+    } catch (error) {
+      console.error('❌ Error getting all transactions:', error);
       throw error;
     }
   }
@@ -1816,7 +2057,7 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      const result = await this.db.getAllAsync('SELECT * FROM settlements');
+      const result = await this.db.getAllAsync('SELECT * FROM transactions WHERE type = \'calculated\'');
       return result.map((row: any) => ({
         id: row.id,
         event_id: row.event_id,
@@ -1825,9 +2066,9 @@ class DatabaseService {
         to_participant_id: row.to_participant_id,
         to_participant_name: row.to_participant_name,
         amount: row.amount,
-        is_paid: row.is_paid === 1,
+        is_paid: row.status === 'confirmed' ? 1 : 0,
         receipt_image: row.receipt_image,
-        paid_at: row.paid_at,
+        paid_at: row.confirmed_at,
         created_at: row.created_at,
         updated_at: row.updated_at
       }));
@@ -2347,6 +2588,253 @@ class DatabaseService {
     } catch (error) {
       console.error('❌ Error updating user privacy:', error);
       throw error;
+    }
+  }
+
+  // Función de diagnóstico para identificar tablas problemáticas
+  async diagnoseTables(): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      console.log('🔍 === DIAGNÓSTICO DE TABLAS ===');
+      
+      // Obtener tablas del schema
+      const tables = await this.db.getAllAsync(
+        `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`
+      );
+      
+      console.log('📋 Tablas encontradas en schema:', tables.map((t: any) => t.name));
+      
+      // Verificar cada tabla individualmente
+      for (const table of tables as any[]) {
+        const tableName = table.name;
+        try {
+          // Verificar estructura
+          const columns = await this.db.getAllAsync(`PRAGMA table_info(${tableName})`);
+          console.log(`🏗️ ${tableName}: ${columns.length} columnas`);
+          
+          // Verificar datos
+          const count = await this.db.getFirstAsync(`SELECT COUNT(*) as count FROM ${tableName}`) as any;
+          console.log(`📊 ${tableName}: ${count?.count || 0} registros`);
+          
+        } catch (error) {
+          console.error(`❌ Error con tabla ${tableName}:`, error);
+        }
+      }
+      
+      console.log('🔍 === FIN DIAGNÓSTICO ===');
+    } catch (error) {
+      console.error('❌ Error en diagnóstico:', error);
+    }
+  }
+
+  async getDatabaseStats(): Promise<{
+    tables: { [tableName: string]: number };
+    totalRecords: number;
+    databaseSize: string;
+  }> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const stats: { [tableName: string]: number } = {};
+      let totalRecords = 0;
+
+      // Obtener todas las tablas existentes
+      const tables = await this.db.getAllAsync(
+        `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`
+      );
+
+      console.log('📋 Database tables found:', tables.map((t: any) => t.name).join(', '));
+
+      // Contar registros en cada tabla
+      for (const table of tables as any[]) {
+        const tableName = table.name;
+        try {
+          // Verificar primero que la tabla existe y es accesible
+          const tableInfo = await this.db.getAllAsync(
+            `PRAGMA table_info(${tableName})`
+          );
+          
+          if (tableInfo && tableInfo.length > 0) {
+            const result = await this.db.getFirstAsync(
+              `SELECT COUNT(*) as count FROM ${tableName}`
+            ) as any;
+            
+            const count = result?.count || 0;
+            stats[tableName] = count;
+            
+            // Para app_versions, mostrar información más detallada
+            if (tableName === 'app_versions' && count > 0) {
+              const versions = await this.db.getAllAsync(
+                `SELECT DISTINCT version FROM app_versions ORDER BY version`
+              ) as any[];
+              console.log(`📱 App versions in database: ${versions.map(v => v.version).join(', ')}`);
+            }
+            
+            totalRecords += count;
+            
+            if (count > 0) {
+              console.log(`📊 Table ${tableName}: ${count} records`);
+            }
+          } else {
+            console.warn(`⚠️ Table ${tableName} appears to be empty or inaccessible`);
+            stats[tableName] = 0;
+          }
+        } catch (error) {
+          console.warn(`⚠️ Error accessing table ${tableName}:`, error);
+          stats[tableName] = 0;
+        }
+      }
+
+      // Calcular tamaño aproximado de la base de datos
+      let databaseSize = '< 1 MB';
+      try {
+        const sizeResult = await this.db.getFirstAsync(
+          `SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()`
+        ) as any;
+        
+        if (sizeResult?.size) {
+          const sizeInBytes = sizeResult.size;
+          const sizeInMB = sizeInBytes / (1024 * 1024);
+          
+          if (sizeInMB >= 1) {
+            databaseSize = `${sizeInMB.toFixed(2)} MB`;
+          } else {
+            const sizeInKB = sizeInBytes / 1024;
+            databaseSize = `${sizeInKB.toFixed(1)} KB`;
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Error calculating database size:', error);
+      }
+
+      console.log('📊 Database statistics:', { stats, totalRecords, databaseSize });
+      return {
+        tables: stats,
+        totalRecords,
+        databaseSize
+      };
+    } catch (error) {
+      console.error('❌ Error getting database stats:', error);
+      throw error;
+    }
+  }
+
+  // MIGRACIÓN DE DATOS A TABLA UNIFICADA
+  async migrateOldTablesToTransactions(): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      console.log('🔄 Starting migration to unified transactions table...');
+
+      // Verificar si las tablas anteriores existen
+      const settlementsExists = await this.db.getFirstAsync(
+        `SELECT name FROM sqlite_master WHERE type='table' AND name='settlements'`
+      );
+      
+      const paymentsExists = await this.db.getFirstAsync(
+        `SELECT name FROM sqlite_master WHERE type='table' AND name='payments'`
+      );
+
+      if (!settlementsExists && !paymentsExists) {
+        console.log('✅ No old tables found, migration not needed');
+        return;
+      }
+
+      let migratedSettlements = 0;
+      let migratedPayments = 0;
+
+      // Migrar settlements existentes
+      if (settlementsExists) {
+        const existingSettlements = await this.db.getAllAsync(
+          `SELECT * FROM settlements`
+        ).catch(() => []);
+
+        for (const settlement of existingSettlements as any[]) {
+          await this.db.runAsync(
+            `INSERT OR IGNORE INTO transactions (id, event_id, from_participant_id, from_participant_name, 
+             to_participant_id, to_participant_name, amount, type, status, date, receipt_image, 
+             created_at, updated_at, confirmed_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'calculated', ?, ?, ?, ?, ?, ?)`,
+            [
+              settlement.id,
+              settlement.event_id,
+              settlement.from_participant_id,
+              settlement.from_participant_name,
+              settlement.to_participant_id,
+              settlement.to_participant_name,
+              settlement.amount,
+              settlement.is_paid ? 'confirmed' : 'pending',
+              settlement.paid_at || settlement.created_at,
+              settlement.receipt_image,
+              settlement.created_at,
+              settlement.updated_at,
+              settlement.is_paid ? settlement.paid_at : null
+            ]
+          );
+        }
+        
+        migratedSettlements = existingSettlements.length;
+      }
+
+      // Migrar payments existentes
+      if (paymentsExists) {
+        const existingPayments = await this.db.getAllAsync(
+          `SELECT * FROM payments`
+        ).catch(() => []);
+
+        for (const payment of existingPayments as any[]) {
+          // Obtener nombres de participantes
+          const fromParticipant = await this.db.getFirstAsync(
+            `SELECT name FROM participants WHERE id = ?`,
+            [payment.from_participant_id]
+          ).catch(() => null) as any;
+          
+          const toParticipant = await this.db.getFirstAsync(
+            `SELECT name FROM participants WHERE id = ?`,
+            [payment.to_participant_id]
+          ).catch(() => null) as any;
+
+          await this.db.runAsync(
+            `INSERT OR IGNORE INTO transactions (id, event_id, from_participant_id, from_participant_name, 
+             to_participant_id, to_participant_name, amount, type, status, date, notes, receipt_image, 
+             created_at, updated_at, confirmed_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'manual', ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              payment.id,
+              payment.event_id,
+              payment.from_participant_id,
+              fromParticipant?.name || 'Participante',
+              payment.to_participant_id,
+              toParticipant?.name || 'Participante',
+              payment.amount,
+              payment.is_confirmed ? 'confirmed' : 'pending',
+              payment.date,
+              payment.notes,
+              payment.receipt_image,
+              payment.created_at,
+              payment.updated_at,
+              payment.is_confirmed ? payment.date : null
+            ]
+          );
+        }
+        
+        migratedPayments = existingPayments.length;
+        
+        // Eliminar tabla payments después de migrar
+        await this.db.execAsync(`DROP TABLE IF EXISTS payments`);
+      }
+
+      // Eliminar tabla settlements después de migrar
+      if (settlementsExists && migratedSettlements > 0) {
+        await this.db.execAsync(`DROP TABLE IF EXISTS settlements`);
+      }
+
+      console.log(`✅ Migration completed: ${migratedSettlements} settlements + ${migratedPayments} payments → transactions`);
+    } catch (error) {
+      console.error('❌ Error during migration:', error);
+      // No lanzar error para no bloquear la inicialización
+      console.log('⚠️ Migration failed, but continuing with empty transactions table');
     }
   }
 }
