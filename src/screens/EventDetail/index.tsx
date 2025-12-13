@@ -99,7 +99,8 @@ export default function EventDetailScreen() {
   const { balances, settlements, eventStats } = useCalculations(
     eventParticipants,
     eventExpenses,
-    eventSplits
+    eventSplits,
+    eventPayments
   );
 
   const loadEventData = useCallback(async () => {
@@ -147,9 +148,16 @@ export default function EventDetailScreen() {
       const currentDbSettlements = await databaseService.getSettlementsByEvent(eventId);
       
       // Crear un mapa de las liquidaciones existentes por clave compuesta
+      // Solo considerar settlements NO pagados para actualización, los pagados no deben modificarse
       const existingSettlementsMap = new Map(
-        currentDbSettlements.map((s: Settlement) => [`${s.fromParticipantId}_${s.toParticipantId}`, s])
+        currentDbSettlements
+          .filter((s: Settlement) => !s.isPaid) // Solo settlements no pagados son actualizables
+          .map((s: Settlement) => [`${s.fromParticipantId}_${s.toParticipantId}`, s])
       );
+
+      // Settlements pagados se mantienen sin cambios
+      const paidSettlements = currentDbSettlements.filter((s: Settlement) => s.isPaid);
+      console.log(`  ✅ Paid settlements (untouchable): ${paidSettlements.length}`);
 
       console.log('  💾 Existing settlements in DB:', currentDbSettlements.length);
       
@@ -158,12 +166,45 @@ export default function EventDetailScreen() {
       // Procesar cada liquidación calculada
       for (const calculatedSettlement of settlements) {
         const key = `${calculatedSettlement.fromParticipantId}_${calculatedSettlement.toParticipantId}`;
+        
+        // Verificar si ya existe un settlement PAGADO para esta relación
+        const existingPaidSettlement = paidSettlements.find(s => 
+          s.fromParticipantId === calculatedSettlement.fromParticipantId && 
+          s.toParticipantId === calculatedSettlement.toParticipantId
+        );
+        
+        if (existingPaidSettlement) {
+          // Si hay un settlement pagado, verificar si necesitamos crear uno adicional por la diferencia
+          const remainingAmount = calculatedSettlement.amount - existingPaidSettlement.amount;
+          
+          if (remainingAmount > 0.01) {
+            // Crear settlement adicional solo por la diferencia
+            const additionalSettlement = {
+              id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              eventId,
+              fromParticipantId: calculatedSettlement.fromParticipantId,
+              fromParticipantName: calculatedSettlement.fromParticipantName,
+              toParticipantId: calculatedSettlement.toParticipantId,
+              toParticipantName: calculatedSettlement.toParticipantName,
+              amount: remainingAmount,
+              isPaid: false,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+            await databaseService.createSettlement(additionalSettlement);
+            created++;
+            console.log(`  ➕ Created additional settlement for $${remainingAmount.toFixed(2)} (after paid $${existingPaidSettlement.amount.toFixed(2)})`);
+          }
+          // No hacer nada más para esta relación ya que hay un settlement pagado
+          continue;
+        }
+        
         const existingSettlement = existingSettlementsMap.get(key);
         
         if (existingSettlement) {
           const amountDiff = Math.abs(existingSettlement.amount - calculatedSettlement.amount);
           
-          // Actualizar monto si cambió (mantener estado paid)
+          // Actualizar monto si cambió (solo settlements no pagados)
           if (amountDiff > 0.01) {
             await databaseService.updateSettlement(existingSettlement.id, {
               amount: calculatedSettlement.amount,
@@ -191,10 +232,14 @@ export default function EventDetailScreen() {
         }
       }
 
-      // Eliminar liquidaciones que ya no existen en los cálculos
+      // Eliminar liquidaciones NO PAGADAS que ya no existen en los cálculos
+      // NUNCA eliminar settlements pagados
       for (const [key, settlement] of existingSettlementsMap.entries()) {
-        await databaseService.deleteSettlement(settlement.id);
-        deleted++;
+        if (!settlement.isPaid) {
+          await databaseService.deleteSettlement(settlement.id);
+          deleted++;
+          console.log(`  ➖ Deleted obsolete unpaid settlement: ${settlement.fromParticipantName} → ${settlement.toParticipantName} $${settlement.amount}`);
+        }
       }
       
       console.log(`✅ Settlement sync completed - Created: ${created}, Updated: ${updated}, Deleted: ${deleted}`);

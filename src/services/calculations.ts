@@ -33,6 +33,18 @@ export class CalculationService {
     expenses: Expense[],
     splits: Split[]
   ): Balance[] {
+    return this.calculateBalancesWithPayments(participants, expenses, splits, []);
+  }
+
+  /**
+   * Calculate balances for all participants considering confirmed payments
+   */
+  static calculateBalancesWithPayments(
+    participants: Participant[],
+    expenses: Expense[],
+    splits: Split[],
+    payments: Payment[]
+  ): Balance[] {
     const balances: { [participantId: string]: Balance } = {};
 
     // Initialize balances for all participants
@@ -46,7 +58,7 @@ export class CalculationService {
       };
     });
 
-    // Calculate total paid by each participant
+    // Calculate total paid by each participant (from expenses)
     expenses.forEach(expense => {
       if (balances[expense.payerId]) {
         balances[expense.payerId].totalPaid += expense.amount;
@@ -63,6 +75,16 @@ export class CalculationService {
     // Calculate net balance (positive = owes money, negative = is owed money)
     Object.values(balances).forEach(balance => {
       balance.balance = balance.totalOwed - balance.totalPaid;
+    });
+
+    // Apply confirmed payments to adjust balances
+    payments.filter(p => p.isConfirmed).forEach(payment => {
+      if (balances[payment.fromParticipantId] && balances[payment.toParticipantId]) {
+        // The payer's balance decreases (they owe less)
+        balances[payment.fromParticipantId].balance -= payment.amount;
+        // The receiver's balance increases (they are owed less)
+        balances[payment.toParticipantId].balance += payment.amount;
+      }
     });
 
     return Object.values(balances);

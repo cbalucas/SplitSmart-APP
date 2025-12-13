@@ -1,16 +1,17 @@
 import { useMemo } from 'react';
-import { Expense, Participant, Split } from '../types';
+import { Expense, Participant, Split, Payment } from '../types';
 import { CalculationService, Balance, Settlement, SplitCalculation } from '../services/calculations';
 
 export const useCalculations = (
   participants: Participant[],
   expenses: Expense[],
-  splits: Split[]
+  splits: Split[],
+  payments: Payment[] = [] // Agregar payments como parámetro opcional
 ) => {
-  // Calculate balances
+  // Calculate balances considering payments
   const balances = useMemo(() => {
-    return CalculationService.calculateBalances(participants, expenses, splits);
-  }, [participants, expenses, splits]);
+    return CalculationService.calculateBalancesWithPayments(participants, expenses, splits, payments);
+  }, [participants, expenses, splits, payments]);
 
   // Calculate optimal settlements
   const settlements = useMemo(() => {
