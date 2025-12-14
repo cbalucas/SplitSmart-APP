@@ -2,7 +2,7 @@
   "expo": {
     "name": "SplitSmart",
     "slug": "splitsmart",
-    "version": "1.5.0",
+    "version": "1.6.0",
     "orientation": "portrait",
     "icon": "./assets/splitsmart/icon.png",
     "userInterfaceStyle": "automatic",
@@ -24,7 +24,7 @@
         "backgroundColor": "#4B89DC"
       },
       "package": "com.cbalucas.splitsmart",
-      "versionCode": 9,
+      "versionCode": 15,
       "permissions": [
         "USE_FINGERPRINT",
         "USE_BIOMETRIC",

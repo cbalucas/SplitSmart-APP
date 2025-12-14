@@ -485,6 +485,25 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
+      // 🧹 MIGRACIÓN FORZADA v1.6.0: Reset completo de la base de datos
+      console.log('🧹 Performing forced database reset for v1.6.0...');
+      
+      try {
+        // Borrar todas las tablas existentes para empezar de cero
+        await this.db.execAsync('DROP TABLE IF EXISTS settlements');
+        await this.db.execAsync('DROP TABLE IF EXISTS payments');
+        await this.db.execAsync('DROP TABLE IF EXISTS splits');
+        await this.db.execAsync('DROP TABLE IF EXISTS expenses');
+        await this.db.execAsync('DROP TABLE IF EXISTS event_participants');
+        await this.db.execAsync('DROP TABLE IF EXISTS participants');
+        await this.db.execAsync('DROP TABLE IF EXISTS events');
+        await this.db.execAsync('DROP TABLE IF EXISTS users');
+        
+        console.log('✅ All tables dropped successfully for clean start');
+      } catch (error) {
+        console.log('ℹ️ Some tables might not exist yet, continuing...');
+      }
+
       // Events table
       await this.db.execAsync(`
         CREATE TABLE IF NOT EXISTS events (
