@@ -6,17 +6,60 @@ export const useCalculations = (
   participants: Participant[],
   expenses: Expense[],
   splits: Split[],
-  payments: Payment[] = [] // Agregar payments como parámetro opcional
+  payments: Payment[] = [], // Payments legacy para compatibilidad
+  dbSettlements: any[] = [], // Settlements con pagos incluidos desde la DB
+  eventStatus: 'active' | 'completed' | 'archived' = 'active' // Estado del evento
 ) => {
-  // Calculate balances considering payments
-  const balances = useMemo(() => {
-    return CalculationService.calculateBalancesWithPayments(participants, expenses, splits, payments);
-  }, [participants, expenses, splits, payments]);
+  // Convert paid settlements to Payment objects and combine with legacy payments
+  const allPayments = useMemo(() => {
+    const settlementPayments: Payment[] = dbSettlements
+      .filter(settlement => settlement.isPaid)
+      .map(settlement => ({
+        id: settlement.id,
+        eventId: settlement.eventId,
+        fromParticipantId: settlement.fromParticipantId,
+        fromParticipantName: settlement.fromParticipantName,
+        toParticipantId: settlement.toParticipantId,
+        toParticipantName: settlement.toParticipantName,
+        amount: settlement.amount,
+        date: settlement.createdAt || new Date().toISOString(),
+        isConfirmed: true,
+        createdAt: settlement.createdAt || new Date().toISOString(),
+        updatedAt: settlement.updatedAt || new Date().toISOString()
+      }));
+    
+    return [...payments, ...settlementPayments];
+  }, [payments, dbSettlements]);
 
-  // Calculate optimal settlements
+  // Calculate balances considering both legacy payments AND paid settlements
+  const balances = useMemo(() => {
+    return CalculationService.calculateBalancesWithPayments(participants, expenses, splits, allPayments);
+  }, [participants, expenses, splits, allPayments]);
+
+  // Calculate settlements based on event status
   const settlements = useMemo(() => {
-    return CalculationService.calculateOptimalSettlements(balances);
-  }, [balances]);
+    switch (eventStatus) {
+      case 'active':
+        // En estado activo: calcular settlements dinámicamente
+        return CalculationService.calculateOptimalSettlements(balances);
+      
+      case 'completed':
+      case 'archived':
+        // En estado completado/archivado: usar settlements fijos de la BD
+        return dbSettlements
+          .filter(s => !s.isPaid) // Solo mostrar no pagados como settlements pendientes
+          .map(s => ({
+            fromParticipantId: s.fromParticipantId,
+            fromParticipantName: s.fromParticipantName,
+            toParticipantId: s.toParticipantId,
+            toParticipantName: s.toParticipantName,
+            amount: s.amount
+          }));
+      
+      default:
+        return [];
+    }
+  }, [balances, dbSettlements, eventStatus]);
 
   // Calculate event statistics
   const eventStats = useMemo(() => {

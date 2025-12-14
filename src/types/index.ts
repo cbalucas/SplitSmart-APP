@@ -100,6 +100,7 @@ export interface Settlement {
   amount: number;
   isPaid: boolean;
   receiptImage?: string;
+  notes?: string;
   paidAt?: string;
   createdAt: string;
   updatedAt: string;

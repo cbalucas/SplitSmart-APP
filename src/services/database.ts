@@ -294,6 +294,22 @@ class DatabaseService {
         console.log('⚠️ Error updating notification preferences:', error);
       }
 
+      // Migration: Add event_status column to settlements table
+      try {
+        // Check if event_status column exists
+        const settlementsColumns = await this.db.getAllAsync(`PRAGMA table_info(settlements)`);
+        const hasEventStatus = settlementsColumns.some((col: any) => col.name === 'event_status');
+        
+        if (!hasEventStatus) {
+          await this.db.execAsync('ALTER TABLE settlements ADD COLUMN event_status TEXT NOT NULL DEFAULT "active"');
+          console.log('✅ Migration: Added event_status column to settlements table');
+        } else {
+          console.log('⚠️ Column event_status already exists in settlements table');
+        }
+      } catch (error: any) {
+        console.error('❌ Error in event_status migration for settlements:', error);
+      }
+
       // Migration: Initialize app versions data
       try {
         await this.initializeVersionHistory();
@@ -558,9 +574,9 @@ class DatabaseService {
         )
       `);
 
-      // Transactions table unificada (liquidaciones + pagos)
+      // Settlements table unificada (liquidaciones con pagos)
       await this.db.execAsync(`
-        CREATE TABLE IF NOT EXISTS transactions (
+        CREATE TABLE IF NOT EXISTS settlements (
           id TEXT PRIMARY KEY,
           event_id TEXT NOT NULL,
           from_participant_id TEXT NOT NULL,
@@ -569,19 +585,20 @@ class DatabaseService {
           to_participant_name TEXT NOT NULL,
           amount REAL NOT NULL,
           
-          -- TIPO Y ESTADO UNIFICADO
-          type TEXT NOT NULL CHECK (type IN ('calculated', 'manual')) DEFAULT 'calculated',
-          status TEXT NOT NULL CHECK (status IN ('pending', 'confirmed', 'cancelled')) DEFAULT 'pending',
+          -- ESTADO DE PAGO SIMPLE
+          is_paid INTEGER DEFAULT 0,
+          paid_at TEXT,
           
-          -- METADATOS
-          date TEXT NOT NULL,
-          notes TEXT,
+          -- ESTADO DEL EVENTO CUANDO SE CREA/ACTUALIZA LA LIQUIDACIÓN
+          event_status TEXT NOT NULL DEFAULT 'active',
+          
+          -- METADATOS DEL PAGO
           receipt_image TEXT,
+          notes TEXT,
           
           -- AUDITORIA
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL,
-          confirmed_at TEXT,
           
           -- RELACIONES
           FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
@@ -590,8 +607,8 @@ class DatabaseService {
         )
       `);
 
-      // Migrar datos existentes si existen las tablas anteriores
-      await this.migrateOldTablesToTransactions();
+      // Migrar datos existentes de transactions a settlements
+      await this.migrateTransactionsToSettlements();
 
       // Users table for profile data
       await this.db.execAsync(`
@@ -639,7 +656,7 @@ class DatabaseService {
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_event_participants_event_id ON event_participants(event_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_expenses_event_id ON expenses(event_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_splits_expense_id ON splits(expense_id)`);
-      await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_transactions_event_id ON transactions(event_id)`);
+      await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_settlements_event_id ON settlements(event_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_app_versions_current ON app_versions(is_current)`);
 
       console.log('✅ All tables and indexes created successfully');
@@ -750,7 +767,7 @@ class DatabaseService {
 
     try {
       // Eliminar en orden por dependencias
-      await this.db.runAsync('DELETE FROM transactions WHERE event_id = ?', [id]);
+      await this.db.runAsync('DELETE FROM settlements WHERE event_id = ?', [id]);
       await this.db.runAsync('DELETE FROM splits WHERE expense_id IN (SELECT id FROM expenses WHERE event_id = ?)', [id]);
       await this.db.runAsync('DELETE FROM expenses WHERE event_id = ?', [id]);
       await this.db.runAsync('DELETE FROM event_participants WHERE event_id = ?', [id]);
@@ -1305,43 +1322,36 @@ class DatabaseService {
     }
   }
 
-  // Transactions CRUD (Unificado)
+  // Transactions CRUD (DEPRECATED - usar settlements)
   async createTransaction(transaction: any): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
-
-    try {
-      await this.db.runAsync(
-        `INSERT INTO transactions (id, event_id, from_participant_id, from_participant_name, to_participant_id, to_participant_name, 
-         amount, type, status, date, notes, receipt_image, created_at, updated_at, confirmed_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          transaction.id,
-          transaction.eventId,
-          transaction.fromParticipantId,
-          transaction.fromParticipantName,
-          transaction.toParticipantId,
-          transaction.toParticipantName,
-          transaction.amount,
-          transaction.type || 'manual',
-          transaction.status || 'pending',
-          transaction.date || new Date().toISOString(),
-          transaction.notes || null,
-          transaction.receiptImage || null,
-          transaction.createdAt || new Date().toISOString(),
-          transaction.updatedAt || new Date().toISOString(),
-          transaction.status === 'confirmed' ? (transaction.confirmedAt || transaction.date) : null
-        ]
-      );
-      console.log('✅ Transaction created successfully');
-    } catch (error) {
-      console.error('❌ Error creating transaction:', error);
-      throw error;
-    }
+    console.warn('⚠️ createTransaction is deprecated. Use createSettlement instead.');
+    
+    // Convertir transaction a settlement
+    const settlement = {
+      id: transaction.id,
+      eventId: transaction.eventId,
+      fromParticipantId: transaction.fromParticipantId,
+      fromParticipantName: transaction.fromParticipantName,
+      toParticipantId: transaction.toParticipantId,
+      toParticipantName: transaction.toParticipantName,
+      amount: transaction.amount,
+      isPaid: transaction.status === 'confirmed',
+      paidAt: transaction.confirmedAt,
+      receiptImage: transaction.receiptImage,
+      notes: transaction.notes,
+      createdAt: transaction.createdAt,
+      updatedAt: transaction.updatedAt
+    };
+    
+    await this.createSettlement(settlement);
   }
 
-  // Método legacy para compatibilidad
+  // Método legacy para compatibilidad con Payment
   async createPayment(payment: Payment): Promise<void> {
-    const transaction = {
+    console.warn('⚠️ createPayment is deprecated. Payments are now handled as paid settlements.');
+    
+    // Crear un settlement marcado como pagado
+    const settlement = {
       id: payment.id,
       eventId: payment.eventId,
       fromParticipantId: payment.fromParticipantId,
@@ -1349,15 +1359,14 @@ class DatabaseService {
       toParticipantId: payment.toParticipantId,
       toParticipantName: 'Manual Payment',
       amount: payment.amount,
-      type: 'manual',
-      status: payment.isConfirmed ? 'confirmed' : 'pending',
-      date: payment.date,
-      notes: payment.notes,
+      isPaid: payment.isConfirmed,
+      paidAt: payment.isConfirmed ? payment.date : null,
       receiptImage: payment.receiptImage,
-      createdAt: payment.createdAt,
-      updatedAt: payment.updatedAt
+      notes: payment.notes,
+      createdAt: payment.createdAt || new Date().toISOString(),
+      updatedAt: payment.updatedAt || new Date().toISOString()
     };
-    await this.createTransaction(transaction);
+    await this.createSettlement(settlement);
   }
 
   async getPaymentsByEvent(eventId: string): Promise<Payment[]> {
@@ -1368,23 +1377,24 @@ class DatabaseService {
 
     try {
       console.log(`📥 Getting payments for event: ${eventId}`);
+      // Obtener settlements pagados como payments para compatibilidad
       const result = await this.db.getAllAsync(
-        'SELECT * FROM transactions WHERE event_id = ? AND type = ? ORDER BY date DESC',
-        [eventId, 'manual']
+        'SELECT * FROM settlements WHERE event_id = ? AND is_paid = 1 ORDER BY paid_at DESC',
+        [eventId]
       );
       
-      console.log(`✅ Found ${result.length} payments for event ${eventId}`);
+      console.log(`✅ Found ${result.length} payments (paid settlements) for event ${eventId}`);
       
       return result.map((row: any) => ({
-        id: row.id,
+        id: `settlement_payment_${row.id}`,
         eventId: row.event_id,
         fromParticipantId: row.from_participant_id,
         toParticipantId: row.to_participant_id,
         amount: row.amount,
-        date: row.date,
-        notes: row.notes,
+        date: row.paid_at || row.updated_at,
+        notes: row.notes || 'Pago de liquidación',
         receiptImage: row.receipt_image,
-        isConfirmed: row.status === 'confirmed',
+        isConfirmed: true, // Los settlements pagados siempre están confirmados
         createdAt: row.created_at,
         updatedAt: row.updated_at
       }));
@@ -1396,44 +1406,53 @@ class DatabaseService {
     }
   }
 
-  async getTransactionsByEvent(eventId: string, type?: 'calculated' | 'manual'): Promise<any[]> {
+  async getTransactionsByEvent(eventId: string, type?: 'calculated' | 'manual' | 'payment'): Promise<any[]> {
     if (!this.db || !this.isInitialized) {
       console.error('❌ Database not ready in getTransactionsByEvent. Initialized:', this.isInitialized);
       return [];
     }
 
     try {
-      let query = 'SELECT * FROM transactions WHERE event_id = ?';
+      // Con la nueva estructura, solo tenemos settlements
+      // 'calculated' = todos los settlements
+      // 'payment' = settlements pagados (is_paid = 1)
+      // 'manual' = no aplica, devolvemos array vacío para compatibilidad
+      
+      if (type === 'manual') {
+        console.log(`⚠️ Manual transactions no longer exist, returning empty array`);
+        return [];
+      }
+      
+      let query = 'SELECT * FROM settlements WHERE event_id = ?';
       let params = [eventId];
       
-      if (type) {
-        query += ' AND type = ?';
-        params.push(type);
+      if (type === 'payment') {
+        query += ' AND is_paid = 1';
       }
       
       query += ' ORDER BY created_at DESC';
       
-      const transactions = await this.db.getAllAsync(query, params);
+      const settlements = await this.db.getAllAsync(query, params);
       
-      return transactions.map((t: any) => ({
-        id: t.id,
-        eventId: t.event_id,
-        fromParticipantId: t.from_participant_id,
-        fromParticipantName: t.from_participant_name,
-        toParticipantId: t.to_participant_id,
-        toParticipantName: t.to_participant_name,
-        amount: t.amount,
-        type: t.type,
-        status: t.status,
-        date: t.date,
-        notes: t.notes,
-        receiptImage: t.receipt_image,
-        createdAt: t.created_at,
-        updatedAt: t.updated_at,
-        confirmedAt: t.confirmed_at,
+      return settlements.map((s: any) => ({
+        id: s.id,
+        eventId: s.event_id,
+        fromParticipantId: s.from_participant_id,
+        fromParticipantName: s.from_participant_name,
+        toParticipantId: s.to_participant_id,
+        toParticipantName: s.to_participant_name,
+        amount: s.amount,
+        type: type || 'calculated',
+        status: s.is_paid ? 'confirmed' : 'pending',
+        date: s.paid_at || s.created_at,
+        notes: s.notes,
+        receiptImage: s.receipt_image,
+        createdAt: s.created_at,
+        updatedAt: s.updated_at,
+        confirmedAt: s.confirmed_at,
         // Campos legacy para compatibilidad
-        isConfirmed: t.status === 'confirmed',
-        isPaid: t.status === 'confirmed'
+        isConfirmed: s.status === 'confirmed',
+        isPaid: s.status === 'confirmed'
       }));
     } catch (error) {
       console.error('❌ Error getting transactions by event:', error);
@@ -1541,70 +1560,212 @@ class DatabaseService {
     }
   }
 
-  // Settlements CRUD
-  // Método legacy para compatibilidad con settlements
+  // Settlements CRUD - Nueva implementación simplificada
   async createSettlement(settlement: any): Promise<void> {
-    const transaction = {
-      id: settlement.id,
-      eventId: settlement.eventId,
-      fromParticipantId: settlement.fromParticipantId,
-      fromParticipantName: settlement.fromParticipantName,
-      toParticipantId: settlement.toParticipantId,
-      toParticipantName: settlement.toParticipantName,
-      amount: settlement.amount,
-      type: 'calculated',
-      status: settlement.isPaid ? 'confirmed' : 'pending',
-      date: settlement.paidAt || settlement.createdAt || new Date().toISOString(),
-      receiptImage: settlement.receiptImage,
-      createdAt: settlement.createdAt,
-      updatedAt: settlement.updatedAt,
-      confirmedAt: settlement.isPaid ? settlement.paidAt : null
-    };
-    await this.createTransaction(transaction);
-  }
+    if (!this.db) throw new Error('Database not initialized');
 
-  // Método legacy para compatibilidad con settlements
-  async getSettlementsByEvent(eventId: string): Promise<any[]> {
-    const transactions = await this.getTransactionsByEvent(eventId, 'calculated');
-    return transactions.map(t => ({
-      id: t.id,
-      eventId: t.eventId,
-      fromParticipantId: t.fromParticipantId,
-      fromParticipantName: t.fromParticipantName,
-      toParticipantId: t.toParticipantId,
-      toParticipantName: t.toParticipantName,
-      amount: t.amount,
-      isPaid: t.status === 'confirmed',
-      receiptImage: t.receiptImage,
-      paidAt: t.confirmedAt,
-      createdAt: t.createdAt,
-      updatedAt: t.updatedAt
-    }));
-  }
-
-  // Método legacy para compatibilidad con settlements  
-  async updateSettlement(settlementId: string, updates: any): Promise<void> {
-    const transactionUpdates: any = {};
-    
-    if (updates.amount !== undefined) transactionUpdates.amount = updates.amount;
-    if (updates.isPaid !== undefined) {
-      transactionUpdates.status = updates.isPaid ? 'confirmed' : 'pending';
-      transactionUpdates.confirmedAt = updates.isPaid ? (updates.paidAt || new Date().toISOString()) : null;
+    try {
+      // Obtener el estado actual del evento si no se proporciona
+      let eventStatus = settlement.eventStatus;
+      if (!eventStatus) {
+        const event = await this.getEventById(settlement.eventId);
+        eventStatus = event?.status || 'active';
+      }
+      
+      await this.db.runAsync(
+        `INSERT INTO settlements (
+          id, event_id, from_participant_id, from_participant_name,
+          to_participant_id, to_participant_name, amount, is_paid, paid_at,
+          event_status, receipt_image, notes, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          settlement.id, settlement.eventId, settlement.fromParticipantId, settlement.fromParticipantName,
+          settlement.toParticipantId, settlement.toParticipantName, settlement.amount,
+          settlement.isPaid ? 1 : 0, settlement.paidAt || null,
+          eventStatus,
+          settlement.receiptImage || null, settlement.notes || null,
+          settlement.createdAt || new Date().toISOString(),
+          settlement.updatedAt || new Date().toISOString()
+        ]
+      );
+      console.log('✅ Settlement created successfully');
+    } catch (error) {
+      console.error('❌ Error creating settlement:', error);
+      throw error;
     }
-    if (updates.receiptImage !== undefined) transactionUpdates.receiptImage = updates.receiptImage;
-    if (updates.paidAt !== undefined) transactionUpdates.confirmedAt = updates.paidAt;
-    if (updates.fromParticipantName !== undefined) transactionUpdates.fromParticipantName = updates.fromParticipantName;
-    if (updates.toParticipantName !== undefined) transactionUpdates.toParticipantName = updates.toParticipantName;
-    
-    await this.updateTransaction(settlementId, transactionUpdates);
+  }
+
+  async getSettlementsByEvent(eventId: string): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const settlements = await this.db.getAllAsync(
+        'SELECT * FROM settlements WHERE event_id = ? ORDER BY created_at DESC',
+        [eventId]
+      );
+
+      return settlements.map((s: any) => ({
+        id: s.id,
+        eventId: s.event_id,
+        fromParticipantId: s.from_participant_id,
+        fromParticipantName: s.from_participant_name,
+        toParticipantId: s.to_participant_id,
+        toParticipantName: s.to_participant_name,
+        amount: s.amount,
+        isPaid: s.is_paid === 1,
+        paidAt: s.paid_at,
+        eventStatus: s.event_status || 'active',
+        receiptImage: s.receipt_image,
+        notes: s.notes,
+        createdAt: s.created_at,
+        updatedAt: s.updated_at
+      }));
+    } catch (error) {
+      console.error('❌ Error getting settlements:', error);
+      return [];
+    }
+  }
+
+  async updateSettlement(settlementId: string, updates: any): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const updateFields: string[] = [];
+      const values: any[] = [];
+
+      if (updates.amount !== undefined) {
+        updateFields.push('amount = ?');
+        values.push(updates.amount);
+      }
+      if (updates.eventStatus !== undefined) {
+        updateFields.push('event_status = ?');
+        values.push(updates.eventStatus);
+      }
+      if (updates.isPaid !== undefined) {
+        updateFields.push('is_paid = ?');
+        values.push(updates.isPaid ? 1 : 0);
+      }
+      if (updates.paidAt !== undefined) {
+        updateFields.push('paid_at = ?');
+        values.push(updates.paidAt);
+      }
+      if (updates.receiptImage !== undefined) {
+        updateFields.push('receipt_image = ?');
+        values.push(updates.receiptImage);
+      }
+      if (updates.notes !== undefined) {
+        updateFields.push('notes = ?');
+        values.push(updates.notes);
+      }
+      if (updates.fromParticipantName !== undefined) {
+        updateFields.push('from_participant_name = ?');
+        values.push(updates.fromParticipantName);
+      }
+      if (updates.toParticipantName !== undefined) {
+        updateFields.push('to_participant_name = ?');
+        values.push(updates.toParticipantName);
+      }
+
+      if (updateFields.length === 0) {
+        console.log('⚠️ No updates provided for settlement');
+        return;
+      }
+
+      // Siempre actualizar updated_at
+      updateFields.push('updated_at = ?');
+      values.push(new Date().toISOString());
+
+      values.push(settlementId);
+
+      await this.db.runAsync(
+        `UPDATE settlements SET ${updateFields.join(', ')} WHERE id = ?`,
+        values
+      );
+
+      console.log('✅ Settlement updated successfully');
+    } catch (error) {
+      console.error('❌ Error updating settlement:', error);
+      throw error;
+    }
+  }
+
+  async getSettlementById(settlementId: string): Promise<any | null> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const settlement = await this.db.getFirstAsync(
+        'SELECT * FROM settlements WHERE id = ?',
+        [settlementId]
+      );
+
+      if (!settlement) return null;
+
+      return {
+        id: settlement.id,
+        eventId: settlement.event_id,
+        fromParticipantId: settlement.from_participant_id,
+        fromParticipantName: settlement.from_participant_name,
+        toParticipantId: settlement.to_participant_id,
+        toParticipantName: settlement.to_participant_name,
+        amount: settlement.amount,
+        isPaid: settlement.is_paid === 1,
+        paidAt: settlement.paid_at,
+        eventStatus: settlement.event_status || 'active',
+        receiptImage: settlement.receipt_image,
+        notes: settlement.notes,
+        createdAt: settlement.created_at,
+        updatedAt: settlement.updated_at
+      };
+    } catch (error) {
+      console.error('❌ Error getting settlement:', error);
+      return null;
+    }
+  }
+
+  async updateSettlementsEventStatus(eventId: string, newEventStatus: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      await this.db.runAsync(
+        'UPDATE settlements SET event_status = ?, updated_at = ? WHERE event_id = ?',
+        [newEventStatus, new Date().toISOString(), eventId]
+      );
+      console.log(`✅ Updated settlements status to ${newEventStatus} for event ${eventId}`);
+    } catch (error) {
+      console.error('❌ Error updating settlements event status:', error);
+      throw error;
+    }
+  }
+
+  async resetSettlementsPayments(eventId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      // Resetear todos los pagos y comprobantes al pasar de archivado a activo
+      await this.db.runAsync(
+        `UPDATE settlements SET 
+          is_paid = 0, 
+          paid_at = NULL, 
+          receipt_image = NULL, 
+          notes = NULL,
+          event_status = 'active',
+          updated_at = ? 
+        WHERE event_id = ?`,
+        [new Date().toISOString(), eventId]
+      );
+      console.log(`✅ Reset all settlement payments for event ${eventId}`);
+    } catch (error) {
+      console.error('❌ Error resetting settlement payments:', error);
+      throw error;
+    }
   }
 
   async deleteSettlementsByEvent(eventId: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      await this.db.runAsync('DELETE FROM transactions WHERE event_id = ? AND type = ?', [eventId, 'calculated']);
-      console.log('✅ Calculated transactions (settlements) deleted for event');
+      await this.db.runAsync('DELETE FROM settlements WHERE event_id = ?', [eventId]);
+      console.log('✅ Settlements deleted for event');
     } catch (error) {
       console.error('❌ Error deleting settlements:', error);
       throw error;
@@ -1615,28 +1776,30 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      await this.db.runAsync('DELETE FROM transactions WHERE id = ? AND type = ?', [settlementId, 'calculated']);
-      console.log('✅ Transaction (settlement) deleted successfully');
+      await this.db.runAsync('DELETE FROM settlements WHERE id = ?', [settlementId]);
+      console.log('✅ Settlement deleted successfully');
     } catch (error) {
       console.error('❌ Error deleting settlement:', error);
       throw error;
     }
   }
 
+
+
   async updateSettlementParticipantNames(participantId: string, newName: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      // Update transactions where this participant is the sender (from)
+      // Update settlements where this participant is the sender (from)
       await this.db.runAsync(
-        'UPDATE transactions SET from_participant_name = ?, updated_at = ? WHERE from_participant_id = ? AND type = ?',
-        [newName, new Date().toISOString(), participantId, 'calculated']
+        'UPDATE settlements SET from_participant_name = ?, updated_at = ? WHERE from_participant_id = ?',
+        [newName, new Date().toISOString(), participantId]
       );
 
-      // Update transactions where this participant is the receiver (to)
+      // Update settlements where this participant is the receiver (to)
       await this.db.runAsync(
-        'UPDATE transactions SET to_participant_name = ?, updated_at = ? WHERE to_participant_id = ? AND type = ?',
-        [newName, new Date().toISOString(), participantId, 'calculated']
+        'UPDATE settlements SET to_participant_name = ?, updated_at = ? WHERE to_participant_id = ?',
+        [newName, new Date().toISOString(), participantId]
       );
 
       console.log(`✅ Settlement names updated for participant ${participantId}`);
@@ -2720,7 +2883,61 @@ class DatabaseService {
     }
   }
 
-  // MIGRACIÓN DE DATOS A TABLA UNIFICADA
+  // MIGRACIÓN DE TRANSACTIONS A SETTLEMENTS SIMPLIFICADOS
+  async migrateTransactionsToSettlements(): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      console.log('🔄 Starting migration from transactions to settlements...');
+
+      // Verificar si existe tabla transactions
+      const transactionsExists = await this.db.getFirstAsync(
+        `SELECT name FROM sqlite_master WHERE type='table' AND name='transactions'`
+      );
+
+      if (!transactionsExists) {
+        console.log('✅ No transactions table found, migration not needed');
+        return;
+      }
+
+      // Migrar calculated transactions (liquidaciones) a settlements
+      const existingTransactions = await this.db.getAllAsync(
+        `SELECT * FROM transactions WHERE type = 'calculated'`
+      ).catch(() => []);
+
+      let migrated = 0;
+      for (const tx of existingTransactions as any[]) {
+        const isPaid = tx.status === 'confirmed' || tx.confirmed_at;
+        
+        await this.db.runAsync(
+          `INSERT OR IGNORE INTO settlements (
+            id, event_id, from_participant_id, from_participant_name,
+            to_participant_id, to_participant_name, amount, is_paid, paid_at,
+            receipt_image, notes, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            tx.id, tx.event_id, tx.from_participant_id, tx.from_participant_name,
+            tx.to_participant_id, tx.to_participant_name, tx.amount,
+            isPaid ? 1 : 0, isPaid ? (tx.confirmed_at || tx.updated_at) : null,
+            tx.receipt_image, tx.notes, tx.created_at, tx.updated_at
+          ]
+        );
+        migrated++;
+      }
+
+      console.log(`✅ Migrated ${migrated} settlements from transactions table`);
+
+      // Renombrar tabla transactions para backup
+      await this.db.execAsync(`ALTER TABLE transactions RENAME TO transactions_backup`);
+      console.log('✅ Transactions table backed up as transactions_backup');
+
+    } catch (error: any) {
+      console.error('❌ Error during migration:', error);
+      throw error;
+    }
+  }
+
+  // MIGRACIÓN DE DATOS A TABLA UNIFICADA (LEGACY)
   async migrateOldTablesToTransactions(): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 

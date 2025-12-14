@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -100,16 +100,30 @@ export default function EventDetailScreen() {
     eventParticipants,
     eventExpenses,
     eventSplits,
-    eventPayments
+    eventPayments,
+    dbSettlements,
+    event?.status as 'active' | 'completed' | 'archived'
   );
 
+  // Debug log para ver por qué no se generan settlements
+  console.log('🔍 Calculation inputs:', {
+    participants: eventParticipants.length,
+    expenses: eventExpenses.length,
+    splits: eventSplits.length,
+    payments: eventPayments.length,
+    dbSettlements: dbSettlements.length,
+    settlementsCalculated: settlements.length
+  });
+
   const loadEventData = useCallback(async () => {
-    // Buscar el evento en los datos de SQLite
-    const foundEvent = events.find(e => e.id === eventId);
-    setEvent(foundEvent || null);
+    if (!eventId) return;
     
-    if (eventId && foundEvent) {
-      try {
+    try {
+      // Consultar el evento directamente desde la base de datos para obtener el estado más reciente
+      const foundEvent = await databaseService.getEventById(eventId);
+      setEvent(foundEvent);
+      
+      if (foundEvent) {
         // Load expenses, participants, splits, payments and settlements from SQLite
         const [expensesData, participantsData, splitsData, paymentsData, settlementsData] = await Promise.all([
           getExpensesByEvent(eventId).catch(() => []), // Return empty array if fails
@@ -124,29 +138,58 @@ export default function EventDetailScreen() {
         setEventSplits(splitsData);
         setEventPayments(paymentsData);
         setDbSettlements(settlementsData);
-      } catch (error) {
-        console.error('Error loading event data:', error);
-        // Set empty arrays if error
+      } else {
+        // If event not found, set empty arrays
         setEventExpenses([]);
         setEventParticipants([]);
         setEventSplits([]);
         setEventPayments([]);
         setDbSettlements([]);
       }
+    } catch (error) {
+      console.error('Error in loadEventData:', error);
+      setEvent(null);
+      setEventExpenses([]);
+      setEventParticipants([]);
+      setEventSplits([]);
+      setEventPayments([]);
+      setDbSettlements([]);
     }
-  }, [eventId, events, participants, expenses, getExpensesByEvent, getEventParticipants, getSplitsByEvent, getPaymentsByEvent]);
+  }, [eventId, getExpensesByEvent, getEventParticipants, getSplitsByEvent, getPaymentsByEvent]);
 
   // Sincronizar liquidaciones calculadas con la BD
   const syncSettlementsToDb = useCallback(async () => {
-    if (!eventId || !event) return;
-    if (event.status === 'archived') return; // No sincronizar en eventos archivados
+    if (!eventId || !event) {
+      console.log('❌ Sync cancelled: missing eventId or event', { eventId, event: !!event });
+      return;
+    }
+    if (event.status === 'archived') {
+      console.log('❌ Sync cancelled: event is archived');
+      return;
+    }
 
     try {
       console.log('💾 Starting settlement sync for event:', eventId);
       console.log('  📊 Calculated settlements:', settlements.length);
-      // Obtener liquidaciones actuales de la BD
-      const currentDbSettlements = await databaseService.getSettlementsByEvent(eventId);
       
+      // Obtener liquidaciones actuales de la BD para limpiar si es necesario
+      const currentDbSettlements = await databaseService.getSettlementsByEvent(eventId);
+      const unpaidSettlements = currentDbSettlements.filter((s: Settlement) => !s.isPaid);
+      
+      // Si no hay settlements calculados pero hay settlements no pagados en DB, limpiarlos
+      if (settlements.length === 0 && unpaidSettlements.length > 0) {
+        console.log('🧹 Cleaning obsolete unpaid settlements from DB:', unpaidSettlements.length);
+        for (const settlement of unpaidSettlements) {
+          await databaseService.deleteSettlement(settlement.id);
+        }
+        console.log('✅ Settlement cleanup completed');
+        return;
+      }
+      
+      if (settlements.length === 0) {
+        console.log('✅ No settlements needed - balances are settled');
+        return;
+      }
       // Crear un mapa de las liquidaciones existentes por clave compuesta
       // Solo considerar settlements NO pagados para actualización, los pagados no deben modificarse
       const existingSettlementsMap = new Map(
@@ -166,38 +209,6 @@ export default function EventDetailScreen() {
       // Procesar cada liquidación calculada
       for (const calculatedSettlement of settlements) {
         const key = `${calculatedSettlement.fromParticipantId}_${calculatedSettlement.toParticipantId}`;
-        
-        // Verificar si ya existe un settlement PAGADO para esta relación
-        const existingPaidSettlement = paidSettlements.find(s => 
-          s.fromParticipantId === calculatedSettlement.fromParticipantId && 
-          s.toParticipantId === calculatedSettlement.toParticipantId
-        );
-        
-        if (existingPaidSettlement) {
-          // Si hay un settlement pagado, verificar si necesitamos crear uno adicional por la diferencia
-          const remainingAmount = calculatedSettlement.amount - existingPaidSettlement.amount;
-          
-          if (remainingAmount > 0.01) {
-            // Crear settlement adicional solo por la diferencia
-            const additionalSettlement = {
-              id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              eventId,
-              fromParticipantId: calculatedSettlement.fromParticipantId,
-              fromParticipantName: calculatedSettlement.fromParticipantName,
-              toParticipantId: calculatedSettlement.toParticipantId,
-              toParticipantName: calculatedSettlement.toParticipantName,
-              amount: remainingAmount,
-              isPaid: false,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            };
-            await databaseService.createSettlement(additionalSettlement);
-            created++;
-            console.log(`  ➕ Created additional settlement for $${remainingAmount.toFixed(2)} (after paid $${existingPaidSettlement.amount.toFixed(2)})`);
-          }
-          // No hacer nada más para esta relación ya que hay un settlement pagado
-          continue;
-        }
         
         const existingSettlement = existingSettlementsMap.get(key);
         
@@ -244,9 +255,11 @@ export default function EventDetailScreen() {
       
       console.log(`✅ Settlement sync completed - Created: ${created}, Updated: ${updated}, Deleted: ${deleted}`);
 
-      // Recargar liquidaciones
-      const updatedSettlements = await databaseService.getSettlementsByEvent(eventId);
-      setDbSettlements(updatedSettlements);
+      // Solo recargar liquidaciones si realmente hubo cambios
+      if (created > 0 || updated > 0 || deleted > 0) {
+        const updatedSettlements = await databaseService.getSettlementsByEvent(eventId);
+        setDbSettlements(updatedSettlements);
+      }
     } catch (error) {
       console.error('Error syncing settlements:', error);
     }
@@ -264,46 +277,67 @@ export default function EventDetailScreen() {
   }, [loadEventData]);
 
   // Sincronizar liquidaciones cuando cambien los cálculos
-  // Usar timeout para evitar múltiples ejecuciones
+  // Usar referencia para evitar bucles infinitos
+  const previousSettlementsRef = useRef<string>('');
   useEffect(() => {
     if (!eventId || !event || event.status === 'archived') return;
     
-    const syncTimeout = setTimeout(() => {
-      if (settlements.length > 0) {
-        console.log('🔄 Syncing settlements to DB after calculations change');
-        syncSettlementsToDb();
-      }
-    }, 500); // Delay para agrupar cambios
+    // Crear una "huella" de las settlements calculadas para comparar cambios reales
+    const settlementsSignature = JSON.stringify(
+      settlements
+        .sort((a, b) => `${a.fromParticipantId}_${a.toParticipantId}`.localeCompare(`${b.fromParticipantId}_${b.toParticipantId}`))
+        .map(s => ({
+          from: s.fromParticipantId,
+          to: s.toParticipantId,
+          amount: Math.round(s.amount * 100) // Redondear centavos para evitar diferencias mínimas
+        }))
+    );
     
-    return () => clearTimeout(syncTimeout);
+    // Solo sincronizar si realmente cambió la estructura de settlements O si tenemos datos válidos
+    // Y SOLO si el evento está en estado ACTIVO
+    const shouldSync = settlementsSignature !== previousSettlementsRef.current && 
+                      (eventExpenses.length > 0 && eventParticipants.length > 1) &&
+                      event?.status === 'active';
+    
+    if (shouldSync) {
+      console.log('🔄 Syncing settlements to DB after calculations change');
+      console.log('  📊 Settlements to sync:', settlements.length);
+      previousSettlementsRef.current = settlementsSignature;
+      
+      const syncTimeout = setTimeout(() => {
+        syncSettlementsToDb();
+      }, 300); // Delay reducido para mejor responsividad
+      
+      return () => clearTimeout(syncTimeout);
+    }
   }, [eventId, event, settlements, syncSettlementsToDb]);
 
   // Efecto para detectar cambios pasivos en datos globales que afecten este evento
+  const lastGlobalDataRef = useRef<string>('');
   useEffect(() => {
     if (!eventId) return;
     
-    // Solo refrescar si hay cambios relevantes que puedan afectar los cálculos
-    const shouldRefresh = () => {
-      // Verificar si hay cambios en gastos de este evento
-      const currentEventExpenses = expenses.filter(e => e.eventId === eventId);
-      if (currentEventExpenses.length !== eventExpenses.length) return true;
-      
-      // Verificar cambios en los montos de gastos
-      for (const expense of currentEventExpenses) {
-        const localExpense = eventExpenses.find(e => e.id === expense.id);
-        if (!localExpense || localExpense.amount !== expense.amount || localExpense.payerId !== expense.payerId) {
-          return true;
-        }
-      }
-      
-      return false;
-    };
+    // Crear signature de datos globales para este evento
+    const currentEventExpenses = expenses.filter(e => e.eventId === eventId);
+    const currentEventParticipants = participants.filter(p => 
+      p.eventIds && p.eventIds.includes(eventId)
+    );
+    
+    const globalDataSignature = JSON.stringify({
+      expenses: currentEventExpenses.length,
+      participants: currentEventParticipants.length,
+      expenseAmounts: currentEventExpenses.map(e => `${e.id}:${e.amount}:${e.payerId}`)
+    });
 
-    if (shouldRefresh()) {
+    // Solo refrescar si realmente cambió la data global
+    if (globalDataSignature !== lastGlobalDataRef.current && lastGlobalDataRef.current !== '') {
       console.log('🔄 Detectado cambio pasivo en datos del evento, refrescando...');
+      lastGlobalDataRef.current = globalDataSignature;
       loadEventData();
+    } else {
+      lastGlobalDataRef.current = globalDataSignature;
     }
-  }, [expenses, eventId, eventExpenses, loadEventData]);
+  }, [expenses, participants, eventId, loadEventData]);
 
   // Refrescar datos cuando regresamos a la pantalla (ej: después de crear/editar gastos)
   useFocusEffect(
@@ -443,40 +477,44 @@ export default function EventDetailScreen() {
     );
   };
 
-  // Settlement handlers
+  // Settlement handlers - SIMPLIFICADO
   const handleToggleSettlementPaid = async (settlementId: string, isPaid: boolean) => {
+    // Solo permitir marcar pagos en estado COMPLETADO
+    if (event?.status !== 'completed') {
+      Alert.alert('⚠️ Acción no permitida', 'Solo puedes marcar pagos cuando el evento está completado.');
+      return;
+    }
+
     try {
-      // Obtener datos de la liquidación
-      const settlement = dbSettlements.find(s => s.id === settlementId);
-      if (!settlement) {
-        Alert.alert(t('common.error'), 'Liquidación no encontrada');
+      console.log(`💰 ${isPaid ? 'Marcando' : 'Desmarcando'} settlement como pagado:`, settlementId);
+
+      // Si se desmarca un pago, mostrar advertencia
+      if (!isPaid) {
+        Alert.alert(
+          '⚠️ Desmarcar pago',
+          'Desmarcar este pago puede cambiar a quién deben transferir dinero otros participantes. ¿Deseas continuar?',
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+              text: 'Continuar',
+              onPress: async () => {
+                await databaseService.updateSettlement(settlementId, {
+                  isPaid: false,
+                  paidAt: null
+                });
+                await loadEventData();
+              }
+            }
+          ]
+        );
         return;
       }
 
-      // Actualizar liquidación
+      // Actualizar liquidación directamente
       await databaseService.updateSettlement(settlementId, {
         isPaid,
         paidAt: isPaid ? new Date().toISOString() : null
       });
-
-      // Si se marca como pagada, crear el Payment y enviar notificación
-      if (isPaid && eventId) {
-        const newPayment: Payment = {
-          id: `payment_${Date.now()}_${Math.random()}`,
-          eventId,
-          fromParticipantId: settlement.fromParticipantId,
-          toParticipantId: settlement.toParticipantId,
-          amount: settlement.amount,
-          date: new Date().toISOString(),
-          notes: t('message.paymentFromSettlement'),
-          receiptImage: settlement.receiptImage, // Pasar el comprobante de la settlement
-          isConfirmed: true, // Ya está confirmado al marcar la liquidación
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        console.log('💳 Creating payment from settlement:', newPayment);
-        await createPayment(newPayment);
-      }
       
       await loadEventData();
     } catch (error) {
@@ -486,6 +524,12 @@ export default function EventDetailScreen() {
   };
 
   const handleUpdateSettlementReceipt = async (settlementId: string, imageUri: string | null) => {
+    // Solo permitir agregar comprobantes en estado COMPLETADO
+    if (event?.status !== 'completed') {
+      Alert.alert('⚠️ Acción no permitida', 'Solo puedes agregar comprobantes cuando el evento está completado.');
+      return;
+    }
+
     try {
       await databaseService.updateSettlement(settlementId, {
         receiptImage: imageUri
@@ -498,7 +542,7 @@ export default function EventDetailScreen() {
     }
   };
 
-  const handleCompleteEvent = async () => {
+  const handleCompleteEvent = useCallback(async () => {
     if (!event) return;
 
     Alert.alert(
@@ -510,11 +554,18 @@ export default function EventDetailScreen() {
           text: t('message.markComplete'),
           onPress: async () => {
             try {
+              // 1. Actualizar estado del evento a completado
               await updateEvent(eventId, {
                 status: 'completed',
                 completedAt: new Date().toISOString()
               });
+              
+              // 2. Actualizar estado de todas las liquidaciones a completado
+              await databaseService.updateSettlementsEventStatus(eventId, 'completed');
+              
+              // 3. Recargar datos para reflejar el cambio
               await loadEventData();
+              
               Alert.alert(`✅ ${t('message.eventCompleted')}`, t('message.eventCompletedDesc'));
             } catch (error) {
               console.error('Error completing event:', error);
@@ -524,21 +575,38 @@ export default function EventDetailScreen() {
         }
       ]
     );
-  };
+  }, [event, eventId, t, updateEvent, loadEventData]);
 
-  const handleReactivateEvent = async (targetStatus: 'active' | 'completed' = 'active') => {
+  const handleReactivateEvent = useCallback(async (targetStatus: 'active' | 'completed' = 'active') => {
     if (!event) return;
 
     const isGoingToActive = targetStatus === 'active';
-    const title = isGoingToActive ? `🔓 ${t('message.reactivateEvent')}` : `✅ ${t('message.markAsComplete')}`;
-    const message = isGoingToActive 
-      ? t('message.reactivateEventDesc')
-      : t('message.markAsCompleteShort');
-    const buttonText = isGoingToActive ? t('events.reactivate') : t('events.complete');
-    const successTitle = isGoingToActive ? `✅ ${t('message.eventReactivated')}` : `✅ ${t('message.eventCompleted')}`;
-    const successMessage = isGoingToActive 
-      ? t('message.eventActiveAgain')
-      : t('message.eventCompletedShort');
+    const isFromArchived = event?.status === 'archived';
+    
+    let title, message, buttonText, successTitle, successMessage;
+    
+    if (isGoingToActive && isFromArchived) {
+      // ARCHIVADO → ACTIVO: Advertencia sobre eliminación de pagos
+      title = `⚠️ ${t('message.reactivateEvent')}`;
+      message = "⚠️ Al reactivar el evento se borrarán TODOS los pagos y comprobantes registrados para permitir nuevos cálculos. ¿Deseas continuar?";
+      buttonText = t('events.reactivate');
+      successTitle = `✅ ${t('message.eventReactivated')}`;
+      successMessage = "Evento reactivado. Se han eliminado todos los pagos previos.";
+    } else if (isGoingToActive) {
+      // COMPLETADO → ACTIVO: Reactivación normal
+      title = `🔓 ${t('message.reactivateEvent')}`;
+      message = t('message.reactivateEventDesc');
+      buttonText = t('events.reactivate');
+      successTitle = `✅ ${t('message.eventReactivated')}`;
+      successMessage = t('message.eventActiveAgain');
+    } else {
+      // Otros casos (completar)
+      title = `✅ ${t('message.markAsComplete')}`;
+      message = t('message.markAsCompleteShort');
+      buttonText = t('events.complete');
+      successTitle = `✅ ${t('message.eventCompleted')}`;
+      successMessage = t('message.eventCompletedShort');
+    }
 
     Alert.alert(
       title,
@@ -549,10 +617,20 @@ export default function EventDetailScreen() {
           text: buttonText,
           onPress: async () => {
             try {
+              // Si va de ARCHIVADO → ACTIVO, resetear pagos
+              if (isGoingToActive && isFromArchived) {
+                await databaseService.resetSettlementsPayments(eventId);
+              }
+              
+              // Actualizar estado del evento
               await updateEvent(eventId, {
                 status: targetStatus,
                 completedAt: targetStatus === 'completed' ? new Date().toISOString() : undefined
               });
+              
+              // Actualizar estado de liquidaciones
+              await databaseService.updateSettlementsEventStatus(eventId, targetStatus);
+              
               await loadEventData();
               Alert.alert(successTitle, successMessage);
             } catch (error) {
@@ -563,9 +641,9 @@ export default function EventDetailScreen() {
         }
       ]
     );
-  };
+  }, [event, eventId, t, updateEvent, loadEventData]);
 
-  const handleArchiveEvent = async () => {
+  const handleArchiveEvent = useCallback(async () => {
     if (!event) return;
 
     Alert.alert(
@@ -580,6 +658,10 @@ export default function EventDetailScreen() {
               await updateEvent(eventId, {
                 status: 'archived'
               });
+              
+              // Actualizar estado de liquidaciones a archivado
+              await databaseService.updateSettlementsEventStatus(eventId, 'archived');
+              
               Alert.alert(`✅ ${t('message.eventArchived')}`, t('message.eventArchivedDesc'));
               navigation.goBack();
             } catch (error) {
@@ -590,7 +672,7 @@ export default function EventDetailScreen() {
         }
       ]
     );
-  };
+  }, [event, eventId, updateEvent, navigation, t]);
 
   const handleShareSummary = () => {
     if (!event) return;
@@ -599,6 +681,12 @@ export default function EventDetailScreen() {
     const participantCount = eventParticipants.length;
     
     let message = `📊 *RESUMEN - ${event.name}*\n\n`;
+    
+    // Agregar advertencia si el evento está activo
+    if (event.status === 'active') {
+      message += `⚠️ _Los importes mencionados pueden sufrir modificaciones, debido que el evento no está COMPLETADO_\n\n`;
+    }
+    
     message += `💰 *Total gastado:* ${event.currency} $${totalAmount.toFixed(2)}\n`;
     message += `👥 *Participantes:* ${participantCount}\n\n`;
     
@@ -669,6 +757,12 @@ export default function EventDetailScreen() {
     
     let message = `🎉 EVENTO - ${event.name.toUpperCase()}\n`;
     message += `━━━━━━━━━━━━━━━━━━\n`;
+    
+    // Agregar advertencia si el evento está activo
+    if (event.status === 'active') {
+      message += `⚠️ _Los importes mencionados pueden sufrir modificaciones, debido que el evento no está COMPLETADO_\n\n`;
+    }
+    
     message += `📅 ${new Date(event.startDate).toLocaleDateString('es-AR')}\n`;
     message += `💵 $${formatCurrency(totalAmount)} ${event.currency}\n`;
     message += `📊 Estado: ${event.status === 'active' ? t('events.active') : event.status === 'completed' ? t('events.completed') : t('events.archived')}\n`;
