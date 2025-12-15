@@ -18,10 +18,16 @@ export function calculateParticipantBalances(
   splits: Split[],
   payments: Payment[]
 ): ParticipantBalance[] {
+  console.log('🧮 CalculationService.calculateParticipantBalances - START');
+  console.log('  💰 Expenses:', expenses.length, expenses.map(e => ({ id: e.id, amount: e.amount, payerId: e.payerId })));
+  console.log('  📊 Splits:', splits.length);
+  console.log('  💸 Payments:', payments.length);
+  
   const balances: { [id: string]: ParticipantBalance } = {};
 
   // PASO 1: créditos (lo que pagó cada uno)
   expenses.forEach(exp => {
+    console.log(`  💳 Processing expense: ${exp.payerId} paid $${exp.amount}`);
     if (!balances[exp.payerId]) balances[exp.payerId] = { participantId: exp.payerId, totalPaid: 0, totalOwed: 0, balance: 0 };
     balances[exp.payerId].totalPaid += exp.amount;
   });
@@ -43,7 +49,15 @@ export function calculateParticipantBalances(
     if (balances[p.toParticipantId]) balances[p.toParticipantId].balance += p.amount;
   });
 
-  return Object.values(balances);
+  const result = Object.values(balances);
+  console.log('🧮 CalculationService.calculateParticipantBalances - RESULT:', result.map(b => ({
+    participantId: b.participantId,
+    totalPaid: b.totalPaid,
+    totalOwed: b.totalOwed,
+    balance: b.balance
+  })));
+
+  return result;
 }
 
 export function calculateOptimalSettlement(balances: ParticipantBalance[]): Settlement[] {

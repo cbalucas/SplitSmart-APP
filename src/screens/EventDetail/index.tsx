@@ -95,14 +95,14 @@ export default function EventDetailScreen() {
   const [showExpenseDetailModal, setShowExpenseDetailModal] = useState(false);
   const [selectedExpenseForDetail, setSelectedExpenseForDetail] = useState<any>(null);
 
-  // Use calculations hook for balance and settlement calculations
+  // Use calculations hook for balance and settlement calculations  
   const { balances, settlements, eventStats } = useCalculations(
     eventParticipants,
     eventExpenses,
     eventSplits,
-    eventPayments,
+    eventPayments, // Payments (para compatibilidad legacy)
     dbSettlements,
-    event?.status as 'active' | 'completed' | 'archived'
+    (event?.status || 'active') as 'active' | 'completed' | 'archived'
   );
 
   // Debug log para ver por qué no se generan settlements
@@ -302,26 +302,43 @@ export default function EventDetailScreen() {
     // 🔍 DEBUG: Ver por qué la sincronización puede no ejecutarse
     console.log('🔍 Sync conditions check:', {
       signatureChanged: settlementsSignature !== previousSettlementsRef.current,
+      previousSignature: previousSettlementsRef.current,
+      currentSignature: settlementsSignature,
       hasExpenses: eventExpenses.length > 0,
+      expenseCount: eventExpenses.length,
       hasMultipleParticipants: eventParticipants.length > 1,
+      participantCount: eventParticipants.length,
       isActive: event?.status === 'active',
+      eventStatus: event?.status,
       shouldSync,
       settlementsCalculated: settlements.length,
       dbSettlements: dbSettlements.length
     });
     
+    // 🔍 DEBUG: Log detailed settlements info
+    console.log('🔍 Current calculated settlements:', settlements.map(s => ({
+      from: s.fromParticipantName,
+      to: s.toParticipantName,
+      amount: s.amount
+    })));
+    
     if (shouldSync) {
       console.log('🔄 Syncing settlements to DB after calculations change');
       console.log('  📊 Settlements to sync:', settlements.length);
+      console.log('  🆔 Event ID:', eventId);
+      console.log('  📝 Event status:', event?.status);
       previousSettlementsRef.current = settlementsSignature;
       
       const syncTimeout = setTimeout(() => {
+        console.log('⏰ Executing delayed settlement sync...');
         syncSettlementsToDb();
       }, 300); // Delay reducido para mejor responsividad
       
       return () => clearTimeout(syncTimeout);
+    } else {
+      console.log('❌ Sync skipped due to conditions not met');
     }
-  }, [eventId, event, settlements, syncSettlementsToDb]);
+  }, [eventId, event, settlements, eventExpenses, eventParticipants, syncSettlementsToDb]);
 
   // Efecto para auto-generar settlements cuando hay datos iniciales
   useEffect(() => {

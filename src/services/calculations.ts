@@ -65,6 +65,12 @@ export class CalculationService {
     splits: Split[],
     paidSettlements: any[]
   ): Balance[] {
+    console.log('🧮 CalculationService.calculateBalancesWithSettlements - START');
+    console.log('  👥 Participants:', participants.length, participants.map(p => ({ id: p.id, name: p.name })));
+    console.log('  💰 Expenses:', expenses.length, expenses.map(e => ({ id: e.id, amount: e.amount, payerId: e.payerId, payerName: e.payerName })));
+    console.log('  📊 Splits:', splits.length, splits.map(s => ({ participantId: s.participantId, amount: s.amount })));
+    console.log('  🏦 Paid settlements:', paidSettlements.length);
+    
     const balances: { [participantId: string]: Balance } = {};
 
     // Initialize balances for all participants
@@ -100,6 +106,7 @@ export class CalculationService {
     // Apply paid settlements to adjust balances
     paidSettlements.forEach(settlement => {
       if (balances[settlement.fromParticipantId] && balances[settlement.toParticipantId]) {
+        console.log(`  💸 Applying paid settlement: ${settlement.fromParticipantId} → ${settlement.toParticipantId} $${settlement.amount}`);
         // The payer's balance decreases (they owe less)
         balances[settlement.fromParticipantId].balance -= settlement.amount;
         // The receiver's balance increases (they are owed less)  
@@ -107,7 +114,16 @@ export class CalculationService {
       }
     });
 
-    return Object.values(balances);
+    const result = Object.values(balances);
+    console.log('🧮 CalculationService.calculateBalancesWithSettlements - RESULT:', result.map(b => ({
+      participantId: b.participantId,
+      participantName: b.participantName,
+      totalPaid: b.totalPaid,
+      totalOwed: b.totalOwed,
+      balance: b.balance
+    })));
+
+    return result;
   }
 
   /**
@@ -115,11 +131,17 @@ export class CalculationService {
    * Uses a greedy algorithm to match debtors with creditors
    */
   static calculateOptimalSettlements(balances: Balance[]): Settlement[] {
+    console.log('⚖️ CalculationService.calculateOptimalSettlements - START');
+    console.log('  📊 Input balances:', balances.map(b => ({ name: b.participantName, balance: b.balance })));
+    
     const settlements: Settlement[] = [];
     
     // Separate debtors (positive balance) and creditors (negative balance)
     const debtors = balances.filter(b => b.balance > 0.01).sort((a, b) => b.balance - a.balance);
     const creditors = balances.filter(b => b.balance < -0.01).sort((a, b) => a.balance - b.balance);
+    
+    console.log('  🔴 Debtors:', debtors.map(d => ({ name: d.participantName, owes: d.balance })));
+    console.log('  🟢 Creditors:', creditors.map(c => ({ name: c.participantName, isOwed: Math.abs(c.balance) })));
     
     let debtorIndex = 0;
     let creditorIndex = 0;
@@ -146,6 +168,12 @@ export class CalculationService {
       if (debtor.balance <= 0.01) debtorIndex++;
       if (creditor.balance >= -0.01) creditorIndex++;
     }
+    
+    console.log('⚖️ CalculationService.calculateOptimalSettlements - RESULT:', settlements.map(s => ({
+      from: s.fromParticipantName,
+      to: s.toParticipantName,
+      amount: s.amount
+    })));
     
     return settlements;
   }

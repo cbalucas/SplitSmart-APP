@@ -6,6 +6,7 @@ export const useCalculations = (
   participants: Participant[],
   expenses: Expense[],
   splits: Split[],
+  payments: Payment[] = [], // Payments (legacy, para compatibilidad)
   dbSettlements: any[] = [], // Settlements desde la DB (incluyendo pagados y no pagados)
   eventStatus: 'active' | 'completed' | 'archived' = 'active' // Estado del evento
 ) => {
@@ -26,10 +27,28 @@ export const useCalculations = (
       participants: participants.length,
       expenses: expenses.length,
       splits: splits.length,
+      payments: payments.length,
       balances: balances.length,
       dbSettlements: dbSettlements.length,
-      eventStatus
+      eventStatus,
+      eventStatusType: typeof eventStatus
     });
+
+    // 🔍 DEBUG: Log detailed expenses info
+    console.log('🔍 useCalculations - expenses detail:', expenses.map(e => ({
+      id: e.id,
+      amount: e.amount,
+      payerId: e.payerId,
+      payerName: e.payerName
+    })));
+
+    // 🔍 DEBUG: Log balances
+    console.log('🔍 useCalculations - balances:', balances.map(b => ({
+      participantId: b.participantId,
+      balance: b.balance,
+      totalPaid: b.totalPaid,
+      totalOwed: b.totalOwed
+    })));
 
     switch (eventStatus) {
       case 'active':
