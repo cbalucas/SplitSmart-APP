@@ -18,13 +18,13 @@ import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context'
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { useData } from '../../context/DataContext';
 import { 
   Input,
   Button,
   Card,
   HeaderBar
 } from '../../components';
-import { useData } from '../../context/DataContext';
 import { EventFormData, EventFormErrors, RouteParams } from './types';
 import { createEventLanguage } from './language';
 import { createStyles } from './styles';
@@ -268,6 +268,7 @@ const CreateEventScreen: React.FC = () => {
           category: formData.category,
           type: formData.eventType,
           updatedAt: new Date().toISOString()
+          // Nota: No actualizamos creatorId en ediciones para preservar el creador original
         };
 
         console.log('Updating event in SQLite:', eventUpdates);
@@ -284,7 +285,7 @@ const CreateEventScreen: React.FC = () => {
           category: formData.category,
           type: formData.eventType,
           status: 'active' as const,
-          creatorId: 'demo-user', // TODO: Get from AuthContext
+          creatorId: user?.id || 'anonymous'
         };
 
         console.log('Creating event in SQLite:', eventData);

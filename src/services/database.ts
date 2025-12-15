@@ -485,24 +485,7 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      // 🧹 MIGRACIÓN FORZADA v1.6.0: Reset completo de la base de datos
-      console.log('🧹 Performing forced database reset for v1.6.0...');
-      
-      try {
-        // Borrar todas las tablas existentes para empezar de cero
-        await this.db.execAsync('DROP TABLE IF EXISTS settlements');
-        await this.db.execAsync('DROP TABLE IF EXISTS payments');
-        await this.db.execAsync('DROP TABLE IF EXISTS splits');
-        await this.db.execAsync('DROP TABLE IF EXISTS expenses');
-        await this.db.execAsync('DROP TABLE IF EXISTS event_participants');
-        await this.db.execAsync('DROP TABLE IF EXISTS participants');
-        await this.db.execAsync('DROP TABLE IF EXISTS events');
-        await this.db.execAsync('DROP TABLE IF EXISTS users');
-        
-        console.log('✅ All tables dropped successfully for clean start');
-      } catch (error) {
-        console.log('ℹ️ Some tables might not exist yet, continuing...');
-      }
+      console.log('✅ Creating tables if they don\'t exist...');
 
       // Events table
       await this.db.execAsync(`
@@ -679,9 +662,36 @@ class DatabaseService {
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_app_versions_current ON app_versions(is_current)`);
 
       console.log('✅ All tables and indexes created successfully');
+      
+      // Crear el usuario demo si no existe
+      await this.createDemoUserIfNotExists();
+      
+      console.log('✅ Database tables ready and demo user verified');
     } catch (error) {
       console.error('❌ Error creating tables:', error);
       throw error;
+    }
+  }
+
+  private async createDemoUserIfNotExists(): Promise<void> {
+    try {
+      const demoUser = await this.getUserByCredential('demo');
+      if (!demoUser) {
+        console.log('📝 Creating demo user...');
+        await this.createUser({
+          id: 'demo-user',
+          name: 'Usuario Demo',
+          username: 'demo',
+          email: 'demo@splitsmart.com',
+          password: '',
+          skipPassword: true
+        });
+        console.log('✅ Demo user created in database with skipPassword');
+      } else {
+        console.log('✅ Demo user already exists');
+      }
+    } catch (error) {
+      console.error('❌ Error creating demo user:', error);
     }
   }
 
@@ -1970,52 +1980,23 @@ class DatabaseService {
       console.log('📦 Starting complete data export...');
       
       const [
-        users,
         events, 
         participants, 
         expenses, 
-        transactions,
-        eventParticipants,
+        settlements,
         splits
       ] = await Promise.all([
-        this.getAllUsers(),
         this.getEvents(),
         this.getParticipants(),
         this.getAllExpenses(),
-        this.getAllTransactions(),
-        this.getAllEventParticipants(),
+        this.getAllSettlements(),
         this.getAllSplits()
       ]);
 
-      // Para compatibilidad con importación, separar transactions en payments y settlements
-      const payments = transactions.filter(t => t.type === 'manual').map(t => ({
-        id: t.id,
-        eventId: t.eventId,
-        fromParticipantId: t.fromParticipantId,
-        toParticipantId: t.toParticipantId,
-        amount: t.amount,
-        date: t.date,
-        notes: t.notes,
-        receiptImage: t.receiptImage,
-        isConfirmed: t.status === 'confirmed',
-        createdAt: t.createdAt,
-        updatedAt: t.updatedAt
-      }));
+      // Obtener usuarios (crear función si no existe)
+      const users = await this.getAllUsers();
 
-      const settlements = transactions.filter(t => t.type === 'calculated').map(t => ({
-        id: t.id,
-        event_id: t.eventId,
-        from_participant_id: t.fromParticipantId,
-        from_participant_name: t.fromParticipantName,
-        to_participant_id: t.toParticipantId,
-        to_participant_name: t.toParticipantName,
-        amount: t.amount,
-        is_paid: t.status === 'confirmed' ? 1 : 0,
-        receipt_image: t.receiptImage,
-        paid_at: t.confirmedAt,
-        created_at: t.createdAt,
-        updated_at: t.updatedAt
-      }));
+      // Los settlements ya vienen en el formato correcto de la base de datos
 
       // Calculate statistics
       const totalAmount = expenses.reduce((sum, expense) => sum + expense.amount, 0);
@@ -3077,6 +3058,8 @@ class DatabaseService {
       console.log('⚠️ Migration failed, but continuing with empty transactions table');
     }
   }
+
+  // Funciones auxiliares ya definidas arriba en la clase
 }
 
 export const databaseService = new DatabaseService();

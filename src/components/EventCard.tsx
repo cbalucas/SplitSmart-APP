@@ -21,6 +21,7 @@ export interface EventData {
   totalAmount: number;
   currency: string;
   status: 'active' | 'completed' | 'archived';
+  type: 'public' | 'private';
   participantCount: number;
   expenseCount: number;
   description?: string;
@@ -98,11 +99,19 @@ const EventCard: React.FC<EventCardProps> = ({
         ]} />
         
         <View style={styles.content}>
-          {/* Primera fila: Título y Lápiz */}
+          {/* Primera fila: Título, Icono de Privacidad y Lápiz */}
           <View style={styles.titleRow}>
-            <Text style={styles.eventName} numberOfLines={1}>
-              {event.name}
-            </Text>
+            <View style={styles.titleContainer}>
+              <Text style={styles.eventName} numberOfLines={1}>
+                {event.name}
+              </Text>
+              <MaterialCommunityIcons
+                name={event.type === 'private' ? 'lock' : 'web'}
+                size={16}
+                color={event.type === 'private' ? '#FFB000' : '#4285F4'}
+                style={styles.privacyIcon}
+              />
+            </View>
             <TouchableOpacity
               onPress={handleEditPress}
               style={styles.editButton}
@@ -213,6 +222,17 @@ const createStyles = (theme: Theme) =>
       alignItems: 'center',
       justifyContent: 'space-between',
       marginBottom: 4,
+    } as ViewStyle,
+
+    titleContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+      marginRight: 8,
+    } as ViewStyle,
+
+    privacyIcon: {
+      marginLeft: 6,
     } as ViewStyle,
 
     statusIndicator: {

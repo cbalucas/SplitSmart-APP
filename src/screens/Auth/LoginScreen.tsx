@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -9,6 +11,9 @@ import { HeaderBar } from '../../components';
 import { LoginFormData, LoginFormErrors } from './types';
 import { createStyles } from './styles';
 import { loginLanguage } from './language';
+import { RootStackParamList } from '../../types/navigation';
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export default function LoginScreen() {
   const [formData, setFormData] = useState<LoginFormData>({
@@ -21,6 +26,7 @@ export default function LoginScreen() {
   const { login, loading } = useAuth();
   const { theme } = useTheme();
   const { language } = useLanguage();
+  const navigation = useNavigation<NavigationProp>();
   
   const styles = createStyles(theme);
   const t = loginLanguage[language as keyof typeof loginLanguage] || loginLanguage.es;
@@ -151,6 +157,23 @@ export default function LoginScreen() {
             </View>
           )}
         </TouchableOpacity>
+
+        {/* Enlaces de navegación */}
+        <View style={styles.linksContainer}>
+          <TouchableOpacity 
+            style={styles.linkButton}
+            onPress={() => navigation.navigate('SignUp')}
+          >
+            <Text style={styles.linkText}>{t.links.signUp}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.linkButton}
+            onPress={() => navigation.navigate('ForgotPassword')}
+          >
+            <Text style={styles.linkText}>{t.links.forgotPassword}</Text>
+          </TouchableOpacity>
+        </View>
         </View>
       </SafeAreaView>
     </View>

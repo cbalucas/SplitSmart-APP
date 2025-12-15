@@ -1,5 +1,7 @@
 export type RootStackParamList = {
   Login: undefined;
+  SignUp: undefined;
+  ForgotPassword: undefined;
   Home: undefined;
   CreateEvent: { eventId?: string; mode?: 'edit' } | undefined;
   EventDetail: { eventId: string };

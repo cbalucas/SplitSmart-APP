@@ -1,6 +1,8 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LoginScreen from '../screens/Auth/LoginScreen';
+import SignUpScreen from '../screens/Auth/SignUpScreen';
+import ForgotPasswordScreen from '../screens/Auth/ForgotPasswordScreen';
 import HomeScreen from '../screens/Home';
 import CreateEventScreen from '../screens/CreateEvent';
 import EventDetailScreen from '../screens/EventDetail';
@@ -19,7 +21,11 @@ export default function RootNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {!user ? (
-        <Stack.Screen name="Login" component={LoginScreen} />
+        <>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="SignUp" component={SignUpScreen} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+        </>
       ) : (
         <>
           <Stack.Screen name="Home" component={HomeScreen} />

@@ -86,9 +86,25 @@ const HomeScreen: React.FC = () => {
     setEventTotals(totals);
   }, [dbEvents, getExpensesByEvent]);
 
+  // Filtrar eventos por privacidad: solo públicos + privados del usuario actual
+  const visibleEvents = useMemo(() => {
+    if (!user) return dbEvents;
+    
+    return dbEvents.filter(event => {
+      // Mostrar eventos públicos
+      if (event.type === 'public') return true;
+      
+      // Mostrar eventos privados solo si el usuario es el creador
+      if (event.type === 'private' && event.creatorId === user.id) return true;
+      
+      // No mostrar eventos privados de otros usuarios
+      return false;
+    });
+  }, [dbEvents, user]);
+
   // Calcular eventos con montos actualizados
   const eventsWithAmounts = useMemo(() => {
-    return dbEvents.map(event => ({
+    return visibleEvents.map(event => ({
       id: event.id,
       name: event.name,
       location: event.location,
@@ -96,11 +112,12 @@ const HomeScreen: React.FC = () => {
       totalAmount: eventTotals[event.id] || event.totalAmount || 0,
       currency: event.currency,
       status: event.status as 'active' | 'closed' | 'completed' | 'archived',
+      type: event.type as 'public' | 'private',
       participantCount: eventParticipants[event.id] || 0,
       expenseCount: eventExpenses[event.id] || 0,
       description: event.description
     }));
-  }, [dbEvents, eventTotals, eventParticipants, eventExpenses]);
+  }, [visibleEvents, eventTotals, eventParticipants, eventExpenses]);
 
   // Cargar conteos y calcular montos cuando cambian los eventos
   useEffect(() => {

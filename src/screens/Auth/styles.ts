@@ -139,5 +139,111 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     color: theme.colors.onSurfaceVariant,
     lineHeight: 18,
     fontStyle: 'italic'
+  },
+  // Estilos adicionales para SignUp y ForgotPassword
+  scrollView: {
+    flex: 1
+  },
+  subtitle: {
+    fontSize: 16,
+    color: theme.colors.onSurfaceVariant,
+    textAlign: 'center',
+    marginBottom: 24,
+    fontStyle: 'italic'
+  },
+  infoText: {
+    fontSize: 14,
+    color: theme.colors.onSurfaceVariant,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+    paddingHorizontal: 8
+  },
+  linkButton: {
+    alignItems: 'center',
+    marginTop: 16
+  },
+  linkText: {
+    fontSize: 14,
+    color: theme.colors.primary,
+    textDecorationLine: 'underline'
+  },
+  linksContainer: {
+    gap: 8,
+    marginTop: 8
+  },
+  // Estilos para validación de username
+  inputWithIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative'
+  },
+  inputWithIcon: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: theme.colors.outline,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: theme.colors.surfaceVariant,
+    color: theme.colors.onSurface
+  },
+  inputValid: {
+    borderColor: '#4CAF50'
+  },
+  inputInvalid: {
+    borderColor: '#FF5252'
+  },
+  validationIndicator: {
+    position: 'absolute',
+    right: 12,
+    height: '100%',
+    justifyContent: 'center'
+  },
+  validationText: {
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4
+  },
+  validationTextSuccess: {
+    color: '#4CAF50'
+  },
+  validationTextError: {
+    color: '#FF5252'
+  },
+  // Estilos para checkbox
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 8
+  },
+  checkboxText: {
+    fontSize: 14,
+    color: theme.colors.onSurface,
+    marginLeft: 8,
+    flex: 1
+  },
+  // Estilos para indicador de fortaleza de contraseña
+  passwordStrengthContainer: {
+    marginTop: 8,
+    marginBottom: 8
+  },
+  passwordStrengthBar: {
+    height: 4,
+    backgroundColor: theme.colors.outline,
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 4
+  },
+  passwordStrengthFill: {
+    height: '100%',
+    borderRadius: 2,
+    transition: 'width 0.3s ease'
+  },
+  passwordStrengthText: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'right'
   }
 });

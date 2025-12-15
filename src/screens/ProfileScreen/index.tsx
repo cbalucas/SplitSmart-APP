@@ -674,8 +674,8 @@ const ProfileScreen: React.FC = () => {
       await nukeDatabase();
       console.log('🔄 Database nuked and recreated');
       
-      // Import data using DataContext method (we'll need to add this)
-      const success = await importDataToDatabase(importData);
+      // Import data using DataContext method
+      const success = await importData(importData);
       
       if (success) {
         // Reinitialize auth to set up current user
