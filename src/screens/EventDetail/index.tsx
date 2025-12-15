@@ -299,6 +299,17 @@ export default function EventDetailScreen() {
                       (eventExpenses.length > 0 && eventParticipants.length > 1) &&
                       event?.status === 'active';
     
+    // 🔍 DEBUG: Ver por qué la sincronización puede no ejecutarse
+    console.log('🔍 Sync conditions check:', {
+      signatureChanged: settlementsSignature !== previousSettlementsRef.current,
+      hasExpenses: eventExpenses.length > 0,
+      hasMultipleParticipants: eventParticipants.length > 1,
+      isActive: event?.status === 'active',
+      shouldSync,
+      settlementsCalculated: settlements.length,
+      dbSettlements: dbSettlements.length
+    });
+    
     if (shouldSync) {
       console.log('🔄 Syncing settlements to DB after calculations change');
       console.log('  📊 Settlements to sync:', settlements.length);

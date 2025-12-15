@@ -21,15 +21,27 @@ export const useCalculations = (
 
   // Calculate settlements based on event status
   const settlements = useMemo(() => {
+    // 🔍 DEBUG: Log calculation inputs
+    console.log('🔍 useCalculations - inputs:', {
+      participants: participants.length,
+      expenses: expenses.length,
+      splits: splits.length,
+      balances: balances.length,
+      dbSettlements: dbSettlements.length,
+      eventStatus
+    });
+
     switch (eventStatus) {
       case 'active':
         // En estado activo: calcular settlements dinámicamente
-        return CalculationService.calculateOptimalSettlements(balances);
+        const calculated = CalculationService.calculateOptimalSettlements(balances);
+        console.log('🔍 useCalculations - calculated settlements:', calculated.length);
+        return calculated;
       
       case 'completed':
       case 'archived':
         // En estado completado/archivado: usar settlements fijos de la BD
-        return dbSettlements
+        const fromDb = dbSettlements
           .filter(s => !s.isPaid) // Solo mostrar no pagados como settlements pendientes
           .map(s => ({
             fromParticipantId: s.fromParticipantId,
@@ -38,8 +50,11 @@ export const useCalculations = (
             toParticipantName: s.toParticipantName,
             amount: s.amount
           }));
+        console.log('🔍 useCalculations - settlements from DB:', fromDb.length);
+        return fromDb;
       
       default:
+        console.log('🔍 useCalculations - no settlements (invalid status)');
         return [];
     }
   }, [balances, dbSettlements, eventStatus]);

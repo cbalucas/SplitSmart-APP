@@ -1,0 +1,23 @@
+// INSTRUCCIONES PARA DEBUG DE LIQUIDACIONES
+console.log('🔧 DEBUG MODE ACTIVADO para liquidaciones');
+console.log('');
+console.log('📱 PASOS PARA PROBAR:');
+console.log('1. Crea un evento nuevo');
+console.log('2. Agrega 3 participantes');
+console.log('3. Crea 1 gasto');
+console.log('4. Ve a la tab "Resumen"');
+console.log('5. Revisa la consola para ver los logs de debug');
+console.log('');
+console.log('🔍 LOGS A VERIFICAR:');
+console.log('- useCalculations - inputs: cantidad de participantes, gastos, splits');
+console.log('- useCalculations - calculated settlements: cantidad calculada');
+console.log('- Sync conditions check: si shouldSync es true/false y por qué');
+console.log('- Syncing settlements to DB: si se ejecuta la sincronización');
+console.log('');
+console.log('❓ SI NO APARECEN LIQUIDACIONES:');
+console.log('- Verifica que useCalculations calcule > 0 settlements');
+console.log('- Verifica que shouldSync sea true');
+console.log('- Verifica que se ejecute "Syncing settlements to DB"');
+console.log('');
+console.log('🎯 RESULTADO ESPERADO: Liquidaciones visibles en tab Resumen después del paso 4');
+console.log('');
