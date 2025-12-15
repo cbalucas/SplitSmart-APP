@@ -2360,36 +2360,40 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      // Check if participant has paid any expenses (payer_id)
+      // Check if participant has paid any expenses in THIS EVENT specifically
       const expenseCount = await this.db.getFirstAsync(
-        'SELECT COUNT(*) as count FROM expenses WHERE payer_id = ?',
-        [participantId]
+        'SELECT COUNT(*) as count FROM expenses WHERE payer_id = ? AND event_id = ?',
+        [participantId, eventId]
       ) as { count: number };
 
       if (expenseCount.count > 0) {
-        throw new Error('No se puede eliminar un participante que ha pagado gastos. Primero elimina esos gastos.');
+        throw new Error('No se puede eliminar un participante que ha pagado gastos en este evento. Primero cambia el pagador de esos gastos.');
       }
 
       // If participant is only in splits (not a payer), we can remove them and recalculate splits
       const splitCount = await this.db.getFirstAsync(
-        'SELECT COUNT(*) as count FROM splits WHERE participant_id = ?',
-        [participantId]
+        `SELECT COUNT(*) as count FROM splits s 
+         INNER JOIN expenses e ON s.expense_id = e.id 
+         WHERE s.participant_id = ? AND e.event_id = ?`,
+        [participantId, eventId]
       ) as { count: number };
 
       if (splitCount.count > 0) {
-        // Get all expenses where this participant has splits
+        // Get all expenses in THIS EVENT where this participant has splits
         const expensesWithSplits = await this.db.getAllAsync(
           `SELECT DISTINCT e.id, e.amount, e.event_id 
            FROM expenses e 
            INNER JOIN splits s ON e.id = s.expense_id 
-           WHERE s.participant_id = ?`,
-          [participantId]
+           WHERE s.participant_id = ? AND e.event_id = ?`,
+          [participantId, eventId]
         ) as Array<{ id: string; amount: number; event_id: string }>;
 
-        // Remove participant's splits
+        // Remove participant's splits only for this event
         await this.db.runAsync(
-          'DELETE FROM splits WHERE participant_id = ?',
-          [participantId]
+          `DELETE FROM splits 
+           WHERE participant_id = ? 
+           AND expense_id IN (SELECT id FROM expenses WHERE event_id = ?)`,
+          [participantId, eventId]
         );
 
         // Recalculate splits for each affected expense

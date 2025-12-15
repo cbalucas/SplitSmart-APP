@@ -312,6 +312,31 @@ export default function EventDetailScreen() {
     }
   }, [eventId, event, settlements, syncSettlementsToDb]);
 
+  // Efecto para auto-generar settlements cuando hay datos iniciales
+  useEffect(() => {
+    if (!eventId || !event || event.status !== 'active') return;
+    
+    // Auto-generar settlements si hay participantes y gastos pero no hay settlements
+    const hasParticipants = eventParticipants.length > 0;
+    const hasExpenses = eventExpenses.length > 0;
+    const hasCalculatedSettlements = settlements.length > 0;
+    const hasDbSettlements = dbSettlements.length > 0;
+    
+    if (hasParticipants && hasExpenses && hasCalculatedSettlements && !hasDbSettlements) {
+      console.log('🔄 Auto-generating settlements for loaded data');
+      console.log('  👥 Participants:', eventParticipants.length);
+      console.log('  💰 Expenses:', eventExpenses.length);
+      console.log('  ⚖️ Calculated settlements:', settlements.length);
+      
+      // Delay para asegurar que todos los datos estén listos
+      const autoSyncTimeout = setTimeout(() => {
+        syncSettlementsToDb();
+      }, 500);
+      
+      return () => clearTimeout(autoSyncTimeout);
+    }
+  }, [eventId, event, eventParticipants.length, eventExpenses.length, settlements.length, dbSettlements.length, syncSettlementsToDb]);
+
   // Efecto para detectar cambios pasivos en datos globales que afecten este evento
   const lastGlobalDataRef = useRef<string>('');
   useEffect(() => {

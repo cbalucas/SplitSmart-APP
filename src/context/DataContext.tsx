@@ -827,25 +827,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
           try {
             const expenseData = {
               id: expense.id,
-              event_id: expense.event_id,
+              event_id: expense.event_id || expense.eventId,
               description: expense.description || 'Gasto Importado',
               amount: expense.amount || 0,
               currency: expense.currency || 'ARS',
-              paid_by: expense.paid_by,
+              date: expense.date || new Date().toISOString(),
+              category: expense.category || null,
+              payer_id: expense.payer_id || expense.paid_by || expense.payerId,
               receipt_image: null, // receipt_image set to null
-              created_at: expense.created_at || new Date().toISOString(),
-              updated_at: expense.updated_at || new Date().toISOString()
+              is_active: expense.is_active !== undefined ? expense.is_active : 1,
+              created_at: expense.created_at || expense.createdAt || new Date().toISOString(),
+              updated_at: expense.updated_at || expense.updatedAt || new Date().toISOString()
             };
             
             await databaseService.db.runAsync(
               `INSERT OR REPLACE INTO expenses (
-                id, event_id, description, amount, currency, paid_by, 
-                receipt_image, created_at, updated_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                id, event_id, description, amount, currency, date, category, payer_id, 
+                receipt_image, is_active, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
                 expenseData.id, expenseData.event_id, expenseData.description, expenseData.amount,
-                expenseData.currency, expenseData.paid_by, expenseData.receipt_image,
-                expenseData.created_at, expenseData.updated_at
+                expenseData.currency, expenseData.date, expenseData.category, expenseData.payer_id, 
+                expenseData.receipt_image, expenseData.is_active, expenseData.created_at, expenseData.updated_at
               ]
             );
           } catch (expenseError) {
@@ -862,19 +865,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
           try {
             const splitData = {
               id: split.id,
-              expense_id: split.expense_id,
-              participant_id: split.participant_id,
+              expense_id: split.expense_id || split.expenseId,
+              participant_id: split.participant_id || split.participantId,
               amount: split.amount || 0,
-              created_at: split.created_at || new Date().toISOString()
+              percentage: split.percentage || null,
+              type: split.type || 'equal',
+              is_paid: split.is_paid !== undefined ? split.is_paid : 0,
+              created_at: split.created_at || split.createdAt || new Date().toISOString(),
+              updated_at: split.updated_at || split.updatedAt || new Date().toISOString()
             };
             
             await databaseService.db.runAsync(
               `INSERT OR REPLACE INTO splits (
-                id, expense_id, participant_id, amount, created_at
-              ) VALUES (?, ?, ?, ?, ?)`,
+                id, expense_id, participant_id, amount, percentage, type, is_paid, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
                 splitData.id, splitData.expense_id, splitData.participant_id, 
-                splitData.amount, splitData.created_at
+                splitData.amount, splitData.percentage, splitData.type, splitData.is_paid,
+                splitData.created_at, splitData.updated_at
               ]
             );
           } catch (splitError) {
