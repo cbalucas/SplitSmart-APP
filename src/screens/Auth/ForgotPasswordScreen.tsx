@@ -100,14 +100,13 @@ export default function ForgotPasswordScreen() {
         useDynamicColors={true}
         showThemeToggle={true}
         showLanguageSelector={true}
-        showBackButton={true}
-        onBackPress={() => navigation.goBack()}
+        showBackButton={false}
         elevation={true}
       />
       
       <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
         <View style={styles.form}>
-          <Text style={styles.subtitle}>{t.subtitle}</Text>
+          <Text style={styles.mainTitle}>{t.subtitle}</Text>
           
           <Text style={styles.infoText}>{t.form.infoText}</Text>
 

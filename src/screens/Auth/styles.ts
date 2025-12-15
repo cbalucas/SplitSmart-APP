@@ -144,12 +144,63 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   scrollView: {
     flex: 1
   },
+  mainTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: theme.colors.onSurface,
+    textAlign: 'center',
+    marginBottom: 32,
+    letterSpacing: 0.5
+  },
   subtitle: {
     fontSize: 16,
     color: theme.colors.onSurfaceVariant,
     textAlign: 'center',
     marginBottom: 24,
     fontStyle: 'italic'
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  modalContent: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '80%'
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: theme.colors.onSurface
+  },
+  modalCloseButton: {
+    padding: 4
+  },
+  modalBody: {
+    marginBottom: 24
+  },
+  modalButton: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center'
+  },
+  modalButtonText: {
+    color: theme.colors.onPrimary,
+    fontSize: 16,
+    fontWeight: '600'
   },
   infoText: {
     fontSize: 14,
@@ -167,6 +218,15 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 14,
     color: theme.colors.primary,
     textDecorationLine: 'underline'
+  },
+  demoLinkButton: {
+    alignItems: 'flex-start',
+    marginTop: 16
+  },
+  demoLinkText: {
+    fontSize: 14,
+    color: theme.colors.primary,
+    textDecorationLine: 'none'
   },
   linksContainer: {
     gap: 8,

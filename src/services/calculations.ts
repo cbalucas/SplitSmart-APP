@@ -37,13 +37,33 @@ export class CalculationService {
   }
 
   /**
-   * Calculate balances for all participants considering confirmed payments
+   * Calculate balances for all participants considering confirmed payments (LEGACY)
    */
   static calculateBalancesWithPayments(
     participants: Participant[],
     expenses: Expense[],
     splits: Split[],
     payments: Payment[]
+  ): Balance[] {
+    // Delegate to new settlements-based method
+    const settlementLikePayments = payments.map(p => ({
+      id: p.id,
+      fromParticipantId: p.fromParticipantId,
+      toParticipantId: p.toParticipantId,
+      amount: p.amount,
+      isPaid: p.isConfirmed
+    }));
+    return this.calculateBalancesWithSettlements(participants, expenses, splits, settlementLikePayments);
+  }
+
+  /**
+   * Calculate balances for all participants considering paid settlements
+   */
+  static calculateBalancesWithSettlements(
+    participants: Participant[],
+    expenses: Expense[],
+    splits: Split[],
+    paidSettlements: any[]
   ): Balance[] {
     const balances: { [participantId: string]: Balance } = {};
 
@@ -77,13 +97,13 @@ export class CalculationService {
       balance.balance = balance.totalOwed - balance.totalPaid;
     });
 
-    // Apply confirmed payments to adjust balances
-    payments.filter(p => p.isConfirmed).forEach(payment => {
-      if (balances[payment.fromParticipantId] && balances[payment.toParticipantId]) {
+    // Apply paid settlements to adjust balances
+    paidSettlements.forEach(settlement => {
+      if (balances[settlement.fromParticipantId] && balances[settlement.toParticipantId]) {
         // The payer's balance decreases (they owe less)
-        balances[payment.fromParticipantId].balance -= payment.amount;
-        // The receiver's balance increases (they are owed less)
-        balances[payment.toParticipantId].balance += payment.amount;
+        balances[settlement.fromParticipantId].balance -= settlement.amount;
+        // The receiver's balance increases (they are owed less)  
+        balances[settlement.toParticipantId].balance += settlement.amount;
       }
     });
 

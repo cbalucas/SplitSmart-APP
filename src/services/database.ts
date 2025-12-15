@@ -1199,8 +1199,44 @@ class DatabaseService {
           expense.updatedAt || new Date().toISOString()
         ]
       );
+
+      // 🔄 RECALCULAR LIQUIDACIONES AUTOMÁTICAMENTE
+      await this.recalculateSettlementsForEvent(expense.eventId);
+      
     } catch (error) {
       console.error('❌ Error creating expense:', error);
+      throw error;
+    }
+  }
+
+  // Función auxiliar para crear expense sin recalcular automáticamente (para el flujo con splits)
+  async createExpenseWithoutRecalculation(expense: Expense): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      await this.db.runAsync(
+        `INSERT INTO expenses (id, event_id, description, amount, currency, date, category, payer_id, receipt_image, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          expense.id,
+          expense.eventId,
+          expense.description,
+          expense.amount,
+          expense.currency,
+          expense.date,
+          expense.category || null,
+          expense.payerId,
+          expense.receiptImage || null,
+          expense.isActive !== false ? 1 : 0,
+          expense.createdAt || new Date().toISOString(),
+          expense.updatedAt || new Date().toISOString()
+        ]
+      );
+
+      // NO recalcular automáticamente - se hará manualmente después de crear splits
+      
+    } catch (error) {
+      console.error('❌ Error creating expense (without recalculation):', error);
       throw error;
     }
   }
@@ -1749,6 +1785,142 @@ class DatabaseService {
       console.error('❌ Error getting settlement:', error);
       return null;
     }
+  }
+
+  // =====================================================
+  // FUNCIÓN CENTRALIZADA DE RECÁLCULO DE LIQUIDACIONES
+  // =====================================================
+  async recalculateSettlementsForEvent(eventId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      console.log(`🔄 Recalculando liquidaciones para evento: ${eventId}`);
+
+      // 1. Obtener datos del evento
+      const expenses = await this.getExpensesByEvent(eventId);
+      const splits = await this.getSplitsByEvent(eventId); 
+      const participants = await this.getEventParticipants(eventId);
+
+      if (expenses.length === 0) {
+        console.log('📝 No hay gastos, eliminando liquidaciones no pagadas');
+        await this.db.runAsync(
+          'DELETE FROM settlements WHERE event_id = ? AND is_paid = 0',
+          [eventId]
+        );
+        return;
+      }
+
+      // 2. Calcular balances usando la lógica centralizada
+      const balances = this.calculateBalancesFromData(expenses, splits, participants);
+      
+      // 3. Generar liquidaciones optimizadas
+      const newSettlements = this.calculateOptimalSettlements(balances);
+
+      // 4. Eliminar liquidaciones NO PAGADAS (mantener las pagadas)
+      await this.db.runAsync(
+        'DELETE FROM settlements WHERE event_id = ? AND is_paid = 0',
+        [eventId]
+      );
+
+      // 5. Crear nuevas liquidaciones
+      const currentTime = new Date().toISOString();
+      for (const settlement of newSettlements) {
+        if (settlement.amount > 0.01) { // Solo crear si hay monto significativo
+          const settlementId = `settlement_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          await this.createSettlement({
+            id: settlementId,
+            eventId: eventId,
+            fromParticipantId: settlement.fromParticipantId,
+            fromParticipantName: settlement.fromParticipantName,
+            toParticipantId: settlement.toParticipantId,
+            toParticipantName: settlement.toParticipantName,
+            amount: settlement.amount,
+            isPaid: false,
+            paidAt: null,
+            createdAt: currentTime,
+            updatedAt: currentTime
+          });
+        }
+      }
+
+      console.log(`✅ Liquidaciones recalculadas: ${newSettlements.length} nuevas liquidaciones`);
+
+    } catch (error) {
+      console.error('❌ Error recalculando liquidaciones:', error);
+      throw error;
+    }
+  }
+
+  // Función helper para calcular balances desde datos raw
+  private calculateBalancesFromData(expenses: any[], splits: any[], participants: any[]): any[] {
+    const balances: { [participantId: string]: any } = {};
+
+    // Inicializar balances
+    participants.forEach(p => {
+      balances[p.id] = {
+        participantId: p.id,
+        participantName: p.name,
+        totalPaid: 0,
+        totalOwed: 0,
+        balance: 0
+      };
+    });
+
+    // Calcular lo que pagó cada uno (créditos)
+    expenses.forEach(expense => {
+      if (balances[expense.payerId]) {
+        balances[expense.payerId].totalPaid += expense.amount;
+      }
+    });
+
+    // Calcular lo que debe cada uno (débitos) 
+    splits.forEach(split => {
+      if (balances[split.participantId]) {
+        balances[split.participantId].totalOwed += split.amount;
+      }
+    });
+
+    // Calcular balance final (positivo = debe dinero, negativo = le deben)
+    Object.values(balances).forEach((balance: any) => {
+      balance.balance = balance.totalOwed - balance.totalPaid;
+    });
+
+    return Object.values(balances);
+  }
+
+  // Función helper para generar liquidaciones optimizadas
+  private calculateOptimalSettlements(balances: any[]): any[] {
+    const debtors = balances.filter(b => b.balance > 0).sort((a, b) => b.balance - a.balance);
+    const creditors = balances.filter(b => b.balance < 0).sort((a, b) => a.balance - b.balance);
+    
+    const settlements: any[] = [];
+    let debtorIndex = 0;
+    let creditorIndex = 0;
+
+    while (debtorIndex < debtors.length && creditorIndex < creditors.length) {
+      const debtor = debtors[debtorIndex];
+      const creditor = creditors[creditorIndex];
+      
+      const amount = Math.min(debtor.balance, Math.abs(creditor.balance));
+      
+      if (amount > 0.01) { // Solo crear si es significativo
+        settlements.push({
+          fromParticipantId: debtor.participantId,
+          fromParticipantName: debtor.participantName,
+          toParticipantId: creditor.participantId,
+          toParticipantName: creditor.participantName,
+          amount: Math.round(amount * 100) / 100
+        });
+      }
+
+      debtor.balance -= amount;
+      creditor.balance += amount;
+
+      if (debtor.balance <= 0.01) debtorIndex++;
+      if (creditor.balance >= -0.01) creditorIndex++;
+    }
+
+    return settlements;
   }
 
   async updateSettlementsEventStatus(eventId: string, newEventStatus: string): Promise<void> {
@@ -2313,6 +2485,12 @@ class DatabaseService {
         }
       }
 
+      // 🔄 OBTENER EVENT_ID Y RECALCULAR LIQUIDACIONES
+      const expenseData = await this.db.getFirstAsync('SELECT event_id FROM expenses WHERE id = ?', [expenseId]);
+      if (expenseData?.event_id) {
+        await this.recalculateSettlementsForEvent(expenseData.event_id);
+      }
+
       console.log('✅ Expense updated successfully');
     } catch (error) {
       console.error('❌ Error updating expense:', error);
@@ -2324,11 +2502,19 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
+      // 🔄 OBTENER EVENT_ID ANTES DE BORRAR
+      const expenseData = await this.db.getFirstAsync('SELECT event_id FROM expenses WHERE id = ?', [expenseId]);
+      
       // First delete all splits related to this expense
       await this.db.runAsync('DELETE FROM splits WHERE expense_id = ?', [expenseId]);
       
       // Then delete the expense itself
       await this.db.runAsync('DELETE FROM expenses WHERE id = ?', [expenseId]);
+      
+      // 🔄 RECALCULAR LIQUIDACIONES DESPUÉS DE BORRAR
+      if (expenseData?.event_id) {
+        await this.recalculateSettlementsForEvent(expenseData.event_id);
+      }
       
       console.log('✅ Expense deleted successfully');
     } catch (error) {

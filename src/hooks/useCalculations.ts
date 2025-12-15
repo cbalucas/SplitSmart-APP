@@ -6,35 +6,18 @@ export const useCalculations = (
   participants: Participant[],
   expenses: Expense[],
   splits: Split[],
-  payments: Payment[] = [], // Payments legacy para compatibilidad
-  dbSettlements: any[] = [], // Settlements con pagos incluidos desde la DB
+  dbSettlements: any[] = [], // Settlements desde la DB (incluyendo pagados y no pagados)
   eventStatus: 'active' | 'completed' | 'archived' = 'active' // Estado del evento
 ) => {
-  // Convert paid settlements to Payment objects and combine with legacy payments
-  const allPayments = useMemo(() => {
-    const settlementPayments: Payment[] = dbSettlements
-      .filter(settlement => settlement.isPaid)
-      .map(settlement => ({
-        id: settlement.id,
-        eventId: settlement.eventId,
-        fromParticipantId: settlement.fromParticipantId,
-        fromParticipantName: settlement.fromParticipantName,
-        toParticipantId: settlement.toParticipantId,
-        toParticipantName: settlement.toParticipantName,
-        amount: settlement.amount,
-        date: settlement.createdAt || new Date().toISOString(),
-        isConfirmed: true,
-        createdAt: settlement.createdAt || new Date().toISOString(),
-        updatedAt: settlement.updatedAt || new Date().toISOString()
-      }));
-    
-    return [...payments, ...settlementPayments];
-  }, [payments, dbSettlements]);
+  // Extraer pagos realizados desde settlements pagados
+  const paidSettlements = useMemo(() => {
+    return dbSettlements.filter(settlement => settlement.isPaid);
+  }, [dbSettlements]);
 
-  // Calculate balances considering both legacy payments AND paid settlements
+  // Calculate balances considering paid settlements
   const balances = useMemo(() => {
-    return CalculationService.calculateBalancesWithPayments(participants, expenses, splits, allPayments);
-  }, [participants, expenses, splits, allPayments]);
+    return CalculationService.calculateBalancesWithSettlements(participants, expenses, splits, paidSettlements);
+  }, [participants, expenses, splits, paidSettlements]);
 
   // Calculate settlements based on event status
   const settlements = useMemo(() => {

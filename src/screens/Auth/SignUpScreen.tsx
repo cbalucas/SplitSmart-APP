@@ -127,6 +127,14 @@ export default function SignUpScreen() {
 
   const passwordStrength = calculatePasswordStrength(formData.password);
 
+  // Función para validar coincidencia de contraseñas
+  const getPasswordMatchStatus = () => {
+    if (!formData.confirmPassword || !formData.password) return null;
+    return formData.password === formData.confirmPassword;
+  };
+
+  const passwordsMatch = getPasswordMatchStatus();
+
   const validateForm = (): { isValid: boolean; error?: string } => {
     // Validar nombre
     if (!formData.name.trim()) {
@@ -279,15 +287,14 @@ export default function SignUpScreen() {
         useDynamicColors={true}
         showThemeToggle={true}
         showLanguageSelector={true}
-        showBackButton={true}
-        onBackPress={() => navigation.goBack()}
+        showBackButton={false}
         elevation={true}
       />
       
       <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           <View style={styles.form}>
-            <Text style={styles.subtitle}>{t.subtitle}</Text>
+            <Text style={styles.mainTitle}>{t.subtitle}</Text>
 
             {/* Nombre completo */}
             <Text style={styles.label}>{t.form.nameLabel}</Text>
@@ -440,6 +447,11 @@ export default function SignUpScreen() {
                     />
                   </TouchableOpacity>
                 </View>
+                {passwordsMatch === false && formData.confirmPassword && (
+                  <Text style={styles.validationTextError}>
+                    {t.errors.passwordMismatch}
+                  </Text>
+                )}
               </>
             )}
 

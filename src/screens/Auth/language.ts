@@ -11,7 +11,7 @@ export const loginLanguage = {
       loginButtonLoading: 'Ingresando...'
     },
     demo: {
-      title: '🎯 Datos de prueba:',
+      title: '🎯 Datos de prueba',
       username: 'Usuario: Demo',
       email: 'Email: demo@splitsmart.com',
       passwordNote: '✨ Sin contraseña requerida'
@@ -42,7 +42,7 @@ export const loginLanguage = {
       loginButtonLoading: 'Signing In...'
     },
     demo: {
-      title: '🎯 Test data:',
+      title: '🎯 Test data',
       username: 'Username: Demo',
       email: 'Email: demo@splitsmart.com',
       passwordNote: '✨ No password required'
@@ -73,7 +73,7 @@ export const loginLanguage = {
       loginButtonLoading: 'Entrando...'
     },
     demo: {
-      title: '🎯 Dados de teste:',
+      title: '🎯 Dados de teste',
       username: 'Usuário: Demo',
       email: 'Email: demo@splitsmart.com',
       passwordNote: '✨ Sem senha necessária'

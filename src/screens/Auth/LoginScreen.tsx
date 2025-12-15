@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, Image, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -21,8 +21,7 @@ export default function LoginScreen() {
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [showDemoInfo, setShowDemoInfo] = useState(false);
-  const [showFutureInfo, setShowFutureInfo] = useState(false);
+  const [showDemoModal, setShowDemoModal] = useState(false);
   const { login, loading } = useAuth();
   const { theme } = useTheme();
   const { language } = useLanguage();
@@ -34,7 +33,9 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (!formData.credential) {
       const isDarkMode = theme.colors.surface !== '#FFFFFF';
-      Alert.alert(t.errors.general, t.errors.credentialRequired, [], {
+      Alert.alert(t.errors.general, t.errors.credentialRequired, [
+        { text: 'OK', style: 'default' }
+      ], {
         userInterfaceStyle: isDarkMode ? 'dark' : 'light'
       });
       return;
@@ -44,7 +45,9 @@ export default function LoginScreen() {
     const success = await login(formData.credential, formData.password || '');
     if (!success) {
       const isDarkMode = theme.colors.surface !== '#FFFFFF';
-      Alert.alert(t.errors.general, t.errors.invalidCredentials, [], {
+      Alert.alert(t.errors.general, t.errors.invalidCredentials, [
+        { text: 'OK', style: 'default' }
+      ], {
         userInterfaceStyle: isDarkMode ? 'dark' : 'light'
       });
     }
@@ -85,6 +88,14 @@ export default function LoginScreen() {
           autoCorrect={false}
         />
 
+        {/* Enlace de datos de prueba */}
+        <TouchableOpacity 
+          style={styles.demoLinkButton}
+          onPress={() => setShowDemoModal(true)}
+        >
+          <Text style={styles.demoLinkText}>{t.demo.title}</Text>
+        </TouchableOpacity>
+
         <Text style={styles.label}>{t.form.passwordLabel}</Text>
         <View style={styles.passwordContainer}>
           <TextInput
@@ -117,47 +128,6 @@ export default function LoginScreen() {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={styles.demoInfoButton}
-          onPress={() => setShowDemoInfo(!showDemoInfo)}
-        >
-          <View style={styles.demoInfoHeader}>
-            <Text style={styles.demoTitle}>{t.demo.title}</Text>
-            <MaterialCommunityIcons
-              name={showDemoInfo ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color={theme.colors.primary}
-            />
-          </View>
-          {showDemoInfo && (
-            <View style={styles.demoInfoContent}>
-              <Text style={styles.demoText}>{t.demo.username}</Text>
-              <Text style={styles.demoText}>{t.demo.email}</Text>
-              <Text style={styles.demoText}>{t.demo.passwordNote}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-
-        {/* Leyenda de desarrollo futuro */}
-        <TouchableOpacity 
-          style={styles.futureFeaturesButton}
-          onPress={() => setShowFutureInfo(!showFutureInfo)}
-        >
-          <View style={styles.futureFeaturesHeader}>
-            <Text style={styles.futureFeaturesTitle}>{t.futureFeatures.title}</Text>
-            <MaterialCommunityIcons
-              name={showFutureInfo ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color={theme.colors.primary}
-            />
-          </View>
-          {showFutureInfo && (
-            <View style={styles.futureFeaturesContent}>
-              <Text style={styles.futureFeaturesText}>{t.futureFeatures.description}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-
         {/* Enlaces de navegación */}
         <View style={styles.linksContainer}>
           <TouchableOpacity 
@@ -175,10 +145,45 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
         </View>
+        
+        {/* Modal para información demo */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={showDemoModal}
+          onRequestClose={() => setShowDemoModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>{t.demo.title}</Text>
+                <TouchableOpacity
+                  style={styles.modalCloseButton}
+                  onPress={() => setShowDemoModal(false)}
+                >
+                  <MaterialCommunityIcons
+                    name="close"
+                    size={24}
+                    color={theme.colors.onSurface}
+                  />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.modalBody}>
+                <Text style={styles.demoText}>{t.demo.username}</Text>
+                <Text style={styles.demoText}>{t.demo.email}</Text>
+                <Text style={styles.demoText}>{t.demo.passwordNote}</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => setShowDemoModal(false)}
+              >
+                <Text style={styles.modalButtonText}>Entendido</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
       </SafeAreaView>
     </View>
   );
 }
-
-
-

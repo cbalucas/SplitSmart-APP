@@ -280,6 +280,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
           console.log('🔄 Clearing', existingSettlements.length, 'settlements due to new participant with existing expenses');
           await databaseService.deleteSettlementsByEvent(eventId);
         }
+        
+        // 🔄 RECALCULAR LIQUIDACIONES CON EL NUEVO PARTICIPANTE
+        await databaseService.recalculateSettlementsForEvent(eventId);
+        console.log('✅ Settlements recalculated after adding participant');
       }
       
       await refreshData();
@@ -326,6 +330,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
           console.log('🔄 Clearing', existingSettlements.length, 'existing settlements due to existing participant');
           await databaseService.deleteSettlementsByEvent(eventId);
         }
+        
+        // 🔄 RECALCULAR LIQUIDACIONES CON EL PARTICIPANTE AGREGADO
+        await databaseService.recalculateSettlementsForEvent(eventId);
+        console.log('✅ Settlements recalculated after adding existing participant');
       }
       
       await refreshData();
@@ -465,7 +473,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Expense methods
   const addExpense = useCallback(async (expense: Expense, splits?: Split[]) => {
     try {
-      await databaseService.createExpense(expense);
+      // Crear expense SIN recalculación automática (la haremos manualmente después)
+      await databaseService.createExpenseWithoutRecalculation(expense);
       console.log('✅ Expense added successfully:', expense.description);
       
       // Add splits if provided
@@ -474,6 +483,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
           await databaseService.createSplit(split);
         }
         console.log(`✅ ${splits.length} splits added for expense ${expense.id}`);
+        
+        // 🔄 RECALCULAR LIQUIDACIONES DESPUÉS DE CREAR TODOS LOS SPLITS
+        await databaseService.recalculateSettlementsForEvent(expense.eventId);
+        console.log('✅ Settlements recalculated after creating splits');
       }
       
       // Refresh data to update UI
@@ -1066,6 +1079,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
           console.log('🔄 Clearing', existingSettlements.length, 'existing settlements due to participant removal');
           await databaseService.deleteSettlementsByEvent(eventId);
         }
+        
+        // 🔄 RECALCULAR LIQUIDACIONES DESPUÉS DE REMOVER PARTICIPANTE
+        await databaseService.recalculateSettlementsForEvent(eventId);
+        console.log('✅ Settlements recalculated after removing participant');
       }
       
       await refreshData();
