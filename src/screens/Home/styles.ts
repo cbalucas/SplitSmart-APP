@@ -103,6 +103,15 @@ export const createStyles = (theme: Theme) => {
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.3,
       shadowRadius: 4.65,
+      marginBottom: 16, // Espacio entre los FABs
+    } as ViewStyle,
+
+    profileFab: {
+      backgroundColor: '#FFFFFF', // Fondo blanco siempre
+      borderWidth: 1,
+      borderColor: theme.colors.primary,
+      marginBottom: 0, // El último FAB no necesita margen inferior
+      padding: 4, // Reducir padding interno para que el avatar sea más prominente
     } as ViewStyle,
 
     fabIcon: {

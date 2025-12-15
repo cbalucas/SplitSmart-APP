@@ -31,7 +31,7 @@ const HomeScreen: React.FC = () => {
   const navigation = useNavigation();
   const { theme } = useTheme();
   const { language } = useLanguage();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { events: dbEvents, loading: dbLoading, refreshData, getEventParticipants, getExpensesByEvent, updateEvent, deleteEvent } = useData();
   const styles = createStyles(theme);
   
@@ -260,6 +260,23 @@ const HomeScreen: React.FC = () => {
     (navigation as any).navigate('ManageFriends');
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+      'Cerrar Sesión',
+      '¿Estás seguro de que quieres cerrar sesión?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Cerrar Sesión', 
+          style: 'destructive',
+          onPress: () => {
+            logout(); // El AuthContext se encarga de la navegación automáticamente
+          }
+        }
+      ]
+    );
+  };
+
   // Render functions
   const renderSearchBar = () => (
     <SearchBar
@@ -327,14 +344,9 @@ const HomeScreen: React.FC = () => {
         title={t.header.title}
         titleAlignment="left"
         useDynamicColors={true}
-        leftAvatar={
-          <UserAvatar 
-            size={40}
-            onPress={handleProfilePress}
-          />
-        }
+        leftIcon="logout"
+        onLeftPress={handleLogout}
         rightIcon="account-group"
-        onLeftPress={handleProfilePress}
         onRightPress={handleManageFriends}
         showThemeToggle={true}
         showLanguageSelector={true}
@@ -364,8 +376,9 @@ const HomeScreen: React.FC = () => {
           }
         />
 
-        {/* Floating Action Button */}
+        {/* Floating Action Buttons */}
         <View style={styles.fabContainer}>
+          {/* Botón Crear Evento */}
           <TouchableOpacity
             style={styles.fab}
             onPress={handleCreateEvent}
@@ -375,6 +388,18 @@ const HomeScreen: React.FC = () => {
               name="plus"
               size={28}
               color={theme.colors.onPrimary}
+            />
+          </TouchableOpacity>
+          
+          {/* Botón Perfil */}
+          <TouchableOpacity
+            style={[styles.fab, styles.profileFab]}
+            onPress={handleProfilePress}
+            activeOpacity={0.8}
+          >
+            <UserAvatar 
+              size={48}
+              onPress={handleProfilePress}
             />
           </TouchableOpacity>
         </View>

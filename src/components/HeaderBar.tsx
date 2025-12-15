@@ -118,7 +118,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
           <MaterialCommunityIcons
             name={leftIcon as any}
             size={24}
-            color={titleColor || theme.colors.onSurface}
+            color={dynamicTitleColor}
           />
         </TouchableOpacity>
       );
