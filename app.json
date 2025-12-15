@@ -24,7 +24,7 @@
         "backgroundColor": "#4B89DC"
       },
       "package": "com.cbalucas.splitsmart",
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": [
         "USE_FINGERPRINT",
         "USE_BIOMETRIC",

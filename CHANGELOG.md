@@ -1,5 +1,39 @@
 # Changelog - SplitSmart
 
+## [1.1.0] - 2025-12-15
+
+### 🚀 Mejoras Principales
+
+#### Sistema de Liquidaciones
+- **Corrección crítica**: Sistema de liquidaciones ahora recalcula automáticamente cuando se agregan nuevos gastos
+- **Logging mejorado**: Agregado debugging detallado para rastrear cálculos de balances y settlements
+- **Sincronización automática**: Las liquidaciones se actualizan instantáneamente al modificar gastos o participantes
+- **Fix de parámetros**: Corregido problema donde eventStatus llegaba como array en lugar de string
+
+#### Interfaz de Usuario - Home
+- **Avatar rediseñado**: Movido el avatar del HeaderBar a un FAB más grande y prominente
+- **Botón de cerrar sesión**: Agregado botón de logout con confirmación de seguridad
+- **FAB dual**: Sistema de dos botones flotantes (crear evento + perfil/logout)
+- **Colores dinámicos**: Mejorado contraste de iconos en HeaderBar con colores dinámicos
+
+#### Mejoras Técnicas
+- **Cálculos optimizados**: Servicio de cálculos moderno con mejor manejo de settlements
+- **Dependencias corregidas**: useEffect mejorado para reaccionar correctamente a cambios
+- **Compatibilidad**: Mantenida compatibilidad con sistema legacy de payments
+
+### 🔧 Correcciones de Bugs
+- ✅ Liquidaciones no se mostraban en la primera carga de gastos
+- ✅ Settlements no se actualizaban al agregar gastos de diferentes participantes
+- ✅ Avatar del header era muy pequeño y poco visible
+- ✅ Faltaba opción accesible para cerrar sesión
+- ✅ Iconos del header tenían problemas de contraste en temas dinámicos
+
+### 🎨 Mejoras de UX/UI
+- **Experiencia mejorada**: Liquidaciones más responsivas y precisas
+- **Navegación intuitiva**: FAB más accesible para acciones principales
+- **Feedback visual**: Confirmaciones de logout para evitar cierres accidentales
+- **Consistencia visual**: Mejor integración de colores y temas
+
 ## [1.3.0] - 2025-11-26
 
 ### ✨ Nuevas Funcionalidades
