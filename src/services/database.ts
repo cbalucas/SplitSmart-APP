@@ -848,7 +848,7 @@ class DatabaseService {
       const result = await this.db.getFirstAsync(
         'SELECT * FROM events WHERE id = ?',
         [eventId]
-      );
+      ) as any;
       
       if (!result) {
         console.log(`❌ Event not found: ${eventId}`);
@@ -939,7 +939,7 @@ class DatabaseService {
       const result = await this.db.getFirstAsync(
         'SELECT * FROM participants WHERE id = ? AND is_active = 1',
         [participantId]
-      );
+      ) as any;
       
       if (!result) {
         console.log(`❌ Participant not found: ${participantId}`);
@@ -1761,7 +1761,7 @@ class DatabaseService {
       const settlement = await this.db.getFirstAsync(
         'SELECT * FROM settlements WHERE id = ?',
         [settlementId]
-      );
+      ) as any;
 
       if (!settlement) return null;
 
@@ -2168,6 +2168,11 @@ class DatabaseService {
       // Obtener usuarios (crear función si no existe)
       const users = await this.getAllUsers();
 
+      // Definir variables faltantes
+      const transactions: any[] = []; // Nueva tabla unificada - por implementar
+      const payments: any[] = []; // Legacy format para compatibilidad
+      const eventParticipants = await this.getAllEventParticipants();
+
       // Los settlements ya vienen en el formato correcto de la base de datos
 
       // Calculate statistics
@@ -2486,7 +2491,7 @@ class DatabaseService {
       }
 
       // 🔄 OBTENER EVENT_ID Y RECALCULAR LIQUIDACIONES
-      const expenseData = await this.db.getFirstAsync('SELECT event_id FROM expenses WHERE id = ?', [expenseId]);
+      const expenseData = await this.db.getFirstAsync('SELECT event_id FROM expenses WHERE id = ?', [expenseId]) as any;
       if (expenseData?.event_id) {
         await this.recalculateSettlementsForEvent(expenseData.event_id);
       }
@@ -2503,7 +2508,7 @@ class DatabaseService {
 
     try {
       // 🔄 OBTENER EVENT_ID ANTES DE BORRAR
-      const expenseData = await this.db.getFirstAsync('SELECT event_id FROM expenses WHERE id = ?', [expenseId]);
+      const expenseData = await this.db.getFirstAsync('SELECT event_id FROM expenses WHERE id = ?', [expenseId]) as any;
       
       // First delete all splits related to this expense
       await this.db.runAsync('DELETE FROM splits WHERE expense_id = ?', [expenseId]);
@@ -2680,7 +2685,7 @@ class DatabaseService {
       const user = await this.db.getFirstAsync(
         'SELECT * FROM users WHERE id = ?',
         [userId]
-      );
+      ) as any;
       
       if (user) {
         console.log('💾 Profile found - notifications_payment_received:', user.notifications_payment_received);
@@ -2860,7 +2865,6 @@ class DatabaseService {
           name: 'Usuario Demo',
           username: 'demo',
           email: 'demo@splitsmart.com',
-          avatar: null,
           skipPassword: true,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()

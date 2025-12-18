@@ -36,6 +36,7 @@ export interface Participant {
   avatar?: string;
   isActive: boolean;
   participantType: 'friend' | 'temporary';
+  eventIds?: string[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -58,6 +59,7 @@ export interface Expense {
   date: string;
   category?: string;
   payerId: string;
+  payerName?: string;
   receiptImage?: string;
   isActive?: boolean;
   createdAt?: string;
@@ -99,6 +101,7 @@ export interface Settlement {
   toParticipantName: string;
   amount: number;
   isPaid: boolean;
+  eventStatus?: string;
   receiptImage?: string;
   notes?: string;
   paidAt?: string;

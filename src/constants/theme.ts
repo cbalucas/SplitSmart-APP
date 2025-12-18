@@ -1,6 +1,7 @@
 // Theme configuration based on PromptAPP.md specifications
 import { AppColors, getAppColors } from './colors';
 export const lightTheme = {
+  isDark: false,
   colors: {
     // Primary colors usando AppColors
     primary: AppColors.primary.light,
@@ -47,6 +48,9 @@ export const lightTheme = {
     onInfo: '#FFFFFF',
     infoContainer: AppColors.status.info.container.light,
     onInfoContainer: '#001D36',
+    
+    // Additional surface colors
+    surfaceContainer: AppColors.surface.light.secondary,
     
     // Neutral colors usando AppColors
     outline: AppColors.border.light.primary,
@@ -202,6 +206,7 @@ export const lightTheme = {
 
 export const darkTheme = {
   ...lightTheme,
+  isDark: true,
   colors: {
     ...lightTheme.colors,
     
@@ -250,6 +255,9 @@ export const darkTheme = {
     onInfo: '#FFFFFF',
     infoContainer: AppColors.status.info.container.dark,
     onInfoContainer: '#BBDEFB',
+    
+    // Additional surface colors
+    surfaceContainer: AppColors.surface.dark.secondary,
     
     // Neutral colors usando AppColors - mayor contraste
     outline: AppColors.border.dark.primary,
