@@ -988,5 +988,37 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     width: '100%',
     height: 200,
     borderRadius: 8
-  }
+  },
+
+  // Estilos de Consolidación
+  consolidationControls: {
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  consolidationButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 8,
+  },
+  consolidationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
+  },
+  consolidationButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  consolidationSummary: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  consolidationSummaryText: {
+    fontSize: 11,
+    fontStyle: 'italic',
+  },
 });

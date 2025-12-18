@@ -14,6 +14,7 @@ export { CurrencySelector } from './CurrencySelector';
 export { ThemeToggle } from './ThemeToggle';
 export { UserAvatar } from './UserAvatar';
 export { SettlementItem } from './SettlementItem';
+export { ConsolidationModal } from './ConsolidationModal';
 
 // Re-exportar solo los tipos que no dan problemas
 export type { HeaderBarProps } from './HeaderBar';

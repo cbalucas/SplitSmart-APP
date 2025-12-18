@@ -30,9 +30,10 @@ import Button from '../../components/Button';
 import AddParticipantModal from '../../components/AddParticipantModal';
 import HeaderBar from '../../components/HeaderBar';
 import SearchBar from '../../components/SearchBar';
-import { LanguageSelector, ThemeToggle, SettlementItem } from '../../components';
+import { LanguageSelector, ThemeToggle, SettlementItem, ConsolidationModal } from '../../components';
 import { useCalculations } from '../../hooks/useCalculations';
 import { databaseService } from '../../services/database';
+import { ConsolidationService } from '../../services/ConsolidationService';
 import * as ImagePicker from 'expo-image-picker';
 import { createStyles } from './styles';
 
@@ -94,6 +95,12 @@ export default function EventDetailScreen() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showExpenseDetailModal, setShowExpenseDetailModal] = useState(false);
   const [selectedExpenseForDetail, setSelectedExpenseForDetail] = useState<any>(null);
+
+  // Estados para consolidación
+  const [showConsolidationModal, setShowConsolidationModal] = useState(false);
+  const [consolidationAssignments, setConsolidationAssignments] = useState<any[]>([]);
+  const [showOriginalView, setShowOriginalView] = useState(false);
+  const [consolidatedSettlements, setConsolidatedSettlements] = useState<any[]>([]);
 
   // Use calculations hook for balance and settlement calculations  
   const { balances, settlements, eventStats } = useCalculations(
@@ -280,7 +287,7 @@ export default function EventDetailScreen() {
   // Usar referencia para evitar bucles infinitos
   const previousSettlementsRef = useRef<string>('');
   useEffect(() => {
-    if (!eventId || !event || event.status === 'archived') return;
+    if (!eventId || !event || event.status === 'archived' || event.status === 'completed') return;
     
     // Crear una "huella" de las settlements calculadas para comparar cambios reales
     const settlementsSignature = JSON.stringify(
@@ -733,6 +740,9 @@ export default function EventDetailScreen() {
     const totalAmount = calculateTotalExpenses();
     const participantCount = eventParticipants.length;
     
+    // Usar los settlements que se están mostrando actualmente (originales o consolidados)
+    const currentSettlements = getDisplaySettlements();
+    
     let message = `📊 *RESUMEN - ${event.name}*\n\n`;
     
     // Agregar advertencia si el evento está activo
@@ -744,16 +754,16 @@ export default function EventDetailScreen() {
     message += `👥 *Participantes:* ${participantCount}\n\n`;
     
     message += `💸 LIQUIDACIONES:\n\n`;
-    if (dbSettlements.length > 0) {
+    if (currentSettlements.length > 0) {
       // Agrupar liquidaciones por destinatario (quien recibe el dinero)
-      const settlementsByRecipient = dbSettlements.reduce((acc, settlement) => {
+      const settlementsByRecipient = currentSettlements.reduce((acc, settlement) => {
         const toParticipantName = settlement.toParticipantName;
         if (!acc[toParticipantName]) {
           acc[toParticipantName] = [];
         }
         acc[toParticipantName].push(settlement);
         return acc;
-      }, {} as Record<string, typeof dbSettlements>);
+      }, {} as Record<string, typeof currentSettlements>);
 
       // Generar mensaje agrupado por destinatario
       Object.entries(settlementsByRecipient).forEach(([recipientName, settlementsForRecipient]) => {
@@ -771,6 +781,22 @@ export default function EventDetailScreen() {
       });
     } else {
       message += `✅ ¡Todas las cuentas están equilibradas!\n`;
+    }
+
+    // Mostrar información de consolidación después de las liquidaciones
+    if (consolidationAssignments.length > 0 && !showOriginalView) {
+      const originalTotal = settlements.reduce((sum, s) => sum + s.amount, 0);
+      const consolidatedTotal = consolidatedSettlements.reduce((sum, s) => sum + s.amount, 0);
+      const forgivenAmount = originalTotal - consolidatedTotal;
+      
+      message += `\n━━━━━━━━━━━━━━━━━━\n`;
+      message += `🔄 *VISTA CONSOLIDADA*\n\n`;
+      
+      // Mostrar quién paga por quién
+      message += `👤 *ASIGNACIONES:*\n`;
+      consolidationAssignments.forEach(assignment => {
+        message += `• ${assignment.payerName} paga por ${assignment.debtorName}\n`;
+      });
     }
 
     // Enviar directamente a WhatsApp
@@ -808,6 +834,9 @@ export default function EventDetailScreen() {
 
     const totalAmount = calculateTotalExpenses();
     
+    // Usar los settlements que se están mostrando actualmente (originales o consolidados)
+    const currentSettlements = getDisplaySettlements();
+    
     let message = `🎉 EVENTO - ${event.name.toUpperCase()}\n`;
     message += `━━━━━━━━━━━━━━━━━━\n`;
     
@@ -827,16 +856,16 @@ export default function EventDetailScreen() {
     message += `━━━━━━━━━━━━━━━━━━\n`;
     message += `💸 LIQUIDACIÓN:\n`;
     
-    if (dbSettlements.length > 0) {
+    if (currentSettlements.length > 0) {
       // Agrupar liquidaciones por destinatario (quien recibe el dinero)
-      const settlementsByRecipient = dbSettlements.reduce((acc, settlement) => {
+      const settlementsByRecipient = currentSettlements.reduce((acc, settlement) => {
         const toParticipantName = settlement.toParticipantName;
         if (!acc[toParticipantName]) {
           acc[toParticipantName] = [];
         }
         acc[toParticipantName].push(settlement);
         return acc;
-      }, {} as Record<string, typeof dbSettlements>);
+      }, {} as Record<string, typeof currentSettlements>);
 
       // Generar mensaje agrupado por destinatario
       Object.entries(settlementsByRecipient).forEach(([recipientName, settlementsForRecipient]) => {
@@ -853,6 +882,22 @@ export default function EventDetailScreen() {
       });
     } else {
       message += `✅ ¡Todas las cuentas están equilibradas!\n`;
+    }
+    
+    // Mostrar información de consolidación después de las liquidaciones
+    if (consolidationAssignments.length > 0 && !showOriginalView) {
+      const originalTotal = settlements.reduce((sum, s) => sum + s.amount, 0);
+      const consolidatedTotal = consolidatedSettlements.reduce((sum, s) => sum + s.amount, 0);
+      const forgivenAmount = originalTotal - consolidatedTotal;
+      
+      message += `━━━━━━━━━━━━━━━━━━\n`;
+      message += `🔄 VISTA CONSOLIDADA\n\n`;
+      
+      // Mostrar quién paga por quién
+      message += `👤 ASIGNACIONES:\n`;
+      consolidationAssignments.forEach(assignment => {
+        message += `* ${assignment.payerName} paga por ${assignment.debtorName}\n`;
+      });
     }
     
     message += `━━━━━━━━━━━━━━━━━━\n`;
@@ -931,6 +976,71 @@ export default function EventDetailScreen() {
         );
       });
   };
+
+  // =====================================================
+  // FUNCIONES DE CONSOLIDACIÓN
+  // =====================================================
+
+  const handleConsolidationChange = (assignments: any[]) => {
+    console.log('🔄 Nueva configuración de consolidación:', assignments);
+    setConsolidationAssignments(assignments);
+    
+    // Aplicar consolidaciones usando el servicio
+    const consolidated = ConsolidationService.applyConsolidations(settlements, assignments);
+    setConsolidatedSettlements(consolidated);
+    
+    // Contar cuántos pagos fueron condonados (para mostrar al usuario)
+    const totalOriginalDebts = settlements.length;
+    const totalConsolidatedPayments = consolidated.length;
+    const forgivenPayments = totalOriginalDebts - totalConsolidatedPayments;
+    
+    if (forgivenPayments > 0) {
+      const totalOriginal = settlements.reduce((sum, s) => sum + s.amount, 0);
+      const totalConsolidated = consolidated.reduce((sum, s) => sum + s.amount, 0);
+      const forgivenAmount = totalOriginal - totalConsolidated;
+      
+      Alert.alert(
+        '🚫 Condonaciones Automáticas',
+        `✅ Consolidación aplicada exitosamente\n\n📊 Resumen:\n• Liquidaciones originales: ${settlements.length}\n• Liquidaciones consolidadas: ${consolidated.length}\n• Pagos condonados: ${forgivenPayments}\n\n💰 Montos:\n• Total original: $${totalOriginal.toLocaleString()}\n• Total final: $${totalConsolidated.toLocaleString()}\n• Monto condonado: $${forgivenAmount.toLocaleString()}\n\n💡 Los pagos condonados son transferencias donde una persona se pagaría a sí misma, las cuales se cancelan automáticamente por ser innecesarias.`,
+        [{ text: 'Perfecto', style: 'default' }]
+      );
+    }
+    
+    // Cerrar modal
+    setShowConsolidationModal(false);
+  };
+
+  const getDisplaySettlements = () => {
+    if (consolidationAssignments.length > 0 && !showOriginalView) {
+      return consolidatedSettlements;
+    }
+    return settlements;
+  };
+
+  const handleToggleView = () => {
+    setShowOriginalView(!showOriginalView);
+  };
+
+  const handleClearConsolidations = () => {
+    Alert.alert(
+      'Limpiar Consolidaciones',
+      '¿Estás seguro de que quieres eliminar todas las consolidaciones?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Limpiar',
+          style: 'destructive',
+          onPress: () => {
+            setConsolidationAssignments([]);
+            setConsolidatedSettlements([]);
+            setShowOriginalView(false);
+          }
+        }
+      ]
+    );
+  };
+
+  // =====================================================
 
   const handleAddExpenseOld = () => {
     Alert.prompt(
@@ -1669,9 +1779,84 @@ export default function EventDetailScreen() {
           })()}
         </View>
         
-        {dbSettlements.length > 0 ? (
+        {/* Controles de Consolidación - Solo en eventos completados */}
+        {settlements.length > 1 && event?.status === 'completed' && (
+          <View style={styles.consolidationControls}>
+            <View style={styles.consolidationButtons}>
+              <TouchableOpacity
+                style={[styles.consolidationButton, { backgroundColor: theme.colors.primaryContainer }]}
+                onPress={() => setShowConsolidationModal(true)}
+              >
+                <MaterialCommunityIcons 
+                  name="group" 
+                  size={16} 
+                  color={theme.colors.onPrimaryContainer} 
+                />
+                <Text style={[styles.consolidationButtonText, { color: theme.colors.onPrimaryContainer }]}>
+                  Consolidar
+                </Text>
+              </TouchableOpacity>
+
+              {consolidationAssignments.length > 0 && (
+                <>
+                  <TouchableOpacity
+                    style={[styles.consolidationButton, { 
+                      backgroundColor: showOriginalView ? theme.colors.primary : theme.colors.surface,
+                      borderWidth: 1,
+                      borderColor: theme.colors.outline
+                    }]}
+                    onPress={handleToggleView}
+                  >
+                    <MaterialCommunityIcons 
+                      name={showOriginalView ? "eye-off" : "eye"} 
+                      size={16} 
+                      color={showOriginalView ? theme.colors.onPrimary : theme.colors.onSurface} 
+                    />
+                    <Text style={[styles.consolidationButtonText, { 
+                      color: showOriginalView ? theme.colors.onPrimary : theme.colors.onSurface 
+                    }]}>
+                      {showOriginalView ? 'Ver Consolidado' : 'Ver Original'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.consolidationButton, { backgroundColor: theme.colors.errorContainer }]}
+                    onPress={handleClearConsolidations}
+                  >
+                    <MaterialCommunityIcons 
+                      name="close" 
+                      size={16} 
+                      color={theme.colors.onErrorContainer} 
+                    />
+                    <Text style={[styles.consolidationButtonText, { color: theme.colors.onErrorContainer }]}>
+                      Limpiar
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+
+            {consolidationAssignments.length > 0 && (
+              <View style={styles.consolidationSummary}>
+                <Text style={[styles.consolidationSummaryText, { color: theme.colors.onSurfaceVariant }]}>
+                  📋 {consolidationAssignments.length} consolidación(es) • 
+                  {showOriginalView ? '👁️ Vista original' : '🔀 Vista consolidada'}
+                  {(() => {
+                    const forgivenCount = settlements.length - consolidatedSettlements.length;
+                    const totalOriginal = settlements.reduce((sum, s) => sum + s.amount, 0);
+                    const totalConsolidated = consolidatedSettlements.reduce((sum, s) => sum + s.amount, 0);
+                    const savings = totalOriginal - totalConsolidated;
+                    return forgivenCount > 0 ? `\n🚫 ${forgivenCount} pago${forgivenCount > 1 ? 's' : ''} condonado${forgivenCount > 1 ? 's' : ''} • 💰 $${savings.toLocaleString()} ahorrado${forgivenCount > 1 ? 's' : ''}` : '';
+                  })()}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+        
+        {getDisplaySettlements().length > 0 ? (
           <View>
-            {dbSettlements
+            {getDisplaySettlements()
               .sort((a, b) => {
                 // Ordenamiento: Estado > Deudor > Monto > Acreedor
                 // Los pagados van al final
@@ -1696,9 +1881,9 @@ export default function EventDetailScreen() {
                 // Por acreedor (toParticipantName)
                 return a.toParticipantName.localeCompare(b.toParticipantName);
               })
-              .map((settlement: Settlement) => (
+              .map((settlement: Settlement, index: number) => (
               <SettlementItem
-                key={settlement.id}
+                key={`${settlement.id}_${index}_${settlement.fromParticipantId}_${settlement.toParticipantId}`}
                 settlement={settlement}
                 currency={event?.currency || 'ARS'}
                 onTogglePaid={handleToggleSettlementPaid}
@@ -1747,7 +1932,8 @@ export default function EventDetailScreen() {
             {Object.entries(participantExpenses)
               .sort(([,a], [,b]) => b.total - a.total)
               .map(([participantId, data]) => (
-                <View key={participantId} style={styles.categoryItem}>
+                <React.Fragment key={participantId}>
+                  <View style={styles.categoryItem}>
                   <View style={styles.categoryInfo}>
                     <Text style={styles.categoryName}>
                       {data.name}
@@ -1756,10 +1942,11 @@ export default function EventDetailScreen() {
                       {data.percentage.toFixed(1)}%
                     </Text>
                   </View>
-                  <Text style={styles.categoryAmount}>
-                    ${data.total.toFixed(2)} {event?.currency || 'USD'}
-                  </Text>
-                </View>
+                    <Text style={styles.categoryAmount}>
+                      ${data.total.toFixed(2)} {event?.currency || 'USD'}
+                    </Text>
+                  </View>
+                </React.Fragment>
               ))}
           </Card>
         );
@@ -1770,7 +1957,8 @@ export default function EventDetailScreen() {
         <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
           <Text style={styles.sectionTitle}>📊 {t('expenses.byCategory')}</Text>
           {Object.entries(eventStats.categoryTotals).map(([category, total]) => (
-            <View key={category} style={styles.categoryItem}>
+            <React.Fragment key={category}>
+              <View style={styles.categoryItem}>
               <View style={styles.categoryInfo}>
                 <Text style={styles.categoryName}>
                   {category.charAt(0).toUpperCase() + category.slice(1)}
@@ -1779,10 +1967,11 @@ export default function EventDetailScreen() {
                   {((total / eventStats.totalExpenses) * 100).toFixed(1)}%
                 </Text>
               </View>
-              <Text style={styles.categoryAmount}>
-                ${total.toFixed(2)} {event?.currency || 'USD'}
-              </Text>
-            </View>
+                <Text style={styles.categoryAmount}>
+                  ${total.toFixed(2)} {event?.currency || 'USD'}
+                </Text>
+              </View>
+            </React.Fragment>
           ))}
         </Card>
       )}
@@ -1923,7 +2112,8 @@ export default function EventDetailScreen() {
                 const toParticipant = eventParticipants.find(p => p.id === payment.toParticipantId);
 
                 return (
-                  <View key={payment.id} style={styles.paymentItem}>
+                  <React.Fragment key={payment.id}>
+                    <View style={styles.paymentItem}>
                     <View style={styles.paymentHeader}>
                       <View style={styles.paymentParticipants}>
                         <Text style={styles.paymentFromTo}>
@@ -1978,6 +2168,7 @@ export default function EventDetailScreen() {
                       )}
                     </View>
                   </View>
+                  </React.Fragment>
                 );
               })}
             </View>
@@ -2204,10 +2395,12 @@ export default function EventDetailScreen() {
                     {selectedExpenseForDetail.splits.map((split: any) => {
                       const participant = eventParticipants.find(p => p.id === split.participantId);
                       return (
-                        <View key={split.id} style={styles.expenseDetailRow}>
-                          <Text style={styles.expenseDetailLabel}>• {participant?.name}:</Text>
-                          <Text style={styles.expenseDetailValue}>${split.amount.toFixed(2)}</Text>
-                        </View>
+                        <React.Fragment key={split.id}>
+                          <View style={styles.expenseDetailRow}>
+                            <Text style={styles.expenseDetailLabel}>• {participant?.name}:</Text>
+                            <Text style={styles.expenseDetailValue}>${split.amount.toFixed(2)}</Text>
+                          </View>
+                        </React.Fragment>
                       );
                     })}
                   </View>
@@ -2284,6 +2477,16 @@ export default function EventDetailScreen() {
           balance={selectedParticipantForInfo ? balances[selectedParticipantForInfo.id] || 0 : 0}
         />
       </Modal>
+
+      {/* Modal de Consolidación */}
+      <ConsolidationModal
+        visible={showConsolidationModal}
+        onClose={() => setShowConsolidationModal(false)}
+        settlements={settlements}
+        participants={eventParticipants}
+        onConsolidationChange={handleConsolidationChange}
+        currency={event?.currency || 'ARS'}
+      />
     </View>
   );
 }

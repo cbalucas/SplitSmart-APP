@@ -108,3 +108,17 @@ export interface Settlement {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface ConsolidationAssignment {
+  payerId: string; // Quien va a pagar
+  payerName: string;
+  debtorId: string; // Por quien va a pagar
+  debtorName: string;
+  eventId: string;
+}
+
+export interface ConsolidatedSettlement extends Settlement {
+  isConsolidated: boolean;
+  originalSettlements?: Settlement[];
+  consolidationAssignments?: ConsolidationAssignment[];
+}
