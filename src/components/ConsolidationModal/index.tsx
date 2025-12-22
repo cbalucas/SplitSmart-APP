@@ -66,8 +66,9 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
     const existingPayerIds = new Set(assignments.map(a => a.payerId));
     
     settlements.forEach(settlement => {
-      // Excluir a los participantes que ya son pagadores activos
+      // Excluir a los participantes que ya son pagadores activos de otras personas
       if (existingPayerIds.has(settlement.fromParticipantId)) {
+        console.log(`🚫 Excluyendo ${settlement.fromParticipantName} como deudor porque ya es pagador de otra persona`);
         return;
       }
       
@@ -84,6 +85,9 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
       debtMap[settlement.fromParticipantId].settlements.push(settlement);
     });
 
+    console.log('📋 Assignments:', assignments);
+    console.log('👥 ExistingPayerIds:', Array.from(existingPayerIds));
+    console.log('💰 DebtSummaries resultado:', Object.values(debtMap));
     setDebtSummaries(Object.values(debtMap));
   }, [settlements, assignments]);
 
@@ -233,10 +237,7 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
                     // No puede pagarse a sí mismo
                     if (p.id === item.participantId) return false;
                     
-                    // No puede ser pagador si ya tiene deudas pendientes (aparece en debtSummaries)
-                    const hasDebts = debtSummaries.some(debt => debt.participantId === p.id);
-                    if (hasDebts) return false;
-                    
+                    // Permitir que cualquier otro participante pueda ser pagador
                     return true;
                   })
                   .map(participant => (

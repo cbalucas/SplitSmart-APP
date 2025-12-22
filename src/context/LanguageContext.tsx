@@ -1620,9 +1620,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     let translation = key;
 
     // Usar siempre las traducciones embebidas como fuente principal
-    translation = translations[language][key as keyof typeof translations['es']] || 
-                 additionalEsTranslations[key as keyof typeof additionalEsTranslations] || 
-                 key;
+    const langTranslations = translations[language] as Record<string, string>;
+    const additionalTranslations = additionalEsTranslations as Record<string, string>;
+    translation = langTranslations[key] || additionalTranslations[key] || key;
     
     // Interpolación de variables: reemplaza {variable} con el valor
     if (params) {

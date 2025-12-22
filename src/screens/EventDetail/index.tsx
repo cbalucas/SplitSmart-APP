@@ -96,6 +96,7 @@ export default function EventDetailScreen() {
   const [isOptimizationExpanded, setIsOptimizationExpanded] = useState(false);
   const [showExpenseDetailModal, setShowExpenseDetailModal] = useState(false);
   const [selectedExpenseForDetail, setSelectedExpenseForDetail] = useState<any>(null);
+  // Estado para manejar qué listas de pagadores están expandidas (inicia contraído por defecto)
   const [expandedPayerLists, setExpandedPayerLists] = useState<Set<string>>(new Set());
 
   // Estados para consolidación
@@ -153,6 +154,16 @@ export default function EventDetailScreen() {
         setEventParticipants(participantsData);
         setEventSplits(splitsData);
         setEventPayments(paymentsData);
+        
+        // Debug: Log settlements cargados de DB
+        console.log('📊 Settlements cargados de DB:', settlementsData.map(s => ({
+          from: s.fromParticipantName,
+          to: s.toParticipantName,
+          isPaid: s.isPaid,
+          amount: s.amount,
+          id: s.id
+        })));
+        
         setDbSettlements(settlementsData);
         
         // Cargar y aplicar consolidaciones si existen
@@ -576,7 +587,89 @@ export default function EventDetailScreen() {
 
     try {
       console.log(`💰 ${isPaid ? 'Marcando' : 'Desmarcando'} settlement como pagado:`, settlementId);
+      console.log('🔍 SettlementId type check:', {
+        id: settlementId,
+        startsWithCalc: settlementId.startsWith('calc_'),
+        startsWithConsolidated: settlementId.startsWith('consolidated_'),
+        isConsolidation: settlementId.startsWith('calc_') || settlementId.startsWith('consolidated_')
+      });
 
+      // CASO ESPECIAL: Consolidaciones (ID calculado o consolidado)
+      if (settlementId.startsWith('calc_') || settlementId.startsWith('consolidated_')) {
+      // CASO ESPECIAL: Consolidaciones (ID calculado o consolidado)
+      if (settlementId.startsWith('calc_') || settlementId.startsWith('consolidated_')) {
+        console.log('🔀 Procesando pago de consolidación:', settlementId);
+        
+        // Encontrar la consolidación en la lista de displaySettlements
+        const displaySettlements = getDisplaySettlements();
+        const consolidationSettlement = displaySettlements.find(s => s.id === settlementId);
+        
+        if (!consolidationSettlement) {
+          Alert.alert('⚠️ Error', 'No se pudo encontrar la consolidación a marcar como pagada.');
+          return;
+        }
+        
+        console.log('🔍 Consolidation settlement encontrada:', {
+          id: consolidationSettlement.id,
+          from: consolidationSettlement.fromParticipantName,
+          to: consolidationSettlement.toParticipantName,
+          amount: consolidationSettlement.amount,
+          hasOriginalSettlements: consolidationSettlement.originalSettlements?.length || 0
+        });
+        
+        // Verificar si tiene originalSettlements
+        if (consolidationSettlement.originalSettlements && consolidationSettlement.originalSettlements.length > 0) {
+          console.log(`🎯 Usando originalSettlements: ${consolidationSettlement.originalSettlements.length} settlements`);
+          
+          // Usar los settlements originales de la consolidación
+          for (const originalSettlement of consolidationSettlement.originalSettlements) {
+            // Buscar el settlement correspondiente en dbSettlements
+            const dbSettlement = dbSettlements.find(db => 
+              db.fromParticipantId === originalSettlement.fromParticipantId && 
+              db.toParticipantId === originalSettlement.toParticipantId &&
+              Math.abs(db.amount - originalSettlement.amount) < 0.01 // Comparación de números flotantes
+            );
+            
+            if (dbSettlement) {
+              console.log(`✅ Actualizando settlement original: ${dbSettlement.fromParticipantName} → ${dbSettlement.toParticipantName} ${dbSettlement.amount}`);
+              await databaseService.updateSettlement(dbSettlement.id, {
+                isPaid,
+                paidAt: isPaid ? new Date().toISOString() : null
+              });
+            } else {
+              console.warn(`⚠️ No se encontró en DB el settlement original: ${originalSettlement.fromParticipantName} → ${originalSettlement.toParticipantName} ${originalSettlement.amount}`);
+            }
+          }
+        } else {
+          console.log('🔍 No originalSettlements, buscando por participantes...');
+          // Fallback: buscar por participantes (método anterior)
+          const matchingDbSettlements = dbSettlements.filter(db => 
+            db.fromParticipantId === consolidationSettlement.fromParticipantId && 
+            db.toParticipantId === consolidationSettlement.toParticipantId
+          );
+          
+          if (matchingDbSettlements.length === 0) {
+            Alert.alert('⚠️ Error', 'No se encontraron liquidaciones originales para esta consolidación.');
+            return;
+          }
+          
+          console.log(`🎯 Actualizando ${matchingDbSettlements.length} settlements originales para consolidación (fallback)`);
+          
+          // Actualizar todos los settlements originales que representa esta consolidación
+          for (const dbSettlement of matchingDbSettlements) {
+            await databaseService.updateSettlement(dbSettlement.id, {
+              isPaid,
+              paidAt: isPaid ? new Date().toISOString() : null
+            });
+          }
+        }
+        }
+        
+        await loadEventData();
+        return;
+      }
+
+      // CASO NORMAL: Settlement regular con ID de DB válido
       // Si se desmarca un pago, mostrar advertencia
       if (!isPaid) {
         Alert.alert(
@@ -643,16 +736,20 @@ export default function EventDetailScreen() {
           text: t('message.markComplete'),
           onPress: async () => {
             try {
-              // 1. Actualizar estado del evento a completado
+              // 1. Forzar sincronización de liquidaciones antes de completar
+              console.log('🔄 Sincronizando liquidaciones antes de completar evento...');
+              await syncSettlementsToDb();
+              
+              // 2. Actualizar estado del evento a completado
               await updateEvent(eventId, {
                 status: 'completed',
                 completedAt: new Date().toISOString()
               });
               
-              // 2. Actualizar estado de todas las liquidaciones a completado
+              // 3. Actualizar estado de todas las liquidaciones a completado
               await databaseService.updateSettlementsEventStatus(eventId, 'completed');
               
-              // 3. Recargar datos para reflejar el cambio
+              // 4. Recargar datos para reflejar el cambio
               await loadEventData();
               
               Alert.alert(`✅ ${t('message.eventCompleted')}`, t('message.eventCompletedDesc'));
@@ -664,7 +761,7 @@ export default function EventDetailScreen() {
         }
       ]
     );
-  }, [event, eventId, t, updateEvent, loadEventData]);
+  }, [event, eventId, t, updateEvent, loadEventData, syncSettlementsToDb]);
 
   const handleReactivateEvent = useCallback(async (targetStatus: 'active' | 'completed' = 'active') => {
     if (!event) return;
@@ -1070,10 +1167,114 @@ export default function EventDetailScreen() {
   };
 
   const getDisplaySettlements = () => {
+    let baseSettlements;
     if (consolidationAssignments.length > 0 && !showOriginalView) {
-      return consolidatedSettlements;
+      baseSettlements = consolidatedSettlements;
+    } else {
+      baseSettlements = settlements;
     }
-    return settlements;
+
+    console.log('🔍 getDisplaySettlements debug:', {
+      baseSettlements: baseSettlements.length,
+      dbSettlements: dbSettlements.length,
+      showingConsolidated: consolidationAssignments.length > 0 && !showOriginalView,
+      eventStatus: event?.status,
+      hasConsolidations: consolidationAssignments.length > 0
+    });
+
+    // Si el evento está completado Y NO hay consolidaciones, mostrar todos los settlements de la DB
+    if (event?.status === 'completed' && consolidationAssignments.length === 0) {
+      console.log('🏁 Evento completado sin consolidaciones - mostrando todos los settlements de DB');
+      return dbSettlements.map(dbSettlement => ({
+        ...dbSettlement,
+        fromParticipantName: dbSettlement.fromParticipantName || 'Unknown',
+        toParticipantName: dbSettlement.toParticipantName || 'Unknown'
+      }));
+    }
+
+    // Si el evento está completado Y HAY consolidaciones, mostrar según la vista activa
+    if (event?.status === 'completed' && consolidationAssignments.length > 0) {
+      if (showOriginalView) {
+        // Vista original: mostrar todos los settlements originales de DB
+        console.log('🏁 Evento completado con consolidaciones - mostrando vista original de DB');
+        return dbSettlements.map(dbSettlement => ({
+          ...dbSettlement,
+          fromParticipantName: dbSettlement.fromParticipantName || 'Unknown',
+          toParticipantName: dbSettlement.toParticipantName || 'Unknown'
+        }));
+      } else {
+        // Vista consolidada: usar baseSettlements (consolidadas) con estado de pago de DB
+        console.log('🏁 Evento completado con consolidaciones - mostrando vista consolidada');
+      }
+    }
+
+    // Para todos los demás casos (evento activo o completado con consolidaciones en vista consolidada)
+    const result = baseSettlements.map(settlement => {
+      // Para consolidaciones, verificar el estado de pago basado en originalSettlements
+      if (settlement.isConsolidated && settlement.originalSettlements) {
+        console.log(`🔀 Procesando consolidación: ${settlement.fromParticipantName} → ${settlement.toParticipantName}`);
+        
+        // Verificar si TODOS los settlements originales están pagados
+        let allOriginalsPaid = true;
+        let anyOriginalPaid = false;
+        
+        for (const originalSettlement of settlement.originalSettlements) {
+          const dbSettlement = dbSettlements.find(db => 
+            db.fromParticipantId === originalSettlement.fromParticipantId && 
+            db.toParticipantId === originalSettlement.toParticipantId &&
+            Math.abs(db.amount - originalSettlement.amount) < 0.01
+          );
+          
+          if (dbSettlement) {
+            if (dbSettlement.isPaid) {
+              anyOriginalPaid = true;
+            } else {
+              allOriginalsPaid = false;
+            }
+          } else {
+            allOriginalsPaid = false;
+          }
+        }
+        
+        console.log(`💾 Consolidación ${settlement.fromParticipantName} → ${settlement.toParticipantName}: allPaid=${allOriginalsPaid}, anyPaid=${anyOriginalPaid}`);
+        
+        return {
+          ...settlement,
+          isPaid: allOriginalsPaid, // Solo marcada como pagada si TODOS los originales están pagados
+          id: settlement.id // Usar el ID original de la consolidación (consolidated_xxx)
+        };
+      }
+      
+      // Para settlements normales, buscar en DB
+      const dbSettlement = dbSettlements.find(db => 
+        db.fromParticipantId === settlement.fromParticipantId && 
+        db.toParticipantId === settlement.toParticipantId
+      );
+      
+      // Si existe en DB, usar la información de pago de DB pero mantener datos del settlement
+      if (dbSettlement) {
+        console.log(`💾 Settlement encontrado en DB: ${settlement.fromParticipantName} → ${settlement.toParticipantName}, isPaid: ${dbSettlement.isPaid}`);
+        return {
+          ...settlement,
+          isPaid: dbSettlement.isPaid,
+          receiptImage: dbSettlement.receiptImage,
+          paidAt: dbSettlement.paidAt,
+          id: dbSettlement.id
+        };
+      }
+      
+      // Si no existe en DB, es un settlement sin estado de pago
+      console.log(`⚠️ Settlement NO encontrado en DB: ${settlement.fromParticipantName} → ${settlement.toParticipantName}`);
+      return {
+        ...settlement,
+        isPaid: false,
+        id: settlement.id || `calc_${settlement.fromParticipantId}_${settlement.toParticipantId}`
+      };
+    });
+
+    console.log('🔍 getDisplaySettlements resultado:', result.map(s => `${s.fromParticipantName} → ${s.toParticipantName}: isPaid=${s.isPaid}, id=${s.id}`));
+    
+    return result;
   };
 
   const handleToggleView = () => {
@@ -1837,8 +2038,9 @@ export default function EventDetailScreen() {
       <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <Text style={styles.sectionTitle}>💸 {t('summary.settlements')}</Text>
-          {(event?.status === 'active' || event?.status === 'completed') && dbSettlements.length > 0 && (() => {
-            const paidCount = dbSettlements.filter((s: Settlement) => s.isPaid).length;
+          {(event?.status === 'active' || event?.status === 'completed') && getDisplaySettlements().length > 0 && (() => {
+            const displaySettlements = getDisplaySettlements();
+            const paidCount = displaySettlements.filter((s: Settlement) => s.isPaid).length;
             const isAnyPaid = paidCount > 0;
             return (
               <View style={{ 
@@ -1852,7 +2054,7 @@ export default function EventDetailScreen() {
                   fontSize: 12, 
                   fontWeight: '600' 
                 }}>
-                  {paidCount}/{dbSettlements.length} {t('payments.paid')}
+                  {paidCount}/{displaySettlements.length} {t('payments.paid')}
                 </Text>
               </View>
             );
@@ -1961,7 +2163,17 @@ export default function EventDetailScreen() {
                 // Por acreedor (toParticipantName)
                 return a.toParticipantName.localeCompare(b.toParticipantName);
               })
-              .map((settlement: Settlement, index: number) => (
+              .map((settlement: Settlement, index: number) => {
+                // Log específico para cada settlement que se va a renderizar
+                console.log(`🎯 Rendering settlement ${index}:`, {
+                  from: settlement.fromParticipantName,
+                  to: settlement.toParticipantName,
+                  amount: settlement.amount,
+                  isPaid: settlement.isPaid,
+                  id: settlement.id
+                });
+                
+                return (
               <SettlementItem
                 key={`${settlement.id}_${index}_${settlement.fromParticipantId}_${settlement.toParticipantId}`}
                 settlement={settlement}
@@ -1970,7 +2182,8 @@ export default function EventDetailScreen() {
                 onUpdateReceipt={handleUpdateSettlementReceipt}
                 disabled={event?.status === 'archived'}
               />
-            ))}
+                );
+              })}
           </View>
         ) : (
           <View style={styles.noSettlementsContainer}>
@@ -1993,28 +2206,6 @@ export default function EventDetailScreen() {
         <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <Text style={styles.sectionTitle}>{t('consolidation.title')}</Text>
-            <View style={{ 
-              backgroundColor: theme.colors.successContainer, 
-              paddingHorizontal: 12, 
-              paddingVertical: 6, 
-              borderRadius: 16,
-              flexDirection: 'row',
-              alignItems: 'center'
-            }}>
-              <MaterialCommunityIcons 
-                name="check-decagram" 
-                size={14} 
-                color={theme.colors.onSuccessContainer} 
-                style={{ marginRight: 4 }} 
-              />
-              <Text style={{ 
-                color: theme.colors.onSuccessContainer, 
-                fontSize: 12, 
-                fontWeight: '700' 
-              }}>
-                {consolidationAssignments.length} {t(`consolidation.${consolidationAssignments.length !== 1 ? 'actives' : 'active'}`)}
-              </Text>
-            </View>
           </View>
           
           <View style={{ paddingBottom: 8 }}>
@@ -2059,7 +2250,7 @@ export default function EventDetailScreen() {
               return Object.values(groupedByPayer).map((group) => {
                 const typedGroup = group as {payerId: string, payerName: string, debtors: {debtorId: string, debtorName: string}[]};
                 const isExpanded = expandedPayerLists.has(typedGroup.payerId);
-                const hasMultipleDebtors = typedGroup.debtors.length > 1;
+                const hasMultipleDebtors = typedGroup.debtors.length > 0; //Se modifica el 1 por 0 para que considere toda la lista contraible, sin importar la cantidad de personas que pague.
 
                 return (
                   <View 
