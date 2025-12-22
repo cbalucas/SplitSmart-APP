@@ -21,6 +21,7 @@ interface ConsolidationModalProps {
   participants: Participant[];
   onConsolidationChange: (assignments: ConsolidationAssignment[]) => void;
   currency: string;
+  existingAssignments?: ConsolidationAssignment[];
 }
 
 interface DebtSummary {
@@ -36,7 +37,8 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
   settlements,
   participants,
   onConsolidationChange,
-  currency
+  currency,
+  existingAssignments = []
 }) => {
   const { theme } = useTheme();
   const { t } = useLanguage();
@@ -45,11 +47,30 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
   const [showInstructions, setShowInstructions] = useState(false);
   const [expandedDebtors, setExpandedDebtors] = useState<Set<string>>(new Set());
 
+  // Cargar consolidaciones existentes cuando el modal se abre
+  useEffect(() => {
+    if (visible && existingAssignments.length > 0) {
+      console.log('🔄 Cargando consolidaciones existentes:', existingAssignments);
+      setAssignments(existingAssignments);
+    } else if (visible) {
+      // Reset si no hay consolidaciones existentes
+      setAssignments([]);
+    }
+  }, [visible, existingAssignments]);
+
   // Calcular resumen de deudas por participante
   useEffect(() => {
     const debtMap: { [key: string]: DebtSummary } = {};
     
+    // Obtener IDs de participantes que ya son pagadores (para excluirlos como deudores)
+    const existingPayerIds = new Set(assignments.map(a => a.payerId));
+    
     settlements.forEach(settlement => {
+      // Excluir a los participantes que ya son pagadores activos
+      if (existingPayerIds.has(settlement.fromParticipantId)) {
+        return;
+      }
+      
       if (!debtMap[settlement.fromParticipantId]) {
         debtMap[settlement.fromParticipantId] = {
           participantId: settlement.fromParticipantId,
@@ -64,13 +85,16 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
     });
 
     setDebtSummaries(Object.values(debtMap));
-  }, [settlements]);
+  }, [settlements, assignments]);
 
   const handleAssignPayment = (payerId: string, debtorId: string) => {
     const payer = participants.find(p => p.id === payerId);
     const debtor = participants.find(p => p.id === debtorId);
     
     if (!payer || !debtor) return;
+
+    // Evitar auto-asignaciones
+    if (payerId === debtorId) return;
 
     const newAssignment: ConsolidationAssignment = {
       payerId,
@@ -80,19 +104,28 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
       eventId: settlements[0]?.eventId || ''
     };
 
-    // Evitar duplicados y auto-asignaciones
-    if (payerId === debtorId) return;
-    
-    const existingIndex = assignments.findIndex(
+    // Verificar si ya existe exactamente la misma asignación
+    const existingExactIndex = assignments.findIndex(
       a => a.payerId === payerId && a.debtorId === debtorId
     );
 
     let newAssignments;
-    if (existingIndex >= 0) {
-      // Remover si ya existe (toggle)
-      newAssignments = assignments.filter((_, index) => index !== existingIndex);
+    if (existingExactIndex >= 0) {
+      // Si es exactamente la misma asignación, remover (toggle)
+      newAssignments = assignments.filter((_, index) => index !== existingExactIndex);
     } else {
-      newAssignments = [...assignments, newAssignment];
+      // Si el deudor ya tiene un pagador diferente, remover la asignación anterior
+      const existingDebtorIndex = assignments.findIndex(a => a.debtorId === debtorId);
+      
+      if (existingDebtorIndex >= 0) {
+        // Reemplazar la asignación existente del deudor
+        newAssignments = assignments.map((assignment, index) => 
+          index === existingDebtorIndex ? newAssignment : assignment
+        );
+      } else {
+        // Agregar nueva asignación
+        newAssignments = [...assignments, newAssignment];
+      }
     }
 
     setAssignments(newAssignments);
@@ -131,8 +164,12 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
     const totalPayers = new Set(assignments.map(a => a.payerId)).size;
     
     Alert.alert(
-      '🔄 Confirmar Consolidación',
-      `📋 Resumen de la consolidación:\n\n• ${affectedDebts} asignación(es) configurada(s)\n• ${totalDebtorsConsolidated} deudor(es) será(n) pagado(s) por otros\n• ${totalPayers} pagador(es) asumirá(n) deudas adicionales\n\n💡 Los pagos donde una persona se pagaría a sí misma se condonarán automáticamente.\n\n¿Confirmas aplicar esta consolidación?`,
+      t('consolidationModal.confirmation.title'),
+      t('consolidationModal.confirmation.summary', {
+        assignments: affectedDebts,
+        debtors: totalDebtorsConsolidated,
+        payers: totalPayers
+      }),
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -192,7 +229,16 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
               
               <View style={styles.payerButtons}>
                 {participants
-                  .filter(p => p.id !== item.participantId) // No puede pagarse a sí mismo
+                  .filter(p => {
+                    // No puede pagarse a sí mismo
+                    if (p.id === item.participantId) return false;
+                    
+                    // No puede ser pagador si ya tiene deudas pendientes (aparece en debtSummaries)
+                    const hasDebts = debtSummaries.some(debt => debt.participantId === p.id);
+                    if (hasDebts) return false;
+                    
+                    return true;
+                  })
                   .map(participant => (
                     <TouchableOpacity
                       key={participant.id}
@@ -264,7 +310,7 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
           </TouchableOpacity>
           
           <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-            Consolidar Pagos
+            {t('consolidationModal.title')}
           </Text>
           
           <TouchableOpacity 
@@ -291,7 +337,7 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
                 color={theme.colors.primary} 
               />
               <Text style={[styles.instructionsTitle, { color: theme.colors.onSurfaceVariant }]}>
-                💡 ¿Cómo funciona?
+                {t('consolidationModal.instructionsTitle')}
               </Text>
               <MaterialCommunityIcons 
                 name={showInstructions ? "chevron-up" : "chevron-down"} 
@@ -301,8 +347,9 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
             </View>
             {showInstructions && (
               <Text style={[styles.instructionsText, { color: theme.colors.onSurfaceVariant }]}>
-                Selecciona quién pagará las deudas de otros participantes. Los pagos donde una persona se pagaría a sí misma se <Text style={{ fontWeight: 'bold', color: theme.colors.error }}>condonan automáticamente</Text>.{'\n\n'}
-                <Text style={{ fontStyle: 'italic' }}>Ejemplo: Si Ana paga por Bob, pero Bob le debía a Ana, esa deuda se cancela.</Text>
+                {t('consolidationModal.description').replace('<1>', '').replace('</1>', '')}
+                {'\n\n'}
+                <Text style={{ fontStyle: 'italic' }}>{t('consolidationModal.example')}</Text>
               </Text>
             )}
           </TouchableOpacity>

@@ -93,8 +93,10 @@ export default function EventDetailScreen() {
   const [showFilters, setShowFilters] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isOptimizationExpanded, setIsOptimizationExpanded] = useState(false);
   const [showExpenseDetailModal, setShowExpenseDetailModal] = useState(false);
   const [selectedExpenseForDetail, setSelectedExpenseForDetail] = useState<any>(null);
+  const [expandedPayerLists, setExpandedPayerLists] = useState<Set<string>>(new Set());
 
   // Estados para consolidación
   const [showConsolidationModal, setShowConsolidationModal] = useState(false);
@@ -111,6 +113,12 @@ export default function EventDetailScreen() {
     dbSettlements,
     (event?.status || 'active') as 'active' | 'completed' | 'archived'
   );
+
+  // Crear un objeto indexable para balances
+  const balancesById = balances.reduce((acc: Record<string, number>, balance) => {
+    acc[balance.participantId] = balance.balance;
+    return acc;
+  }, {});
 
   // Debug log para ver por qué no se generan settlements
   console.log('🔍 Calculation inputs:', {
@@ -784,7 +792,7 @@ export default function EventDetailScreen() {
         }
         acc[toParticipantName].push(settlement);
         return acc;
-      }, {} as Record<string, typeof currentSettlements>);
+      }, {} as Record<string, Settlement[]>);
 
       // Generar mensaje agrupado por destinatario
       Object.entries(settlementsByRecipient).forEach(([recipientName, settlementsForRecipient]) => {
@@ -793,7 +801,7 @@ export default function EventDetailScreen() {
         
         message += `_${recipientName}_\n`;
         message += `💳 *${cbuAlias}*\n`;
-        settlementsForRecipient.forEach((settlement) => {
+        (settlementsForRecipient as Settlement[]).forEach((settlement: Settlement) => {
           const paymentStatus = settlement.isPaid ? ' ✅' : ' ⏳';
           const receiptIcon = settlement.receiptImage ? ' 📎' : '';
           message += `  • ${settlement.fromParticipantName}: $${formatCurrency(settlement.amount)}${paymentStatus}${receiptIcon}\n`;
@@ -886,7 +894,7 @@ export default function EventDetailScreen() {
         }
         acc[toParticipantName].push(settlement);
         return acc;
-      }, {} as Record<string, typeof currentSettlements>);
+      }, {} as Record<string, Settlement[]>);
 
       // Generar mensaje agrupado por destinatario
       Object.entries(settlementsByRecipient).forEach(([recipientName, settlementsForRecipient]) => {
@@ -895,7 +903,7 @@ export default function EventDetailScreen() {
         
         message += `${recipientName}\n`;
         message += `💳 ${cbuAlias}\n`;
-        settlementsForRecipient.forEach((settlement) => {
+        (settlementsForRecipient as Settlement[]).forEach((settlement: Settlement) => {
           const paymentStatus = settlement.isPaid ? ' ✅' : ' ⏳';
           const receiptIcon = settlement.receiptImage ? ' 📎' : '';
           message += `  • ${settlement.fromParticipantName}: $${formatCurrency(settlement.amount)}${paymentStatus}${receiptIcon}\n`;
@@ -1012,8 +1020,16 @@ export default function EventDetailScreen() {
       // Actualizar estado local
       setConsolidationAssignments(assignments);
       
-      // Aplicar consolidaciones usando el servicio
-      const consolidated = ConsolidationService.applyConsolidations(settlements, assignments);
+      // Aplicar consolidaciones usando el servicio - usar dbSettlements que tienen todas las propiedades
+      const settlementsToConsolidate = dbSettlements.length > 0 ? dbSettlements : settlements.map(s => ({
+        ...s,
+        id: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        eventId: eventId || '',
+        isPaid: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }));
+      const consolidated = ConsolidationService.applyConsolidations(settlementsToConsolidate, assignments);
       setConsolidatedSettlements(consolidated);
       
       // Contar cuántos pagos fueron condonados (para mostrar al usuario)
@@ -1972,6 +1988,288 @@ export default function EventDetailScreen() {
         )}
       </Card>
 
+      {/* Consolidaciones Aplicadas - Solo mostrar cuando hay consolidaciones */}
+      {consolidationAssignments.length > 0 && (
+        <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={styles.sectionTitle}>{t('consolidation.title')}</Text>
+            <View style={{ 
+              backgroundColor: theme.colors.successContainer, 
+              paddingHorizontal: 12, 
+              paddingVertical: 6, 
+              borderRadius: 16,
+              flexDirection: 'row',
+              alignItems: 'center'
+            }}>
+              <MaterialCommunityIcons 
+                name="check-decagram" 
+                size={14} 
+                color={theme.colors.onSuccessContainer} 
+                style={{ marginRight: 4 }} 
+              />
+              <Text style={{ 
+                color: theme.colors.onSuccessContainer, 
+                fontSize: 12, 
+                fontWeight: '700' 
+              }}>
+                {consolidationAssignments.length} {t(`consolidation.${consolidationAssignments.length !== 1 ? 'actives' : 'active'}`)}
+              </Text>
+            </View>
+          </View>
+          
+          <View style={{ paddingBottom: 8 }}>
+            <Text style={{ 
+              fontSize: 14, 
+              color: theme.colors.onSurfaceVariant, 
+              marginBottom: 12,
+              lineHeight: 20,
+              fontStyle: 'italic'
+            }}>
+              {t('consolidation.description')}
+            </Text>
+            
+            {(() => {
+              // Agrupar consolidaciones por pagador
+              const groupedByPayer = consolidationAssignments.reduce((acc, assignment) => {
+                const payerId = assignment.payerId;
+                if (!acc[payerId]) {
+                  acc[payerId] = {
+                    payerId: assignment.payerId,
+                    payerName: assignment.payerName,
+                    debtors: []
+                  };
+                }
+                acc[payerId].debtors.push({
+                  debtorId: assignment.debtorId,
+                  debtorName: assignment.debtorName
+                });
+                return acc;
+              }, {} as Record<string, { payerId: string; payerName: string; debtors: { debtorId: string; debtorName: string }[] }>);
+
+              const togglePayerList = (payerId: string) => {
+                const newExpanded = new Set(expandedPayerLists);
+                if (newExpanded.has(payerId)) {
+                  newExpanded.delete(payerId);
+                } else {
+                  newExpanded.add(payerId);
+                }
+                setExpandedPayerLists(newExpanded);
+              };
+
+              return Object.values(groupedByPayer).map((group) => {
+                const typedGroup = group as {payerId: string, payerName: string, debtors: {debtorId: string, debtorName: string}[]};
+                const isExpanded = expandedPayerLists.has(typedGroup.payerId);
+                const hasMultipleDebtors = typedGroup.debtors.length > 1;
+
+                return (
+                  <View 
+                    key={typedGroup.payerId}
+                    style={{ 
+                      paddingVertical: 12,
+                      paddingHorizontal: 14,
+                      backgroundColor: theme.colors.primaryContainer + '15',
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: theme.colors.primary + '20',
+                      marginBottom: 10
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <View style={{ flex: 1 }}>
+                        {/* Nombre del Pagador */}
+                        <View style={{ marginBottom: 8 }}>
+                          <Text style={{ 
+                            fontSize: 16, 
+                            fontWeight: '700', 
+                            color: theme.colors.onSurface
+                          }}>
+                            {typedGroup.payerName}
+                          </Text>
+                        </View>
+                        
+                        {/* Lista de personas a las que paga */}
+                        <View>
+                          {hasMultipleDebtors ? (
+                            // Lista colapsible para múltiples deudores
+                            <>
+                              <TouchableOpacity 
+                                onPress={() => togglePayerList(typedGroup.payerId)}
+                                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}
+                              >
+                                <MaterialCommunityIcons 
+                                  name="arrow-right" 
+                                  size={14} 
+                                  color={theme.colors.onSurfaceVariant}
+                                  style={{ marginRight: 4 }}
+                                />
+                                <Text style={{ 
+                                  fontSize: 14, 
+                                  color: theme.colors.onSurfaceVariant 
+                                }}>
+                                  {t('consolidation.paysToMultiple', { count: typedGroup.debtors.length })}
+                                </Text>
+                                <MaterialCommunityIcons 
+                                  name={isExpanded ? "chevron-up" : "chevron-down"} 
+                                  size={16} 
+                                  color={theme.colors.onSurfaceVariant}
+                                  style={{ marginLeft: 4 }}
+                                />
+                              </TouchableOpacity>
+                              
+                              {isExpanded && (
+                                <View style={{ paddingLeft: 18 }}>
+                                  {typedGroup.debtors.map((debtor: {debtorId: string, debtorName: string}, index: number) => (
+                                    <View key={debtor.debtorId} style={{ 
+                                      flexDirection: 'row', 
+                                      alignItems: 'center', 
+                                      marginBottom: index < typedGroup.debtors.length - 1 ? 4 : 0
+                                    }}>
+                                      <Text style={{ 
+                                        fontSize: 14,
+                                        color: theme.colors.primary,
+                                        fontWeight: '600'
+                                      }}>
+                                        • {debtor.debtorName}
+                                      </Text>
+                                    </View>
+                                  ))}
+                                </View>
+                              )}
+                            </>
+                          ) : (
+                            // Vista simple para un solo deudor
+                            <>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                                <MaterialCommunityIcons 
+                                  name="arrow-right" 
+                                  size={14} 
+                                  color={theme.colors.onSurfaceVariant}
+                                  style={{ marginRight: 4 }}
+                                />
+                                <Text style={{ 
+                                  fontSize: 14, 
+                                  color: theme.colors.onSurfaceVariant 
+                                }}>
+                                  {t('consolidation.paysTo')}
+                                </Text>
+                              </View>
+                              
+                              <View style={{ paddingLeft: 18 }}>
+                                <Text style={{ 
+                                  fontSize: 14,
+                                  color: theme.colors.primary,
+                                  fontWeight: '600'
+                                }}>
+                                  • {typedGroup.debtors[0].debtorName}
+                                </Text>
+                              </View>
+                            </>
+                          )}
+                        </View>
+                      </View>
+                      
+                      <View style={{ alignItems: 'center' }}>
+                        <View style={{ 
+                          backgroundColor: theme.colors.successContainer,
+                          borderRadius: 14,
+                          paddingHorizontal: 10,
+                          paddingVertical: 6
+                        }}>
+                          <Text style={{ 
+                            fontSize: 11, 
+                            color: theme.colors.onSuccessContainer,
+                            fontWeight: '700'
+                          }}>
+                            ✓ ACTIVA
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                );
+              });
+            })()}
+            
+            {/* Información adicional sobre el impacto - Desplegable */}
+            {(() => {
+              const originalCount = settlements.length;
+              const consolidatedCount = consolidatedSettlements.length;
+              const reductionCount = originalCount - consolidatedCount;
+              
+              if (reductionCount > 0) {
+                return (
+                  <View style={{ 
+                    backgroundColor: theme.colors.successContainer + '25',
+                    borderRadius: 12,
+                    marginTop: 8,
+                    borderWidth: 1,
+                    borderColor: theme.colors.success + '40'
+                  }}>
+                    {/* Header clickeable */}
+                    <TouchableOpacity 
+                      onPress={() => setIsOptimizationExpanded(!isOptimizationExpanded)}
+                      style={{
+                        flexDirection: 'row', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between',
+                        padding: 14
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <MaterialCommunityIcons 
+                          name="chart-line" 
+                          size={18} 
+                          color={theme.colors.success} 
+                          style={{ marginRight: 8 }}
+                        />
+                        <Text style={{ 
+                          fontSize: 14, 
+                          fontWeight: '700', 
+                          color: theme.colors.success 
+                        }}>
+                          {t('consolidation.optimization.title')}
+                        </Text>
+                      </View>
+                      <MaterialCommunityIcons 
+                        name={isOptimizationExpanded ? "chevron-up" : "chevron-down"} 
+                        size={20} 
+                        color={theme.colors.success}
+                      />
+                    </TouchableOpacity>
+                    
+                    {/* Contenido expandible */}
+                    {isOptimizationExpanded && (
+                      <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
+                        <Text style={{ 
+                          fontSize: 13, 
+                          color: theme.colors.onSuccessContainer,
+                          lineHeight: 18,
+                          marginBottom: 4
+                        }}>
+                          • <Text style={{ fontWeight: '600' }}>{t('consolidation.optimization.settlements')}</Text> {originalCount} → {consolidatedCount} 
+                        </Text>
+                        <Text style={{ 
+                          fontSize: 12, 
+                          color: theme.colors.onSuccessContainer,
+                          lineHeight: 16,
+                          fontStyle: 'italic'
+                        }}>
+                          {t('consolidation.optimization.eliminated', { 
+                            count: reductionCount, 
+                            plural: reductionCount !== 1 ? 's' : '' 
+                          })}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              }
+              return null;
+            })()}
+          </View>
+        </Card>
+      )}
+
       {/* Gastos por Participante */}
       {(() => {
         // Calcular gastos por participante (solo los que han pagado)
@@ -2538,7 +2836,7 @@ export default function EventDetailScreen() {
             setSelectedParticipantForInfo(null);
           }}
           eventStats={eventStats}
-          balance={selectedParticipantForInfo ? balances[selectedParticipantForInfo.id] || 0 : 0}
+          balance={selectedParticipantForInfo ? balancesById[selectedParticipantForInfo.id] || 0 : 0}
         />
       </Modal>
 
@@ -2546,10 +2844,11 @@ export default function EventDetailScreen() {
       <ConsolidationModal
         visible={showConsolidationModal}
         onClose={() => setShowConsolidationModal(false)}
-        settlements={settlements}
+        settlements={consolidatedSettlements.length > 0 ? consolidatedSettlements : settlements}
         participants={eventParticipants}
         onConsolidationChange={handleConsolidationChange}
         currency={event?.currency || 'ARS'}
+        existingAssignments={consolidationAssignments}
       />
     </View>
   );
@@ -2673,13 +2972,13 @@ const ParticipantInfoModalContent: React.FC<{
               <View>
                 <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant }}>{t('participants.addedToEvent')}</Text>
                 <Text style={{ fontSize: 16, color: theme.colors.onSurface }}>
-                  {new Date(participant.createdAt).toLocaleDateString('es-ES', {
+                  {participant.createdAt ? new Date(participant.createdAt).toLocaleDateString('es-ES', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',
                     hour: '2-digit',
                     minute: '2-digit'
-                  })}
+                  }) : 'Fecha no disponible'}
                 </Text>
               </View>
             </View>

@@ -110,6 +110,30 @@
     "receiptAddedSuccess": "Receipt added successfully",
     "receiptAddedError": "Error adding receipt"
   },
+  "consolidation": {
+    "title": "🔗 Consolidated Payments",
+    "description": "💡 Simplified payment configuration to optimize settlements:",
+    "active": "active",
+    "actives": "active",
+    "paysTo": "Pays To",
+    "paysToMultiple": "Pays To {count} people",
+    "payments": "payments",
+    "optimization": {
+      "title": "📈 Optimization Achieved",
+      "settlements": "Settlements:",
+      "eliminated": "💚 {count} redundant transfer{plural} automatically eliminated"
+    }
+  },
+  "consolidationModal": {
+    "title": "Consolidate Payments",
+    "instructionsTitle": "💡 How does it work?",
+    "description": "Select who will pay the debts of other participants. Payments where a person would pay themselves are <1>automatically forgiven</1>.",
+    "example": "Example: If Ana pays for Bob, but Bob owed Ana, that debt is canceled.",
+    "confirmation": {
+      "title": "🔄 Confirm Consolidation",
+      "summary": "📋 Consolidation summary:\n\n• {assignments} assignment(s) configured\n• {debtors} debtor(s) will be paid by others\n• {payers} payer(s) will assume additional debts\n\n💡 Payments where a person would pay themselves will be automatically forgiven.\n\nConfirm applying this consolidation?"
+    }
+  },
   "profile": {
     "title": "Profile",
     "aboutApp": "About SplitSmart",

@@ -110,6 +110,30 @@
     "receiptAddedSuccess": "Comprobante agregado exitosamente",
     "receiptAddedError": "Error al agregar el comprobante"
   },
+  "consolidation": {
+    "title": "🔗 Pagos Consolidados",
+    "description": "💡 Configuración de pagos simplificada para optimizar las liquidaciones:",
+    "active": "activa",
+    "actives": "activas",
+    "paysTo": "Le Paga a",
+    "paysToMultiple": "Le Paga a {count} personas",
+    "payments": "pagos",
+    "optimization": {
+      "title": "📈 Optimización Lograda",
+      "settlements": "Liquidaciones:",
+      "eliminated": "💚 Se eliminaron {count} transferencia{plural} redundante{plural} automáticamente"
+    }
+  },
+  "consolidationModal": {
+    "title": "Consolidar Pagos",
+    "instructionsTitle": "💡 ¿Cómo funciona?",
+    "description": "Selecciona quién pagará las deudas de otros participantes. Los pagos donde una persona se pagaría a sí misma se <1>condonan automáticamente</1>.",
+    "example": "Ejemplo: Si Ana paga por Bob, pero Bob le debía a Ana, esa deuda se cancela.",
+    "confirmation": {
+      "title": "🔄 Confirmar Consolidación",
+      "summary": "📋 Resumen de la consolidación:\n\n• {assignments} asignación(es) configurada(s)\n• {debtors} deudor(es) será(n) pagado(s) por otros\n• {payers} pagador(es) asumirá(n) deudas adicionales\n\n💡 Los pagos donde una persona se pagaría a sí misma se condonarán automáticamente.\n\n¿Confirmas aplicar esta consolidación?"
+    }
+  },
   "profile": {
     "title": "Perfil",
     "aboutApp": "Acerca de SplitSmart",

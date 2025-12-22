@@ -619,6 +619,26 @@ const translations = {
     'message.expenseCreated': 'Gasto creado exitosamente',
     'message.expenseUpdated': 'Gasto actualizado',
     'message.confirmDelete': 'Confirmar eliminación',
+    
+    // Consolidation
+    'consolidation.title': '🔗 Pagos Consolidados',
+    'consolidation.description': '💡 Configuración de pagos simplificada para optimizar las liquidaciones:',
+    'consolidation.active': 'activa',
+    'consolidation.actives': 'activas',
+    'consolidation.paysTo': 'Le Paga a:',
+    'consolidation.paysToMultiple': 'Le Paga a {count} personas',
+    'consolidation.payments': 'pagos',
+    'consolidation.optimization.title': '📈 Optimización Lograda',
+    'consolidation.optimization.settlements': 'Liquidaciones:',
+    'consolidation.optimization.eliminated': '💚 Se eliminaron {count} transferencia{plural} redundante{plural} automáticamente',
+    
+    // Consolidation Modal
+    'consolidationModal.title': 'Consolidar Pagos',
+    'consolidationModal.instructionsTitle': '💡 ¿Cómo funciona?',
+    'consolidationModal.description': 'Selecciona quién pagará las deudas de otros participantes. Los pagos donde una persona se pagaría a sí misma se condonan automáticamente.',
+    'consolidationModal.example': 'Ejemplo: Si Ana paga por Bob, pero Bob le debía a Ana, esa deuda se cancela.',
+    'consolidationModal.confirmation.title': '🔄 Confirmar Consolidación',
+    'consolidationModal.confirmation.summary': '📋 Resumen de la consolidación:\\n\\n• {assignments} asignación(es) configurada(s)\\n• {debtors} deudor(es) será(n) pagado(s) por otros\\n• {payers} pagador(es) asumirá(n) deudas adicionales\\n\\n💡 Los pagos donde una persona se pagaría a sí misma se condonarán automáticamente.\\n\\n¿Confirmas aplicar esta consolidación?',
   },
   en: {
     // General
@@ -1133,7 +1153,27 @@ const translations = {
     'profile.message.newData': 'Data to import',
     'profile.message.importSuccess': 'Data imported successfully',
     'profile.message.importError': 'Error importing data',
-    'profile.message.aboutComingSoon': 'Information coming soon'
+    'profile.message.aboutComingSoon': 'Information coming soon',
+    
+    // Consolidation
+    'consolidation.title': '🔗 Consolidated Payments',
+    'consolidation.description': '💡 Simplified payment configuration to optimize settlements:',
+    'consolidation.active': 'active',
+    'consolidation.actives': 'active',
+    'consolidation.paysTo': 'Pays To:',
+    'consolidation.paysToMultiple': 'Pays To {count} people',
+    'consolidation.payments': 'payments',
+    'consolidation.optimization.title': '📈 Optimization Achieved',
+    'consolidation.optimization.settlements': 'Settlements:',
+    'consolidation.optimization.eliminated': '💚 {count} redundant transfer{plural} automatically eliminated',
+    
+    // Consolidation Modal
+    'consolidationModal.title': 'Consolidate Payments',
+    'consolidationModal.instructionsTitle': '💡 How does it work?',
+    'consolidationModal.description': 'Select who will pay the debts of other participants. Payments where a person would pay themselves are automatically forgiven.',
+    'consolidationModal.example': 'Example: If Ana pays for Bob, but Bob owed Ana, that debt is canceled.',
+    'consolidationModal.confirmation.title': '🔄 Confirm Consolidation',
+    'consolidationModal.confirmation.summary': '📋 Consolidation summary:\\n\\n• {assignments} assignment(s) configured\\n• {debtors} debtor(s) will be paid by others\\n• {payers} payer(s) will assume additional debts\\n\\n💡 Payments where a person would pay themselves will be automatically forgiven.\\n\\nConfirm applying this consolidation?',
   },
   pt: {
     // General
