@@ -655,10 +655,29 @@ class DatabaseService {
         )
       `);
 
+      // Consolidation assignments table
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS consolidation_assignments (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          event_id TEXT NOT NULL,
+          payer_id TEXT NOT NULL,
+          payer_name TEXT NOT NULL,
+          debtor_id TEXT NOT NULL,
+          debtor_name TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          
+          FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
+          FOREIGN KEY (payer_id) REFERENCES participants (id),
+          FOREIGN KEY (debtor_id) REFERENCES participants (id)
+        )
+      `);
+
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_event_participants_event_id ON event_participants(event_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_expenses_event_id ON expenses(event_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_splits_expense_id ON splits(expense_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_settlements_event_id ON settlements(event_id)`);
+      await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_consolidation_assignments_event_id ON consolidation_assignments(event_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_app_versions_current ON app_versions(is_current)`);
 
       console.log('✅ All tables and indexes created successfully');
@@ -3246,6 +3265,93 @@ class DatabaseService {
       console.error('❌ Error during migration:', error);
       // No lanzar error para no bloquear la inicialización
       console.log('⚠️ Migration failed, but continuing with empty transactions table');
+    }
+  }
+
+  // =====================================================
+  // MÉTODOS DE CONSOLIDACIÓN
+  // =====================================================
+
+  async saveConsolidationAssignments(eventId: string, assignments: any[]): Promise<void> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      console.log('💾 Guardando asignaciones de consolidación:', assignments);
+      
+      // Primero eliminar asignaciones existentes para este evento
+      await this.db.runAsync(
+        'DELETE FROM consolidation_assignments WHERE event_id = ?',
+        [eventId]
+      );
+
+      // Insertar nuevas asignaciones
+      for (const assignment of assignments) {
+        await this.db.runAsync(
+          `INSERT INTO consolidation_assignments (
+            event_id, payer_id, payer_name, debtor_id, debtor_name, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            eventId,
+            assignment.payerId,
+            assignment.payerName,
+            assignment.debtorId,
+            assignment.debtorName,
+            new Date().toISOString(),
+            new Date().toISOString()
+          ]
+        );
+      }
+
+      console.log('✅ Asignaciones de consolidación guardadas exitosamente');
+    } catch (error) {
+      console.error('❌ Error guardando asignaciones de consolidación:', error);
+      throw error;
+    }
+  }
+
+  async getConsolidationAssignments(eventId: string): Promise<any[]> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      console.log('🔍 Cargando asignaciones de consolidación para evento:', eventId);
+      
+      const assignments = await this.db.getAllAsync(
+        'SELECT * FROM consolidation_assignments WHERE event_id = ? ORDER BY created_at',
+        [eventId]
+      ) as any[];
+
+      console.log('✅ Asignaciones de consolidación cargadas:', assignments.length);
+      return assignments.map(assignment => ({
+        payerId: assignment.payer_id,
+        payerName: assignment.payer_name,
+        debtorId: assignment.debtor_id,
+        debtorName: assignment.debtor_name,
+        eventId: assignment.event_id
+      }));
+    } catch (error) {
+      console.error('❌ Error cargando asignaciones de consolidación:', error);
+      return [];
+    }
+  }
+
+  async clearConsolidationAssignments(eventId: string): Promise<void> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      console.log('🗑️ Eliminando asignaciones de consolidación para evento:', eventId);
+      
+      await this.db.runAsync(
+        'DELETE FROM consolidation_assignments WHERE event_id = ?',
+        [eventId]
+      );
+
+      console.log('✅ Asignaciones de consolidación eliminadas exitosamente');
+    } catch (error) {
+      console.error('❌ Error eliminando asignaciones de consolidación:', error);
+      throw error;
     }
   }
 

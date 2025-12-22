@@ -131,13 +131,14 @@ export default function EventDetailScreen() {
       setEvent(foundEvent);
       
       if (foundEvent) {
-        // Load expenses, participants, splits, payments and settlements from SQLite
-        const [expensesData, participantsData, splitsData, paymentsData, settlementsData] = await Promise.all([
+        // Load expenses, participants, splits, payments, settlements and consolidations from SQLite
+        const [expensesData, participantsData, splitsData, paymentsData, settlementsData, consolidationData] = await Promise.all([
           getExpensesByEvent(eventId).catch(() => []), // Return empty array if fails
           getEventParticipants(eventId).catch(() => []), // Return empty array if fails
           getSplitsByEvent(eventId).catch(() => []), // Return empty array if fails
           getPaymentsByEvent(eventId).catch(() => []), // Return empty array if fails
-          databaseService.getSettlementsByEvent(eventId).catch(() => []) // Return empty array if fails
+          databaseService.getSettlementsByEvent(eventId).catch(() => []), // Return empty array if fails
+          databaseService.getConsolidationAssignments(eventId).catch(() => []) // Return empty array if fails
         ]);
         
         setEventExpenses(expensesData);
@@ -145,6 +146,22 @@ export default function EventDetailScreen() {
         setEventSplits(splitsData);
         setEventPayments(paymentsData);
         setDbSettlements(settlementsData);
+        
+        // Cargar y aplicar consolidaciones si existen
+        console.log('🔄 Consolidaciones cargadas desde BD:', consolidationData);
+        if (consolidationData.length > 0) {
+          setConsolidationAssignments(consolidationData);
+          
+          // Aplicar las consolidaciones a los settlements
+          const consolidated = ConsolidationService.applyConsolidations(settlementsData, consolidationData);
+          setConsolidatedSettlements(consolidated);
+          
+          console.log('✅ Consolidaciones aplicadas:', consolidated.length, 'settlements consolidados');
+        } else {
+          // No hay consolidaciones, limpiar estado
+          setConsolidationAssignments([]);
+          setConsolidatedSettlements([]);
+        }
       } else {
         // If event not found, set empty arrays
         setEventExpenses([]);
@@ -152,6 +169,8 @@ export default function EventDetailScreen() {
         setEventSplits([]);
         setEventPayments([]);
         setDbSettlements([]);
+        setConsolidationAssignments([]);
+        setConsolidatedSettlements([]);
       }
     } catch (error) {
       console.error('Error in loadEventData:', error);
@@ -161,6 +180,8 @@ export default function EventDetailScreen() {
       setEventSplits([]);
       setEventPayments([]);
       setDbSettlements([]);
+      setConsolidationAssignments([]);
+      setConsolidatedSettlements([]);
     }
   }, [eventId, getExpensesByEvent, getEventParticipants, getSplitsByEvent, getPaymentsByEvent]);
 
@@ -981,28 +1002,50 @@ export default function EventDetailScreen() {
   // FUNCIONES DE CONSOLIDACIÓN
   // =====================================================
 
-  const handleConsolidationChange = (assignments: any[]) => {
+  const handleConsolidationChange = async (assignments: any[]) => {
     console.log('🔄 Nueva configuración de consolidación:', assignments);
-    setConsolidationAssignments(assignments);
     
-    // Aplicar consolidaciones usando el servicio
-    const consolidated = ConsolidationService.applyConsolidations(settlements, assignments);
-    setConsolidatedSettlements(consolidated);
-    
-    // Contar cuántos pagos fueron condonados (para mostrar al usuario)
-    const totalOriginalDebts = settlements.length;
-    const totalConsolidatedPayments = consolidated.length;
-    const forgivenPayments = totalOriginalDebts - totalConsolidatedPayments;
-    
-    if (forgivenPayments > 0) {
-      const totalOriginal = settlements.reduce((sum, s) => sum + s.amount, 0);
-      const totalConsolidated = consolidated.reduce((sum, s) => sum + s.amount, 0);
-      const forgivenAmount = totalOriginal - totalConsolidated;
+    try {
+      // Guardar asignaciones en la base de datos
+      await databaseService.saveConsolidationAssignments(eventId, assignments);
       
+      // Actualizar estado local
+      setConsolidationAssignments(assignments);
+      
+      // Aplicar consolidaciones usando el servicio
+      const consolidated = ConsolidationService.applyConsolidations(settlements, assignments);
+      setConsolidatedSettlements(consolidated);
+      
+      // Contar cuántos pagos fueron condonados (para mostrar al usuario)
+      const totalOriginalDebts = settlements.length;
+      const totalConsolidatedPayments = consolidated.length;
+      const forgivenPayments = totalOriginalDebts - totalConsolidatedPayments;
+      
+      if (forgivenPayments > 0) {
+        const totalOriginal = settlements.reduce((sum, s) => sum + s.amount, 0);
+        const totalConsolidated = consolidated.reduce((sum, s) => sum + s.amount, 0);
+        const forgivenAmount = totalOriginal - totalConsolidated;
+        
+        Alert.alert(
+          '🚫 Condonaciones Automáticas',
+          `✅ Consolidación aplicada exitosamente\n\n📊 Resumen:\n• Liquidaciones originales: ${settlements.length}\n• Liquidaciones consolidadas: ${consolidated.length}\n• Pagos condonados: ${forgivenPayments}\n\n💰 Montos:\n• Total original: $${totalOriginal.toLocaleString()}\n• Total final: $${totalConsolidated.toLocaleString()}\n• Monto condonado: $${forgivenAmount.toLocaleString()}\n\n💡 Los pagos condonados son transferencias donde una persona se pagaría a sí misma, las cuales se cancelan automáticamente por ser innecesarias.`,
+          [{ text: 'Perfecto', style: 'default' }]
+        );
+      } else {
+        Alert.alert(
+          '✅ Consolidación Aplicada',
+          `Consolidación guardada exitosamente.\n\n• ${assignments.length} asignación(es) configurada(s)\n• ${consolidated.length} liquidación(es) resultante(s)`,
+          [{ text: 'Perfecto', style: 'default' }]
+        );
+      }
+      
+      console.log('✅ Consolidación guardada exitosamente en la base de datos');
+    } catch (error) {
+      console.error('❌ Error guardando consolidación:', error);
       Alert.alert(
-        '🚫 Condonaciones Automáticas',
-        `✅ Consolidación aplicada exitosamente\n\n📊 Resumen:\n• Liquidaciones originales: ${settlements.length}\n• Liquidaciones consolidadas: ${consolidated.length}\n• Pagos condonados: ${forgivenPayments}\n\n💰 Montos:\n• Total original: $${totalOriginal.toLocaleString()}\n• Total final: $${totalConsolidated.toLocaleString()}\n• Monto condonado: $${forgivenAmount.toLocaleString()}\n\n💡 Los pagos condonados son transferencias donde una persona se pagaría a sí misma, las cuales se cancelan automáticamente por ser innecesarias.`,
-        [{ text: 'Perfecto', style: 'default' }]
+        'Error',
+        'No se pudo guardar la consolidación. Inténtalo nuevamente.',
+        [{ text: 'OK', style: 'default' }]
       );
     }
     
@@ -1030,10 +1073,31 @@ export default function EventDetailScreen() {
         {
           text: 'Limpiar',
           style: 'destructive',
-          onPress: () => {
-            setConsolidationAssignments([]);
-            setConsolidatedSettlements([]);
-            setShowOriginalView(false);
+          onPress: async () => {
+            try {
+              // Limpiar de la base de datos
+              await databaseService.clearConsolidationAssignments(eventId);
+              
+              // Limpiar estado local
+              setConsolidationAssignments([]);
+              setConsolidatedSettlements([]);
+              setShowOriginalView(false);
+              
+              Alert.alert(
+                '✅ Consolidaciones Eliminadas',
+                'Todas las consolidaciones han sido eliminadas exitosamente.',
+                [{ text: 'OK', style: 'default' }]
+              );
+              
+              console.log('✅ Consolidaciones eliminadas de la base de datos');
+            } catch (error) {
+              console.error('❌ Error limpiando consolidaciones:', error);
+              Alert.alert(
+                'Error',
+                'No se pudieron eliminar las consolidaciones. Inténtalo nuevamente.',
+                [{ text: 'OK', style: 'default' }]
+              );
+            }
           }
         }
       ]
