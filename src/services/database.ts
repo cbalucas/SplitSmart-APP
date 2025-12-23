@@ -188,6 +188,32 @@ class DatabaseService {
         }
       }
 
+      // Migration: Add auto_login column to users table if it doesn't exist
+      try {
+        await this.db.execAsync('ALTER TABLE users ADD COLUMN auto_login INTEGER DEFAULT 0');
+        console.log('✅ Migration: Added auto_login column to users table');
+      } catch (error: any) {
+        // Column already exists, ignore error
+        if (error.message?.includes('duplicate column name')) {
+          console.log('⚠️ Column auto_login already exists in users table');
+        } else {
+          console.error('❌ Error adding auto_login column:', error);
+        }
+      }
+
+      // Migration: Add last_login column to users table if it doesn't exist
+      try {
+        await this.db.execAsync('ALTER TABLE users ADD COLUMN last_login TEXT');
+        console.log('✅ Migration: Added last_login column to users table');
+      } catch (error: any) {
+        // Column already exists, ignore error
+        if (error.message?.includes('duplicate column name')) {
+          console.log('⚠️ Column last_login already exists in users table');
+        } else {
+          console.error('❌ Error adding last_login column:', error);
+        }
+      }
+
       // Migration: Add closed_at column to events table if it doesn't exist
       try {
         const eventsInfo = await this.db.getAllAsync('PRAGMA table_info(events)');
@@ -626,6 +652,7 @@ class DatabaseService {
           preferred_currency TEXT DEFAULT 'ARS',
           auto_logout TEXT DEFAULT 'never',
           skip_password INTEGER DEFAULT 0,
+          auto_login INTEGER DEFAULT 0,
           notifications_expense_added INTEGER DEFAULT 1,
           notifications_payment_received INTEGER DEFAULT 0,
           notifications_event_updated INTEGER DEFAULT 0,
@@ -2135,11 +2162,20 @@ class DatabaseService {
     try {
       console.log('💥 Nuking database - complete destruction and recreation...');
       
-      // Close current database connection
+      // Close current database connection properly
       if (this.db) {
-        await this.db.closeAsync();
+        try {
+          // Close any pending statements/transactions first
+          await this.db.execAsync('PRAGMA optimize');
+          await this.db.closeAsync();
+        } catch (closeError) {
+          console.warn('⚠️ Warning during database close:', closeError);
+        }
         this.db = null;
       }
+
+      // Wait a bit to ensure file handles are released
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Delete the entire database file
       const dbPath = `${FileSystem.documentDirectory}SQLite/splitsmart.db`;
@@ -2154,12 +2190,22 @@ class DatabaseService {
         console.warn('⚠️ Could not delete database file:', deleteError);
       }
 
+      // Wait a bit more to ensure file system operations complete
+      await new Promise(resolve => setTimeout(resolve, 200));
+
       // Recreate from scratch
       console.log('🔄 Recreating database from scratch...');
       await this.init();
+      
       console.log('✅ Database nuked and recreated successfully');
     } catch (error) {
       console.error('❌ Error nuking database:', error);
+      // Try to reinitialize even if there was an error
+      try {
+        await this.init();
+      } catch (reinitError) {
+        console.error('❌ Failed to reinitialize after error:', reinitError);
+      }
       throw error;
     }
   }
@@ -2187,12 +2233,17 @@ class DatabaseService {
       // Obtener usuarios (crear función si no existe)
       const users = await this.getAllUsers();
 
-      // Definir variables faltantes
-      const transactions: any[] = []; // Nueva tabla unificada - por implementar
-      const payments: any[] = []; // Legacy format para compatibilidad
+      // Obtener pagos desde settlements (para compatibilidad con versiones anteriores)
+      const payments = settlements.filter(s => s.isPaid);
       const eventParticipants = await this.getAllEventParticipants();
-
-      // Los settlements ya vienen en el formato correcto de la base de datos
+      
+      // Obtener consolidations si existen
+      let consolidations: any[] = [];
+      try {
+        consolidations = await this.getAllConsolidations();
+      } catch (error) {
+        console.warn('⚠️ No consolidations table found, skipping:', error);
+      }
 
       // Calculate statistics
       const totalAmount = expenses.reduce((sum, expense) => sum + expense.amount, 0);
@@ -2213,11 +2264,13 @@ class DatabaseService {
           events,
           participants,
           expenses,
-          transactions, // Nueva tabla unificada
+          
+          // Settlement system (unified)
+          settlements,
+          consolidations,
           
           // Legacy format para compatibilidad
           payments,
-          settlements,
           
           // Relationships
           event_participants: eventParticipants,
@@ -2227,9 +2280,9 @@ class DatabaseService {
           totalEvents: events.length,
           totalParticipants: participants.length,
           totalExpenses: expenses.length,
-          totalTransactions: transactions.length,
-          totalPayments: payments.length,
           totalSettlements: settlements.length,
+          totalConsolidations: consolidations.length,
+          totalPayments: payments.length,
           totalAmount: totalAmount,
           friendsCount: participants.filter(p => p.participantType === 'friend').length,
           activeEvents: events.filter(e => e.status === 'active').length,
@@ -2241,11 +2294,11 @@ class DatabaseService {
             events: events.length,
             participants: participants.length,
             expenses: expenses.length,
-            transactions: transactions.length,
+            settlements: settlements.length,
+            consolidations: consolidations.length,
             payments: payments.length,
             event_participants: eventParticipants.length,
-            splits: splits.length,
-            settlements: settlements.length
+            splits: splits.length
           }
         },
         notes: {
@@ -2292,17 +2345,18 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      const result = await this.db.getAllAsync('SELECT * FROM transactions WHERE type = \'manual\'');
+      // Los pagos ahora se manejan como settlements con isPaid = true
+      const result = await this.db.getAllAsync('SELECT * FROM settlements WHERE isPaid = 1');
       return result.map((row: any) => ({
         id: row.id,
         eventId: row.event_id,
-        fromParticipantId: row.from_participant_id,
-        toParticipantId: row.to_participant_id,
+        fromParticipantId: row.from_id,
+        toParticipantId: row.to_id,
         amount: row.amount,
-        date: row.date,
-        notes: row.notes,
+        date: row.paidAt, // Use paidAt as date
+        notes: '', // No notes field in settlements
         receiptImage: row.receipt_image,
-        isConfirmed: row.status === 'confirmed',
+        isConfirmed: true, // If isPaid is true, it's confirmed
         createdAt: row.created_at,
         updatedAt: row.updated_at
       }));
@@ -2371,6 +2425,30 @@ class DatabaseService {
     }
   }
 
+  private async getAllConsolidations(): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      // Get consolidations from consolidation_assignments table
+      const result = await this.db.getAllAsync(
+        'SELECT * FROM consolidation_assignments ORDER BY event_id, created_at'
+      );
+      return result.map((row: any) => ({
+        id: row.id,
+        event_id: row.event_id,
+        payer_id: row.payer_id,
+        payer_name: row.payer_name,
+        debtor_id: row.debtor_id,
+        debtor_name: row.debtor_name,
+        created_at: row.created_at,
+        updated_at: row.updated_at
+      }));
+    } catch (error) {
+      console.error('❌ Error getting consolidations (table may not exist):', error);
+      return []; // Return empty array if table doesn't exist
+    }
+  }
+
   private async getAllEventParticipants(): Promise<any[]> {
     if (!this.db) throw new Error('Database not initialized');
 
@@ -2416,18 +2494,20 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      const result = await this.db.getAllAsync('SELECT * FROM transactions WHERE type = \'calculated\'');
+      const result = await this.db.getAllAsync('SELECT * FROM settlements');
       return result.map((row: any) => ({
         id: row.id,
         event_id: row.event_id,
-        from_participant_id: row.from_participant_id,
-        from_participant_name: row.from_participant_name,
-        to_participant_id: row.to_participant_id,
-        to_participant_name: row.to_participant_name,
+        from_id: row.from_participant_id,
+        from_name: row.from_participant_name,
+        to_id: row.to_participant_id,
+        to_name: row.to_participant_name,
         amount: row.amount,
-        is_paid: row.status === 'confirmed' ? 1 : 0,
+        settlement_type: row.settlement_type,
+        isPaid: row.is_paid === 1,
         receipt_image: row.receipt_image,
-        paid_at: row.confirmed_at,
+        paidAt: row.paid_at,
+        event_status: row.event_status,
         created_at: row.created_at,
         updated_at: row.updated_at
       }));
@@ -2743,13 +2823,14 @@ class DatabaseService {
     phone?: string;
     alias_cbu?: string;
     skipPassword?: boolean;
+    autoLogin?: boolean;
   }): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
       await this.db.runAsync(
-        `INSERT INTO users (id, username, email, password, name, phone, alias_cbu, skip_password, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO users (id, username, email, password, name, phone, alias_cbu, skip_password, auto_login, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           user.id,
           user.username,
@@ -2759,6 +2840,7 @@ class DatabaseService {
           user.phone || null,
           user.alias_cbu || null,
           user.skipPassword ? 1 : 0,
+          user.autoLogin ? 1 : 0,
           new Date().toISOString(),
           new Date().toISOString()
         ]
@@ -2777,6 +2859,7 @@ class DatabaseService {
     alias_cbu?: string;
     preferred_currency?: string;
     skipPassword?: boolean;
+    autoLogin?: boolean;
     avatar?: string;
   }): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
@@ -2809,6 +2892,10 @@ class DatabaseService {
         fields.push('skip_password = ?');
         values.push(updates.skipPassword ? 1 : 0);
       }
+      if (updates.autoLogin !== undefined) {
+        fields.push('auto_login = ?');
+        values.push(updates.autoLogin ? 1 : 0);
+      }
       if (updates.avatar !== undefined) {
         fields.push('avatar = ?');
         values.push(updates.avatar || null);
@@ -2830,19 +2917,129 @@ class DatabaseService {
     }
   }
 
+  async toggleAutoLogin(userId: string, autoLogin: boolean): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      console.log(`🔧 Attempting to toggle auto-login for user ${userId} to ${autoLogin}`);
+      
+      const result = await this.db.runAsync(
+        'UPDATE users SET auto_login = ?, updated_at = ? WHERE id = ?',
+        [autoLogin ? 1 : 0, new Date().toISOString(), userId]
+      );
+      
+      console.log(`📊 Update result:`, result);
+      console.log(`📊 Rows affected: ${result.changes}`);
+      
+      // Verificar que el cambio se aplicó correctamente
+      const updatedUser = await this.db.getFirstAsync(
+        'SELECT auto_login FROM users WHERE id = ?',
+        [userId]
+      ) as any;
+      
+      console.log(`✅ Verified auto_login in DB after update: ${updatedUser?.auto_login} (expected: ${autoLogin ? 1 : 0})`);
+      
+      if (result.changes === 0) {
+        throw new Error(`No user found with ID: ${userId}`);
+      }
+      
+      console.log(`✅ Auto-login ${autoLogin ? 'enabled' : 'disabled'} for user ${userId}`);
+    } catch (error) {
+      console.error('❌ Error toggling auto-login:', error);
+      throw error;
+    }
+  }
+
+  async updateLastLogin(userId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const now = new Date().toISOString();
+      console.log(`📅 Updating last_login for user ${userId} to ${now}`);
+      
+      const result = await this.db.runAsync(
+        'UPDATE users SET last_login = ?, updated_at = ? WHERE id = ?',
+        [now, now, userId]
+      );
+      
+      console.log(`📊 Last login update result: ${result.changes} rows affected`);
+      
+      if (result.changes === 0) {
+        throw new Error(`No user found with ID: ${userId}`);
+      }
+      
+      console.log(`✅ Last login updated for user ${userId}`);
+    } catch (error) {
+      console.error('❌ Error updating last login:', error);
+      throw error;
+    }
+  }
+
+  // Método público para obtener todos los usuarios con sus propiedades de login
+  async getAllUsersWithLoginInfo(): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    try {
+      const users = await this.db.getAllAsync(
+        'SELECT id, username, skip_password, auto_login, last_login FROM users'
+      );
+      return users || [];
+    } catch (error) {
+      console.error('❌ Error getting users with login info:', error);
+      throw error;
+    }
+  }
+
+  // Método público para obtener usuario completo por ID
+  async getUserById(userId: string): Promise<any | null> {
+    if (!this.db) throw new Error('Database not initialized');
+    
+    try {
+      const user = await this.db.getFirstAsync(
+        'SELECT * FROM users WHERE id = ?',
+        [userId]
+      );
+      return user || null;
+    } catch (error) {
+      console.error('❌ Error getting user by ID:', error);
+      throw error;
+    }
+  }
+
   async forceUpdateDemoUser(userId: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
+      // Verify database is writable first
+      await this.db.execAsync('SELECT 1');
+      
       await this.db.runAsync(
         'UPDATE users SET skip_password = 1, updated_at = ? WHERE id = ?',
         [new Date().toISOString(), userId]
       );
 
       console.log('✅ Demo user skip_password forced to 1');
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error forcing demo user update:', error);
-      throw error;
+      
+      // If it's a readonly error, try to reinitialize database
+      if (error?.message && error.message.includes('readonly')) {
+        console.warn('⚠️ Database is readonly, attempting to reinitialize...');
+        try {
+          await this.init();
+          // Retry the update after reinitializing
+          await this.db.runAsync(
+            'UPDATE users SET skip_password = 1, updated_at = ? WHERE id = ?',
+            [new Date().toISOString(), userId]
+          );
+          console.log('✅ Demo user skip_password updated after reinit');
+        } catch (retryError) {
+          console.error('❌ Failed to update even after reinit:', retryError);
+          throw retryError;
+        }
+      } else {
+        throw error;
+      }
     }
   }
 
@@ -2884,9 +3081,9 @@ class DatabaseService {
           name: 'Usuario Demo',
           username: 'demo',
           email: 'demo@splitsmart.com',
+          password: 'demo123456', // Añadir password requerido
           skipPassword: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+          autoLogin: true,
         });
         console.log('✅ Demo user created successfully');
       }

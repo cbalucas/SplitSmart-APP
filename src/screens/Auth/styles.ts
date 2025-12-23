@@ -13,14 +13,15 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   },
   iconSection: {
     alignItems: 'center',
-    marginBottom: 4
+    marginBottom: 20,
+    marginTop: 0
   },
   appIcon: {
     width: 150,
     height: 150,
-    borderRadius: 30,
-    borderWidth: 1,
-    borderColor: '#FFFFFF'
+    // borderRadius: 30,
+    // borderWidth: 1,
+    // borderColor: '#FFFFFF'
   },
   form: {
     backgroundColor: theme.colors.surfaceContainer,
@@ -37,7 +38,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '600',
     color: theme.colors.onSurfaceVariant,
     marginBottom: 8,
-    marginTop: 16
+    marginTop: 15
   },
   input: {
     borderWidth: 1,
@@ -70,7 +71,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
-    marginTop: 24
+    marginTop: 15
   },
   buttonDisabled: {
     opacity: 0.6
@@ -81,7 +82,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '600'
   },
   demoInfoButton: {
-    marginTop: 24,
+    marginTop: 10,
     backgroundColor: theme.colors.surfaceVariant,
     borderRadius: 8,
     borderWidth: 1,
@@ -211,13 +212,13 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 8
   },
   linkButton: {
-    alignItems: 'center',
-    marginTop: 16
+    alignItems: 'flex-end',
+    marginTop: 10
   },
   linkText: {
     fontSize: 14,
     color: theme.colors.primary,
-    textDecorationLine: 'underline'
+    //textDecorationLine: 'underline'
   },
   demoLinkButton: {
     alignItems: 'flex-start',
@@ -298,8 +299,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   },
   passwordStrengthFill: {
     height: '100%',
-    borderRadius: 2,
-    transition: 'width 0.3s ease'
+    borderRadius: 2
   },
   passwordStrengthText: {
     fontSize: 12,

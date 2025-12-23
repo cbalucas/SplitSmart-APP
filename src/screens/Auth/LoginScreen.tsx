@@ -118,6 +118,16 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
 
+
+        <View style={styles.linksContainer}>
+          <TouchableOpacity 
+            style={styles.linkButton}
+            onPress={() => navigation.navigate('ForgotPassword')}
+          >
+            <Text style={styles.linkText}>{t.links.forgotPassword}</Text>
+          </TouchableOpacity>
+        </View>
+
         <TouchableOpacity 
           style={[styles.button, loading && styles.buttonDisabled]} 
           onPress={handleLogin}
@@ -137,12 +147,12 @@ export default function LoginScreen() {
             <Text style={styles.linkText}>{t.links.signUp}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          {/* <TouchableOpacity 
             style={styles.linkButton}
             onPress={() => navigation.navigate('ForgotPassword')}
           >
             <Text style={styles.linkText}>{t.links.forgotPassword}</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
         </View>
         

@@ -19,7 +19,8 @@
     "node_modules",
     "babel.config.js",
     "metro.config.js",
-    "jest.config.js"
+    "jest.config.js",
+    "node_modules/**/*"
   ],
   "extends": "expo/tsconfig.base"
 }

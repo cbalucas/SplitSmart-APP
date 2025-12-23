@@ -1,4 +1,4 @@
-import { StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { StyleSheet, ViewStyle, TextStyle, ImageStyle } from 'react-native';
 import { Theme } from '../../constants/theme';
 
 export const createStyles = (theme: Theme) =>
@@ -98,6 +98,12 @@ export const createStyles = (theme: Theme) =>
       alignItems: 'center',
       justifyContent: 'center',
     } as ViewStyle,
+
+    avatarImage: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+    } as ImageStyle,
 
     avatarEditOverlay: {
       position: 'absolute',

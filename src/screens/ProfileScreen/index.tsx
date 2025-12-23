@@ -126,7 +126,7 @@ const SettingItem: React.FC<SettingItemProps> = ({
 const ProfileScreen: React.FC = () => {
   const navigation = useNavigation();
   const { theme, toggleTheme, isDarkMode } = useTheme();
-  const { user, logout, refreshUser, initializeAuth } = useAuth();
+  const { user, logout, refreshUser, initializeAuth, toggleAutoLogin } = useAuth();
   const { language, setLanguage, t } = useLanguage();
 
   // Helper function to get auto-logout options
@@ -168,6 +168,7 @@ const ProfileScreen: React.FC = () => {
       // shareEmail: false, // ELIMINADO
       // sharePhone: false, // ELIMINADO
       shareEvent: true, // NUEVO CAMPO
+      allowInvitations: true, // NUEVO CAMPO
     }
   });
 
@@ -175,6 +176,7 @@ const ProfileScreen: React.FC = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [skipPassword, setSkipPassword] = useState(false);
+  const [autoLogin, setAutoLogin] = useState(false);
   const [showAutoLogoutOptions, setShowAutoLogoutOptions] = useState(false);
   const [showChangelogModal, setShowChangelogModal] = useState(false);
   const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
@@ -204,6 +206,13 @@ const ProfileScreen: React.FC = () => {
     calculateStats();
     loadUserProfile();
   }, [events, expenses, participants]);
+
+  // Efecto para sincronizar el estado del auto-login con el AuthContext
+  useEffect(() => {
+    if (user?.autoLogin !== undefined) {
+      setAutoLogin(user.autoLogin);
+    }
+  }, [user?.autoLogin]);
 
   // Función para cerrar dropdown cuando se toca fuera
   const closeAutoLogoutDropdown = () => {
@@ -250,9 +259,11 @@ const ProfileScreen: React.FC = () => {
             // shareEmail: profile.privacy_share_email === 1, // ELIMINADO
             // sharePhone: profile.privacy_share_phone === 1, // ELIMINADO
             shareEvent: profile.privacy_share_event === 1 || true, // NUEVO CAMPO (default true)
+            allowInvitations: profile.privacy_allow_invitations === 1 || true, // NUEVO CAMPO (default true)
           }
         });
         setSkipPassword(profile.skip_password === 1);
+        setAutoLogin(profile.auto_login === 1);
       }
     } catch (error) {
       console.error('Error loading user profile:', error);
@@ -318,10 +329,7 @@ const ProfileScreen: React.FC = () => {
 
       // Guardar notificaciones
       await updateUserNotifications(user.id, {
-        expenseAdded: profileData.notifications.expenseAdded,
         paymentReceived: profileData.notifications.paymentReceived,
-        eventUpdated: profileData.notifications.eventUpdated,
-        // weeklyReport: profileData.notifications.weeklyReport // ELIMINADO
       });
 
       // Guardar privacidad
@@ -521,10 +529,11 @@ const ProfileScreen: React.FC = () => {
                   events: exportedData.data?.events?.length || 0,
                   participants: exportedData.data?.participants?.length || 0,
                   expenses: exportedData.data?.expenses?.length || 0,
+                  settlements: exportedData.data?.settlements?.length || 0,
+                  consolidations: exportedData.data?.consolidations?.length || 0,
                   payments: exportedData.data?.payments?.length || 0,
                   eventParticipants: exportedData.data?.event_participants?.length || 0,
-                  splits: exportedData.data?.splits?.length || 0,
-                  settlements: exportedData.data?.settlements?.length || 0
+                  splits: exportedData.data?.splits?.length || 0
                 };
                 
                 const totalRecords = Object.values(recordCounts).reduce((sum, count) => sum + count, 0);
@@ -535,7 +544,7 @@ const ProfileScreen: React.FC = () => {
                 if (success) {
                   Alert.alert(
                     `✅ ${t('success')}`, 
-                    `${t('profile.message.exportSuccess')}\n\n📊 Registros exportados (${totalRecords} total):\n• ${recordCounts.users} Usuarios\n• ${recordCounts.events} Eventos\n• ${recordCounts.participants} Participantes\n• ${recordCounts.expenses} Gastos\n• ${recordCounts.payments} Pagos\n• ${recordCounts.eventParticipants} Relaciones evento-participante\n• ${recordCounts.splits} Divisiones\n• ${recordCounts.settlements} Liquidaciones\n\n📁 El archivo se ha guardado correctamente.`
+                    `${t('profile.message.exportSuccess')}\n\n📊 Registros exportados (${totalRecords} total):\n• ${recordCounts.users} Usuarios\n• ${recordCounts.events} Eventos\n• ${recordCounts.participants} Participantes\n• ${recordCounts.expenses} Gastos\n• ${recordCounts.settlements} Liquidaciones\n• ${recordCounts.consolidations} Consolidaciones\n• ${recordCounts.payments} Pagos (legacy)\n• ${recordCounts.eventParticipants} Relaciones evento-participante\n• ${recordCounts.splits} Divisiones\n\n📁 El archivo se ha guardado correctamente.`
                   );
                 }
               } catch (error) {
@@ -621,10 +630,11 @@ const ProfileScreen: React.FC = () => {
         events: data.events?.length || 0,
         participants: data.participants?.length || 0,
         expenses: data.expenses?.length || 0,
-        payments: data.payments?.length || 0,
+        settlements: data.settlements?.length || 0,
+        consolidations: data.consolidations?.length || 0,
+        payments: data.payments?.length || 0, // Legacy format
         eventParticipants: data.event_participants?.length || 0,
-        splits: data.splits?.length || 0,
-        settlements: data.settlements?.length || 0
+        splits: data.splits?.length || 0
       };
 
       const totalRecords = Object.values(importCounts).reduce((sum, count) => sum + count, 0);
@@ -635,10 +645,11 @@ const ProfileScreen: React.FC = () => {
         events: events.length,
         participants: participants.length,
         expenses: expenses.length,
-        payments: 0, // We'll need to get this from context if available
-        eventParticipants: 0, // We'll need to calculate this
-        splits: 0, // We'll need to get this from context if available
-        settlements: 0 // We'll need to get this from context if available
+        settlements: 0, // We'll get this from database
+        consolidations: 0, // We'll get this from database
+        payments: 0, // Legacy format - calculated from settlements
+        eventParticipants: 0, // We'll calculate this
+        splits: 0 // We'll get this from context if available
       };
       
       const currentTotal = Object.values(currentCounts).reduce((sum, count) => sum + count, 0);
@@ -666,7 +677,7 @@ const ProfileScreen: React.FC = () => {
     }
   };
 
-  const performImport = async (importData: any, importCounts: any, totalRecords: number) => {
+  const performImport = async (importDataPayload: any, importCounts: any, totalRecords: number) => {
     try {
       console.log('🚀 Starting database import...');
       
@@ -675,7 +686,7 @@ const ProfileScreen: React.FC = () => {
       console.log('🔄 Database nuked and recreated');
       
       // Import data using DataContext method
-      const success = await importData(importData);
+      const success = await importData(importDataPayload);
       
       if (success) {
         // Reinitialize auth to set up current user
@@ -689,7 +700,7 @@ const ProfileScreen: React.FC = () => {
         
         Alert.alert(
           `✅ ${t('success')}`,
-          `Importación completada exitosamente.\n\n📊 ${totalRecords} registros importados:\n• ${importCounts.users} Usuarios\n• ${importCounts.events} Eventos\n• ${importCounts.participants} Participantes\n• ${importCounts.expenses} Gastos\n• ${importCounts.payments} Pagos\n• ${importCounts.eventParticipants} Relaciones\n• ${importCounts.splits} Divisiones\n• ${importCounts.settlements} Liquidaciones\n\n📱 La aplicación se reiniciará con los datos importados.`
+          `Importación completada exitosamente.\n\n📊 ${totalRecords} registros importados:\n• ${importCounts.users} Usuarios\n• ${importCounts.events} Eventos\n• ${importCounts.participants} Participantes\n• ${importCounts.expenses} Gastos\n• ${importCounts.settlements} Liquidaciones\n• ${importCounts.consolidations} Consolidaciones\n• ${importCounts.payments} Pagos (legacy)\n• ${importCounts.eventParticipants} Relaciones\n• ${importCounts.splits} Divisiones\n\n📱 La aplicación se reiniciará con los datos importados.`
         );
       } else {
         throw new Error('Error durante el proceso de importación');
@@ -729,22 +740,34 @@ const ProfileScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
+              console.log('🗑️ Starting complete data deletion...');
+              
+              // Nuke database and wait for completion
               await nukeDatabase();
-              console.log('🔄 Database reset complete, reinitializing auth...');
+              console.log('🔄 Database reset complete, waiting before reinitializing...');
+              
+              // Wait a bit more to ensure everything is settled
+              await new Promise(resolve => setTimeout(resolve, 500));
               
               // Reinicializar autenticación para recrear usuario demo
+              console.log('🔧 Reinitializing auth...');
               await initializeAuth();
               
-              // Esperar un momento y recargar el perfil
-              setTimeout(async () => {
-                await refreshUser();
-                await loadUserProfile();
-              }, 1500);
+              // Wait a bit more before refreshing UI
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              
+              // Recargar el perfil
+              console.log('🔄 Refreshing user data...');
+              await refreshUser();
+              await loadUserProfile();
               
               Alert.alert(t('success'), t('profile.message.deleteCompleted'));
             } catch (error) {
               console.error('❌ Error during reset:', error);
-              Alert.alert(t('error'), t('profile.message.deleteError'));
+              Alert.alert(
+                t('error'), 
+                `${t('profile.message.deleteError')}\n\nDetalle: ${error instanceof Error ? error.message : 'Error desconocido'}`
+              );
             }
           }
         }
@@ -847,7 +870,7 @@ const ProfileScreen: React.FC = () => {
               {user?.avatar ? (
                 <Image 
                   source={{ uri: user.avatar }} 
-                  style={styles.avatar}
+                  style={styles.avatarImage}
                 />
               ) : (
                 <View style={[styles.avatar, { backgroundColor: '#4ECDC4' }]}>
@@ -1091,6 +1114,58 @@ const ProfileScreen: React.FC = () => {
         {/* Preferencias */}
         {!isEditing && (
         <ProfileSection title={t('profile.preferences')} icon="cog">
+             {/* Auto Login Section */}
+          <View style={styles.settingItem}>
+            <View style={styles.settingIcon}>
+              <MaterialCommunityIcons name="account-key" size={20} color={theme.colors.onSurfaceVariant} />
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={styles.settingTitle}>{t('profile.autoLogin')}</Text>
+              <Text style={styles.settingSubtitle}>
+                {autoLogin ? t('profile.autoLoginOn') : t('profile.autoLoginOff')}
+              </Text>
+            </View>
+            <View style={styles.settingAction}>
+              <Switch
+                value={autoLogin}
+                onValueChange={async (value) => {
+                  try {
+                    if (!user?.id) {
+                      Alert.alert('Error', 'No se pudo identificar el usuario');
+                      return;
+                    }
+                    
+                    console.log(`🎯 ProfileScreen: Toggling auto-login for user ${user.id} to ${value}`);
+                    console.log(`👤 Current user in ProfileScreen:`, { id: user.id, username: user.username });
+                    
+                    await toggleAutoLogin(value);
+                    
+                    // Actualizar estado local inmediatamente
+                    setAutoLogin(value);
+                    
+                    // Refrescar datos del usuario para asegurar sincronización
+                    await refreshUser();
+                    
+                    // Recargar el perfil para obtener el estado actualizado
+                    await loadUserProfile();
+                    
+                    Alert.alert(
+                      `✅ ${t('profile.autoLoginUpdated')}`, 
+                      value 
+                        ? t('profile.autoLoginEnabled') 
+                        : t('profile.autoLoginDisabled')
+                    );
+                  } catch (error) {
+                    console.error('Error updating auto-login:', error);
+                    Alert.alert(t('error'), t('profile.message.settingUpdateError'));
+                  }
+                }}
+                trackColor={{ false: theme.colors.outline, true: theme.colors.primary }}
+                thumbColor={theme.colors.surface}
+              />
+            </View>
+          </View>
+         
           <SettingItem
             title={t('profile.theme')}
             subtitle={isDarkMode ? t('profile.themeDark') : t('profile.themeLight')}
@@ -1100,15 +1175,18 @@ const ProfileScreen: React.FC = () => {
           />
           <CurrencySelector
             selectedCurrency={profileData.preferredCurrency}
-            onCurrencyChange={async (currency) => {
+            onCurrencyChange={(currency: string) => {
               closeAutoLogoutDropdown();
-              setProfileData(prev => ({ ...prev, preferredCurrency: currency }));
-              try {
-                await updateUserProfile(user.id, { preferred_currency: currency });
-                console.log('Currency preference updated successfully:', currency);
-              } catch (error) {
-                console.error('Error updating currency preference:', error);
-              }
+              const validCurrency = currency as 'ARS' | 'USD' | 'EUR' | 'BRL';
+              setProfileData(prev => ({ ...prev, preferredCurrency: validCurrency }));
+              (async () => {
+                try {
+                  await updateUserProfile(user!.id, { preferred_currency: validCurrency });
+                  console.log('Currency preference updated successfully:', validCurrency);
+                } catch (error) {
+                  console.error('Error updating currency preference:', error);
+                }
+              })();
             }}
             renderTrigger={(onPress) => (
               <TouchableOpacity
@@ -1204,7 +1282,7 @@ const ProfileScreen: React.FC = () => {
                         setProfileData(prev => ({ ...prev, autoLogout: option.value }));
                         setShowAutoLogoutOptions(false);
                         try {
-                          await updateUserProfile(user.id, { auto_logout: option.value });
+                          await updateUserProfile(user!.id, { auto_logout: option.value });
                           console.log('Auto-logout preference updated:', option.value);
                         } catch (error) {
                           console.error('Error updating auto-logout preference:', error);
@@ -1230,6 +1308,8 @@ const ProfileScreen: React.FC = () => {
               </Pressable>
             )}
           </View>
+          
+      
         </ProfileSection>
         )}
 
@@ -1349,7 +1429,7 @@ const ProfileScreen: React.FC = () => {
 
         {/* Cerrar Sesión */}
         {!isEditing && (
-          <Card style={[styles.card, styles.logoutCard]}>
+          <Card style={StyleSheet.flatten([styles.card, styles.logoutCard])}>
             <TouchableOpacity 
               style={styles.logoutButton}
               onPress={handleLogout}
@@ -1746,7 +1826,7 @@ const ProfileScreen: React.FC = () => {
                     <View style={{ backgroundColor: theme.colors.surface, borderRadius: 8, padding: 12, marginBottom: 16 }}>
                       {Object.entries(databaseStats.tables)
                         .filter(([tableName]) => {
-                          const mainTables = ['users', 'events', 'participants', 'expenses', 'transactions', 'payments_legacy', 'settlements_legacy', 'document_views', 'splits', 'app_versions', 'sqlite_sequence', 'expense_splits'];
+                          const mainTables = ['users', 'events', 'participants', 'expenses', 'settlements', 'splits', 'event_participants', 'app_versions', 'sqlite_sequence'];
                           return mainTables.includes(tableName);
                         })
                         .sort((a, b) => b[1] - a[1])
@@ -1756,12 +1836,9 @@ const ProfileScreen: React.FC = () => {
                             'events': 'Eventos', 
                             'participants': 'Participantes',
                             'expenses': 'Gastos',
-                            'transactions': 'Transacciones',
-                            'payments_legacy': 'Pagos (Legacy)',
-                            'settlements_legacy': 'Liquidaciones (Legacy)',
-                            'document_views': 'Vistas de Documentos',
-                            'expense_splits': 'Divisiones de Gastos',
+                            'settlements': 'Liquidaciones',
                             'splits': 'Divisiones',
+                            'event_participants': 'Evento-Participantes',
                             'app_versions': 'Versiones de App',
                             'sqlite_sequence': 'Secuencias SQLite'
                           };
@@ -1811,15 +1888,13 @@ const ProfileScreen: React.FC = () => {
                     <View style={{ backgroundColor: theme.colors.surface, borderRadius: 8, padding: 12, marginBottom: 16 }}>
                       {Object.entries(databaseStats.tables)
                         .filter(([tableName]) => {
-                          const relationTables = ['event_participants', 'participant_inclusion_rules', 'user_settings', 'user_preferences'];
-                          const mainTables = ['users', 'events', 'participants', 'expenses', 'transactions', 'payments_legacy', 'settlements_legacy', 'document_views', 'splits', 'app_versions', 'sqlite_sequence', 'expense_splits'];
+                          const relationTables = ['user_settings', 'user_preferences'];
+                          const mainTables = ['users', 'events', 'participants', 'expenses', 'settlements', 'splits', 'event_participants', 'app_versions', 'sqlite_sequence'];
                           return relationTables.includes(tableName) || (!mainTables.includes(tableName));
                         })
                         .sort((a, b) => b[1] - a[1])
                         .map(([tableName, count], index, array) => {
                           const friendlyNames: { [key: string]: string } = {
-                            'event_participants': 'Evento-Participantes',
-                            'participant_inclusion_rules': 'Reglas de Inclusión',
                             'user_settings': 'Configuración de Usuario',
                             'user_preferences': 'Preferencias de Usuario'
                           };

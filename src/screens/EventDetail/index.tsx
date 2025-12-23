@@ -2343,7 +2343,7 @@ export default function EventDetailScreen() {
                                           color: theme.colors.onSurfaceVariant,
                                           marginLeft: 8
                                         }}>
-                                          => ${formatCurrency(debtor.amount)}
+                                          =&gt; ${formatCurrency(debtor.amount)}
                                         </Text>
                                       )}
                                     </View>

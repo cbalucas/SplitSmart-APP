@@ -5,6 +5,7 @@ export interface User {
   email?: string;
   avatar?: string;
   skipPassword?: boolean;
+  autoLogin?: boolean;
   createdAt: string;
   updatedAt: string;
 }
