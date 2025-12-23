@@ -1,5 +1,85 @@
 # Changelog - SplitSmart
 
+## [1.2.0] - 2025-12-23
+
+### 🚀 Funcionalidades Principales Nuevas
+
+#### Sistema de Auto-Login Inteligente
+- **Auto-login robusto**: Sistema inteligente basado en último usuario que inició sesión
+- **Seguimiento de sesiones**: Campo `last_login` para tracking preciso de actividad
+- **Lógica de fallback**: Fallback automático al usuario DEMO cuando corresponde
+- **Configuración independiente**: Skip-password y auto-login configurables por separado
+- **Persistencia de configuración**: Las preferencias se mantienen entre reinicios de app
+- **Validación en inicialización**: Verificación de configuraciones al arranque
+
+#### Datos de Ejemplo Completos para DEMO
+- **3 eventos realistas**: Asado Fin de Año, Viaje Bariloche, Cumpleaños María
+- **Estados diversos**: Activo, completado, archivado con datos coherentes
+- **4 participantes variados**: Amigos permanentes y participantes temporales
+- **10 gastos contextualizados**: Montos realistas en pesos argentinos
+- **5 liquidaciones diversas**: Estados pagada, pendiente, consolidada
+- **Opción de regeneración**: Función para recrear datos de ejemplo desde perfil
+
+### 💎 Mejoras de Base de Datos
+
+#### Sistema Robusto de Migraciones
+- **Migraciones automáticas**: Sistema de actualización de esquema sin intervención
+- **Campo last_login**: Nuevo campo para tracking de sesiones de usuario
+- **Validaciones de integridad**: Verificación de foreign keys y consistencia
+- **Diagnósticos avanzados**: Estadísticas detalladas de tablas y registros
+- **Verificación de esquema**: Comprobación automática en inicialización
+- **Manejo mejorado de errores**: Logging detallado para debugging de BD
+
+### 🎨 Mejoras de Interfaz y UX
+
+#### Modal de Estadísticas de BD
+- **Información técnica**: Conteo de registros por tabla
+- **Estado de migraciones**: Visualización del estado del esquema
+- **Herramientas de diagnóstico**: Verificación de integridad de datos
+
+#### Historial de Versiones Expandible  
+- **Changelog completo**: Historial detallado con categorías organizadas
+- **Información expandible**: Secciones colapsables por versión
+- **Navegación mejorada**: Interfaz más intuitiva para explorar cambios
+
+### 🔧 Mejoras Técnicas y Estabilidad
+
+#### Corrección Completa de TypeScript
+- **Errores eliminados**: Corrección de todos los errores de compilación TS
+- **Tipos mejorados**: Definiciones más precisas para todas las funciones
+- **Validaciones robustas**: Manejo mejorado de tipos nullable y opcionales
+
+#### Sistema de Build Optimizado
+- **EAS Build mejorado**: Configuración optimizada con `appVersionSource: local`
+- **Project ID actualizado**: Vinculación correcta con servicios de Expo
+- **Build local robusto**: Scripts PowerShell y Gradle funcionando correctamente
+
+#### Arquitectura Mejorada
+- **Código más limpio**: Refactoring para mejor mantenibilidad
+- **Performance optimizada**: Consultas de BD más eficientes
+- **Manejo de errores**: Sistema robusto de captura y logging de errores
+
+### 🌐 Localización Completa
+
+#### Traducciones Auto-Login
+- **Español**: Traducciones completas para todas las opciones de auto-login
+- **Inglés**: Términos técnicos y opciones de configuración
+- **Portugués**: Localización completa para mercado brasileño
+
+### 🛠️ Herramientas de Desarrollo
+
+#### Versionado Automático
+- **Scripts actualizados**: Herramientas para incremento automático de versión  
+- **Sincronización de archivos**: app.json, package.json, build.gradle coordinados
+- **APK generation**: Múltiples métodos de generación (EAS, Gradle, scripts)
+
+### 📊 Experiencia del Usuario DEMO
+
+#### Onboarding Mejorado
+- **Datos realistas**: Ejemplos que muestran el verdadero potencial de la app
+- **Casos de uso diversos**: Desde gastos simples hasta viajes complejos
+- **Estados de liquidación**: Ejemplos de todos los flujos posibles
+
 ## [1.1.0] - 2025-12-15
 
 ### 🚀 Mejoras Principales

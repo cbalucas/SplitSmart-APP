@@ -2,7 +2,7 @@
 
 ## 📊 Sistema de Versiones
 
-### Versión Actual: **v1.1.0** (versionCode: 2)
+### Versión Actual: **v1.2.0** (versionCode: 4)
 
 ---
 
@@ -83,7 +83,69 @@ El APK se generará con el nombre: `SplitSmart-v1.1.0-release.apk`
 
 ## 📝 Historial de Versiones
 
-### v1.1.0 (versionCode: 2) - 25/11/2025
+### v1.2.0 (versionCode: 4) - 23/12/2025
+**🚀 Funcionalidades Principales Nuevas:**
+- ✅ Sistema de Auto-Login Inteligente y Robusto
+- ✅ Identificación por ID único para usuarios
+- ✅ Seguimiento de último login por usuario (campo last_login)
+- ✅ Lógica de fallback al usuario DEMO
+- ✅ Configuración independiente skip-password y auto-login
+- ✅ Preservación de configuraciones entre sesiones
+- ✅ Validaciones de configuración en inicialización
+- ✅ Sistema completo de datos de ejemplo para DEMO
+- ✅ Opción de regenerar datos de ejemplo desde perfil
+- ✅ Protección de datos DEMO en resets de BD
+
+**💎 Mejoras de Base de Datos:**
+- ✅ Migraciones automáticas de esquema
+- ✅ Campo last_login para tracking de sesiones
+- ✅ Validaciones de integridad referencial
+- ✅ Verificación de esquema en inicialización
+- ✅ Sistema robusto de creación de tablas
+- ✅ Manejo mejorado de errores de BD
+- ✅ Diagnósticos de tablas implementados
+- ✅ Estadísticas detalladas de datos
+
+**🎨 Mejoras de Interfaz y UX:**
+- ✅ Modal de estadísticas de base de datos
+- ✅ Información técnica expandible
+- ✅ Historial de versiones más detallado
+- ✅ Validaciones mejoradas en formularios
+- ✅ Feedback visual de configuraciones
+- ✅ Logging detallado para debugging
+- ✅ Mensajes de confirmación mejorados
+- ✅ Interfaz de configuración más intuitiva
+- ✅ Traducciones completas para autoLogin (ES, EN, PT)
+
+**🔧 Mejoras Técnicas y Estabilidad:**
+- ✅ Corrección completa de errores de TypeScript
+- ✅ Tipos mejorados para todas las funciones
+- ✅ Sistema de build optimizado con EAS Build
+- ✅ Configuración EAS Build mejorada (appVersionSource: local)
+- ✅ Manejo robusto de errores de red
+- ✅ Validaciones de entrada mejoradas
+- ✅ Arquitectura más limpia y modular
+- ✅ Performance optimizada en consultas BD
+
+**📊 Datos de Ejemplo Completos:**
+- ✅ 3 eventos de ejemplo (Asado Fin de Año, Viaje Bariloche, Cumpleaños)
+- ✅ Estados: activo, completado, archivado
+- ✅ 4 participantes diversos (amigos permanentes + temporal)
+- ✅ 10 gastos realistas con diferentes divisiones
+- ✅5 liquidaciones en estados variados (pagadas, pendientes, consolidadas)
+- ✅ Datos coherentes con fechas realistas (Oct-Dic 2025)
+- ✅ Montos en pesos argentinos contextualizados
+- ✅ Relaciones completas entre todas las tablas
+- ✅ IDs únicos con sistema de prefijos demo_
+
+**🚀 Build y Distribución:**
+- ✅ Configuración EAS Build optimizada
+- ✅ Project ID actualizado y funcional
+- ✅ Versionado automático mejorado
+- ✅ Scripts PowerShell actualizados
+- ✅ APK generado exitosamente con Gradle
+
+### v1.1.0 (versionCode: 3) - 25/11/2025
 **Nuevas Funcionalidades:**
 - ✅ Sistema de tipos de participantes (friend/temporary)
 - ✅ Carga masiva de amigos

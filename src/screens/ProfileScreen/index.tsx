@@ -1396,7 +1396,7 @@ const ProfileScreen: React.FC = () => {
             </View>
             <View style={styles.settingAction}>
               <View style={styles.versionBadge}>
-                <Text style={styles.versionBadgeText}>v1.1.0</Text>
+                <Text style={styles.versionBadgeText}>v1.2.0</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -1533,15 +1533,93 @@ const ProfileScreen: React.FC = () => {
               contentContainerStyle={{ flexGrow: 1 }}
               nestedScrollEnabled={true}
             >
-              {/* Versión 1.1.0 - Versión Consolidada */}
+              {/* Versión 1.2.0 - Versión Actual con Auto-Login Avanzado */}
               <TouchableOpacity 
                 style={[styles.versionBlock, styles.currentVersionBlock]} 
+                onPress={() => toggleVersionExpanded('1.2.0')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.versionHeader}>
+                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.2.0 (Actual)</Text>
+                  <Text style={[styles.versionDate, styles.currentVersionDate]}>23 Dic 2025</Text>
+                  <MaterialCommunityIcons 
+                    name={expandedVersions.has('1.2.0') ? 'chevron-up' : 'chevron-down'} 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
+                </View>
+                {expandedVersions.has('1.2.0') && (
+                  <View style={styles.versionContent}>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🚀 Funcionalidades Principales Nuevas</Text>
+                      <Text style={styles.changelogItem}>• Sistema de Auto-Login Inteligente y Robusto</Text>
+                      <Text style={styles.changelogItem}>• Identificación por ID único para usuarios</Text>
+                      <Text style={styles.changelogItem}>• Seguimiento de último login por usuario</Text>
+                      <Text style={styles.changelogItem}>• Lógica de fallback al usuario DEMO</Text>
+                      <Text style={styles.changelogItem}>• Configuración independiente skip-password y auto-login</Text>
+                      <Text style={styles.changelogItem}>• Preservación de configuraciones entre sesiones</Text>
+                      <Text style={styles.changelogItem}>• Validaciones de configuración en inicialización</Text>
+                      <Text style={styles.changelogItem}>• Sistema completo de datos de ejemplo para DEMO</Text>
+                      <Text style={styles.changelogItem}>• Opción de regenerar datos de ejemplo</Text>
+                      <Text style={styles.changelogItem}>• Protección de datos DEMO en resets</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>💎 Mejoras de Base de Datos</Text>
+                      <Text style={styles.changelogItem}>• Migraciones automáticas de esquema</Text>
+                      <Text style={styles.changelogItem}>• Campo last_login para tracking de sesiones</Text>
+                      <Text style={styles.changelogItem}>• Validaciones de integridad referencial</Text>
+                      <Text style={styles.changelogItem}>• Verificación de esquema en inicialización</Text>
+                      <Text style={styles.changelogItem}>• Sistema robusto de creación de tablas</Text>
+                      <Text style={styles.changelogItem}>• Manejo mejorado de errores de BD</Text>
+                      <Text style={styles.changelogItem}>• Diagnósticos de tablas implementados</Text>
+                      <Text style={styles.changelogItem}>• Estadísticas detalladas de datos</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🎨 Mejoras de Interfaz y UX</Text>
+                      <Text style={styles.changelogItem}>• Modal de estadísticas de base de datos</Text>
+                      <Text style={styles.changelogItem}>• Información técnica expandible</Text>
+                      <Text style={styles.changelogItem}>• Historial de versiones más detallado</Text>
+                      <Text style={styles.changelogItem}>• Validaciones mejoradas en formularios</Text>
+                      <Text style={styles.changelogItem}>• Feedback visual de configuraciones</Text>
+                      <Text style={styles.changelogItem}>• Logging detallado para debugging</Text>
+                      <Text style={styles.changelogItem}>• Mensajes de confirmación mejorados</Text>
+                      <Text style={styles.changelogItem}>• Interfaz de configuración más intuitiva</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🔧 Mejoras Técnicas y Estabilidad</Text>
+                      <Text style={styles.changelogItem}>• Corrección completa de errores de TypeScript</Text>
+                      <Text style={styles.changelogItem}>• Tipos mejorados para todas las funciones</Text>
+                      <Text style={styles.changelogItem}>• Sistema de build optimizado</Text>
+                      <Text style={styles.changelogItem}>• Configuración EAS Build mejorada</Text>
+                      <Text style={styles.changelogItem}>• Manejo robusto de errores de red</Text>
+                      <Text style={styles.changelogItem}>• Validaciones de entrada mejoradas</Text>
+                      <Text style={styles.changelogItem}>• Arquitectura más limpia y modular</Text>
+                      <Text style={styles.changelogItem}>• Performance optimizada en consultas BD</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>📊 Nuevas Funcionalidades de Datos</Text>
+                      <Text style={styles.changelogItem}>• 3 eventos de ejemplo completos (activo, completado, archivado)</Text>
+                      <Text style={styles.changelogItem}>• 4 participantes diversos (amigos y temporales)</Text>
+                      <Text style={styles.changelogItem}>• 10 gastos realistas con diferentes divisiones</Text>
+                      <Text style={styles.changelogItem}>• 5 liquidaciones en estados variados</Text>
+                      <Text style={styles.changelogItem}>• Datos coherentes con fechas realistas</Text>
+                      <Text style={styles.changelogItem}>• Montos en pesos argentinos contextualizados</Text>
+                      <Text style={styles.changelogItem}>• Relaciones completas entre todas las tablas</Text>
+                      <Text style={styles.changelogItem}>• IDs únicos con sistema de prefijos</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Versión 1.1.0 - Funcionalidades Base Mejoradas */}
+              <TouchableOpacity 
+                style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.1.0')}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
-                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.1.0 (Actual)</Text>
-                  <Text style={[styles.versionDate, styles.currentVersionDate]}>11 Dic 2025</Text>
+                  <Text style={styles.versionNumber}>v1.1.0</Text>
+                  <Text style={styles.versionDate}>11 Dic 2025</Text>
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.1.0') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
@@ -1661,7 +1739,7 @@ const ProfileScreen: React.FC = () => {
                   color={theme.colors.primary} 
                   style={{ alignSelf: 'center', marginBottom: 16 }}
                 />
-                <Text style={styles.aboutTitle}>SplitSmart v1.1.0</Text>
+                <Text style={styles.aboutTitle}>SplitSmart v1.2.0</Text>
                 <Text style={styles.aboutDescription}>
                   {t('profile.about.appDescription')}
                 </Text>
@@ -1706,7 +1784,7 @@ const ProfileScreen: React.FC = () => {
               <View style={[styles.aboutSection, { backgroundColor: theme.colors.surfaceVariant, padding: 16, borderRadius: 12 }]}>
                 <Text style={styles.aboutSectionTitle}>{t('profile.about.techSpecs')}</Text>
                 <Text style={styles.aboutDescription}>
-                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.version')}:</Text> 1.1.0{'\n'}
+                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.version')}:</Text> 1.2.0{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.platform')}</Text>{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.database')}</Text>{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.languages')}</Text>

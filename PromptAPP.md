@@ -224,7 +224,7 @@ class BackupService {
       payments: await this.getAllPayments(),
       settings: await this.getUserSettings(),
       timestamp: new Date().toISOString(),
-      version: '1.0.0'
+      version: '1.2.0'
     };
     
     const fileName = `SplitSmart_Backup_${formatDate(new Date())}.json`;
@@ -279,14 +279,14 @@ Todos los cálculos matemáticos se realizan **completamente en el dispositivo**
   "expo": {
     "name": "SplitSmart",
     "slug": "splitsmart-offline",
-    "version": "1.0.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     
     "android": {
       "package": "com.cbalucas.splitsmart",
-      "versionCode": 1,
+      "versionCode": 4,
       "compileSdkVersion": 34,
       "targetSdkVersion": 34,
       "minSdkVersion": 23,

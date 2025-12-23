@@ -2,7 +2,7 @@
   "expo": {
     "name": "SplitSmart",
     "slug": "splitsmart",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/splitsmart/icon.png",
     "userInterfaceStyle": "automatic",
@@ -24,20 +24,15 @@
         "backgroundColor": "#4B89DC"
       },
       "package": "com.cbalucas.splitsmart",
-      "versionCode": 3,
+      "versionCode": 4,
       "permissions": [
-        "USE_FINGERPRINT",
-        "USE_BIOMETRIC",
-        "WRITE_EXTERNAL_STORAGE",
-        "READ_EXTERNAL_STORAGE",
-        "CAMERA",
-        "READ_MEDIA_IMAGES",
-        "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",
-        "android.permission.CAMERA",
+        "android.permission.USE_BIOMETRIC",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.READ_MEDIA_IMAGES"
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.RECORD_AUDIO"
       ],
       "allowBackup": true
     },
@@ -58,8 +53,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "2c8b125f-76ab-4098-ac31-fdb813efb1aa"
+        "projectId": "52d27e66-73b7-4b12-94df-056f034a9712"
       }
-    }
+    },
+    "owner": "cbalucas"
   }
 }
