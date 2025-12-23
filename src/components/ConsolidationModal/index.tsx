@@ -237,7 +237,14 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
                     // No puede pagarse a sí mismo
                     if (p.id === item.participantId) return false;
                     
-                    // Permitir que cualquier otro participante pueda ser pagador
+                    // ✅ REGLA CLAVE: No puede ser pagador alguien que ya tiene a otro pagando por él
+                    // (para evitar cadenas: A paga por B, B paga por C)
+                    const hasDebtorAssigned = assignments.some(a => a.debtorId === p.id);
+                    if (hasDebtorAssigned) {
+                      console.log(`🚫 Excluyendo ${p.name} como pagador porque ya tiene a alguien pagando por él`);
+                      return false;
+                    }
+                    
                     return true;
                   })
                   .map(participant => (
