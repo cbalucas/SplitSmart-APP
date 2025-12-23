@@ -2220,6 +2220,9 @@ export default function EventDetailScreen() {
             </Text>
             
             {(() => {
+              try {
+                console.log('🔍 Debug consolidación - dbSettlements:', dbSettlements?.length, 'assignments:', consolidationAssignments?.length);
+              
               // Agrupar consolidaciones por pagador
               const groupedByPayer = consolidationAssignments.reduce((acc, assignment) => {
                 const payerId = assignment.payerId;
@@ -2230,12 +2233,24 @@ export default function EventDetailScreen() {
                     debtors: []
                   };
                 }
+                
+                // Buscar el monto que el pagador paga por este deudor en los settlements de DB
+                // Usar una búsqueda más segura con validación
+                let totalDebtorAmount = 0;
+                if (dbSettlements && Array.isArray(dbSettlements)) {
+                  const debtorSettlements = dbSettlements.filter(s => 
+                    s && s.fromParticipantId === assignment.debtorId && typeof s.amount === 'number'
+                  );
+                  totalDebtorAmount = debtorSettlements.reduce((sum, s) => sum + (s.amount || 0), 0);
+                }
+                
                 acc[payerId].debtors.push({
                   debtorId: assignment.debtorId,
-                  debtorName: assignment.debtorName
+                  debtorName: assignment.debtorName,
+                  amount: totalDebtorAmount
                 });
                 return acc;
-              }, {} as Record<string, { payerId: string; payerName: string; debtors: { debtorId: string; debtorName: string }[] }>);
+              }, {} as Record<string, { payerId: string; payerName: string; debtors: { debtorId: string; debtorName: string; amount: number }[] }>);
 
               const togglePayerList = (payerId: string) => {
                 const newExpanded = new Set(expandedPayerLists);
@@ -2248,7 +2263,7 @@ export default function EventDetailScreen() {
               };
 
               return Object.values(groupedByPayer).map((group) => {
-                const typedGroup = group as {payerId: string, payerName: string, debtors: {debtorId: string, debtorName: string}[]};
+                const typedGroup = group as {payerId: string, payerName: string, debtors: {debtorId: string, debtorName: string, amount: number}[]};
                 const isExpanded = expandedPayerLists.has(typedGroup.payerId);
                 const hasMultipleDebtors = typedGroup.debtors.length > 0; //Se modifica el 1 por 0 para que considere toda la lista contraible, sin importar la cantidad de personas que pague.
 
@@ -2309,7 +2324,7 @@ export default function EventDetailScreen() {
                               
                               {isExpanded && (
                                 <View style={{ paddingLeft: 18 }}>
-                                  {typedGroup.debtors.map((debtor: {debtorId: string, debtorName: string}, index: number) => (
+                                  {typedGroup.debtors.map((debtor: {debtorId: string, debtorName: string, amount: number}, index: number) => (
                                     <View key={debtor.debtorId} style={{ 
                                       flexDirection: 'row', 
                                       alignItems: 'center', 
@@ -2320,8 +2335,17 @@ export default function EventDetailScreen() {
                                         color: theme.colors.primary,
                                         fontWeight: '600'
                                       }}>
-                                        • {debtor.debtorName}
+                                        • {debtor.debtorName} 
                                       </Text>
+                                      {debtor.amount > 0 && (
+                                        <Text style={{ 
+                                          fontSize: 14,
+                                          color: theme.colors.onSurfaceVariant,
+                                          marginLeft: 8
+                                        }}>
+                                          => ${formatCurrency(debtor.amount)}
+                                        </Text>
+                                      )}
                                     </View>
                                   ))}
                                 </View>
@@ -2379,6 +2403,16 @@ export default function EventDetailScreen() {
                   </View>
                 );
               });
+              } catch (error) {
+                console.error('❌ Error en consolidación UI:', error);
+                return (
+                  <View style={{ padding: 16 }}>
+                    <Text style={{ color: theme.colors.error, textAlign: 'center' }}>
+                      Error al mostrar consolidaciones
+                    </Text>
+                  </View>
+                );
+              }
             })()}
             
             {/* Información adicional sobre el impacto - Desplegable */}
