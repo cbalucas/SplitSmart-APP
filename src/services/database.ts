@@ -353,8 +353,11 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      // Drop all existing tables including problematic legacy ones
-      await this.db.execAsync('DROP TABLE IF EXISTS transactions');
+      console.log('💥 Dropping all tables systematically...');
+
+      // Drop all current application tables (in reverse dependency order)
+      await this.db.execAsync('DROP TABLE IF EXISTS consolidation_assignments');
+      await this.db.execAsync('DROP TABLE IF EXISTS settlements');
       await this.db.execAsync('DROP TABLE IF EXISTS splits');
       await this.db.execAsync('DROP TABLE IF EXISTS expenses');
       await this.db.execAsync('DROP TABLE IF EXISTS event_participants');
@@ -362,15 +365,32 @@ class DatabaseService {
       await this.db.execAsync('DROP TABLE IF EXISTS events');
       await this.db.execAsync('DROP TABLE IF EXISTS users');
       await this.db.execAsync('DROP TABLE IF EXISTS app_versions');
-      // Drop problematic legacy tables
+
+      // Drop legacy/problematic tables that might exist
+      await this.db.execAsync('DROP TABLE IF EXISTS transactions');
       await this.db.execAsync('DROP TABLE IF EXISTS settlements_legacy');
       await this.db.execAsync('DROP TABLE IF EXISTS payments_legacy');
       await this.db.execAsync('DROP TABLE IF EXISTS document_views');
       await this.db.execAsync('DROP TABLE IF EXISTS expense_splits');
       await this.db.execAsync('DROP TABLE IF EXISTS participant_inclusion_rules');
+
+      // Drop all indexes
+      await this.db.execAsync('DROP INDEX IF EXISTS idx_event_participants_event_id');
+      await this.db.execAsync('DROP INDEX IF EXISTS idx_expenses_event_id');
+      await this.db.execAsync('DROP INDEX IF EXISTS idx_splits_expense_id');
+      await this.db.execAsync('DROP INDEX IF EXISTS idx_settlements_event_id');
+      await this.db.execAsync('DROP INDEX IF EXISTS idx_consolidation_assignments_event_id');
+      await this.db.execAsync('DROP INDEX IF EXISTS idx_app_versions_current');
+
+      // Reset sqlite_sequence table to clear autoincrement counters
+      await this.db.execAsync('DELETE FROM sqlite_sequence');
       
-      console.log('🗑️ Dropped existing tables');
+      console.log('🗑️ All tables and indexes dropped successfully');
+      
+      // Recreate all tables from scratch
       await this.createTables();
+      
+      console.log('✅ Database recreated successfully');
     } catch (error) {
       console.error('❌ Error dropping and recreating database:', error);
       throw error;
@@ -2061,6 +2081,8 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
+      console.log('🗑️ Starting complete data clearing...');
+      
       // Obtener todas las tablas de datos (excluyendo solo system tables de SQLite)
       const tables = await this.db.getAllAsync(
         `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`
@@ -2068,6 +2090,9 @@ class DatabaseService {
 
       console.log('📋 Tables found in database:', tables.map((t: any) => t.name).join(', '));
       console.log(`🗑️ Clear mode: ${includeVersions ? 'Including app versions' : 'Preserving app versions'}`);
+
+      // Deshabilitar foreign key constraints temporalmente para evitar errores
+      await this.db.execAsync('PRAGMA foreign_keys = OFF');
 
       // Borrar datos de cada tabla encontrada
       let clearedCount = 0;
@@ -2088,27 +2113,27 @@ class DatabaseService {
           ) as any;
           const recordCount = countResult?.count || 0;
           
+          // Manejar app_versions según el parámetro
+          if (tableName === 'app_versions' && !includeVersions) {
+            console.log(`ℹ️ Preserving app_versions table (${recordCount} records) - contains version history`);
+            continue;
+          }
+          
           if (recordCount > 0) {
-            // Manejar app_versions según el parámetro
-            if (tableName === 'app_versions' && !includeVersions) {
-              console.log(`ℹ️ Preserving app_versions table (${recordCount} records) - contains version history`);
-            } else {
-              // Intentar borrar con DELETE first
+            // Intentar borrar con DELETE
+            try {
+              await this.db.execAsync(`DELETE FROM ${tableName}`);
+              console.log(`🗑️ Cleared table: ${tableName} (${recordCount} records deleted)`);
+              clearedCount++;
+            } catch (deleteError) {
+              console.warn(`⚠️ DELETE failed for ${tableName}, trying DROP and recreate:`, deleteError);
               try {
-                await this.db.execAsync(`DELETE FROM ${tableName}`);
-                console.log(`🗑️ Cleared table: ${tableName} (${recordCount} records deleted)`);
+                // Como último recurso, eliminar y recrear la tabla
+                await this.db.execAsync(`DROP TABLE IF EXISTS ${tableName}`);
+                console.log(`💥 Dropped table: ${tableName} (could not clear with DELETE)`);
                 clearedCount++;
-              } catch (deleteError) {
-                console.warn(`⚠️ DELETE failed for ${tableName}, trying alternative method:`, deleteError);
-                try {
-                  // Método alternativo
-                  await this.db.execAsync(`DELETE FROM ${tableName}`);
-                  await this.db.execAsync(`UPDATE sqlite_sequence SET seq = 0 WHERE name = '${tableName}'`);
-                  console.log(`🗑️ Force cleared table: ${tableName}`);
-                  clearedCount++;
-                } catch (truncateError) {
-                  console.error(`❌ Could not clear table ${tableName} with any method:`, truncateError);
-                }
+              } catch (dropError) {
+                console.error(`❌ Could not clear table ${tableName} with any method:`, dropError);
               }
             }
           } else {
@@ -2127,16 +2152,15 @@ class DatabaseService {
         console.warn('⚠️ Could not reset sequences:', error);
       }
       
-      // After clearing data, also drop problematic legacy tables that keep regenerating
+      // Reactivar foreign key constraints
+      await this.db.execAsync('PRAGMA foreign_keys = ON');
+      
+      // Después de limpiar, recrear tablas que fueron eliminadas (si alguna fue dropped)
       try {
-        console.log('🗑️ Removing problematic legacy tables...');
-        await this.db.execAsync('DROP TABLE IF EXISTS settlements_legacy');
-        await this.db.execAsync('DROP TABLE IF EXISTS document_views'); 
-        await this.db.execAsync('DROP TABLE IF EXISTS expense_splits');
-        await this.db.execAsync('DROP TABLE IF EXISTS participant_inclusion_rules');
-        console.log('✅ Problematic legacy tables removed');
-      } catch (error) {
-        console.warn('⚠️ Could not remove legacy tables:', error);
+        console.log('🔧 Ensuring all required tables exist...');
+        await this.createTables();
+      } catch (recreateError) {
+        console.warn('⚠️ Error recreating tables after cleanup:', recreateError);
       }
 
       console.log(`✅ All data cleared successfully. ${clearedCount} tables processed.`);
@@ -3165,18 +3189,30 @@ class DatabaseService {
   }
 
   // Función de diagnóstico para identificar tablas problemáticas
-  async diagnoseTables(): Promise<void> {
+  async diagnoseTables(): Promise<{
+    existingTables: Array<{name: string, count: number}>;
+    totalRecords: number;
+    sizeInfo: string;
+    totalTables: number;
+    tablesWithData: number;
+    problematicTables: Array<any>;
+  }> {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      console.log('🔍 === DIAGNÓSTICO DE TABLAS ===');
+      console.log('🔍 === DIAGNÓSTICO COMPLETO DE BASE DE DATOS ===');
       
       // Obtener tablas del schema
       const tables = await this.db.getAllAsync(
         `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`
       );
       
-      console.log('📋 Tablas encontradas en schema:', tables.map((t: any) => t.name));
+      console.log('📋 Tablas encontradas en schema:', tables.map((t: any) => t.name).join(', '));
+      console.log(`📊 Total de tablas: ${tables.length}`);
+      
+      let totalRecords = 0;
+      let tablesWithData = 0;
+      const problematicTables = [];
       
       // Verificar cada tabla individualmente
       for (const table of tables as any[]) {
@@ -3184,20 +3220,97 @@ class DatabaseService {
         try {
           // Verificar estructura
           const columns = await this.db.getAllAsync(`PRAGMA table_info(${tableName})`);
-          console.log(`🏗️ ${tableName}: ${columns.length} columnas`);
           
           // Verificar datos
           const count = await this.db.getFirstAsync(`SELECT COUNT(*) as count FROM ${tableName}`) as any;
-          console.log(`📊 ${tableName}: ${count?.count || 0} registros`);
+          const recordCount = count?.count || 0;
+          
+          totalRecords += recordCount;
+          if (recordCount > 0) {
+            tablesWithData++;
+          }
+          
+          console.log(`📊 ${tableName}: ${recordCount} registros, ${columns.length} columnas`);
+          
+          // Identificar tablas problemáticas
+          if (recordCount > 0 && (tableName.includes('legacy') || tableName.includes('_old') || 
+                                  tableName === 'document_views' || tableName === 'expense_splits' ||
+                                  tableName === 'participant_inclusion_rules')) {
+            problematicTables.push({ name: tableName, records: recordCount });
+            console.log(`⚠️ TABLA PROBLEMÁTICA DETECTADA: ${tableName} con ${recordCount} registros`);
+          }
           
         } catch (error) {
           console.error(`❌ Error con tabla ${tableName}:`, error);
+          problematicTables.push({ name: tableName, error: error instanceof Error ? error.message : 'Unknown error' });
         }
       }
       
+      console.log('📈 === RESUMEN DEL DIAGNÓSTICO ===');
+      console.log(`📋 Total de tablas: ${tables.length}`);
+      console.log(`📊 Tablas con datos: ${tablesWithData}`);
+      console.log(`🔢 Total de registros: ${totalRecords}`);
+      
+      if (problematicTables.length > 0) {
+        console.log(`⚠️ Tablas problemáticas encontradas: ${problematicTables.length}`);
+        problematicTables.forEach(table => {
+          if (table.error) {
+            console.log(`❌ ${table.name}: ERROR - ${table.error}`);
+          } else {
+            console.log(`🚨 ${table.name}: ${table.records} registros (debería estar vacía)`);
+          }
+        });
+      } else {
+        console.log('✅ No se encontraron tablas problemáticas');
+      }
+      
+      // Verificar integridad referencial
+      console.log('🔗 Verificando integridad referencial...');
+      try {
+        const integrityCheck = await this.db.getFirstAsync('PRAGMA integrity_check') as any;
+        console.log(`🔍 Integridad: ${integrityCheck?.integrity_check || 'OK'}`);
+        
+        const foreignKeyCheck = await this.db.getAllAsync('PRAGMA foreign_key_check');
+        if (foreignKeyCheck.length > 0) {
+          console.log('⚠️ Problemas de foreign key detectados:', foreignKeyCheck);
+        } else {
+          console.log('✅ Foreign keys: OK');
+        }
+      } catch (error) {
+        console.warn('⚠️ No se pudo verificar integridad:', error);
+      }
+      
       console.log('🔍 === FIN DIAGNÓSTICO ===');
+      
+      // Crear array de tablas existentes con counts para la interfaz
+      const existingTables = [];
+      for (const table of tables as any[]) {
+        try {
+          const count = await this.db!.getFirstAsync(`SELECT COUNT(*) as count FROM ${table.name}`) as any;
+          existingTables.push({
+            name: table.name,
+            count: count?.count || 0
+          });
+        } catch (error) {
+          existingTables.push({
+            name: table.name,
+            count: 0
+          });
+        }
+      }
+      
+      return { 
+        existingTables,
+        totalTables: tables.length, 
+        tablesWithData, 
+        totalRecords, 
+        sizeInfo: `${totalRecords} registros totales`,
+        problematicTables 
+      };
+      
     } catch (error) {
       console.error('❌ Error en diagnóstico:', error);
+      throw error;
     }
   }
 

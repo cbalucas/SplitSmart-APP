@@ -505,6 +505,124 @@ const ProfileScreen: React.FC = () => {
     }
   };
 
+  const handleDiagnose = async () => {
+    try {
+      console.log('🔍 Running comprehensive database diagnosis...');
+      
+      // Ejecutar diagnóstico completo
+      const diagnosis = await databaseService.diagnoseTables();
+      
+      Alert.alert(
+        "🔍 Diagnóstico de Base de Datos",
+        `📊 Estado actual de la base de datos:\n\n` +
+        `📋 Tablas encontradas: ${diagnosis.existingTables.length}\n` +
+        `${diagnosis.existingTables.map((table: any) => `• ${table.name} (${table.count} registros)`).join('\n')}\n\n` +
+        `📈 Total de registros: ${diagnosis.totalRecords.toLocaleString()}\n` +
+        `💾 Tamaño estimado: ${diagnosis.sizeInfo}`,
+        [{ text: 'OK', style: 'default' }]
+      );
+    } catch (error) {
+      console.error('❌ Error in diagnosis:', error);
+      Alert.alert(
+        t('error'),
+        `Error en el diagnóstico:\n\n${error instanceof Error ? error.message : 'Error desconocido'}`
+      );
+    }
+  };
+
+  // Nueva función para verificar eliminación completa
+  const handleVerifyDeletion = async () => {
+    try {
+      Alert.alert(
+        "⚠️ VERIFICACIÓN DE ELIMINACIÓN COMPLETA",
+        "Esta prueba verificará que el botón 'Eliminar' efectivamente elimine TODAS las tablas de la base de datos.\n\n" +
+        "🔍 Pasos:\n" +
+        "1. Ver estado actual de tablas\n" +
+        "2. Ejecutar eliminación completa\n" +
+        "3. Verificar que no queden tablas\n" +
+        "4. Recrear base de datos\n\n" +
+        "⚠️ ATENCIÓN: Se perderán todos los datos actuales.",
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'VERIFICAR ELIMINACIÓN',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                // Paso 1: Diagnóstico inicial
+                console.log('🔍 PASO 1: Verificando estado inicial...');
+                const initialDiagnosis = await databaseService.diagnoseTables();
+                
+                Alert.alert(
+                  "📊 ESTADO INICIAL",
+                  `Antes de eliminar:\n\n` +
+                  `📋 Tablas: ${initialDiagnosis.existingTables.length}\n` +
+                  `📈 Registros: ${initialDiagnosis.totalRecords.toLocaleString()}\n\n` +
+                  `Tablas encontradas:\n${initialDiagnosis.existingTables.map((t: any) => `• ${t.name} (${t.count})`).join('\n')}\n\n` +
+                  `Presiona OK para proceder con la eliminación...`,
+                  [
+                    { 
+                      text: 'OK - ELIMINAR TODO', 
+                      style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          // Paso 2: Eliminación completa
+                          console.log('💥 PASO 2: Eliminando todas las tablas...');
+                          await nukeDatabase();
+                          
+                          // Esperar un poco para que se complete
+                          await new Promise(resolve => setTimeout(resolve, 1000));
+                          
+                          // Paso 3: Verificación post-eliminación
+                          console.log('🔍 PASO 3: Verificando eliminación completa...');
+                          const postDeletion = await databaseService.diagnoseTables();
+                          
+                          // Paso 4: Reinicializar
+                          console.log('🔧 PASO 4: Reinicializando sistema...');
+                          await initializeAuth();
+                          await refreshUser();
+                          await loadUserProfile();
+                          
+                          // Mostrar resultado final
+                          Alert.alert(
+                            "✅ VERIFICACIÓN COMPLETADA",
+                            `🔥 ELIMINACIÓN VERIFICADA:\n\n` +
+                            `📊 ANTES:\n` +
+                            `• Tablas: ${initialDiagnosis.existingTables.length}\n` +
+                            `• Registros: ${initialDiagnosis.totalRecords.toLocaleString()}\n\n` +
+                            `📊 DESPUÉS:\n` +
+                            `• Tablas: ${postDeletion.existingTables.length}\n` +
+                            `• Registros: ${postDeletion.totalRecords.toLocaleString()}\n\n` +
+                            `🎯 RESULTADO: ${initialDiagnosis.existingTables.length > 0 && postDeletion.totalRecords === 0 ? 
+                              '✅ TODAS LAS TABLAS ELIMINADAS CORRECTAMENTE' : 
+                              '❌ VERIFICAR: Algunas tablas podrían no haberse eliminado'}\n\n` +
+                            `Base de datos recreada con tablas vacías.`
+                          );
+                        } catch (verificationError) {
+                          console.error('❌ Error durante verificación:', verificationError);
+                          Alert.alert(
+                            'Error en Verificación', 
+                            `Error durante la verificación:\n\n${verificationError instanceof Error ? verificationError.message : 'Error desconocido'}`
+                          );
+                        }
+                      }
+                    }
+                  ]
+                );
+              } catch (error) {
+                console.error('❌ Error en verificación inicial:', error);
+                Alert.alert('Error', `Error en verificación inicial:\n\n${error instanceof Error ? error.message : 'Error desconocido'}`);
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('❌ Error in deletion verification:', error);
+      Alert.alert('Error', `Error al iniciar verificación:\n\n${error instanceof Error ? error.message : 'Error desconocido'}`);
+    }
+  };
+
   const handleExportData = async () => {
     try {
       Alert.alert(
@@ -1356,6 +1474,20 @@ const ProfileScreen: React.FC = () => {
             icon="chart-bar"
             type="navigation"
             onPress={handleShowDatabaseStats}
+          />
+          <SettingItem
+            title="Diagnóstico de Base de Datos"
+            subtitle="Verificar integridad y tablas problemáticas"
+            icon="stethoscope"
+            type="navigation"
+            onPress={handleDiagnose}
+          />
+          <SettingItem
+            title="🔥 VERIFICAR ELIMINACIÓN COMPLETA"
+            subtitle="Probar que el botón Eliminar borra TODAS las tablas"
+            icon="shield-check"
+            type="navigation"
+            onPress={handleVerifyDeletion}
           />
           <SettingItem
             title={t('profile.exportData')}

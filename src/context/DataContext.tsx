@@ -50,6 +50,14 @@ interface DataContextValue {
   nukeDatabase: () => Promise<void>;
   exportData: () => Promise<string>;
   importData: (importData: any) => Promise<boolean>;
+  diagnoseTables: () => Promise<{
+    existingTables: Array<{name: string, count: number}>;
+    totalRecords: number;
+    sizeInfo: string;
+    totalTables: number;
+    tablesWithData: number;
+    problematicTables: Array<any>;
+  }>;
 }
 
 const DataContext = createContext<DataContextValue>({
@@ -90,7 +98,15 @@ const DataContext = createContext<DataContextValue>({
   resetDatabase: async () => {},
   nukeDatabase: async () => {},
   exportData: async () => '',
-  importData: async () => false
+  importData: async () => false,
+  diagnoseTables: async () => ({
+    existingTables: [],
+    totalRecords: 0,
+    sizeInfo: '',
+    totalTables: 0,
+    tablesWithData: 0,
+    problematicTables: []
+  })
 });
 
 export function DataProvider({ children }: { children: ReactNode }) {
@@ -1131,6 +1147,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshData]);
 
+  const diagnoseTables = useCallback(async () => {
+    try {
+      const diagnosticResults = await databaseService.diagnoseTables();
+      console.log('✅ Tables diagnosis completed');
+      return diagnosticResults;
+    } catch (error) {
+      console.error('❌ Error during diagnosis:', error);
+      throw error;
+    }
+  }, []);
+
   return (
     <DataContext.Provider value={{
       events,
@@ -1170,7 +1197,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       resetDatabase,
       nukeDatabase,
       exportData,
-      importData
+      importData,
+      diagnoseTables
     }}>
       {children}
     </DataContext.Provider>
