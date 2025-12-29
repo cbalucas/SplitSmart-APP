@@ -1,5 +1,29 @@
 # Changelog - SplitSmart
 
+## [1.2.1] - 2025-12-29
+
+### 🔧 Correcciones y Mejoras
+
+#### Sistema de Comprobantes en Liquidaciones
+- **Visualización corregida**: Al hacer clic en comprobante existente ahora abre preview en lugar de opciones de carga
+- **Comportamiento diferenciado**: 
+  - Con comprobante: Clic en imagen → Preview | Botón X → Eliminar
+  - Sin comprobante: Clic en cámara → Opciones de carga (tomar foto/galería)
+- **Integración mejorada**: Usa el mismo modal de visualización que los gastos
+- **UX optimizada**: Separación clara entre acciones de vista y edición
+
+#### Componentes Actualizados
+- **SettlementItem**: Nueva prop `onViewReceipt` para manejo de preview separado
+- **EventDetail**: Función `handleViewSettlementReceipt` para integración con modal existente
+- **Consistencia visual**: Manejo uniforme de imágenes en toda la aplicación
+
+### 🛠️ Técnico
+- **Separación de responsabilidades**: Funciones específicas para preview vs edición
+- **Reutilización de código**: Aprovecha modal de imagen existente
+- **Mantenimiento**: Código más limpio y mantenible
+
+---
+
 ## [1.2.0] - 2025-12-23
 
 ### 🚀 Funcionalidades Principales Nuevas
