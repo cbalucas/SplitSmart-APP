@@ -12,15 +12,23 @@
 - **Integración mejorada**: Usa el mismo modal de visualización que los gastos
 - **UX optimizada**: Separación clara entre acciones de vista y edición
 
+#### Correcciones en Importación/Exportación de Datos
+- **Mapeo de campos corregido**: Solucionado problema donde las liquidaciones no se importaban correctamente
+- **Consolidaciones**: Corregido campo ID faltante en importación de consolidaciones
+- **Consistencia**: Nombres de campos unificados entre exportación e importación
+- **Integridad**: Verificación mejorada de estructura de datos
+
 #### Componentes Actualizados
 - **SettlementItem**: Nueva prop `onViewReceipt` para manejo de preview separado
 - **EventDetail**: Función `handleViewSettlementReceipt` para integración con modal existente
-- **Consistencia visual**: Manejo uniforme de imágenes en toda la aplicación
+- **ConsolidationModal**: SafeAreaView agregado para mejor compatibilidad con Android
+- **ProfileScreen**: Función unificada para estadísticas y diagnóstico de base de datos
 
 ### 🛠️ Técnico
 - **Separación de responsabilidades**: Funciones específicas para preview vs edición
 - **Reutilización de código**: Aprovecha modal de imagen existente
 - **Mantenimiento**: Código más limpio y mantenible
+- **Compatibilidad**: Mejor soporte para diferentes versiones de datos exportados
 
 ---
 

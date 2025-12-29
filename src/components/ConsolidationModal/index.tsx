@@ -7,7 +7,8 @@ import {
   FlatList,
   StyleSheet,
   Alert,
-  ScrollView
+  ScrollView,
+  SafeAreaView
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
@@ -306,7 +307,7 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
         {/* Header */}
         <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -371,7 +372,7 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
             removeClippedSubviews={false}
           />
         </ScrollView>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 };
@@ -385,7 +386,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 16,
+    paddingTop: 8,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.1)',
   },

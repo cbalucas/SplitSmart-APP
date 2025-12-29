@@ -2238,67 +2238,58 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      console.log('📦 Starting complete data export...');
+      console.log('📦 Starting DER-compliant data export...');
+      
+      // Importar esquema DER para consistencia
+      const { ExportSchema } = await import('../database/schema');
       
       const [
         events, 
         participants, 
         expenses, 
         settlements,
-        splits
+        splits,
+        users,
+        eventParticipants,
+        consolidations,
+        appVersions
       ] = await Promise.all([
         this.getEvents(),
         this.getParticipants(),
         this.getAllExpenses(),
         this.getAllSettlements(),
-        this.getAllSplits()
+        this.getAllSplits(),
+        this.getAllUsers(),
+        this.getAllEventParticipants(),
+        this.getAllConsolidations(),
+        this.getAllAppVersions()
       ]);
-
-      // Obtener usuarios (crear función si no existe)
-      const users = await this.getAllUsers();
-
-      // Obtener pagos desde settlements (para compatibilidad con versiones anteriores)
-      const payments = settlements.filter(s => s.isPaid);
-      const eventParticipants = await this.getAllEventParticipants();
-      
-      // Obtener consolidations si existen
-      let consolidations: any[] = [];
-      try {
-        consolidations = await this.getAllConsolidations();
-      } catch (error) {
-        console.warn('⚠️ No consolidations table found, skipping:', error);
-      }
 
       // Calculate statistics
       const totalAmount = expenses.reduce((sum, expense) => sum + expense.amount, 0);
       
-      const exportData = {
-        version: '2.0',
+      // Crear estructura según esquema DER
+      const exportData: any = {
+        version: '2.1',
         exportDate: new Date().toISOString(),
-        appVersion: '1.4.1',
+        appVersion: '1.2.1',
         metadata: {
           exportedBy: 'SplitSmart',
-          version: '2.0',
+          version: '2.1',
           exportDate: new Date().toISOString(),
-          appVersion: '1.4.1'
+          appVersion: '1.2.1'
         },
         data: {
-          // Main entities
+          // Orden según IMPORT_ORDER para consistencia
           users,
-          events,
           participants,
-          expenses,
-          
-          // Settlement system (unified)
-          settlements,
-          consolidations,
-          
-          // Legacy format para compatibilidad
-          payments,
-          
-          // Relationships
+          events,
           event_participants: eventParticipants,
+          expenses,
           splits,
+          settlements,
+          consolidation_assignments: consolidations,
+          app_versions: appVersions
         },
         statistics: {
           totalEvents: events.length,
@@ -2306,9 +2297,8 @@ class DatabaseService {
           totalExpenses: expenses.length,
           totalSettlements: settlements.length,
           totalConsolidations: consolidations.length,
-          totalPayments: payments.length,
           totalAmount: totalAmount,
-          friendsCount: participants.filter(p => p.participantType === 'friend').length,
+          friendsCount: participants.filter(p => p.participant_type === 'friend').length,
           activeEvents: events.filter(e => e.status === 'active').length,
           completedEvents: events.filter(e => e.status === 'completed').length
         },
@@ -2317,6 +2307,26 @@ class DatabaseService {
             users: users.length,
             events: events.length,
             participants: participants.length,
+            event_participants: eventParticipants.length,
+            expenses: expenses.length,
+            splits: splits.length,
+            settlements: settlements.length,
+            consolidation_assignments: consolidations.length,
+            app_versions: appVersions.length
+          },
+          exportChecksum: this.generateChecksum(exportData.data)
+        }
+      };
+
+      console.log('✅ Export completed successfully with DER compliance');
+      console.log('📊 Export statistics:', exportData.statistics);
+      
+      return JSON.stringify(exportData, null, 2);
+    } catch (error) {
+      console.error('❌ Export error:', error);
+      throw error;
+    }
+  }
             expenses: expenses.length,
             settlements: settlements.length,
             consolidations: consolidations.length,
@@ -2514,31 +2524,34 @@ class DatabaseService {
     }
   }
 
-  private async getAllSettlements(): Promise<any[]> {
+  private async getAllAppVersions(): Promise<any[]> {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      const result = await this.db.getAllAsync('SELECT * FROM settlements');
+      const result = await this.db.getAllAsync('SELECT * FROM app_versions ORDER BY release_date DESC');
       return result.map((row: any) => ({
         id: row.id,
-        event_id: row.event_id,
-        from_id: row.from_participant_id,
-        from_name: row.from_participant_name,
-        to_id: row.to_participant_id,
-        to_name: row.to_participant_name,
-        amount: row.amount,
-        settlement_type: row.settlement_type,
-        isPaid: row.is_paid === 1,
-        receipt_image: row.receipt_image,
-        paidAt: row.paid_at,
-        event_status: row.event_status,
-        created_at: row.created_at,
-        updated_at: row.updated_at
+        version: row.version,
+        version_name: row.version_name,
+        release_date: row.release_date,
+        is_current: row.is_current,
+        changelog_improvements: row.changelog_improvements,
+        changelog_features: row.changelog_features,
+        changelog_bugfixes: row.changelog_bugfixes,
+        created_at: row.created_at
       }));
     } catch (error) {
-      console.error('❌ Error getting all settlements:', error);
-      throw error;
+      console.warn('⚠️ App versions table may not exist:', error);
+      return [];
     }
+  }
+
+  private generateChecksum(data: any): string {
+    // Simple checksum basado en la cantidad de registros
+    const recordCount = Object.values(data).reduce((sum: number, table: any) => 
+      sum + (Array.isArray(table) ? table.length : 0), 0
+    );
+    return `checksum_${recordCount}_${Date.now()}`;
   }
 
   async updateExpense(expenseId: string, expense: Partial<Expense>, splits?: Split[]): Promise<void> {
