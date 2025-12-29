@@ -724,6 +724,11 @@ export default function EventDetailScreen() {
     }
   };
 
+  const handleViewSettlementReceipt = (imageUri: string) => {
+    setSelectedImage(imageUri);
+    setShowImageModal(true);
+  };
+
   const handleCompleteEvent = useCallback(async () => {
     if (!event) return;
 
@@ -2180,6 +2185,7 @@ export default function EventDetailScreen() {
                 currency={event?.currency || 'ARS'}
                 onTogglePaid={handleToggleSettlementPaid}
                 onUpdateReceipt={handleUpdateSettlementReceipt}
+                onViewReceipt={handleViewSettlementReceipt}
                 disabled={event?.status === 'archived'}
               />
                 );

@@ -17,6 +17,7 @@ interface SettlementItemProps {
   currency: string;
   onTogglePaid: (settlementId: string, isPaid: boolean) => void;
   onUpdateReceipt: (settlementId: string, imageUri: string | null) => void;
+  onViewReceipt?: (imageUri: string) => void;
   disabled?: boolean;
 }
 
@@ -25,6 +26,7 @@ export const SettlementItem: React.FC<SettlementItemProps> = ({
   currency,
   onTogglePaid,
   onUpdateReceipt,
+  onViewReceipt,
   disabled = false
 }) => {
   const { theme } = useTheme();
@@ -34,6 +36,13 @@ export const SettlementItem: React.FC<SettlementItemProps> = ({
   const handleTogglePaid = () => {
     if (disabled) return;
     onTogglePaid(settlement.id, !settlement.isPaid);
+  };
+
+  const handleViewReceipt = () => {
+    if (disabled || !settlement.receiptImage) return;
+    if (onViewReceipt) {
+      onViewReceipt(settlement.receiptImage);
+    }
   };
 
   const handleAddReceipt = async () => {
@@ -184,7 +193,7 @@ export const SettlementItem: React.FC<SettlementItemProps> = ({
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         {settlement.receiptImage ? (
           <>
-            <TouchableOpacity onPress={handleAddReceipt} disabled={disabled}>
+            <TouchableOpacity onPress={handleViewReceipt} disabled={disabled}>
               <Image 
                 source={{ uri: settlement.receiptImage }} 
                 style={styles.receiptThumbnail}
