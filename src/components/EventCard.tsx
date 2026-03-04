@@ -25,6 +25,8 @@ export interface EventData {
   participantCount: number;
   expenseCount: number;
   description?: string;
+  settlementCount?: number;
+  paidSettlementCount?: number;
 }
 
 export interface EventCardProps {
@@ -85,6 +87,13 @@ const EventCard: React.FC<EventCardProps> = ({
     onEdit?.(event);
   };
 
+  const handleDeletePress = (e: any) => {
+    e.stopPropagation();
+    onDelete?.(event);
+  };
+
+  const canDelete = event.participantCount === 0 && event.expenseCount === 0;
+
   return (
     <Card style={StyleSheet.flatten([styles.container, style])}>
       <TouchableOpacity
@@ -99,18 +108,12 @@ const EventCard: React.FC<EventCardProps> = ({
         ]} />
         
         <View style={styles.content}>
-          {/* Primera fila: Título, Icono de Privacidad y Lápiz */}
+          {/* Primera fila: Título, Lápiz, Basura (si aplica) e Icono de Privacidad */}
           <View style={styles.titleRow}>
             <View style={styles.titleContainer}>
               <Text style={styles.eventName} numberOfLines={1}>
                 {event.name}
               </Text>
-              <MaterialCommunityIcons
-                name={event.type === 'private' ? 'lock' : 'web'}
-                size={16}
-                color={event.type === 'private' ? '#FFB000' : '#4285F4'}
-                style={styles.privacyIcon}
-              />
             </View>
             <TouchableOpacity
               onPress={handleEditPress}
@@ -123,6 +126,25 @@ const EventCard: React.FC<EventCardProps> = ({
                 color={theme.colors.background === '#0F0F0F' ? '#FF5252' : theme.colors.primary}
               />
             </TouchableOpacity>
+            {canDelete && (
+              <TouchableOpacity
+                onPress={handleDeletePress}
+                style={styles.editButton}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <MaterialCommunityIcons
+                  name="trash-can-outline"
+                  size={18}
+                  color={theme.colors.error}
+                />
+              </TouchableOpacity>
+            )}
+            <MaterialCommunityIcons
+              name={event.type === 'private' ? 'lock' : 'web'}
+              size={16}
+              color={event.type === 'private' ? '#FFB000' : '#4285F4'}
+              style={styles.privacyIcon}
+            />
           </View>
 
           {/* Segunda fila: Fecha y Monto */}
@@ -165,6 +187,20 @@ const EventCard: React.FC<EventCardProps> = ({
               </Text>
             </View>
           </View>
+
+          {/* Cuarta fila: Liquidaciones (solo si hay) */}
+          {(event.settlementCount ?? 0) > 0 && (
+            <View style={styles.settlementsRow}>
+              <MaterialCommunityIcons
+                name="scale-balance"
+                size={16}
+                color={event.paidSettlementCount === event.settlementCount ? '#4CAF50' : '#FF9800'}
+              />
+              <Text style={styles.statText}>
+                {'('}{event.paidSettlementCount}/{event.settlementCount}{')'} liquidacion{event.settlementCount !== 1 ? 'es' : ''}
+              </Text>
+            </View>
+          )}
 
           {/* Ubicación */}
           {event.location && (
@@ -279,6 +315,13 @@ const createStyles = (theme: Theme) =>
 
     editButton: {
       padding: 4,
+    } as ViewStyle,
+
+    settlementsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 3,
+      gap: 6,
     } as ViewStyle,
 
     statsMainRow: {

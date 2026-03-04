@@ -10,7 +10,7 @@ import {
   Alert
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -23,6 +23,7 @@ import {
 } from '../../components';
 import SearchBar from '../../components/SearchBar';
 import { useData } from '../../context/DataContext';
+import { databaseService } from '../../services/database';
 import { HomeEventData, HomeMetricData, HomeScreenState } from './types';
 import { createStyles } from './styles';
 import { homeLanguage } from './language';
@@ -43,14 +44,17 @@ const HomeScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [metrics, setMetrics] = useState<HomeMetricData[]>([]);
+  const [statusFilter, setStatusFilter] = useState<'active' | 'completed' | 'archived' | null>(null);
   const [eventParticipants, setEventParticipants] = useState<{[eventId: string]: number}>({});
   const [eventExpenses, setEventExpenses] = useState<{[eventId: string]: number}>({});
   const [eventTotals, setEventTotals] = useState<{[eventId: string]: number}>({});
+  const [eventSettlements, setEventSettlements] = useState<{[eventId: string]: { total: number; paid: number }}>({});
 
-  // Cargar participantes y gastos para cada evento
+  // Cargar participantes, gastos y liquidaciones para cada evento
   const loadEventCounts = useCallback(async () => {
     const participantCounts: {[eventId: string]: number} = {};
     const expenseCounts: {[eventId: string]: number} = {};
+    const settlementCounts: {[eventId: string]: { total: number; paid: number }} = {};
     
     for (const event of dbEvents) {
       try {
@@ -63,10 +67,21 @@ const HomeScreen: React.FC = () => {
         participantCounts[event.id] = 0;
         expenseCounts[event.id] = 0;
       }
+      try {
+        const settlements = await databaseService.getSettlementsByEvent(event.id);
+        settlementCounts[event.id] = {
+          total: settlements.length,
+          paid: settlements.filter((s: any) => s.isPaid === true).length
+        };
+      } catch (error) {
+        console.error(`Error loading settlements for event ${event.id}:`, error);
+        settlementCounts[event.id] = { total: 0, paid: 0 };
+      }
     }
     
     setEventParticipants(participantCounts);
     setEventExpenses(expenseCounts);
+    setEventSettlements(settlementCounts);
   }, [dbEvents, getEventParticipants, getExpensesByEvent]);
 
   // Calcular montos totales basados en gastos
@@ -115,9 +130,19 @@ const HomeScreen: React.FC = () => {
       type: event.type as 'public' | 'private',
       participantCount: eventParticipants[event.id] || 0,
       expenseCount: eventExpenses[event.id] || 0,
-      description: event.description
+      description: event.description,
+      settlementCount: eventSettlements[event.id]?.total ?? 0,
+      paidSettlementCount: eventSettlements[event.id]?.paid ?? 0
     }));
-  }, [visibleEvents, eventTotals, eventParticipants, eventExpenses]);
+  }, [visibleEvents, eventTotals, eventParticipants, eventExpenses, eventSettlements]);
+
+  // Recargar conteos al volver al foco (ej: pagos de liquidaciones desde EventDetail)
+  useFocusEffect(
+    useCallback(() => {
+      loadEventCounts();
+      calculateEventTotals();
+    }, [loadEventCounts, calculateEventTotals])
+  );
 
   // Cargar conteos y calcular montos cuando cambian los eventos
   useEffect(() => {
@@ -127,18 +152,35 @@ const HomeScreen: React.FC = () => {
     }
   }, [dbEvents, loadEventCounts, calculateEventTotals]);
 
+  // Orden de estados para el sorting
+  const STATUS_ORDER: Record<string, number> = { active: 0, completed: 1, archived: 2, closed: 3 };
+
   // Filtrar eventos y actualizar métricas
   useEffect(() => {
-    // Filter events based on search query
-    if (!searchQuery.trim()) {
-      setFilteredEvents(eventsWithAmounts);
-    } else {
-      const filtered = eventsWithAmounts.filter(event =>
+    // Aplicar filtro de búsqueda y de estado
+    let result = eventsWithAmounts;
+
+    if (statusFilter) {
+      result = result.filter(event => event.status === statusFilter);
+    }
+
+    if (searchQuery.trim()) {
+      result = result.filter(event =>
         event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         event.location?.toLowerCase().includes(searchQuery.toLowerCase())
       );
-      setFilteredEvents(filtered);
     }
+
+    // Ordenar: estado → fecha → título
+    result = [...result].sort((a, b) => {
+      const statusDiff = (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99);
+      if (statusDiff !== 0) return statusDiff;
+      const dateDiff = new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+      if (dateDiff !== 0) return dateDiff;
+      return a.name.localeCompare(b.name, 'es');
+    });
+
+    setFilteredEvents(result);
 
     // Update metrics based on current events
     const activeCount = eventsWithAmounts.filter(e => e.status === 'active').length;
@@ -150,23 +192,26 @@ const HomeScreen: React.FC = () => {
         icon: 'calendar-check',
         value: activeCount.toString(),
         label: t.metrics.active,
-        color: '#4CAF50'  // Verde - igual que active en EventCard
+        color: '#4CAF50',
+        status: 'active'
       },
       {
         icon: 'check-circle',
         value: completedCount.toString(),
         label: t.metrics.completed,
-        color: '#FF9800'  // Naranja - igual que completed en EventCard
+        color: '#FF9800',
+        status: 'completed'
       },
       {
         icon: 'archive',
         value: archivedCount.toString(),
         label: t.metrics.archived,
-        color: '#9E9E9E'  // Gris - igual que archived en EventCard
+        color: '#9E9E9E',
+        status: 'archived'
       }
     ];
     setMetrics(newMetrics);
-  }, [eventsWithAmounts, searchQuery, t.metrics]);
+  }, [eventsWithAmounts, searchQuery, statusFilter, t.metrics]);
 
   // Helper para mostrar alerts con traducciones
   const showAlert = (title: string, message: string, buttons?: any[]) => {
@@ -294,6 +339,8 @@ const HomeScreen: React.FC = () => {
             key={index}
             metric={metric}
             style={StyleSheet.flatten([styles.metricCard])}
+            isSelected={statusFilter === metric.status}
+            onPress={() => setStatusFilter(prev => prev === metric.status ? null : metric.status)}
           />
         ))}
       </View>

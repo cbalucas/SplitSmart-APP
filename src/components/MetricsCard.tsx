@@ -4,7 +4,8 @@ import {
   Text,
   StyleSheet,
   ViewStyle,
-  TextStyle
+  TextStyle,
+  TouchableOpacity
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -21,41 +22,62 @@ export interface MetricData {
 export interface MetricsCardProps {
   metric: MetricData;
   style?: ViewStyle;
+  onPress?: () => void;
+  isSelected?: boolean;
 }
 
 const MetricsCard: React.FC<MetricsCardProps> = ({
   metric,
-  style
+  style,
+  onPress,
+  isSelected = false
 }) => {
   const { theme } = useTheme();
   const styles = createStyles(theme);
 
   return (
-    <Card style={StyleSheet.flatten([styles.container, style])} variant="filled" padding={12}>
-      <View style={styles.content}>
-        <MaterialCommunityIcons
-          name={metric.icon as any}
-          size={24}
-          color={metric.color}
-          style={styles.icon}
-        />
-        <Text style={styles.value} numberOfLines={1}>
-          {metric.value}
-        </Text>
-        <Text style={styles.label} numberOfLines={1}>
-          {metric.label}
-        </Text>
-      </View>
-    </Card>
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.7}
+      style={[styles.touchable, style]}
+    >
+      <Card
+        style={StyleSheet.flatten([
+          styles.container,
+          isSelected && { borderWidth: 2, borderColor: metric.color }
+        ])}
+        variant="filled"
+        padding={12}
+      >
+        <View style={styles.content}>
+          <MaterialCommunityIcons
+            name={metric.icon as any}
+            size={24}
+            color={metric.color}
+            style={styles.icon}
+          />
+          <Text style={[styles.value, isSelected && { color: metric.color }]} numberOfLines={1}>
+            {metric.value}
+          </Text>
+          <Text style={styles.label} numberOfLines={1}>
+            {metric.label}
+          </Text>
+        </View>
+      </Card>
+    </TouchableOpacity>
   );
 };
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
-    container: {
+    touchable: {
       flex: 1,
       marginHorizontal: 2,
       minWidth: 70,
+    } as ViewStyle,
+
+    container: {
+      flex: 1,
     } as ViewStyle,
 
     content: {

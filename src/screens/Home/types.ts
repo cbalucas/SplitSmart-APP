@@ -10,6 +10,8 @@ export interface HomeEventData {
   participantCount: number;
   expenseCount: number;
   description?: string;
+  settlementCount?: number;
+  paidSettlementCount?: number;
 }
 
 export interface HomeMetricData {
@@ -17,6 +19,7 @@ export interface HomeMetricData {
   value: string;
   label: string;
   color: string;
+  status: 'active' | 'completed' | 'archived';
 }
 
 export interface HomeScreenState {

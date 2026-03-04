@@ -1396,7 +1396,7 @@ const ProfileScreen: React.FC = () => {
             </View>
             <View style={styles.settingAction}>
               <View style={styles.versionBadge}>
-                <Text style={styles.versionBadgeText}>v1.2.0</Text>
+                <Text style={styles.versionBadgeText}>v1.3.0</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -1533,15 +1533,51 @@ const ProfileScreen: React.FC = () => {
               contentContainerStyle={{ flexGrow: 1 }}
               nestedScrollEnabled={true}
             >
-              {/* Versión 1.2.0 - Versión Actual con Auto-Login Avanzado */}
+              {/* Versión 1.3.0 - Versión Actual con mejoras de Home y EventCard */}
               <TouchableOpacity 
                 style={[styles.versionBlock, styles.currentVersionBlock]} 
+                onPress={() => toggleVersionExpanded('1.3.0')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.versionHeader}>
+                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.3.0 (Actual)</Text>
+                  <Text style={[styles.versionDate, styles.currentVersionDate]}>4 Mar 2026</Text>
+                  <MaterialCommunityIcons 
+                    name={expandedVersions.has('1.3.0') ? 'chevron-up' : 'chevron-down'} 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
+                </View>
+                {expandedVersions.has('1.3.0') && (
+                  <View style={styles.versionContent}>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🚀 Nuevas Funcionalidades</Text>
+                      <Text style={styles.changelogItem}>• Botón eliminar evento en card (solo si no tiene datos)</Text>
+                      <Text style={styles.changelogItem}>• Contador de liquidaciones ⚖️ (pagadas/total) en card</Text>
+                      <Text style={styles.changelogItem}>• Ícono de liquidaciones en verde/naranja según estado</Text>
+                      <Text style={styles.changelogItem}>• Filtro por estado en MetricsCard (toggle)</Text>
+                      <Text style={styles.changelogItem}>• Ordenamiento de eventos: estado → fecha → título</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
+                      <Text style={styles.changelogItem}>• Editar evento navega a Home (antes iba a EventDetail)</Text>
+                      <Text style={styles.changelogItem}>• Crear evento reemplaza stack (back va a Home)</Text>
+                      <Text style={styles.changelogItem}>• Cards del Home se actualizan al volver de EventDetail</Text>
+                      <Text style={styles.changelogItem}>• Corrección campo isPaid en conteo de liquidaciones pagadas</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Versión 1.2.0 - Auto-Login Avanzado */}
+              <TouchableOpacity 
+                style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.2.0')}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
-                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.2.0 (Actual)</Text>
-                  <Text style={[styles.versionDate, styles.currentVersionDate]}>23 Dic 2025</Text>
+                  <Text style={styles.versionNumber}>v1.2.0</Text>
+                  <Text style={styles.versionDate}>23 Dic 2025</Text>
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.2.0') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
@@ -1739,7 +1775,7 @@ const ProfileScreen: React.FC = () => {
                   color={theme.colors.primary} 
                   style={{ alignSelf: 'center', marginBottom: 16 }}
                 />
-                <Text style={styles.aboutTitle}>SplitSmart v1.2.0</Text>
+                <Text style={styles.aboutTitle}>SplitSmart v1.3.0</Text>
                 <Text style={styles.aboutDescription}>
                   {t('profile.about.appDescription')}
                 </Text>
@@ -1784,7 +1820,7 @@ const ProfileScreen: React.FC = () => {
               <View style={[styles.aboutSection, { backgroundColor: theme.colors.surfaceVariant, padding: 16, borderRadius: 12 }]}>
                 <Text style={styles.aboutSectionTitle}>{t('profile.about.techSpecs')}</Text>
                 <Text style={styles.aboutDescription}>
-                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.version')}:</Text> 1.2.0{'\n'}
+                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.version')}:</Text> 1.3.0{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.platform')}</Text>{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.database')}</Text>{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.languages')}</Text>

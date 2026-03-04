@@ -12,7 +12,7 @@ export const homeLanguage = {
     
     // Metrics
     metrics: {
-      active: 'Eventos Activos',
+      active: 'Activos',
       completed: 'Completados',
       archived: 'Archivados'
     },
@@ -66,7 +66,7 @@ export const homeLanguage = {
     
     // Metrics
     metrics: {
-      active: 'Active Events',
+      active: 'Active',
       completed: 'Completed',
       archived: 'Archived'
     },    // Actions
@@ -118,7 +118,7 @@ export const homeLanguage = {
     
     // Metrics
     metrics: {
-      active: 'Eventos Ativos',
+      active: 'Ativos',
       completed: 'Completados',
       archived: 'Arquivados'
     },

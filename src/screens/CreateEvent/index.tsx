@@ -257,6 +257,8 @@ const CreateEventScreen: React.FC = () => {
     }
 
     try {
+      let newEventId: string | null = null;
+
       if (isEditing && editingEventId) {
         // Actualizar evento existente
         const eventUpdates = {
@@ -275,8 +277,9 @@ const CreateEventScreen: React.FC = () => {
         await updateEvent(editingEventId, eventUpdates);
       } else {
         // Crear evento nuevo
+        newEventId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const eventData = {
-          id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          id: newEventId,
           name: formData.name.trim(),
           description: formData.description.trim() || undefined,
           startDate: formData.startDate!.toISOString(),
@@ -299,13 +302,14 @@ const CreateEventScreen: React.FC = () => {
           { 
             text: t.actions.ok, 
             onPress: () => {
-              if (isEditing && editingEventId) {
-                // Si estamos editando, volver a EventDetail
-                (navigation as any).navigate('EventDetail', { eventId: editingEventId });
-              } else {
-                // Si estamos creando, resetear formulario y volver a Home
-                resetFormToDefaults();
+              if (isEditing) {
+                // Si estamos editando, volver a Home
                 (navigation as any).navigate('Home');
+              } else {
+                // Si estamos creando, ir al detalle del nuevo evento
+                // Usamos replace para que el back desde EventDetail vaya a Home y no a CreateEvent
+                resetFormToDefaults();
+                (navigation as any).replace('EventDetail', { eventId: newEventId });
               }
             }
           }

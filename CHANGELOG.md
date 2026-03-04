@@ -1,5 +1,42 @@
 # Changelog - SplitSmart
 
+## [1.3.0] - 2026-03-04
+
+### 🚀 Nuevas Funcionalidades
+
+#### EventCard — Botón de Eliminación
+- **Eliminar evento desde la card**: Nuevo botón 🗑️ en la card del evento (entre editar y privacidad)
+- **Protección de datos**: Solo visible cuando el evento no tiene participantes ni gastos
+- **Confirmación**: Alert de confirmación antes de eliminar
+
+#### EventCard — Contador de Liquidaciones
+- **Indicador visual**: Fila `⚖️ (pagadas/total) liquidaciones` en cada card
+- **Color indicativo**: Ícono en verde cuando todas están pagadas, naranja si hay pendientes
+- **Se oculta**: No se muestra si el evento no tiene liquidaciones
+
+#### Home — Filtro por Estado
+- **MetricsCard interactiva**: Click en cada tarjeta (Activos / Completados / Archivados) filtra la lista
+- **Toggle**: Click nuevamente en la misma tarjeta para quitar el filtro (mostrar todos)
+- **Resaltado visual**: Tarjeta seleccionada con borde y valor de color destacado
+
+#### Home — Ordenamiento de Eventos
+- **Orden por estado**: Activos → Completados → Archivados
+- **Suborden**: Por fecha de inicio, luego por nombre alfabético
+- **Automático**: No requiere acción del usuario
+
+### 🔧 Correcciones de Bugs
+
+- ✅ **Editar evento**: Navegar a Home al guardar (antes iba a EventDetail)
+- ✅ **Crear evento**: Reemplaza el stack de navegación hacia EventDetail (back va a Home)
+- ✅ **Actualización al volver**: Cards del Home se recargan al volver desde EventDetail (useFocusEffect)
+- ✅ **Conteo de liquidaciones pagadas**: Corrección del campo `isPaid` (camelCase booleano)
+
+### 🔢 Versiones
+- **versionCode**: 4 → 5
+- **versionName**: "1.2.0" → "1.3.0"
+
+---
+
 ## [1.2.0] - 2025-12-23
 
 ### 🚀 Funcionalidades Principales Nuevas
