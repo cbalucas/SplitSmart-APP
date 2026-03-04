@@ -1,4 +1,4 @@
-# Script para generar APK de SplitSmart
+﻿# Script para generar APK de SplitSmart
 # Uso: .\build-apk.ps1
 
 Write-Host "`n════════════════════════════════════════" -ForegroundColor Cyan
