@@ -50,6 +50,13 @@ export const homeLanguage = {
       refreshError: 'No se pudieron cargar los eventos',
       archiveError: 'No se pudo archivar el evento',
       deleteError: 'No se pudo eliminar el evento'
+    },
+    
+    // Logout
+    logout: {
+      title: 'Cerrar Sesión',
+      message: '¿Estás seguro de que quieres cerrar sesión?',
+      button: 'Cerrar Sesión'
     }
   },
   
@@ -102,6 +109,13 @@ export const homeLanguage = {
       refreshError: 'Could not load events',
       archiveError: 'Could not archive event',
       deleteError: 'Could not delete event'
+    },
+    
+    // Logout
+    logout: {
+      title: 'Sign Out',
+      message: 'Are you sure you want to sign out?',
+      button: 'Sign Out'
     }
   },
   
@@ -156,6 +170,13 @@ export const homeLanguage = {
       refreshError: 'Não foi possível carregar os eventos',
       archiveError: 'Não foi possível arquivar o evento',
       deleteError: 'Não foi possível excluir o evento'
+    },
+    
+    // Logout
+    logout: {
+      title: 'Encerrar Sessão',
+      message: 'Tem certeza que deseja encerrar a sessão?',
+      button: 'Encerrar Sessão'
     }
   }
 };

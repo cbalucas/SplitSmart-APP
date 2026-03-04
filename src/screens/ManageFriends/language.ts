@@ -51,6 +51,8 @@ export interface ManageFriendsLanguage {
       nameRequired: string;
       cantDelete: string;
       inUse: string;
+      deleteFailed: string;
+      saveFailed: string;
     };
   };
 }
@@ -109,6 +111,8 @@ export const manageFriendsLanguage: Record<string, ManageFriendsLanguage> = {
         nameRequired: 'El nombre es obligatorio',
         cantDelete: 'No se puede eliminar',
         inUse: '{name} está siendo usado en eventos activos. Para eliminarlo, primero debes quitarlo de todos los eventos.',
+        deleteFailed: 'No se pudo eliminar el amigo',
+        saveFailed: 'No se pudo guardar el amigo',
       },
     },
   },
@@ -165,6 +169,8 @@ export const manageFriendsLanguage: Record<string, ManageFriendsLanguage> = {
         nameRequired: 'Name is required',
         cantDelete: 'Cannot delete',
         inUse: '{name} is being used in active events. To delete it, first remove it from all events.',
+        deleteFailed: 'Could not delete friend',
+        saveFailed: 'Could not save friend',
       },
     },
   },
@@ -221,6 +227,8 @@ export const manageFriendsLanguage: Record<string, ManageFriendsLanguage> = {
         nameRequired: 'O nome é obrigatório',
         cantDelete: 'Não é possível excluir',
         inUse: '{name} está sendo usado em eventos ativos. Para excluí-lo, primeiro remova-o de todos os eventos.',
+        deleteFailed: 'Não foi possível excluir o amigo',
+        saveFailed: 'Não foi possível salvar o amigo',
       },
     },
   },

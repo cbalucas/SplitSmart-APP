@@ -457,7 +457,7 @@ const ProfileScreen: React.FC = () => {
         // Share file (user can choose where to save)
         await Sharing.shareAsync(fileUri, {
           mimeType: 'application/json',
-          dialogTitle: 'Guardar exportación de SplitSmart',
+          dialogTitle: t('profile.message.exportSaveDialog'),
           UTI: 'public.json'
         });
         
@@ -476,7 +476,7 @@ const ProfileScreen: React.FC = () => {
         // Fallback: show file location (keep file since user needs to access it)
         Alert.alert(
           `✅ ${t('success')}`,
-          `Archivo guardado en:\n${fileUri}\n\nPuedes encontrarlo en la carpeta de documentos de la aplicación.`
+          t('profile.message.exportFileSaved', { uri: fileUri })
         );
         return true;
       }
@@ -509,11 +509,11 @@ const ProfileScreen: React.FC = () => {
     try {
       Alert.alert(
         t('profile.message.exportDataTitle'),
-        `Se exportarán todas las tablas y tablas relacionadas:\n\n• Usuarios y perfiles\n• Eventos y participantes\n• Gastos y divisiones\n• Pagos y liquidaciones\n• Todas las relaciones\n\n⚠️ Nota: Las imágenes (avatares, comprobantes de gastos y pagos) no se incluyen en la exportación por razones de privacidad y tamaño del archivo.`,
+        t('profile.message.exportConfirmMessage'),
         [
-          { text: 'Cancelar', style: 'cancel' },
+          { text: t('cancel'), style: 'cancel' },
           { 
-            text: 'Exportar Ahora', 
+            text: t('profile.message.exportNow'), 
             onPress: async () => {
               try {
                 console.log('🚀 Starting complete data export...');
@@ -599,7 +599,7 @@ const ProfileScreen: React.FC = () => {
         console.error('❌ Parse error:', parseError);
         Alert.alert(
           t('error'),
-          'El archivo seleccionado no es un JSON válido o está corrupto.'
+          t('profile.message.importInvalidJson')
         );
         return;
       }
@@ -618,7 +618,7 @@ const ProfileScreen: React.FC = () => {
         console.log('❌ Data keys:', importData.data ? Object.keys(importData.data) : 'No data');
         Alert.alert(
           t('error'),
-          `El archivo seleccionado no es una exportación válida de SplitSmart.\n\nDetalles técnicos:\n• Metadata: ${JSON.stringify(importData.metadata)}\n• Version: ${importData.version}\n• Estructura: ${importData.data ? 'OK' : 'Missing data'}`
+          `${t('profile.message.importInvalidFormat')}\n\nDetalles técnicos:\n• Metadata: ${JSON.stringify(importData.metadata)}\n• Version: ${importData.version}\n• Estructura: ${importData.data ? 'OK' : 'Missing data'}`
         );
         return;
       }
@@ -656,12 +656,12 @@ const ProfileScreen: React.FC = () => {
       
       // Show confirmation dialog with current vs import comparison
       Alert.alert(
-        'Confirmar Importación',
+        t('profile.message.importConfirmTitle'),
         `COMPARACIÓN DE DATOS:\n\n📊 DATOS ACTUALES (${currentTotal} total):\n• ${currentCounts.users} Usuario${currentCounts.users !== 1 ? 's' : ''} → ${importCounts.users} Usuario${importCounts.users !== 1 ? 's' : ''}\n• ${currentCounts.events} Evento${currentCounts.events !== 1 ? 's' : ''} → ${importCounts.events} Evento${importCounts.events !== 1 ? 's' : ''}\n• ${currentCounts.participants} Participante${currentCounts.participants !== 1 ? 's' : ''} → ${importCounts.participants} Participante${importCounts.participants !== 1 ? 's' : ''}\n• ${currentCounts.expenses} Gasto${currentCounts.expenses !== 1 ? 's' : ''} → ${importCounts.expenses} Gasto${importCounts.expenses !== 1 ? 's' : ''}\n• ${currentCounts.payments} Pago${currentCounts.payments !== 1 ? 's' : ''} → ${importCounts.payments} Pago${importCounts.payments !== 1 ? 's' : ''}\n• ${currentCounts.eventParticipants} Relación${currentCounts.eventParticipants !== 1 ? 'es' : ''} → ${importCounts.eventParticipants} Relación${importCounts.eventParticipants !== 1 ? 'es' : ''}\n• ${currentCounts.splits} División${currentCounts.splits !== 1 ? 'es' : ''} → ${importCounts.splits} División${importCounts.splits !== 1 ? 'es' : ''}\n• ${currentCounts.settlements} Liquidación${currentCounts.settlements !== 1 ? 'es' : ''} → ${importCounts.settlements} Liquidación${importCounts.settlements !== 1 ? 'es' : ''}\n\n📥 TOTAL A IMPORTAR: ${totalRecords} registros\n\n⚠️ IMPORTANTE:\n• Se ELIMINARÁ toda la información (${currentTotal} registros)\n• Las contraseñas NO se importan (acceso directo sin contraseña)\n• Las imágenes NO se importan (avatares y comprobantes)\n\n¿Deseas REEMPLAZAR los datos actuales?`,
         [
-          { text: 'Cancelar', style: 'cancel' },
+          { text: t('cancel'), style: 'cancel' },
           {
-            text: 'Importar Datos',
+            text: t('profile.message.importAction'),
             style: 'destructive',
             onPress: () => performImport(importData, importCounts, totalRecords)
           }
@@ -672,7 +672,7 @@ const ProfileScreen: React.FC = () => {
       console.error('❌ Import error:', error);
       Alert.alert(
         t('error'),
-        `Error al importar datos:\n\n${error instanceof Error ? error.message : 'Error desconocido'}`
+        `${t('profile.message.importError')}:\n\n${error instanceof Error ? error.message : 'Error desconocido'}`
       );
     }
   };
@@ -700,17 +700,17 @@ const ProfileScreen: React.FC = () => {
         
         Alert.alert(
           `✅ ${t('success')}`,
-          `Importación completada exitosamente.\n\n📊 ${totalRecords} registros importados:\n• ${importCounts.users} Usuarios\n• ${importCounts.events} Eventos\n• ${importCounts.participants} Participantes\n• ${importCounts.expenses} Gastos\n• ${importCounts.settlements} Liquidaciones\n• ${importCounts.consolidations} Consolidaciones\n• ${importCounts.payments} Pagos (legacy)\n• ${importCounts.eventParticipants} Relaciones\n• ${importCounts.splits} Divisiones\n\n📱 La aplicación se reiniciará con los datos importados.`
+          `${t('profile.message.importCompleted')}\n\n📊 ${totalRecords} registros importados:\n• ${importCounts.users} Usuarios\n• ${importCounts.events} Eventos\n• ${importCounts.participants} Participantes\n• ${importCounts.expenses} Gastos\n• ${importCounts.settlements} Liquidaciones\n• ${importCounts.consolidations} Consolidaciones\n• ${importCounts.payments} Pagos (legacy)\n• ${importCounts.eventParticipants} Relaciones\n• ${importCounts.splits} Divisiones\n\n📱 La aplicación se reiniciará con los datos importados.`
         );
       } else {
-        throw new Error('Error durante el proceso de importación');
+        throw new Error(t('profile.message.importErrorProcess'));
       }
       
     } catch (error) {
       console.error('❌ Import execution error:', error);
       Alert.alert(
         t('error'),
-        `Error durante la importación:\n\n${error instanceof Error ? error.message : 'Error desconocido'}\n\nSe recomienda reiniciar la aplicación.`
+        `${t('profile.message.importError')}:\n\n${error instanceof Error ? error.message : 'Error desconocido'}\n\n${t('profile.message.importRestart')}`
       );
     }
   };
@@ -734,7 +734,7 @@ const ProfileScreen: React.FC = () => {
       t('profile.message.deleteAllDataTitle'),
       t('profile.message.deleteAllDataMessage'),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
           text: t('profile.message.deleteAll'),
           style: 'destructive',
@@ -1329,7 +1329,7 @@ const ProfileScreen: React.FC = () => {
 
         {/* Privacidad */}
         {!isEditing && (
-        <ProfileSection title={t('profile.privacy')} icon="shield-account" onPress={closeAutoLogoutDropdown}>
+        <ProfileSection title={t('profile.privacySection')} icon="shield-account" onPress={closeAutoLogoutDropdown}>
           <View style={styles.settingItem}>
             <View style={styles.settingIcon}>
               <MaterialCommunityIcons name="share" size={20} color={theme.colors.onSurfaceVariant} />

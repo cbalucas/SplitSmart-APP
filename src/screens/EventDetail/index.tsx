@@ -473,12 +473,12 @@ export default function EventDetailScreen() {
       return;
     }
     Alert.alert(
-      'Eliminar Gasto',
-      `¿Estás seguro de que quieres eliminar el gasto "${expense.description}"?`,
+      t('message.deleteExpenseTitle'),
+      t('message.deleteExpenseMessage', { name: expense.description }),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -503,11 +503,11 @@ export default function EventDetailScreen() {
       setShowEditModal(true);
     } else if (participant.participantType === 'friend') {
       Alert.alert(
-        'ℹ️ Editar Amigo',
-        `"${participant.name}" es un amigo permanente. Para editarlo, ve a la sección "Mis Amigos" desde el menú principal.`,
+        t('message.editFriendTitle'),
+        `"${participant.name}" ${t('message.editFriendMessage')}`,
         [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Ir a Mis Amigos', onPress: () => (navigation as any).navigate('ManageFriends') }
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('message.goToFriends'), onPress: () => (navigation as any).navigate('ManageFriends') }
         ]
       );
     }
@@ -555,12 +555,12 @@ export default function EventDetailScreen() {
       return;
     }
     Alert.alert(
-      'Eliminar Participante',
-      `¿Estás seguro de que quieres eliminar a "${participant.name}" del evento?`,
+      t('message.removeParticipantTitle'),
+      t('message.removeParticipantMessage', { name: participant.name }),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -581,7 +581,7 @@ export default function EventDetailScreen() {
   const handleToggleSettlementPaid = async (settlementId: string, isPaid: boolean) => {
     // Solo permitir marcar pagos en estado COMPLETADO
     if (event?.status !== 'completed') {
-      Alert.alert('⚠️ Acción no permitida', 'Solo puedes marcar pagos cuando el evento está completado.');
+      Alert.alert(t('message.actionNotAllowed'), t('message.onlyMarkPaymentsCompleted'));
       return;
     }
 
@@ -605,7 +605,7 @@ export default function EventDetailScreen() {
         const consolidationSettlement = displaySettlements.find(s => s.id === settlementId);
         
         if (!consolidationSettlement) {
-          Alert.alert('⚠️ Error', 'No se pudo encontrar la consolidación a marcar como pagada.');
+          Alert.alert(t('common.error'), t('message.consolidationNotFound'));
           return;
         }
         
@@ -649,7 +649,7 @@ export default function EventDetailScreen() {
           );
           
           if (matchingDbSettlements.length === 0) {
-            Alert.alert('⚠️ Error', 'No se encontraron liquidaciones originales para esta consolidación.');
+            Alert.alert(t('common.error'), t('message.consolidationOriginalNotFound'));
             return;
           }
           
@@ -673,12 +673,12 @@ export default function EventDetailScreen() {
       // Si se desmarca un pago, mostrar advertencia
       if (!isPaid) {
         Alert.alert(
-          '⚠️ Desmarcar pago',
-          'Desmarcar este pago puede cambiar a quién deben transferir dinero otros participantes. ¿Deseas continuar?',
+          t('message.unmarkPaymentTitle'),
+          t('message.unmarkPaymentMessage'),
           [
-            { text: 'Cancelar', style: 'cancel' },
+            { text: t('common.cancel'), style: 'cancel' },
             {
-              text: 'Continuar',
+              text: t('message.continue'),
               onPress: async () => {
                 await databaseService.updateSettlement(settlementId, {
                   isPaid: false,
@@ -708,7 +708,7 @@ export default function EventDetailScreen() {
   const handleUpdateSettlementReceipt = async (settlementId: string, imageUri: string | null) => {
     // Solo permitir agregar comprobantes en estado COMPLETADO
     if (event?.status !== 'completed') {
-      Alert.alert('⚠️ Acción no permitida', 'Solo puedes agregar comprobantes cuando el evento está completado.');
+      Alert.alert(t('message.actionNotAllowed'), t('message.onlyReceiptsCompleted'));
       return;
     }
 
@@ -774,10 +774,10 @@ export default function EventDetailScreen() {
     if (isGoingToActive && isFromArchived) {
       // ARCHIVADO → ACTIVO: Advertencia sobre eliminación de pagos
       title = `⚠️ ${t('message.reactivateEvent')}`;
-      message = "⚠️ Al reactivar el evento se borrarán TODOS los pagos y comprobantes registrados para permitir nuevos cálculos. ¿Deseas continuar?";
+      message = t('message.reactivateWarningMessage');
       buttonText = t('events.reactivate');
       successTitle = `✅ ${t('message.eventReactivated')}`;
-      successMessage = "Evento reactivado. Se han eliminado todos los pagos previos.";
+      successMessage = t('message.reactivatedClearedPayments');
     } else if (isGoingToActive) {
       // COMPLETADO → ACTIVO: Reactivación normal
       title = `🔓 ${t('message.reactivateEvent')}`;
@@ -1283,12 +1283,12 @@ export default function EventDetailScreen() {
 
   const handleClearConsolidations = () => {
     Alert.alert(
-      'Limpiar Consolidaciones',
-      '¿Estás seguro de que quieres eliminar todas las consolidaciones?',
+      t('message.clearConsolidationsTitle'),
+      t('message.clearConsolidationsMessage'),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Limpiar',
+          text: t('message.clear'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -1301,8 +1301,8 @@ export default function EventDetailScreen() {
               setShowOriginalView(false);
               
               Alert.alert(
-                '✅ Consolidaciones Eliminadas',
-                'Todas las consolidaciones han sido eliminadas exitosamente.',
+                t('message.consolidationsClearedTitle'),
+                t('message.consolidationsClearedMessage'),
                 [{ text: 'OK', style: 'default' }]
               );
               
@@ -1310,8 +1310,8 @@ export default function EventDetailScreen() {
             } catch (error) {
               console.error('❌ Error limpiando consolidaciones:', error);
               Alert.alert(
-                'Error',
-                'No se pudieron eliminar las consolidaciones. Inténtalo nuevamente.',
+                t('common.error'),
+                t('message.consolidationsClearError'),
                 [{ text: 'OK', style: 'default' }]
               );
             }
@@ -2603,12 +2603,12 @@ export default function EventDetailScreen() {
     console.log(`💳 Creating ${settlements.length} payments from settlements...`);
     
     Alert.alert(
-      'Crear Pagos',
+      t('message.createPaymentsTitle'),
       `¿Deseas crear ${settlements.length} pago${settlements.length > 1 ? 's' : ''} basado${settlements.length > 1 ? 's' : ''} en las liquidaciones pendientes?`,
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Crear',
+          text: t('message.create'),
           onPress: async () => {
             try {
               let createdCount = 0;
@@ -2656,21 +2656,21 @@ export default function EventDetailScreen() {
       <ScrollView style={styles.tabContent}>
         {/* Estadísticas de pagos */}
         <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
-          <Text style={styles.sectionTitle}>💰 Estado de Pagos</Text>
+          <Text style={styles.sectionTitle}>{t('eventDetail.paymentsTitle')}</Text>
           <View style={styles.paymentStatsContainer}>
             <View style={styles.paymentStatItem}>
               <MaterialCommunityIcons name="clock-outline" size={32} color={theme.colors.warning} />
               <Text style={styles.paymentStatValue}>
                 ${totalPending.toFixed(2)}
               </Text>
-              <Text style={styles.paymentStatLabel}>Pendiente</Text>
+              <Text style={styles.paymentStatLabel}>{t('eventDetail.paymentsPending')}</Text>
             </View>
             <View style={styles.paymentStatItem}>
               <MaterialCommunityIcons name="check-circle" size={32} color={theme.colors.success} />
               <Text style={styles.paymentStatValue}>
                 ${totalPaid.toFixed(2)}
               </Text>
-              <Text style={styles.paymentStatLabel}>Pagado</Text>
+              <Text style={styles.paymentStatLabel}>{t('eventDetail.paymentsPaid')}</Text>
             </View>
           </View>
         </Card>
@@ -2688,7 +2688,7 @@ export default function EventDetailScreen() {
         <Card>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>
-              💸 Pagos ({eventPayments.length})
+              💸 {t('eventDetail.paymentsListTitle')} ({eventPayments.length})
             </Text>
           </View>
 
@@ -2742,7 +2742,7 @@ export default function EventDetailScreen() {
                             source={{ uri: payment.receiptImage }}
                             style={styles.receiptThumbnail}
                           />
-                          <Text style={styles.receiptLabel}>Ver comprobante</Text>
+                          <Text style={styles.receiptLabel}>{t('eventDetail.viewReceipt')}</Text>
                         </TouchableOpacity>
                       ) : (
                         <TouchableOpacity
@@ -2750,7 +2750,7 @@ export default function EventDetailScreen() {
                           onPress={() => handleAddReceiptToPayment(payment.id)}
                         >
                           <MaterialCommunityIcons name="camera-plus" size={24} color={theme.colors.primary} />
-                          <Text style={styles.addReceiptText}>Agregar comprobante</Text>
+                          <Text style={styles.addReceiptText}>{t('eventDetail.addReceipt')}</Text>
                         </TouchableOpacity>
                       )}
                     </View>
@@ -2767,11 +2767,11 @@ export default function EventDetailScreen() {
                 color={theme.colors.outline} 
                 style={styles.emptyIcon}
               />
-              <Text style={styles.emptyText}>No hay pagos registrados</Text>
+              <Text style={styles.emptyText}>{t('eventDetail.noPaymentsTitle')}</Text>
               <Text style={styles.emptySubtext}>
                 {settlements.length > 0 
-                  ? 'Crea pagos desde las liquidaciones pendientes' 
-                  : 'Agrega gastos para generar liquidaciones'}
+                  ? t('eventDetail.noPaymentsSubtitle1') 
+                  : t('eventDetail.noPaymentsSubtitle2')}
               </Text>
             </View>
           )}
@@ -2804,9 +2804,9 @@ export default function EventDetailScreen() {
       t('events.deleteTitle'),
       t('events.deleteMessage', { name: event.name }),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -2838,7 +2838,7 @@ export default function EventDetailScreen() {
           style: 'destructive'
         },
         {
-          text: 'Cancelar',
+          text: t('common.cancel'),
           style: 'cancel'
         }
       ]
@@ -2850,9 +2850,9 @@ export default function EventDetailScreen() {
       <View style={styles.container}>
         <View style={styles.errorContainer}>
           <MaterialCommunityIcons name="alert-circle" size={48} color={theme.colors.error} />
-          <Text style={styles.errorText}>Evento no encontrado</Text>
+          <Text style={styles.errorText}>{t('message.eventNotFound')}</Text>
           <Button
-            title="Volver"
+            title={t('common.back')}
             onPress={() => navigation.goBack()}
             style={styles.errorButton}
           />
@@ -3345,10 +3345,10 @@ const EditParticipantModalContent: React.FC<{
             />
             <View style={{ marginLeft: 12, flex: 1 }}>
               <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.onSurface }}>
-                ⭐ Convertir en Amigo Permanente
+                {t('eventDetail.convertToFriendTitle')}
               </Text>
               <Text style={{ fontSize: 12, color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
-                Aparecerá en "Mis Amigos" y podrás agregarlo fácilmente a otros eventos
+                {t('eventDetail.convertToFriendSubtitle')}
               </Text>
             </View>
           </TouchableOpacity>
@@ -3364,7 +3364,7 @@ const EditParticipantModalContent: React.FC<{
               }}
               onPress={onCancel}
             >
-              <Text style={{ fontSize: 16, fontWeight: '600', color: theme.colors.onSurfaceVariant }}>Cancelar</Text>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: theme.colors.onSurfaceVariant }}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={{
@@ -3377,7 +3377,7 @@ const EditParticipantModalContent: React.FC<{
               onPress={() => onSave(name, email, phone, aliasCbu, convertToFriend)}
               disabled={!name.trim()}
             >
-              <Text style={{ fontSize: 16, fontWeight: '600', color: theme.colors.onPrimary }}>Guardar</Text>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: theme.colors.onPrimary }}>{t('common.save')}</Text>
             </TouchableOpacity>
           </View>
         </Card>

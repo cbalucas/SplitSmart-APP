@@ -307,12 +307,12 @@ const HomeScreen: React.FC = () => {
 
   const handleLogout = () => {
     Alert.alert(
-      'Cerrar Sesión',
-      '¿Estás seguro de que quieres cerrar sesión?',
+      t.logout.title,
+      t.logout.message,
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t.actions.cancel, style: 'cancel' },
         { 
-          text: 'Cerrar Sesión', 
+          text: t.logout.button, 
           style: 'destructive',
           onPress: () => {
             logout(); // El AuthContext se encarga de la navegación automáticamente

@@ -38,7 +38,7 @@ export const PROFILE_KEYS = {
   NOTIFICATIONS: 'profile.notifications',
   
   // Privacy Section
-  PRIVACY: 'profile.privacy',
+  PRIVACY: 'profile.privacySection',
   // SHARE_EMAIL: 'profile.shareEmail', // ELIMINADO
   // SHARE_EMAIL_DESC: 'profile.shareEmailDesc', // ELIMINADO
   // SHARE_PHONE: 'profile.sharePhone', // ELIMINADO

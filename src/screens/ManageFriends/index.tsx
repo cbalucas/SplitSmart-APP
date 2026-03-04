@@ -171,7 +171,7 @@ const ManageFriendsScreen: React.FC = () => {
                   t.alerts.error.inUse.replace('{name}', friend.name)
                 );
               } else {
-                Alert.alert(t.alerts.error.general, 'No se pudo eliminar el amigo');
+                Alert.alert(t.alerts.error.general, t.alerts.error.deleteFailed);
               }
             }
           }
@@ -232,7 +232,7 @@ const ManageFriendsScreen: React.FC = () => {
       setEditingFriend(null);
       setActiveTab('list');
     } catch (error) {
-      Alert.alert(t.alerts.error.general, `No se pudo ${editingFriend ? 'actualizar' : 'agregar'} el amigo`);
+      Alert.alert(t.alerts.error.general, t.alerts.error.saveFailed);
     }
   };
 
