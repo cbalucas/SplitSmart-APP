@@ -31,10 +31,19 @@ if ($LASTEXITCODE -eq 0) {
     $apkPath = Get-ChildItem -Path "android\app\build\outputs\apk\release" -Filter "*.apk" | Select-Object -First 1
     
     if ($apkPath) {
+        # Generar nombre con versión, fecha y hora
+        $now = Get-Date
+        $fecha = $now.ToString("ddMMyyyy")
+        $hora  = $now.ToString("HHmm")
+        $newName = "SplitSmart_v${version}_${fecha}_${hora}.apk"
+        $newPath = Join-Path $apkPath.DirectoryName $newName
+        
+        Rename-Item -Path $apkPath.FullName -NewName $newName
+        
         $size = [math]::Round($apkPath.Length / 1MB, 2)
         Write-Host "📦 APK generado:" -ForegroundColor Yellow
-        Write-Host "  Archivo: $($apkPath.Name)" -ForegroundColor White
-        Write-Host "  Ubicación: $($apkPath.FullName)" -ForegroundColor White
+        Write-Host "  Archivo: $newName" -ForegroundColor White
+        Write-Host "  Ubicación: $newPath" -ForegroundColor White
         Write-Host "  Tamaño: $size MB" -ForegroundColor White
         Write-Host "  Versión: v$version (build $versionCode)`n" -ForegroundColor White
         

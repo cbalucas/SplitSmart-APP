@@ -1396,7 +1396,7 @@ const ProfileScreen: React.FC = () => {
             </View>
             <View style={styles.settingAction}>
               <View style={styles.versionBadge}>
-                <Text style={styles.versionBadgeText}>v1.3.0</Text>
+                <Text style={styles.versionBadgeText}>v1.4.0</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -1533,19 +1533,56 @@ const ProfileScreen: React.FC = () => {
               contentContainerStyle={{ flexGrow: 1 }}
               nestedScrollEnabled={true}
             >
-              {/* Versión 1.3.0 - Versión Actual con mejoras de Home y EventCard */}
+              {/* Versión 1.4.0 - Versión Actual - i18n completo + documentación legal */}
               <TouchableOpacity 
                 style={[styles.versionBlock, styles.currentVersionBlock]} 
+                onPress={() => toggleVersionExpanded('1.4.0')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.versionHeader}>
+                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.4.0 (Actual)</Text>
+                  <Text style={[styles.versionDate, styles.currentVersionDate]}>4 Mar 2026</Text>
+                  <MaterialCommunityIcons 
+                    name={expandedVersions.has('1.4.0') ? 'chevron-up' : 'chevron-down'} 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
+                </View>
+                {expandedVersions.has('1.4.0') && (
+                  <View style={styles.versionContent}>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🌍 Internacionalización</Text>
+                      <Text style={styles.changelogItem}>• 30+ strings hardcodeados reemplazados en EventDetail</Text>
+                      <Text style={styles.changelogItem}>• Logout traducido en Home (ES/EN/PT)</Text>
+                      <Text style={styles.changelogItem}>• Errores de ManageFriends traducidos (ES/EN/PT)</Text>
+                      <Text style={styles.changelogItem}>• 38 nuevas claves × 3 idiomas en LanguageContext</Text>
+                      <Text style={styles.changelogItem}>• EventDetail/language.ts eliminado (código muerto)</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>📄 Documentación Legal</Text>
+                      <Text style={styles.changelogItem}>• Cumplimiento Ley N° 25.326 (Habeas Data Argentina)</Text>
+                      <Text style={styles.changelogItem}>• Disclaimer financiero explícito en Términos</Text>
+                      <Text style={styles.changelogItem}>• Jurisdicción: Córdoba, Argentina</Text>
+                      <Text style={styles.changelogItem}>• Privacidad: descripción honesta de datos procesados</Text>
+                      <Text style={styles.changelogItem}>• APK con nombre descriptivo: versión + fecha + hora</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Versión 1.3.0 - Mejoras de Home y EventCard */}
+              <TouchableOpacity 
+                style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.3.0')}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
-                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.3.0 (Actual)</Text>
-                  <Text style={[styles.versionDate, styles.currentVersionDate]}>4 Mar 2026</Text>
+                  <Text style={styles.versionNumber}>v1.3.0</Text>
+                  <Text style={styles.versionDate}>4 Mar 2026</Text>
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.3.0') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
-                    color={theme.colors.primary} 
+                    color={theme.colors.onSurfaceVariant} 
                   />
                 </View>
                 {expandedVersions.has('1.3.0') && (
@@ -1775,7 +1812,7 @@ const ProfileScreen: React.FC = () => {
                   color={theme.colors.primary} 
                   style={{ alignSelf: 'center', marginBottom: 16 }}
                 />
-                <Text style={styles.aboutTitle}>SplitSmart v1.3.0</Text>
+                <Text style={styles.aboutTitle}>SplitSmart v1.4.0</Text>
                 <Text style={styles.aboutDescription}>
                   {t('profile.about.appDescription')}
                 </Text>
@@ -1820,7 +1857,7 @@ const ProfileScreen: React.FC = () => {
               <View style={[styles.aboutSection, { backgroundColor: theme.colors.surfaceVariant, padding: 16, borderRadius: 12 }]}>
                 <Text style={styles.aboutSectionTitle}>{t('profile.about.techSpecs')}</Text>
                 <Text style={styles.aboutDescription}>
-                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.version')}:</Text> 1.3.0{'\n'}
+                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.version')}:</Text> 1.4.0{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.platform')}</Text>{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.database')}</Text>{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.languages')}</Text>
