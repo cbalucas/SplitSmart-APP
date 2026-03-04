@@ -2,7 +2,7 @@
 
 ## 📊 Sistema de Versiones
 
-### Versión Actual: **v1.2.0** (versionCode: 4)
+### Versión Actual: **v1.4.0** (versionCode: 6)
 
 ---
 
@@ -82,6 +82,37 @@ El APK se generará con el nombre: `SplitSmart-v1.1.0-release.apk`
 ---
 
 ## 📝 Historial de Versiones
+
+### v1.4.0 (versionCode: 6) - 04/03/2026
+**🌍 Internacionalización — Auditoría Completa:**
+- ✅ EventDetail/language.ts eliminado (dead code, 294 líneas)
+- ✅ 30+ strings hardcodeados reemplazados en EventDetail con t()
+- ✅ Logout traducido en Home (ES/EN/PT)
+- ✅ Errores traducidos en ManageFriends (ES/EN/PT)
+- ✅ 38 nuevas claves × 3 idiomas en LanguageContext.tsx
+
+**📄 Documentación Legal — Google Play Ready:**
+- ✅ Cumplimiento Ley N° 25.326 (Habeas Data Argentina)
+- ✅ Disclaimer financiero explícito en Términos
+- ✅ Edad mínima 13 años declarada
+- ✅ Limitación de responsabilidad ampliada (4 supuestos)
+- ✅ Jurisdicción: Córdoba, Argentina
+- ✅ Tiempo de respuesta soporte protegido (Ley 24.240)
+- ✅ Representación honesta como desarrollador independiente
+- ✅ Actualizado ES + EN
+
+### v1.3.0 (versionCode: 5) - 04/03/2026
+**🚀 Nuevas Funcionalidades:**
+- ✅ EventCard: botón eliminar evento (sin participantes ni gastos)
+- ✅ EventCard: contador de liquidaciones con color indicativo
+- ✅ Home: MetricsCard interactiva con filtro por estado (Activos/Completados/Archivados)
+- ✅ Home: ordenamiento automático de eventos (estado → fecha → nombre)
+
+**🔧 Correcciones:**
+- ✅ Editar evento navega a Home al guardar
+- ✅ Crear evento reemplaza el stack hacia EventDetail
+- ✅ Cards del Home se recargan al volver (useFocusEffect)
+- ✅ Conteo correcto de liquidaciones pagadas (campo isPaid)
 
 ### v1.2.0 (versionCode: 4) - 23/12/2025
 **🚀 Funcionalidades Principales Nuevas:**

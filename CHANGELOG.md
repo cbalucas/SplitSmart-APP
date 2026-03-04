@@ -1,5 +1,65 @@
 # Changelog - SplitSmart
 
+## [1.4.0] - 2026-03-04
+
+### 🌍 Internacionalización — Auditoría y Migración Completa
+
+#### Eliminación de Dead Code
+- **EventDetail/language.ts eliminado**: 294 líneas de código nunca importado, migrado íntegramente a `LanguageContext.tsx`
+
+#### EventDetail — 30+ strings hardcodeados reemplazados
+- Todos los `Alert.alert()` de handlers ahora usan `t()`: `deleteExpense`, `editParticipant`, `removeParticipant`, `toggleSettlementPaid`, `unmarkPayment`, `clearConsolidations`, `createPaymentsFromSettlements`, `deleteEvent`, `showEventOptions`
+- JSX del tab de pagos completamente traducido: título, estados Pendiente/Pagado, lista, estado vacío, Ver/Agregar comprobante
+- Modal de edición de participante traducido: `convertToFriendTitle`, `convertToFriendSubtitle`, botones Cancelar/Guardar
+- Estado de error `eventNotFound` + botón `back` traducidos
+
+#### Home — Logout traducido
+- `Home/language.ts`: nueva sección `logout` (ES/EN/PT) con `title`, `message`, `button`
+- `Home/index.tsx`: `handleLogout` ahora usa `t.logout.*` y `t.actions.cancel`
+
+#### ManageFriends — Errores traducidos
+- `ManageFriends/language.ts`: nuevas claves `deleteFailed` y `saveFailed` en `alerts.error` (ES/EN/PT) + interface TypeScript actualizado
+- `ManageFriends/index.tsx`: 2 strings hardcodeados en bloques `catch` reemplazados
+
+#### LanguageContext.tsx — 38 nuevas claves × 3 idiomas
+- Namespace `message.*`: 27 claves nuevas (confirmaciones, errores, advertencias de EventDetail)
+- Namespace `eventDetail.*`: 11 claves nuevas (UI del tab de pagos y modal de edición)
+- Clave `common.back` agregada en ES/EN/PT
+
+### 📄 Documentación Legal — Google Play Ready
+
+#### Política de Privacidad (ES + EN)
+- Cumplimiento explícito de **Ley N° 25.326** (Habeas Data Argentina)
+- Sección "Sus Derechos" con los 4 derechos reales del Habeas Data
+- Descripción honesta de datos procesados (solo los que realmente toca la app)
+- Eliminado: "enviamos notificaciones" y "datos técnicos del dispositivo" (falsos)
+- Aclaración sobre recopilación independiente de Google Play Store
+- Descripción real del permiso de cámara (solo comprobantes, con permiso expreso)
+
+#### Términos de Servicio (ES + EN)
+- **Disclaimer financiero explícito**: la app NO constituye asesoramiento financiero ni legal
+- **Edad mínima**: 13 años (requerido por Google Play)
+- **Limitación de responsabilidad** ampliada: 4 supuestos cubiertos (pérdida de datos, errores de cálculo, disputas entre usuarios, daños indirectos)
+- **Jurisdicción**: Tribunales Ordinarios de Córdoba, Argentina — Ley argentina
+- Eliminado email hardcodeado (`soporte@splitsmart.com`) — reemplazado por referencia a la sección Soporte
+- Lenguaje actualizado de "empresa" a "desarrollador independiente"
+
+#### Acerca de (ES + EN)
+- Versión eliminada del texto descriptivo (ya no caduca con cada release)
+- Feature `feature6`: reemplazado "100% privado sin servidores" por declaración verificable
+- Copyright actualizado a 2026
+- `madeWith`: refleja desarrollo independiente en Córdoba, Argentina
+
+#### Contactar Soporte (ES + EN)
+- Tiempo de respuesta: "24-48h" → "72 horas hábiles" con aclaración de disponibilidad variable (protección Ley 24.240)
+- "Nuestro equipo" → "El desarrollador" (representación honesta para freelancer)
+
+### 🔢 Versiones
+- **versionCode**: 5 → 6
+- **versionName**: "1.3.0" → "1.4.0"
+
+---
+
 ## [1.3.0] - 2026-03-04
 
 ### 🚀 Nuevas Funcionalidades
