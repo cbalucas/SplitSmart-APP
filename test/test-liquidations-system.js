@@ -8,7 +8,7 @@
  * ✅ Genera liquidaciones optimizadas
  */
 
-import { databaseService } from './src/services/database';
+import { databaseService } from '../src/services/database';
 
 // Datos de prueba
 const testEventId = 'test_event_liquidaciones';

@@ -1,6 +1,6 @@
 // Test completo del sistema de condonación automática
 
-const { ConsolidationService } = require('./src/services/ConsolidationService');
+const { ConsolidationService } = require('../src/services/ConsolidationService');
 
 // Mock de datos similar al formato real de la app
 const mockSettlements = [

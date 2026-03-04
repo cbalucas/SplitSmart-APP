@@ -3,7 +3,7 @@
  * Ejecutar este script para probar que los datos se mantienen entre reinicios
  */
 
-import { openDatabase } from './src/services/database';
+import { openDatabase } from '../src/services/database';
 
 async function testDatabasePersistence() {
   console.log('🧪 INICIANDO PRUEBA DE PERSISTENCIA DE BASE DE DATOS');

@@ -1,0 +1,98 @@
+# Prompt: Incrementar Versión y Actualizar Historial — SplitSmart APP
+Necesito que incrementes la versión de la app SplitSmart y actualices todos los registros del historial de versiones. El proyecto está en C:\APPs\SplitSmart-APP.
+
+## ARCHIVOS A MODIFICAR (en este orden):
+
+### 1. app.json
+Ruta: C:\APPs\SplitSmart-APP\app.json
+- Campo `"version"` → incrementar (ej: "1.3.0" → "1.4.0")
+- Campo `"versionCode"` dentro de `"android"` → incrementar en 1 (ej: 5 → 6)
+
+### 2. package.json
+Ruta: C:\APPs\SplitSmart-APP\package.json
+- Campo `"version"` → igual que app.json (deben estar sincronizados)
+
+### 3. CHANGELOG.md
+Ruta: C:\APPs\SplitSmart-APP\CHANGELOG.md
+- Insertar nueva sección AL INICIO del archivo (después de `# Changelog - SplitSmart`), antes de la sección de la versión anterior
+- Formato de la nueva sección:
+
+## [X.X.X] - YYYY-MM-DD
+
+### 🚀 Nuevas Funcionalidades
+- Bullet con cada feature nueva
+
+### 🔧 Correcciones de Bugs
+- ✅ Bullet con cada fix
+
+### 🔢 Versiones
+- **versionCode**: N → N+1
+- **versionName**: "anterior" → "nueva"
+
+---
+
+
+### 4. src/screens/ProfileScreen/index.tsx
+Ruta: C:\APPs\SplitSmart-APP\src\screens\ProfileScreen\index.tsx
+
+Este archivo tiene CUATRO lugares con la versión hardcodeada:
+
+**a) Badge de versión (~línea 1399):**
+<Text style={styles.versionBadgeText}>vX.X.X</Text>
+→ Actualizar al nuevo número
+
+**b) Bloque del changelog modal (~línea 1536):**
+La versión anterior tiene el tag `(Actual)` y usa el style `currentVersionBlock` / `currentVersionNumber` / `currentVersionDate`.
+Pasos:
+1. Quitar `(Actual)` y los styles `current*` del bloque de la versión anterior, dejándolo como versión normal
+2. Insertar ANTES de ese bloque un nuevo bloque con este patrón:
+
+{/* Versión X.X.X - Versión Actual - [descripción breve] */}
+<TouchableOpacity 
+  style={[styles.versionBlock, styles.currentVersionBlock]} 
+  onPress={() => toggleVersionExpanded('X.X.X')}
+  activeOpacity={0.7}
+>
+  <View style={styles.versionHeader}>
+    <Text style={[styles.versionNumber, styles.currentVersionNumber]}>vX.X.X (Actual)</Text>
+    <Text style={[styles.versionDate, styles.currentVersionDate]}>DD Mes YYYY</Text>
+    <MaterialCommunityIcons 
+      name={expandedVersions.has('X.X.X') ? 'chevron-up' : 'chevron-down'} 
+      size={24} 
+      color={theme.colors.primary} 
+    />
+  </View>
+  {expandedVersions.has('X.X.X') && (
+    <View style={styles.versionContent}>
+      <View style={styles.changelogSection}>
+        <Text style={styles.sectionTitle}>🚀 Nuevas Funcionalidades</Text>
+        <Text style={styles.changelogItem}>• [feature 1]</Text>
+        <Text style={styles.changelogItem}>• [feature 2]</Text>
+      </View>
+      <View style={styles.changelogSection}>
+        <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
+        <Text style={styles.changelogItem}>• [fix 1]</Text>
+        <Text style={styles.changelogItem}>• [fix 2]</Text>
+      </View>
+    </View>
+  )}
+</TouchableOpacity>
+
+**c) Título del modal About (~línea 1778):**
+<Text style={styles.aboutTitle}>SplitSmart vX.X.X</Text>
+→ Actualizar al nuevo número
+
+**d) Especificaciones técnicas (~línea 1787):**
+{t('profile.about.version')}:</Text> X.X.X{'\n'}
+→ Actualizar al nuevo número
+
+## REGLAS IMPORTANTES:
+- versionCode siempre es un entero que incrementa en 1
+- versionName sigue semver: MAJOR.MINOR.PATCH
+- La fecha en CHANGELOG.md usa formato YYYY-MM-DD
+- La fecha en ProfileScreen usa formato "D Mes YYYY" en español (ej: "4 Mar 2026")
+- Los 4 cambios en ProfileScreen deben hacerse en una sola operación multi_replace
+- Verificar con grep que no queden referencias a la versión anterior en ProfileScreen
+
+## LOS CAMBIOS DE ESTA SESIÓN A DOCUMENTAR SON:
+[COMPLETAR AQUÍ con la lista de features y fixes de la sesión actual]
