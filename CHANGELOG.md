@@ -1,5 +1,16 @@
 # Changelog - SplitSmart
 
+## [1.4.2] - 2026-03-08
+
+### 🔧 Correcciones de Bugs
+- ✅ Eliminados permisos obsoletos de Android: `READ_MEDIA_IMAGES`, `WRITE_EXTERNAL_STORAGE` y `READ_EXTERNAL_STORAGE` (reemplazados por Android Photo Picker nativo vía expo-image-picker)
+
+### 🔢 Versiones
+- **versionCode**: 7 → 8
+- **versionName**: "1.4.1" → "1.4.2"
+
+---
+
 ## [1.4.1] - 2026-03-08
 
 ### 🔧 Correcciones de Bugs
