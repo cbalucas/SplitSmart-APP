@@ -1,5 +1,6 @@
 # Script para generar AAB de SplitSmart - Listo para Google Play Store
-# Uso: .\build-aab.ps1
+# Uso: .\build-aab.ps1 [-Copia]
+param([switch]$Copia)
 
 Write-Host "`n════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host "  GENERAR AAB DE SPLITSMART (Google Play)" -ForegroundColor Green
@@ -147,13 +148,15 @@ if ($buildResult -eq 0) {
         Write-Host "  Tamano    : $sizeMB MB" -ForegroundColor White
         Write-Host "  Version   : v$version (build $versionCode)`n" -ForegroundColor White
 
-        # Copia de backup en directorio configurado
-        if (-not (Test-Path $copiaDir)) {
-            New-Item -ItemType Directory -Path $copiaDir | Out-Null
+        # Copia de backup en directorio configurado (solo si se pasa -Copia)
+        if ($Copia) {
+            if (-not (Test-Path $copiaDir)) {
+                New-Item -ItemType Directory -Path $copiaDir | Out-Null
+            }
+            $copiaPath = Join-Path $copiaDir $newName
+            Copy-Item $newPath $copiaPath
+            Write-Host "  Copia guardada en : $copiaPath`n" -ForegroundColor DarkCyan
         }
-        $copiaPath = Join-Path $copiaDir $newName
-        Copy-Item $newPath $copiaPath
-        Write-Host "  Copia guardada en : $copiaPath`n" -ForegroundColor DarkCyan
 
         Write-Host "Proximos pasos para publicar en Google Play:" -ForegroundColor Cyan
         Write-Host "  1. Abre Google Play Console  -> play.google.com/console" -ForegroundColor White

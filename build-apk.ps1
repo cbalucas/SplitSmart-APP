@@ -1,5 +1,6 @@
 ﻿# Script para generar APK de SplitSmart
-# Uso: .\build-apk.ps1
+# Uso: .\build-apk.ps1 [-Copia]
+param([switch]$Copia)
 
 Write-Host "`n════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host "  🚀 GENERAR APK DE SPLITSMART" -ForegroundColor Green
@@ -51,13 +52,15 @@ if ($LASTEXITCODE -eq 0) {
         Write-Host "  Tamaño: $size MB" -ForegroundColor White
         Write-Host "  Versión: v$version (build $versionCode)`n" -ForegroundColor White
 
-        # Copia de backup en directorio configurado
-        if (-not (Test-Path $copiaDir)) {
-            New-Item -ItemType Directory -Path $copiaDir | Out-Null
+        # Copia de backup en directorio configurado (solo si se pasa -Copia)
+        if ($Copia) {
+            if (-not (Test-Path $copiaDir)) {
+                New-Item -ItemType Directory -Path $copiaDir | Out-Null
+            }
+            $copiaPath = Join-Path $copiaDir $newName
+            Copy-Item -Path $newPath -Destination $copiaPath
+            Write-Host "  Copia guardada en: $copiaPath`n" -ForegroundColor DarkCyan
         }
-        $copiaPath = Join-Path $copiaDir $newName
-        Copy-Item -Path $newPath -Destination $copiaPath
-        Write-Host "  Copia guardada en: $copiaPath`n" -ForegroundColor DarkCyan
         
         Write-Host "📲 Siguiente paso:" -ForegroundColor Cyan
         Write-Host "  1. Transfiere el APK a tu dispositivo Android" -ForegroundColor White
