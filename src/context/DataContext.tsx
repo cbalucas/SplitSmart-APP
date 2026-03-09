@@ -953,33 +953,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
           try {
             const settlementData = {
               id: settlement.id,
-              event_id: settlement.event_id,
-              from_participant_id: settlement.from_id || settlement.from_participant_id,
-              from_participant_name: settlement.from_name || settlement.from_participant_name || 'Participante',
-              to_participant_id: settlement.to_id || settlement.to_participant_id,
-              to_participant_name: settlement.to_name || settlement.to_participant_name || 'Participante',
+              event_id: settlement.event_id || settlement.eventId,
+              from_participant_id: settlement.from_participant_id || settlement.from_id || settlement.fromParticipantId,
+              from_participant_name: settlement.from_participant_name || settlement.from_name || settlement.fromParticipantName || 'Participante',
+              to_participant_id: settlement.to_participant_id || settlement.to_id || settlement.toParticipantId,
+              to_participant_name: settlement.to_participant_name || settlement.to_name || settlement.toParticipantName || 'Participante',
               amount: settlement.amount || 0,
-              settlement_type: settlement.settlement_type || 'original_amount',
-              is_paid: settlement.isPaid || settlement.is_paid || 0,
-              receipt_image: null, // receipt_image set to null
-              paid_at: settlement.paidAt || settlement.paid_at || null,
+              is_paid: settlement.is_paid !== undefined ? (settlement.is_paid ? 1 : 0) : (settlement.isPaid ? 1 : 0),
+              paid_at: settlement.paid_at || settlement.paidAt || null,
               event_status: settlement.event_status || 'active',
-              created_at: settlement.created_at || new Date().toISOString(),
-              updated_at: settlement.updated_at || new Date().toISOString()
+              notes: settlement.notes || null,
+              created_at: settlement.created_at || settlement.createdAt || new Date().toISOString(),
+              updated_at: settlement.updated_at || settlement.updatedAt || new Date().toISOString()
             };
-            
+
             await databaseService.db!.runAsync(
               `INSERT OR REPLACE INTO settlements (
                 id, event_id, from_participant_id, from_participant_name, to_participant_id, to_participant_name,
-                amount, settlement_type, is_paid, receipt_image, paid_at,
-                event_status, created_at, updated_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                amount, is_paid, paid_at, event_status, notes, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
-                settlementData.id, settlementData.event_id, settlementData.from_participant_id, 
-                settlementData.from_participant_name, settlementData.to_participant_id, settlementData.to_participant_name,
-                settlementData.amount, settlementData.settlement_type, settlementData.is_paid,
-                settlementData.receipt_image, settlementData.paid_at,
-                settlementData.event_status, settlementData.created_at, settlementData.updated_at
+                settlementData.id, settlementData.event_id,
+                settlementData.from_participant_id, settlementData.from_participant_name,
+                settlementData.to_participant_id, settlementData.to_participant_name,
+                settlementData.amount, settlementData.is_paid, settlementData.paid_at,
+                settlementData.event_status, settlementData.notes,
+                settlementData.created_at, settlementData.updated_at
               ]
             );
           } catch (settlementError) {
@@ -988,7 +987,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
         }
       }
-      
+
       // 8. Handle legacy payments format by converting to settlements
       if (data.payments && data.payments.length > 0 && (!data.settlements || data.settlements.length === 0)) {
         console.log(`📥 Converting ${data.payments.length} legacy payments to settlements...`);
@@ -1002,27 +1001,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
               to_participant_id: payment.toParticipantId || payment.to_participant_id,
               to_participant_name: 'Manual Payment',
               amount: payment.amount || 0,
-              settlement_type: 'manual_payment',
               is_paid: payment.isConfirmed ? 1 : 0,
-              receipt_image: null,
               paid_at: payment.isConfirmed ? (payment.date || new Date().toISOString()) : null,
               event_status: 'active',
+              notes: null,
               created_at: payment.createdAt || payment.created_at || new Date().toISOString(),
               updated_at: payment.updatedAt || payment.updated_at || new Date().toISOString()
             };
-            
+
             await databaseService.db!.runAsync(
               `INSERT OR REPLACE INTO settlements (
                 id, event_id, from_participant_id, from_participant_name, to_participant_id, to_participant_name,
-                amount, settlement_type, is_paid, receipt_image, paid_at,
-                event_status, created_at, updated_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                amount, is_paid, paid_at, event_status, notes, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
-                settlementData.id, settlementData.event_id, settlementData.from_participant_id, 
-                settlementData.from_participant_name, settlementData.to_participant_id, settlementData.to_participant_name,
-                settlementData.amount, settlementData.settlement_type, settlementData.is_paid,
-                settlementData.receipt_image, settlementData.paid_at,
-                settlementData.event_status, settlementData.created_at, settlementData.updated_at
+                settlementData.id, settlementData.event_id,
+                settlementData.from_participant_id, settlementData.from_participant_name,
+                settlementData.to_participant_id, settlementData.to_participant_name,
+                settlementData.amount, settlementData.is_paid, settlementData.paid_at,
+                settlementData.event_status, settlementData.notes,
+                settlementData.created_at, settlementData.updated_at
               ]
             );
           } catch (paymentError) {

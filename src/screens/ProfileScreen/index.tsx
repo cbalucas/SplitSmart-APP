@@ -680,37 +680,29 @@ const ProfileScreen: React.FC = () => {
   const performImport = async (importDataPayload: any, importCounts: any, totalRecords: number) => {
     try {
       console.log('🚀 Starting database import...');
-      
-      // Nuke database completely to remove legacy tables
+
+      // 1. Destruir y recrear la base de datos limpia
       await nukeDatabase();
       console.log('🔄 Database nuked and recreated');
-      
-      // Import data using DataContext method
+
+      // 2. Importar todos los datos
       const success = await importData(importDataPayload);
-      
-      if (success) {
-        // Reinitialize auth to set up current user
-        await initializeAuth();
-        
-        // Wait and refresh
-        setTimeout(async () => {
-          await refreshUser();
-          await loadUserProfile();
-        }, 2000);
-        
-        Alert.alert(
-          `✅ ${t('success')}`,
-          `${t('profile.message.importCompleted')}\n\n📊 ${totalRecords} registros importados:\n• ${importCounts.users} Usuarios\n• ${importCounts.events} Eventos\n• ${importCounts.participants} Participantes\n• ${importCounts.expenses} Gastos\n• ${importCounts.settlements} Liquidaciones\n• ${importCounts.consolidations} Consolidaciones\n• ${importCounts.payments} Pagos (legacy)\n• ${importCounts.eventParticipants} Relaciones\n• ${importCounts.splits} Divisiones\n\n📱 La aplicación se reiniciará con los datos importados.`
-        );
-      } else {
-        throw new Error(t('profile.message.importErrorProcess'));
-      }
-      
+      if (!success) throw new Error(t('profile.message.importErrorProcess'));
+
+      // 3. Reinicializar sesión y UI de forma secuencial (sin setTimeout)
+      await initializeAuth();
+      await refreshUser();
+      await loadUserProfile();
+
+      Alert.alert(
+        `✅ ${t('success')}`,
+        `${t('profile.message.importCompleted')}\n\n📊 ${totalRecords} registros importados:\n• ${importCounts.events} Eventos\n• ${importCounts.participants} Participantes\n• ${importCounts.expenses} Gastos\n• ${importCounts.settlements} Liquidaciones\n• ${importCounts.splits} Divisiones`
+      );
     } catch (error) {
       console.error('❌ Import execution error:', error);
       Alert.alert(
         t('error'),
-        `${t('profile.message.importError')}:\n\n${error instanceof Error ? error.message : 'Error desconocido'}\n\n${t('profile.message.importRestart')}`
+        `${t('profile.message.importError')}:\n\n${error instanceof Error ? error.message : 'Error desconocido'}`
       );
     }
   };
@@ -741,31 +733,15 @@ const ProfileScreen: React.FC = () => {
           onPress: async () => {
             try {
               console.log('🗑️ Starting complete data deletion...');
-              
-              // Nuke database and wait for completion
               await nukeDatabase();
-              console.log('🔄 Database reset complete, waiting before reinitializing...');
-              
-              // Wait a bit more to ensure everything is settled
-              await new Promise(resolve => setTimeout(resolve, 500));
-              
-              // Reinicializar autenticación para recrear usuario demo
-              console.log('🔧 Reinitializing auth...');
               await initializeAuth();
-              
-              // Wait a bit more before refreshing UI
-              await new Promise(resolve => setTimeout(resolve, 1000));
-              
-              // Recargar el perfil
-              console.log('🔄 Refreshing user data...');
               await refreshUser();
               await loadUserProfile();
-              
               Alert.alert(t('success'), t('profile.message.deleteCompleted'));
             } catch (error) {
               console.error('❌ Error during reset:', error);
               Alert.alert(
-                t('error'), 
+                t('error'),
                 `${t('profile.message.deleteError')}\n\nDetalle: ${error instanceof Error ? error.message : 'Error desconocido'}`
               );
             }
