@@ -181,7 +181,7 @@ Respuestas para el cuestionario de Google Play:
 
 - **Usar Prueba Interna primero:** Subir el AAB a "Prueba interna" en Play Console y enviárselo a amigos para validar que todo funcione antes del lanzamiento público.
 - **Derechos de autor:** La app usa solo íconos y recursos propios. No usa imágenes de terceros ni marcas registradas externas.
-- **Versión a subir:** v1.4.0 (versionCode 6) — archivo `SplitSmart_v1.4.0_*.aab`
+- **Versión a subir:** v1.4.1 (versionCode 7) — archivo `SplitSmart_v1.4.1_*.aab`
 - **Keystore:** Guardar backup del archivo `android/app/splitsmart-release-key.keystore` en un lugar seguro (nube/email). Sin él no se pueden publicar actualizaciones.
 
 ---
