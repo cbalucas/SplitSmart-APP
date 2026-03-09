@@ -3221,11 +3221,22 @@ const EditParticipantModalContent: React.FC<{
   onCancel: () => void;
 }> = ({ participant, onSave, onCancel }) => {
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const [name, setName] = useState(participant?.name || '');
   const [email, setEmail] = useState(participant?.email || '');
   const [phone, setPhone] = useState(participant?.phone || '');
   const [aliasCbu, setAliasCbu] = useState(participant?.alias_cbu || '');
   const [convertToFriend, setConvertToFriend] = useState(false);
+
+  useEffect(() => {
+    if (participant) {
+      setName(participant.name || '');
+      setEmail(participant.email || '');
+      setPhone(participant.phone || '');
+      setAliasCbu(participant.alias_cbu || '');
+      setConvertToFriend(false);
+    }
+  }, [participant]);
 
   if (!participant) return null;
 
