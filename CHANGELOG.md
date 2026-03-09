@@ -1,5 +1,22 @@
 # Changelog - SplitSmart
 
+## [1.4.3] - 2026-03-09
+
+### 🔧 Correcciones de Bugs
+- ✅ Corregido bug crítico en importación: columna `settlement_type` inexistente en tabla `settlements` rompía toda la importación
+- ✅ `getAllSettlements()` exportaba campos con nombres incorrectos (`from_id`, `isPaid`, `paidAt`) que no coincidían con el esquema real
+- ✅ Eliminados `setTimeout` frágiles en `performImport` y `handleClearData`, reemplazados por flujo secuencial con `await`
+- ✅ Texto `profile.privacySection` y `common.archive` mostraban el key crudo en lugar de la traducción
+- ✅ Botón "Archivar" del popup mostraba `common.archive` sin traducir (faltaba en LanguageContext)
+- ✅ Script `build-apk.ps1`: `Rename-Item` reemplazado por `Copy-Item` — ya no borra versiones anteriores del APK
+- ✅ Ambos scripts de build copian el artefacto generado a `app_aab_apk/apk` y `app_aab_apk/aab`
+
+### 🔢 Versiones
+- **versionCode**: 8 → 9
+- **versionName**: "1.4.2" → "1.4.3"
+
+---
+
 ## [1.4.2] - 2026-03-08
 
 ### 🔧 Correcciones de Bugs

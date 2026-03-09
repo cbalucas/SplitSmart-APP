@@ -2,7 +2,7 @@
   "expo": {
     "name": "SplitSmart",
     "slug": "splitsmart",
-    "version": "1.4.2",
+    "version": "1.4.3",
     "orientation": "portrait",
     "icon": "./assets/splash-icon-app_google.png",
     "userInterfaceStyle": "automatic",
@@ -24,7 +24,7 @@
         "backgroundColor": "#4B89DC"
       },
       "package": "com.cbalucas.splitsmart",
-      "versionCode": 8,
+      "versionCode": 9,
       "permissions": [
         "android.permission.USE_FINGERPRINT",
         "android.permission.USE_BIOMETRIC",

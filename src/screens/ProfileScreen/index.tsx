@@ -1372,7 +1372,7 @@ const ProfileScreen: React.FC = () => {
             </View>
             <View style={styles.settingAction}>
               <View style={styles.versionBadge}>
-                <Text style={styles.versionBadgeText}>v1.4.2</Text>
+                <Text style={styles.versionBadgeText}>v1.4.3</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -1509,19 +1509,47 @@ const ProfileScreen: React.FC = () => {
               contentContainerStyle={{ flexGrow: 1 }}
               nestedScrollEnabled={true}
             >
-              {/* Versión 1.4.2 - Versión Actual - Eliminación permisos obsoletos Android */}
+              {/* Versión 1.4.3 - Versión Actual - Correcciones importación y traducciones */}
               <TouchableOpacity 
                 style={[styles.versionBlock, styles.currentVersionBlock]} 
+                onPress={() => toggleVersionExpanded('1.4.3')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.versionHeader}>
+                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.4.3 (Actual)</Text>
+                  <Text style={[styles.versionDate, styles.currentVersionDate]}>9 Mar 2026</Text>
+                  <MaterialCommunityIcons 
+                    name={expandedVersions.has('1.4.3') ? 'chevron-up' : 'chevron-down'} 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
+                </View>
+                {expandedVersions.has('1.4.3') && (
+                  <View style={styles.versionContent}>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
+                      <Text style={styles.changelogItem}>• Importación de backup corregida (error en settlements)</Text>
+                      <Text style={styles.changelogItem}>• Traducciones faltantes: sección Privacidad y botón Archivar</Text>
+                      <Text style={styles.changelogItem}>• Script APK ya no borra versiones anteriores generadas</Text>
+                      <Text style={styles.changelogItem}>• Builds copian APK/AAB a carpeta centralizada automáticamente</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Versión 1.4.2 - Eliminación permisos obsoletos Android */}
+              <TouchableOpacity 
+                style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.4.2')}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
-                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.4.2 (Actual)</Text>
-                  <Text style={[styles.versionDate, styles.currentVersionDate]}>8 Mar 2026</Text>
+                  <Text style={styles.versionNumber}>v1.4.2</Text>
+                  <Text style={styles.versionDate}>8 Mar 2026</Text>
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.4.2') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
-                    color={theme.colors.primary} 
+                    color={theme.colors.onSurfaceVariant} 
                   />
                 </View>
                 {expandedVersions.has('1.4.2') && (
@@ -1840,7 +1868,7 @@ const ProfileScreen: React.FC = () => {
                   color={theme.colors.primary} 
                   style={{ alignSelf: 'center', marginBottom: 16 }}
                 />
-                <Text style={styles.aboutTitle}>SplitSmart v1.4.2</Text>
+                <Text style={styles.aboutTitle}>SplitSmart v1.4.3</Text>
                 <Text style={styles.aboutDescription}>
                   {t('profile.about.appDescription')}
                 </Text>
