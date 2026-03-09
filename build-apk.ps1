@@ -5,6 +5,10 @@ Write-Host "`n══════════════════════
 Write-Host "  🚀 GENERAR APK DE SPLITSMART" -ForegroundColor Green
 Write-Host "════════════════════════════════════════`n" -ForegroundColor Cyan
 
+# ─── Directorio de copia (backup) ────────────────────────────────────────────
+$copiaDir = "C:\APPs\SplitSmart-APP\app_aab_apk\apk"
+# ─────────────────────────────────────────────────────────────────────────────
+
 # Leer versión actual
 $appJson = Get-Content "app.json" | ConvertFrom-Json
 $version = $appJson.expo.version
@@ -38,14 +42,22 @@ if ($LASTEXITCODE -eq 0) {
         $newName = "SplitSmart_v${version}_${fecha}_${hora}.apk"
         $newPath = Join-Path $apkPath.DirectoryName $newName
         
-        Rename-Item -Path $apkPath.FullName -NewName $newName
+        Copy-Item -Path $apkPath.FullName -Destination $newPath
         
-        $size = [math]::Round($apkPath.Length / 1MB, 2)
+        $size = [math]::Round((Get-Item $newPath).Length / 1MB, 2)
         Write-Host "📦 APK generado:" -ForegroundColor Yellow
         Write-Host "  Archivo: $newName" -ForegroundColor White
         Write-Host "  Ubicación: $newPath" -ForegroundColor White
         Write-Host "  Tamaño: $size MB" -ForegroundColor White
         Write-Host "  Versión: v$version (build $versionCode)`n" -ForegroundColor White
+
+        # Copia de backup en directorio configurado
+        if (-not (Test-Path $copiaDir)) {
+            New-Item -ItemType Directory -Path $copiaDir | Out-Null
+        }
+        $copiaPath = Join-Path $copiaDir $newName
+        Copy-Item -Path $newPath -Destination $copiaPath
+        Write-Host "  Copia guardada en: $copiaPath`n" -ForegroundColor DarkCyan
         
         Write-Host "📲 Siguiente paso:" -ForegroundColor Cyan
         Write-Host "  1. Transfiere el APK a tu dispositivo Android" -ForegroundColor White
