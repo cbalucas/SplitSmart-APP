@@ -1,5 +1,17 @@
 # Changelog - SplitSmart
 
+## [1.4.1] - 2026-03-08
+
+### 🔧 Correcciones de Bugs
+- ✅ Crash al editar participante temporal en EventDetail: `t is not defined` en `EditParticipantModalContent` (faltaba hook `useLanguage()`)
+- ✅ Campos vacíos al abrir modal de edición: faltaba `useEffect` para sincronizar inputs con los datos reales del participante
+
+### 🔢 Versiones
+- **versionCode**: 6 → 7
+- **versionName**: "1.4.0" → "1.4.1"
+
+---
+
 ## [1.4.0] - 2026-03-04
 
 ### 🌍 Internacionalización — Auditoría y Migración Completa
