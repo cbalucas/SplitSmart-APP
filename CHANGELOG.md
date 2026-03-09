@@ -64,7 +64,7 @@
 - **Edad mínima**: 13 años (requerido por Google Play)
 - **Limitación de responsabilidad** ampliada: 4 supuestos cubiertos (pérdida de datos, errores de cálculo, disputas entre usuarios, daños indirectos)
 - **Jurisdicción**: Tribunales Ordinarios de Córdoba, Argentina — Ley argentina
-- Eliminado email hardcodeado (`soporte@splitsmart.com`) — reemplazado por referencia a la sección Soporte
+- Eliminado email hardcodeado (`cbalucas@gmail.com`) — reemplazado por referencia a la sección Soporte
 - Lenguaje actualizado de "empresa" a "desarrollador independiente"
 
 #### Acerca de (ES + EN)

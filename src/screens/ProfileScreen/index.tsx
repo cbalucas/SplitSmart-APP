@@ -1951,7 +1951,7 @@ const ProfileScreen: React.FC = () => {
               <View style={styles.aboutSection}>
                 <Text style={styles.aboutSectionTitle}>{t('profile.about.contact')}</Text>
                 <Text style={styles.aboutDescription}>
-                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.email')}</Text> soporte@splitsmart.com{'\n'}
+                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.email')}</Text> cbalucas@gmail.com{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.whatsapp')}</Text> +54 351 617-5809 {t('profile.about.whatsappNote')}{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.hours')}</Text> {t('profile.about.hoursValue')}
                 </Text>
@@ -2362,10 +2362,10 @@ const ProfileScreen: React.FC = () => {
                 <Text style={styles.supportSectionTitle}>{t('profile.support.contactMethods')}</Text>
                 <TouchableOpacity 
                   style={styles.contactItem}
-                  onPress={() => Alert.alert('Email', 'soporte@splitsmart.com')}
+                  onPress={() => Alert.alert('Email', 'cbalucas@gmail.com')}
                 >
                   <MaterialCommunityIcons name="email" size={20} color={theme.colors.primary} />
-                  <Text style={styles.contactText}>soporte@splitsmart.com</Text>
+                  <Text style={styles.contactText}>cbalucas@gmail.com</Text>
                 </TouchableOpacity>
               </View>
 

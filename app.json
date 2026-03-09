@@ -4,7 +4,7 @@
     "slug": "splitsmart",
     "version": "1.4.2",
     "orientation": "portrait",
-    "icon": "./assets/splitsmart/icon.png",
+    "icon": "./assets/splash-icon-app_google.png",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splitsmart/splash-icon-light.png",
@@ -20,7 +20,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/splitsmart/adaptive-icon.png",
+        "foregroundImage": "./assets/splash-icon-app_google.png",
         "backgroundColor": "#4B89DC"
       },
       "package": "com.cbalucas.splitsmart",

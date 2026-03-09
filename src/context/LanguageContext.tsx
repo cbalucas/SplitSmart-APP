@@ -156,6 +156,7 @@ const additionalEsTranslations = {
   'addParticipant.alert.participantsAddedMessage': 'Se agregaron {count} participante{plural} correctamente',
   // ProfileScreen Privacy Section
   'profile.privacy': 'Privacidad',
+  'profile.privacySection': 'Privacidad',
   'profile.shareEmail': 'Compartir email',
   'profile.shareEmailDesc': 'Permitir que otros usuarios vean tu email',
   'profile.sharePhone': 'Compartir teléfono',
@@ -217,7 +218,7 @@ const additionalEsTranslations = {
   'profile.terms.modifications': '6. Modificaciones',
   'profile.terms.modificationsText': 'Nos reservamos el derecho de modificar estos términos en cualquier momento. Las modificaciones serán efectivas al ser publicadas en la aplicación.',
   'profile.terms.contact': '7. Contacto',
-  'profile.terms.contactText': 'Para preguntas sobre estos términos, contacte a: soporte@splitsmart.com',
+  'profile.terms.contactText': 'Para preguntas sobre estos términos, contacte a: cbalucas@gmail.com',
   
   // Privacy Modal
   'profile.privacy.title': 'Política de Privacidad',
@@ -357,6 +358,7 @@ const additionalEsTranslations = {
   'message.create': 'Crear',
   'message.eventNotFound': 'Evento no encontrado',
   'common.back': 'Volver',
+  'common.archive': 'Archivar',
   // EventDetail - JSX display strings (tab Pagos y modal editar participante)
   'eventDetail.paymentsTitle': '💰 Estado de Pagos',
   'eventDetail.paymentsPending': 'Pendiente',
@@ -964,6 +966,7 @@ const translations = {
     'message.archiveEvent': 'Archive Event',
     'message.archiveEventDesc': 'The archived event will only be visible in history. You can reactivate it whenever you want.',
     'common.success': 'Success',
+    'common.archive': 'Archive',
     'message.paymentsCreated': 'payment created successfully',
     'message.paymentsCreatedPlural': 'payments created successfully',
     'message.eventDeleted': 'Event deleted successfully',
@@ -1057,6 +1060,7 @@ const translations = {
     'addParticipant.alert.participantsAddedMessage': '{count} participant{plural} added successfully',
     // ProfileScreen Privacy Section
     'profile.privacy': 'Privacy',
+    'profile.privacySection': 'Privacy',
     'profile.shareEmail': 'Share email',
     'profile.shareEmailDesc': 'Allow other users to see your email',
     'profile.sharePhone': 'Share phone',
@@ -1118,7 +1122,7 @@ const translations = {
     'profile.terms.modifications': '6. Modifications',
     'profile.terms.modificationsText': 'We reserve the right to modify these terms at any time. Modifications will be effective when published in the application.',
     'profile.terms.contact': '7. Contact',
-    'profile.terms.contactText': 'For questions about these terms, contact: soporte@splitsmart.com',
+    'profile.terms.contactText': 'For questions about these terms, contact: cbalucas@gmail.com',
     
     // Privacy Modal
     'profile.privacy.title': 'Privacy Policy',
@@ -1517,6 +1521,7 @@ const translations = {
     'message.archiveEvent': 'Arquivar Evento',
     'message.archiveEventDesc': 'O evento arquivado só será visível no histórico. Você pode reativá-lo quando quiser.',
     'common.success': 'Sucesso',
+    'common.archive': 'Arquivar',
     'message.paymentsCreated': 'pagamento criado com sucesso',
     'message.paymentsCreatedPlural': 'pagamentos criados com sucesso',
     'message.eventDeleted': 'Evento excluído com sucesso',
