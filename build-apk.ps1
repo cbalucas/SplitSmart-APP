@@ -19,6 +19,16 @@ Write-Host "📱 Generando APK versión:" -ForegroundColor Yellow
 Write-Host "  versionName: $version" -ForegroundColor White
 Write-Host "  versionCode: $versionCode`n" -ForegroundColor White
 
+# ─── Sincronizar android/app/build.gradle con app.json ───────────────────────
+Write-Host "⚙️  Sincronizando build.gradle..." -ForegroundColor Yellow
+$buildGradlePath = "android\app\build.gradle"
+$buildGradle = Get-Content $buildGradlePath -Raw
+$buildGradle = $buildGradle -replace 'versionCode \d+', "versionCode $versionCode"
+$buildGradle = $buildGradle -replace 'versionName "[^"]*"', "versionName `"$version`""
+Set-Content $buildGradlePath $buildGradle -NoNewline
+Write-Host "✅ build.gradle actualizado: versionCode=$versionCode, versionName=$version`n" -ForegroundColor Green
+# ─────────────────────────────────────────────────────────────────────────────
+
 # Cambiar a directorio android
 Push-Location android
 

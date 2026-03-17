@@ -116,6 +116,16 @@ MYAPP_UPLOAD_KEY_PASSWORD=$keyPass
     Write-Host "Keystore de release encontrado. Continuando con la firma existente.`n" -ForegroundColor Green
 }
 
+# ─── Sincronizar android/app/build.gradle con app.json ───────────────────────
+Write-Host "⚙️  Sincronizando build.gradle..." -ForegroundColor Yellow
+$buildGradlePath = "android\app\build.gradle"
+$buildGradle = Get-Content $buildGradlePath -Raw
+$buildGradle = $buildGradle -replace 'versionCode \d+', "versionCode $versionCode"
+$buildGradle = $buildGradle -replace 'versionName "[^"]*"', "versionName `"$version`""
+Set-Content $buildGradlePath $buildGradle -NoNewline
+Write-Host "✅ build.gradle actualizado: versionCode=$versionCode, versionName=$version`n" -ForegroundColor Green
+# ─────────────────────────────────────────────────────────────────────────────
+
 # ─── Construir el AAB ────────────────────────────────────────────────────────
 Write-Host "Construyendo Android App Bundle (.aab)..." -ForegroundColor Yellow
 Write-Host "Esto puede tardar 5-10 minutos la primera vez.`n" -ForegroundColor Gray

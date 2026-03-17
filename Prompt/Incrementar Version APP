@@ -12,7 +12,20 @@ Ruta: C:\APPs\SplitSmart-APP\app.json
 Ruta: C:\APPs\SplitSmart-APP\package.json
 - Campo `"version"` → igual que app.json (deben estar sincronizados)
 
-### 3. CHANGELOG.md
+### 3. android/app/build.gradle
+Ruta: C:\APPs\SplitSmart-APP\android\app\build.gradle
+- Campo `versionCode` (dentro de `defaultConfig`) → igual al versionCode de app.json
+- Campo `versionName` (dentro de `defaultConfig`) → igual al version de app.json
+
+Ejemplo:
+```
+defaultConfig {
+    versionCode 9
+    versionName "1.4.3"
+}
+```
+
+### 4. CHANGELOG.md
 Ruta: C:\APPs\SplitSmart-APP\CHANGELOG.md
 - Insertar nueva sección AL INICIO del archivo (después de `# Changelog - SplitSmart`), antes de la sección de la versión anterior
 - Formato de la nueva sección:
