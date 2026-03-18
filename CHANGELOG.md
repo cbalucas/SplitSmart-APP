@@ -1,5 +1,19 @@
 # Changelog - SplitSmart
 
+## [1.4.4] - 2026-03-18
+
+### 🔧 Correcciones de Bugs
+- ✅ Teclado virtual pisaba el contenido al desplegarse en todas las pantallas — corregido con `KeyboardAvoidingView` en `LoginScreen`, `SignUpScreen`, `ForgotPasswordScreen`, `CreateEvent`, `CreateExpense`, `ProfileScreen` y `ManageFriends`
+- ✅ En `ManageFriends`, el formulario de nuevo amigo ahora es desplazable (`ScrollView`) para evitar que el teclado tape los campos inferiores
+- ✅ Android 15+: deshabilitado el forzado edge-to-edge (`PROPERTY_EDGE_TO_EDGE_ENFORCED=false`) que impedía que `adjustResize` funcionara correctamente en el `AndroidManifest.xml`
+- ✅ Agregado `keyboardShouldPersistTaps="handled"` en los `ScrollView` de formularios para evitar que el teclado se cierre al tocar fuera de un input
+
+### 🔢 Versiones
+- **versionCode**: 9 → 10
+- **versionName**: "1.4.3" → "1.4.4"
+
+---
+
 ## [1.4.3] - 2026-03-09
 
 ### 🔧 Correcciones de Bugs
