@@ -11,7 +11,9 @@ import {
   TextInput,
   Image,
   Pressable,
-  Linking
+  Linking,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -831,10 +833,12 @@ const ProfileScreen: React.FC = () => {
         backgroundColor="#00B359"
       />
 
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView 
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Perfil del Usuario */}
         <Card style={styles.profileCard} onPress={closeAutoLogoutDropdown}>
@@ -1421,6 +1425,7 @@ const ProfileScreen: React.FC = () => {
           </Card>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Modal de Cambio de Contraseña */}
       <Modal

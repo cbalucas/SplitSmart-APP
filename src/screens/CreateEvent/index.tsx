@@ -9,7 +9,8 @@ import {
   ViewStyle,
   TextStyle,
   BackHandler,
-  Platform
+  Platform,
+  KeyboardAvoidingView
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -395,11 +396,13 @@ const CreateEventScreen: React.FC = () => {
         titleAlignment="left"
       />
 
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
         <ScrollView 
           style={styles.scrollView} 
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollViewContent}
+          keyboardShouldPersistTaps="handled"
         >
         {/* InformaciÃ³n BÃ¡sica */}
         <Card style={StyleSheet.flatten([styles.card])}>
@@ -612,6 +615,7 @@ const CreateEventScreen: React.FC = () => {
         </View>
 
       </SafeAreaView>
+      </KeyboardAvoidingView>
     </View>
   );
 };

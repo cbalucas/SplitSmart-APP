@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -104,6 +104,7 @@ export default function ForgotPasswordScreen() {
         elevation={true}
       />
       
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
         <View style={styles.form}>
           <Text style={styles.mainTitle}>{t.subtitle}</Text>
@@ -149,6 +150,7 @@ export default function ForgotPasswordScreen() {
           </View>
         </View>
       </SafeAreaView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

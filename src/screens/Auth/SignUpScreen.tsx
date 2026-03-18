@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -291,8 +291,9 @@ export default function SignUpScreen() {
         elevation={true}
       />
       
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={styles.form}>
             <Text style={styles.mainTitle}>{t.subtitle}</Text>
 
@@ -476,6 +477,7 @@ export default function SignUpScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

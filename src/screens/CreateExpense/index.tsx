@@ -10,7 +10,8 @@ import {
   TextStyle,
   BackHandler,
   Image,
-  Platform
+  Platform,
+  KeyboardAvoidingView
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
@@ -714,12 +715,14 @@ const CreateExpenseScreen: React.FC = () => {
         elevation={true}
       />
       
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
 
       <ScrollView 
         style={styles.scrollView} 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Información del Gasto */}
         <Card style={styles.card}>
@@ -988,6 +991,7 @@ const CreateExpenseScreen: React.FC = () => {
       </View>
       
       </SafeAreaView>
+      </KeyboardAvoidingView>
     </View>
   );
 };

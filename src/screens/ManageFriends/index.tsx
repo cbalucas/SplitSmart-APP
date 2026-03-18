@@ -5,7 +5,10 @@ import {
   FlatList,
   TouchableOpacity,
   TextInput,
-  Alert
+  Alert,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -297,7 +300,7 @@ const ManageFriendsScreen: React.FC = () => {
   );
 
   const renderNewFriendTab = () => (
-    <View style={styles.newFriendContainer}>
+    <ScrollView style={styles.newFriendContainer} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <Card style={styles.addFormCard}>
         <Text style={styles.addFormTitle}>
           {editingFriend ? t.form.editTitle : t.form.addTitle}
@@ -371,7 +374,7 @@ const ManageFriendsScreen: React.FC = () => {
           />
         </View>
       </Card>
-    </View>
+    </ScrollView>
   );
 
   const renderEmptyState = () => (
@@ -421,10 +424,12 @@ const ManageFriendsScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       {renderHeader()}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
         {renderTabs()}
         {activeTab === 'list' ? renderListTab() : renderNewFriendTab()}
       </SafeAreaView>
+      </KeyboardAvoidingView>
     </View>
   );
 };
