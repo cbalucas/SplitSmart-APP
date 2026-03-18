@@ -1327,8 +1327,8 @@ const ProfileScreen: React.FC = () => {
         {!isEditing && (
         <ProfileSection title={t('profile.dataBackup')} icon="database" onPress={closeAutoLogoutDropdown}>
           <SettingItem
-            title="Estadísticas de Datos"
-            subtitle="Ver cantidad de registros por tabla"
+            title={t('profile.dataStats')}
+            subtitle={t('profile.dataStatsDesc')}
             icon="chart-bar"
             type="navigation"
             onPress={handleShowDatabaseStats}
@@ -1494,7 +1494,7 @@ const ProfileScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.changelogModalContent}>
             <View style={styles.changelogHeader}>
-              <Text style={styles.modalTitle}>Historial de Versiones</Text>
+              <Text style={styles.modalTitle}>{t('profile.changelogTitle')}</Text>
               <TouchableOpacity 
                 style={styles.closeButton}
                 onPress={() => setShowChangelogModal(false)}
@@ -1922,12 +1922,12 @@ const ProfileScreen: React.FC = () => {
 
               {/* Seguridad y Privacidad */}
               <View style={styles.aboutSection}>
-                <Text style={styles.aboutSectionTitle}>🔒 Compromiso de Privacidad</Text>
+                <Text style={styles.aboutSectionTitle}>{t('profile.about.privacyCommitment')}</Text>
                 <Text style={styles.aboutDescription}>
-                  • <Text style={{ fontWeight: 'bold' }}>Cero recopilación de datos:</Text> No enviamos información a servidores{'\n'}
-                  • <Text style={{ fontWeight: 'bold' }}>Control total:</Text> Tú decides qué datos guardar y por cuánto tiempo{'\n'}
-                  • <Text style={{ fontWeight: 'bold' }}>Funcionalidad offline:</Text> Trabaja sin conexión a internet{'\n'}
-                  • <Text style={{ fontWeight: 'bold' }}>Exportación libre:</Text> Llévate tus datos cuando quieras
+                  • <Text style={{ fontWeight: 'bold' }}>{t('profile.about.privacyItem1Title')}</Text> {t('profile.about.privacyItem1Desc')}{'\n'}
+                  • <Text style={{ fontWeight: 'bold' }}>{t('profile.about.privacyItem2Title')}</Text> {t('profile.about.privacyItem2Desc')}{'\n'}
+                  • <Text style={{ fontWeight: 'bold' }}>{t('profile.about.privacyItem3Title')}</Text> {t('profile.about.privacyItem3Desc')}{'\n'}
+                  • <Text style={{ fontWeight: 'bold' }}>{t('profile.about.privacyItem4Title')}</Text> {t('profile.about.privacyItem4Desc')}
                 </Text>
               </View>
 
@@ -1943,11 +1943,9 @@ const ProfileScreen: React.FC = () => {
 
               {/* Desarrollo */}
               <View style={styles.aboutSection}>
-                <Text style={styles.aboutSectionTitle}>👥 Equipo de Desarrollo</Text>
+                <Text style={styles.aboutSectionTitle}>{t('profile.about.devTeam')}</Text>
                 <Text style={styles.aboutDescription}>
-                  SplitSmart es desarrollado con pasión por un equipo dedicado a crear herramientas financieras 
-                  simples, seguras y efectivas para la vida cotidiana. Nuestro compromiso es mantener tu privacidad 
-                  como máxima prioridad mientras ofrecemos la mejor experiencia posible.
+                  {t('profile.about.devTeamDesc')}
                 </Text>
               </View>
 

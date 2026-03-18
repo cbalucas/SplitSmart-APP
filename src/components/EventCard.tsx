@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Theme } from '../constants/theme';
 import Card from './Card';
 
@@ -47,6 +48,7 @@ const EventCard: React.FC<EventCardProps> = ({
   style
 }) => {
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const styles = createStyles(theme);
 
   const getStatusColor = (status: string) => {
@@ -173,7 +175,7 @@ const EventCard: React.FC<EventCardProps> = ({
                 color={theme.colors.background === '#0F0F0F' ? '#FFFFFF' : '#757575'}
               />
               <Text style={styles.statText}>
-                {event.participantCount} participante{event.participantCount !== 1 ? 's' : ''}
+                {event.participantCount} {event.participantCount !== 1 ? t('eventCard.participants') : t('eventCard.participant')}
               </Text>
             </View>
             <View style={styles.expensesContainer}>
@@ -183,7 +185,7 @@ const EventCard: React.FC<EventCardProps> = ({
                 color="#388E3C"
               />
               <Text style={styles.statText}>
-                {event.expenseCount} gasto{event.expenseCount !== 1 ? 's' : ''}
+                {event.expenseCount} {event.expenseCount !== 1 ? t('eventCard.expenses') : t('eventCard.expense')}
               </Text>
             </View>
           </View>
@@ -197,7 +199,7 @@ const EventCard: React.FC<EventCardProps> = ({
                 color={event.paidSettlementCount === event.settlementCount ? '#4CAF50' : '#FF9800'}
               />
               <Text style={styles.statText}>
-                {'('}{event.paidSettlementCount}/{event.settlementCount}{')'} liquidacion{event.settlementCount !== 1 ? 'es' : ''}
+                {'('}{event.paidSettlementCount}/{event.settlementCount}{')'} {event.settlementCount !== 1 ? t('eventCard.settlements') : t('eventCard.settlement')}
               </Text>
             </View>
           )}

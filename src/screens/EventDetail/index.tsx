@@ -869,17 +869,17 @@ export default function EventDetailScreen() {
     // Usar los settlements que se están mostrando actualmente (originales o consolidados)
     const currentSettlements = getDisplaySettlements();
     
-    let message = `📊 *RESUMEN - ${event.name}*\n\n`;
+    let message = `📊 *${t('eventDetail.shareSummaryLabel')} - ${event.name}*\n\n`;
     
     // Agregar advertencia si el evento está activo
     if (event.status === 'active') {
-      message += `⚠️ _Los importes mencionados pueden sufrir modificaciones, debido que el evento no está COMPLETADO_\n\n`;
+      message += `${t('eventDetail.shareWarning')}\n\n`;
     }
     
     message += `💰 *Total gastado:* ${event.currency} $${totalAmount.toFixed(2)}\n`;
-    message += `👥 *Participantes:* ${participantCount}\n\n`;
+    message += `👥 *${t('eventDetail.shareParticipantsLabel')}:* ${participantCount}\n\n`;
     
-    message += `💸 LIQUIDACIONES:\n\n`;
+    message += `💸 ${t('eventDetail.shareSettlementsLabel')}\n\n`;
     if (currentSettlements.length > 0) {
       // Agrupar liquidaciones por destinatario (quien recibe el dinero)
       const settlementsByRecipient = currentSettlements.reduce((acc, settlement) => {
@@ -894,7 +894,7 @@ export default function EventDetailScreen() {
       // Generar mensaje agrupado por destinatario
       Object.entries(settlementsByRecipient).forEach(([recipientName, settlementsForRecipient]) => {
         const recipient = eventParticipants.find(p => p.name === recipientName);
-        const cbuAlias = recipient?.alias_cbu || 'Sin datos';
+        const cbuAlias = recipient?.alias_cbu || t('eventDetail.shareNoCbu');
         
         message += `_${recipientName}_\n`;
         message += `💳 *${cbuAlias}*\n`;
@@ -906,22 +906,18 @@ export default function EventDetailScreen() {
         message += `\n`;
       });
     } else {
-      message += `✅ ¡Todas las cuentas están equilibradas!\n`;
+      message += `${t('eventDetail.shareSettled')}\n`;
     }
 
     // Mostrar información de consolidación después de las liquidaciones
     if (consolidationAssignments.length > 0 && !showOriginalView) {
-      const originalTotal = settlements.reduce((sum, s) => sum + s.amount, 0);
-      const consolidatedTotal = consolidatedSettlements.reduce((sum, s) => sum + s.amount, 0);
-      const forgivenAmount = originalTotal - consolidatedTotal;
-      
       message += `\n━━━━━━━━━━━━━━━━━━\n`;
-      message += `🔄 *VISTA CONSOLIDADA*\n\n`;
+      message += `🔄 *${t('eventDetail.shareConsolidatedView')}*\n\n`;
       
       // Mostrar quién paga por quién
-      message += `👤 *ASIGNACIONES:*\n`;
+      message += `👤 *${t('eventDetail.shareAssignments')}*\n`;
       consolidationAssignments.forEach(assignment => {
-        message += `• ${assignment.payerName} paga por ${assignment.debtorName}\n`;
+        message += `• ${assignment.payerName} ${t('eventDetail.sharePaysWith')} ${assignment.debtorName}\n`;
       });
     }
 
@@ -949,7 +945,7 @@ export default function EventDetailScreen() {
         Clipboard.setString(message);
         Alert.alert(
           t('message.whatsappError'),
-          `El resumen ${t('message.copiedToClipboard')}`,
+          `${t('summary.title')} ${t('message.copiedToClipboard')}`,
           [{ text: t('ok') }]
         );
       });
@@ -963,24 +959,24 @@ export default function EventDetailScreen() {
     // Usar los settlements que se están mostrando actualmente (originales o consolidados)
     const currentSettlements = getDisplaySettlements();
     
-    let message = `🎉 EVENTO - ${event.name.toUpperCase()}\n`;
+    let message = `🎉 ${t('eventDetail.shareSummaryLabel')} - ${event.name.toUpperCase()}\n`;
     message += `━━━━━━━━━━━━━━━━━━\n`;
     
     // Agregar advertencia si el evento está activo
     if (event.status === 'active') {
-      message += `⚠️ _Los importes mencionados pueden sufrir modificaciones, debido que el evento no está COMPLETADO_\n\n`;
+      message += `${t('eventDetail.shareWarning')}\n\n`;
     }
     
     message += `📅 ${new Date(event.startDate).toLocaleDateString('es-AR')}\n`;
     message += `💵 $${formatCurrency(totalAmount)} ${event.currency}\n`;
-    message += `📊 Estado: ${event.status === 'active' ? t('events.active') : event.status === 'completed' ? t('events.completed') : t('events.archived')}\n`;
+    message += `📊 ${t('eventDetail.shareStatusLabel')} ${event.status === 'active' ? t('events.active') : event.status === 'completed' ? t('events.completed') : t('events.archived')}\n`;
     message += `━━━━━━━━━━━━━━━━━━\n`;
-    message += `👥 PARTICIPANTES (${eventParticipants.length}):\n`;
+    message += `👥 ${t('eventDetail.shareParticipantsLabel')} (${eventParticipants.length}):\n`;
     eventParticipants.forEach((p) => {
       message += `* ${p.name}\n`;
     });
     message += `━━━━━━━━━━━━━━━━━━\n`;
-    message += `💸 LIQUIDACIÓN:\n`;
+    message += `💸 ${t('eventDetail.shareSettlementLabel')}\n`;
     
     if (currentSettlements.length > 0) {
       // Agrupar liquidaciones por destinatario (quien recibe el dinero)
@@ -996,7 +992,7 @@ export default function EventDetailScreen() {
       // Generar mensaje agrupado por destinatario
       Object.entries(settlementsByRecipient).forEach(([recipientName, settlementsForRecipient]) => {
         const recipient = eventParticipants.find(p => p.name === recipientName);
-        const cbuAlias = recipient?.alias_cbu || 'Sin datos';
+        const cbuAlias = recipient?.alias_cbu || t('eventDetail.shareNoCbu');
         
         message += `${recipientName}\n`;
         message += `💳 ${cbuAlias}\n`;
@@ -1007,27 +1003,23 @@ export default function EventDetailScreen() {
         });
       });
     } else {
-      message += `✅ ¡Todas las cuentas están equilibradas!\n`;
+      message += `${t('eventDetail.shareSettled')}\n`;
     }
     
     // Mostrar información de consolidación después de las liquidaciones
     if (consolidationAssignments.length > 0 && !showOriginalView) {
-      const originalTotal = settlements.reduce((sum, s) => sum + s.amount, 0);
-      const consolidatedTotal = consolidatedSettlements.reduce((sum, s) => sum + s.amount, 0);
-      const forgivenAmount = originalTotal - consolidatedTotal;
-      
       message += `━━━━━━━━━━━━━━━━━━\n`;
-      message += `🔄 VISTA CONSOLIDADA\n\n`;
+      message += `🔄 ${t('eventDetail.shareConsolidatedView')}\n\n`;
       
       // Mostrar quién paga por quién
-      message += `👤 ASIGNACIONES:\n`;
+      message += `👤 ${t('eventDetail.shareAssignments')}\n`;
       consolidationAssignments.forEach(assignment => {
-        message += `* ${assignment.payerName} paga por ${assignment.debtorName}\n`;
+        message += `* ${assignment.payerName} ${t('eventDetail.sharePaysWith')} ${assignment.debtorName}\n`;
       });
     }
     
     message += `━━━━━━━━━━━━━━━━━━\n`;
-    message += `📝 GASTOS (${eventExpenses.length}):\n`;
+    message += `📝 ${t('eventDetail.shareExpensesLabel')} (${eventExpenses.length}):\n`;
     
     if (eventExpenses.length > 0) {
       // Agrupar gastos por pagador
@@ -1056,7 +1048,7 @@ export default function EventDetailScreen() {
           // Agregar exclusiones si existen
           if (excludedParticipants.length > 0 && excludedParticipants.length < eventParticipants.length) {
             const excludedNames = excludedParticipants.map(p => p.name).join(' - ');
-            expenseLine += ` | Excep: ${excludedNames}`;
+            expenseLine += ` | ${t('eventDetail.shareException')} ${excludedNames}`;
           }
           
           // Agregar icono de comprobante si existe
@@ -1068,9 +1060,9 @@ export default function EventDetailScreen() {
         });
       });
       
-      message += `\n💵 TOTAL: $${formatCurrency(totalAmount)}\n`;
+      message += `\n💵 ${t('eventDetail.shareTotal')} $${formatCurrency(totalAmount)}\n`;
     } else {
-      message += `Sin gastos registrados\n`;
+      message += `${t('eventDetail.shareNoExpenses')}\n`;
     }
 
     // Enviar directamente a WhatsApp
@@ -1097,7 +1089,7 @@ export default function EventDetailScreen() {
         Clipboard.setString(message);
         Alert.alert(
           t('message.whatsappError'),
-          `El evento ${t('message.copiedToClipboard')}`,
+          `${t('events.title')} ${t('message.copiedToClipboard')}`,
           [{ text: t('ok') }]
         );
       });
@@ -1140,15 +1132,25 @@ export default function EventDetailScreen() {
         const forgivenAmount = totalOriginal - totalConsolidated;
         
         Alert.alert(
-          '🚫 Condonaciones Automáticas',
-          `✅ Consolidación aplicada exitosamente\n\n📊 Resumen:\n• Liquidaciones originales: ${settlements.length}\n• Liquidaciones consolidadas: ${consolidated.length}\n• Pagos condonados: ${forgivenPayments}\n\n💰 Montos:\n• Total original: $${totalOriginal.toLocaleString()}\n• Total final: $${totalConsolidated.toLocaleString()}\n• Monto condonado: $${forgivenAmount.toLocaleString()}\n\n💡 Los pagos condonados son transferencias donde una persona se pagaría a sí misma, las cuales se cancelan automáticamente por ser innecesarias.`,
-          [{ text: 'Perfecto', style: 'default' }]
+          t('eventDetail.consolidationForgivenTitle'),
+          t('eventDetail.consolidationForgivenMsg', {
+            original: settlements.length,
+            consolidated: consolidated.length,
+            forgiven: forgivenPayments,
+            totalOriginal: totalOriginal.toLocaleString(),
+            totalFinal: totalConsolidated.toLocaleString(),
+            forgivenAmount: forgivenAmount.toLocaleString()
+          }),
+          [{ text: t('eventDetail.consolidationOk'), style: 'default' }]
         );
       } else {
         Alert.alert(
-          '✅ Consolidación Aplicada',
-          `Consolidación guardada exitosamente.\n\n• ${assignments.length} asignación(es) configurada(s)\n• ${consolidated.length} liquidación(es) resultante(s)`,
-          [{ text: 'Perfecto', style: 'default' }]
+          t('eventDetail.consolidationAppliedTitle'),
+          t('eventDetail.consolidationAppliedMsg', {
+            assignments: assignments.length,
+            results: consolidated.length
+          }),
+          [{ text: t('eventDetail.consolidationOk'), style: 'default' }]
         );
       }
       
@@ -1156,9 +1158,9 @@ export default function EventDetailScreen() {
     } catch (error) {
       console.error('❌ Error guardando consolidación:', error);
       Alert.alert(
-        'Error',
-        'No se pudo guardar la consolidación. Inténtalo nuevamente.',
-        [{ text: 'OK', style: 'default' }]
+        t('common.error'),
+        t('eventDetail.consolidationError'),
+        [{ text: t('ok'), style: 'default' }]
       );
     }
     
@@ -2009,7 +2011,7 @@ export default function EventDetailScreen() {
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                 <MaterialCommunityIcons name="currency-usd" size={16} color={theme.colors.success} style={{ marginRight: 4 }} />
-                <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant }}>Moneda: {event.currency}</Text>
+                <Text style={{ fontSize: 14, color: theme.colors.onSurfaceVariant }}>{t('eventDetail.currency')} {event.currency}</Text>
               </View>
             </View>
             
@@ -2097,7 +2099,7 @@ export default function EventDetailScreen() {
                     <Text style={[styles.consolidationButtonText, { 
                       color: showOriginalView ? theme.colors.onPrimary : theme.colors.onSurface 
                     }]}>
-                      {showOriginalView ? 'Ver Consolidado' : 'Ver Original'}
+                      {showOriginalView ? t('eventDetail.viewConsolidated') : t('eventDetail.viewOriginal')}
                     </Text>
                   </TouchableOpacity>
 
@@ -2111,7 +2113,7 @@ export default function EventDetailScreen() {
                       color={theme.colors.onErrorContainer} 
                     />
                     <Text style={[styles.consolidationButtonText, { color: theme.colors.onErrorContainer }]}>
-                      Limpiar
+                      {t('eventDetail.clear')}
                     </Text>
                   </TouchableOpacity>
                 </>
@@ -2121,14 +2123,14 @@ export default function EventDetailScreen() {
             {consolidationAssignments.length > 0 && (
               <View style={styles.consolidationSummary}>
                 <Text style={[styles.consolidationSummaryText, { color: theme.colors.onSurfaceVariant }]}>
-                  📋 {consolidationAssignments.length} consolidación(es) • 
-                  {showOriginalView ? '👁️ Vista original' : '🔀 Vista consolidada'}
+                  {t('eventDetail.consolidationSummary', { count: consolidationAssignments.length })} • 
+                  {showOriginalView ? t('eventDetail.viewOriginalLabel') : t('eventDetail.viewConsolidatedLabel')}
                   {(() => {
                     const forgivenCount = settlements.length - consolidatedSettlements.length;
                     const totalOriginal = settlements.reduce((sum, s) => sum + s.amount, 0);
                     const totalConsolidated = consolidatedSettlements.reduce((sum, s) => sum + s.amount, 0);
                     const savings = totalOriginal - totalConsolidated;
-                    return forgivenCount > 0 ? `\n🚫 ${forgivenCount} pago${forgivenCount > 1 ? 's' : ''} condonado${forgivenCount > 1 ? 's' : ''} • 💰 $${savings.toLocaleString()} ahorrado${forgivenCount > 1 ? 's' : ''}` : '';
+                    return forgivenCount > 0 ? `\n${t('eventDetail.forgivenPayments', { count: forgivenCount, plural: forgivenCount > 1 ? 's' : '', amount: savings.toLocaleString() })}` : '';
                   })()}
                 </Text>
               </View>
@@ -2193,9 +2195,9 @@ export default function EventDetailScreen() {
               color={theme.colors.primary} 
               style={styles.noSettlementsIcon}
             />
-            <Text style={styles.noSettlementsTitle}>¡Perfecto!</Text>
+            <Text style={styles.noSettlementsTitle}>{t('eventDetail.settledTitle')}</Text>
             <Text style={styles.noSettlementsText}>
-              Todas las cuentas están equilibradas
+              {t('eventDetail.settledText')}
             </Text>
           </View>
         )}
@@ -2408,7 +2410,7 @@ export default function EventDetailScreen() {
                 return (
                   <View style={{ padding: 16 }}>
                     <Text style={{ color: theme.colors.error, textAlign: 'center' }}>
-                      Error al mostrar consolidaciones
+                      {t('eventDetail.errorConsolidationUI')}
                     </Text>
                   </View>
                 );
@@ -2604,7 +2606,7 @@ export default function EventDetailScreen() {
     
     Alert.alert(
       t('message.createPaymentsTitle'),
-      `¿Deseas crear ${settlements.length} pago${settlements.length > 1 ? 's' : ''} basado${settlements.length > 1 ? 's' : ''} en las liquidaciones pendientes?`,
+      t('eventDetail.createPaymentsDesc', { count: settlements.length, plural: settlements.length > 1 ? 's' : '' }),
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -2678,7 +2680,7 @@ export default function EventDetailScreen() {
         {/* Botón para crear pagos desde liquidaciones */}
         {settlements.length > 0 && (
           <Button
-            title={`Crear ${settlements.length} pago${settlements.length > 1 ? 's' : ''} desde liquidaciones`}
+            title={t('eventDetail.createPaymentsButton', { count: settlements.length, plural: settlements.length > 1 ? 's' : '' })}
             onPress={handleCreatePaymentsFromSettlements}
             style={{ marginBottom: 16 }}
           />
@@ -3243,7 +3245,7 @@ const EditParticipantModalContent: React.FC<{
   return (
     <View style={{ flex: 1 }}>
       <HeaderBar 
-        title="Editar Participante"
+        title={t('eventDetail.editParticipantTitle')}
         titleAlignment="left"
         showBackButton={false}
         useDynamicColors={true}
@@ -3252,7 +3254,7 @@ const EditParticipantModalContent: React.FC<{
       <ScrollView style={{ flex: 1, padding: 20 }}>
         <Card>
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 6, color: theme.colors.onSurface }}>Nombre *</Text>
+            <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 6, color: theme.colors.onSurface }}>{t('eventDetail.labelName')}</Text>
             <TextInput
               style={{
                 backgroundColor: theme.colors.surface,
@@ -3264,7 +3266,7 @@ const EditParticipantModalContent: React.FC<{
                 fontSize: 16,
                 color: theme.colors.onSurface
               }}
-              placeholder="Nombre del participante"
+              placeholder={t('eventDetail.placeholderName')}
               placeholderTextColor={theme.colors.onSurfaceVariant}
               value={name}
               onChangeText={setName}
@@ -3272,7 +3274,7 @@ const EditParticipantModalContent: React.FC<{
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 6, color: theme.colors.onSurface }}>CBU/Alias (Opcional)</Text>
+            <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 6, color: theme.colors.onSurface }}>{t('eventDetail.labelCbu')}</Text>
             <TextInput
               style={{
                 backgroundColor: theme.colors.surface,
@@ -3284,7 +3286,7 @@ const EditParticipantModalContent: React.FC<{
                 fontSize: 16,
                 color: theme.colors.onSurface
               }}
-              placeholder="Alias o CBU para pagos"
+              placeholder={t('eventDetail.placeholderCbu')}
               placeholderTextColor={theme.colors.onSurfaceVariant}
               value={aliasCbu}
               onChangeText={setAliasCbu}
@@ -3292,7 +3294,7 @@ const EditParticipantModalContent: React.FC<{
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 6, color: theme.colors.onSurface }}>Teléfono (Opcional)</Text>
+            <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 6, color: theme.colors.onSurface }}>{t('eventDetail.labelPhone')}</Text>
             <TextInput
               style={{
                 backgroundColor: theme.colors.surface,
@@ -3304,7 +3306,7 @@ const EditParticipantModalContent: React.FC<{
                 fontSize: 16,
                 color: theme.colors.onSurface
               }}
-              placeholder="+54 9 11 1234-5678"
+              placeholder={t('eventDetail.placeholderPhone')}
               placeholderTextColor={theme.colors.onSurfaceVariant}
               value={phone}
               onChangeText={setPhone}
@@ -3314,7 +3316,7 @@ const EditParticipantModalContent: React.FC<{
 
           {convertToFriend && (
             <View style={{ marginBottom: 16 }}>
-              <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 6, color: theme.colors.onSurface }}>Email (Opcional)</Text>
+              <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 6, color: theme.colors.onSurface }}>{t('eventDetail.labelEmail')}</Text>
               <TextInput
                 style={{
                   backgroundColor: theme.colors.surface,
@@ -3326,7 +3328,7 @@ const EditParticipantModalContent: React.FC<{
                   fontSize: 16,
                   color: theme.colors.onSurface
                 }}
-                placeholder="correo@ejemplo.com"
+                placeholder={t('eventDetail.placeholderEmail')}
                 placeholderTextColor={theme.colors.onSurfaceVariant}
                 value={email}
                 onChangeText={setEmail}
