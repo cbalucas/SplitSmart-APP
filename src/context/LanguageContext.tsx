@@ -723,24 +723,9 @@ const translations = {
     'eventDetail.createPaymentsButton': 'Crear {count} pago{plural} desde liquidaciones',
     'eventDetail.createPaymentsDesc': '¿Deseas crear {count} pago{plural} basado{plural} en las liquidaciones pendientes?',
     'eventDetail.consolidationAppliedTitle': '✅ Consolidación Aplicada',
-    'eventDetail.consolidationAppliedMsg': 'Consolidación guardada exitosamente.
-
-• {assignments} asignación(es) configurada(s)
-• {results} liquidación(es) resultante(s)',
+    'eventDetail.consolidationAppliedMsg': 'Consolidación guardada exitosamente.\n\n• {assignments} asignación(es) configurada(s)\n• {results} liquidación(es) resultante(s)',
     'eventDetail.consolidationForgivenTitle': '🚫 Condonaciones Automáticas',
-    'eventDetail.consolidationForgivenMsg': '✅ Consolidación aplicada exitosamente
-
-📊 Resumen:
-• Liquidaciones originales: {original}
-• Liquidaciones consolidadas: {consolidated}
-• Pagos condonados: {forgiven}
-
-💰 Montos:
-• Total original: ${totalOriginal}
-• Total final: ${totalFinal}
-• Monto condonado: ${forgivenAmount}
-
-💡 Los pagos condonados son transferencias donde una persona se pagaría a sí misma.',
+    'eventDetail.consolidationForgivenMsg': '✅ Consolidación aplicada exitosamente\n\n📊 Resumen:\n• Liquidaciones originales: {original}\n• Liquidaciones consolidadas: {consolidated}\n• Pagos condonados: {forgiven}\n\n💰 Montos:\n• Total original: ${totalOriginal}\n• Total final: ${totalFinal}\n• Monto condonado: ${forgivenAmount}\n\n💡 Los pagos condonados son transferencias donde una persona se pagaría a sí misma.',
     'eventDetail.consolidationOk': 'Perfecto',
     'eventDetail.consolidationError': 'No se pudo guardar la consolidación. Inténtalo nuevamente.',
     // EditParticipantModal labels
