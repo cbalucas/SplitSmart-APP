@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, KeyboardAvoidingView, Image, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -275,7 +275,7 @@ export default function SignUpScreen() {
     }
   };
 
-  const updateFormData = (field: keyof SignUpFormData, value: string) => {
+  const updateFormData = (field: keyof SignUpFormData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -287,6 +287,7 @@ export default function SignUpScreen() {
         useDynamicColors={true}
         showThemeToggle={true}
         showLanguageSelector={true}
+        showHelp={true}
         showBackButton={false}
         elevation={true}
       />
@@ -294,8 +295,14 @@ export default function SignUpScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <View style={styles.iconSection}>
+            <Image
+              source={require('../../../assets/splitsmart/splash-icon-app_google.png')}
+              style={styles.appIcon}
+              resizeMode="contain"
+            />
+          </View>
           <View style={styles.form}>
-            <Text style={styles.mainTitle}>{t.subtitle}</Text>
 
             {/* Nombre completo */}
             <Text style={styles.label}>{t.form.nameLabel}</Text>

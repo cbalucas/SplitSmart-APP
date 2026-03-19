@@ -2872,6 +2872,7 @@ export default function EventDetailScreen() {
         showBackButton={false}
         showThemeToggle={true}
         showLanguageSelector={true}
+        showHelp={true}
         useDynamicColors={true}
         elevation={true}
       />

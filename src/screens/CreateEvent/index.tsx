@@ -392,6 +392,7 @@ const CreateEventScreen: React.FC = () => {
         title={isEditing ? t.header.editEvent : t.header.createEvent}
         showThemeToggle={true}
         showLanguageSelector={true}
+        showHelp={true}
         useDynamicColors={true}
         titleAlignment="left"
       />

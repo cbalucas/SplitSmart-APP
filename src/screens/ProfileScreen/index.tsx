@@ -828,9 +828,10 @@ const ProfileScreen: React.FC = () => {
       <HeaderBar
         title={t('profile.title')}
         titleAlignment="left"
-        showLanguageSelector={true}
         showThemeToggle={true}
-        backgroundColor="#00B359"
+        showLanguageSelector={true}
+        showHelp={true}
+        useDynamicColors={true}
       />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>

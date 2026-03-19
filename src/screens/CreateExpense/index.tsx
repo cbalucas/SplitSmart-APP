@@ -711,6 +711,7 @@ const CreateExpenseScreen: React.FC = () => {
         useDynamicColors={true}
         showThemeToggle={true}
         showLanguageSelector={true}
+        showHelp={true}
         showBackButton={false}
         elevation={true}
       />

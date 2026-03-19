@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, Image, Modal, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, Image, Modal, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -62,12 +62,18 @@ export default function LoginScreen() {
         useDynamicColors={true}
         showThemeToggle={true}
         showLanguageSelector={true}
+        showHelp={true}
         showBackButton={false}
         elevation={true}
       />
       
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
+      <SafeAreaView style={{ flex: 1 }} edges={['bottom', 'left', 'right']}>
+        <ScrollView
+          contentContainerStyle={styles.safeContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         {/* Ícono de la aplicación */}
         <View style={styles.iconSection}>
           <Image 
@@ -194,6 +200,7 @@ export default function LoginScreen() {
           </View>
         </Modal>
 
+        </ScrollView>
       </SafeAreaView>
       </KeyboardAvoidingView>
     </View>

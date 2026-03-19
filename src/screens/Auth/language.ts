@@ -292,8 +292,8 @@ export const forgotPasswordLanguage = {
     form: {
       credentialLabel: 'Usuario o Email',
       credentialPlaceholder: 'Tu usuario o email registrado',
-      resetButton: 'Enviar Nueva Contraseña',
-      resetButtonLoading: 'Enviando...',
+      resetButton: 'Generar Contraseña Temporal',
+      resetButtonLoading: 'Generando...',
       infoText: 'Ingresa tu usuario o email y generaremos una contraseña temporal para ti.'
     },
     errors: {
@@ -304,12 +304,13 @@ export const forgotPasswordLanguage = {
       okButton: 'Entendido'
     },
     success: {
-      title: 'Contraseña Restablecida',
-      message: 'Se ha generado una contraseña temporal para tu cuenta.',
-      tempPassword: 'Contraseña temporal',
-      changePassword: 'Te recomendamos cambiarla en tu perfil una vez que inicies sesión.',
-      goToLogin: 'Ir al Login',
-      sentMessage: 'Tu contraseña temporal ha sido enviada.'
+      title: 'Contraseña Restablecida ✅',
+      message: 'Se generó una contraseña temporal para tu cuenta.',
+      tempPassword: 'Tu nueva contraseña temporal',
+      changePassword: 'Una vez que inicies sesión, ve a Perfil para cambiarla cuando quieras.',
+      noteHint: '⚠️ Toma nota de esta contraseña antes de continuar. No se podrá recuperar después.',
+      goToLogin: 'Entendido, ir al Login',
+      sentMessage: 'Tu contraseña temporal fue generada.'
     },
     links: {
       backToLogin: 'Volver al login',
@@ -322,8 +323,8 @@ export const forgotPasswordLanguage = {
     form: {
       credentialLabel: 'Username or Email',
       credentialPlaceholder: 'Your registered username or email',
-      resetButton: 'Send New Password',
-      resetButtonLoading: 'Sending...',
+      resetButton: 'Generate Temporary Password',
+      resetButtonLoading: 'Generating...',
       infoText: 'Enter your username or email and we will generate a temporary password for you.'
     },
     errors: {
@@ -334,12 +335,13 @@ export const forgotPasswordLanguage = {
       okButton: 'Got it'
     },
     success: {
-      title: 'Password Reset',
-      message: 'A temporary password has been generated for your account.',
-      tempPassword: 'Temporary password',
-      changePassword: 'We recommend changing it from your profile once you sign in.',
-      goToLogin: 'Go to Login',
-      sentMessage: 'Your temporary password has been sent.'
+      title: 'Password Reset ✅',
+      message: 'A temporary password was generated for your account.',
+      tempPassword: 'Your new temporary password',
+      changePassword: 'Once signed in, go to Profile to change it whenever you want.',
+      noteHint: '⚠️ Write down this password before continuing. It cannot be recovered after dismissing.',
+      goToLogin: 'Got it, go to Login',
+      sentMessage: 'Your temporary password was generated.'
     },
     links: {
       backToLogin: 'Back to login',
@@ -352,8 +354,8 @@ export const forgotPasswordLanguage = {
     form: {
       credentialLabel: 'Usuário ou Email',
       credentialPlaceholder: 'Seu usuário ou email cadastrado',
-      resetButton: 'Enviar Nova Senha',
-      resetButtonLoading: 'Enviando...',
+      resetButton: 'Gerar Senha Temporária',
+      resetButtonLoading: 'Gerando...',
       infoText: 'Digite seu usuário ou email e geraremos uma senha temporária para você.'
     },
     errors: {
@@ -364,12 +366,13 @@ export const forgotPasswordLanguage = {
       okButton: 'Entendi'
     },
     success: {
-      title: 'Senha Redefinida',
+      title: 'Senha Redefinida ✅',
       message: 'Uma senha temporária foi gerada para sua conta.',
-      tempPassword: 'Senha temporária',
-      changePassword: 'Recomendamos alterá-la no seu perfil após fazer login.',
-      goToLogin: 'Ir para Login',
-      sentMessage: 'Sua senha temporária foi enviada.'
+      tempPassword: 'Sua nova senha temporária',
+      changePassword: 'Após entrar, acesse Perfil para alterar quando quiser.',
+      noteHint: '⚠️ Anote essa senha antes de continuar. Não poderá ser recuperada depois.',
+      goToLogin: 'Entendido, ir ao Login',
+      sentMessage: 'Sua senha temporária foi gerada.'
     },
     links: {
       backToLogin: 'Voltar ao login',

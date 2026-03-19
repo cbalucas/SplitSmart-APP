@@ -2,7 +2,9 @@ export const homeLanguage = {
   es: {
     // Header
     header: {
-      title: 'Mis Eventos'
+      title: 'Mis Eventos',
+      friends: 'Amigos',
+      logout: 'Cerrar sesión'
     },
     
     // Search
@@ -63,7 +65,9 @@ export const homeLanguage = {
   en: {
     // Header
     header: {
-      title: 'My Events'
+      title: 'My Events',
+      friends: 'Friends',
+      logout: 'Sign out'
     },
     
     // Search
@@ -122,7 +126,9 @@ export const homeLanguage = {
   pt: {
     // Header
     header: {
-      title: 'Meus Eventos'
+      title: 'Meus Eventos',
+      friends: 'Amigos',
+      logout: 'Sair'
     },
     
     // Search

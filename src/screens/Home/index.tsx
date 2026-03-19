@@ -386,17 +386,20 @@ const HomeScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* HeaderBar con estructura solicitada: Avatar | Título | ManageFriends | Tema | Idioma */}
+      {/* HeaderBar */}
       <HeaderBar 
         title={t.header.title}
         titleAlignment="left"
         useDynamicColors={true}
-        leftIcon="logout"
-        onLeftPress={handleLogout}
-        rightIcon="account-group"
-        onRightPress={handleManageFriends}
         showThemeToggle={true}
         showLanguageSelector={true}
+        showHelp={true}
+        overflowBeforeItems={[
+          { icon: 'account-group', label: t.header.friends, onPress: handleManageFriends }
+        ]}
+        overflowAfterItems={[
+          { icon: 'logout', label: t.header.logout, onPress: handleLogout }
+        ]}
         elevation={true}
       />
       

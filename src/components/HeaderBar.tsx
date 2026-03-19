@@ -1,15 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   StatusBar,
+  Alert,
+  Modal,
+  Pressable,
   ViewStyle,
   TextStyle
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Theme } from '../constants/theme';
 import { LanguageSelector } from './LanguageSelector';
 import { ThemeToggle } from './ThemeToggle';
@@ -35,6 +39,10 @@ export interface HeaderBarProps {
   additionalRightElements?: React.ReactNode;
   titleAlignment?: 'left' | 'center';
   useDynamicColors?: boolean; // Verde en dark, azul en light
+  showHelp?: boolean;
+  rightIconLabel?: string; // Label para el overflow menu
+  overflowBeforeItems?: Array<{ icon: string; label: string; onPress: () => void }>;
+  overflowAfterItems?: Array<{ icon: string; label: string; onPress: () => void }>;
 }
 
 const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -56,10 +64,16 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   showLanguageSelector = false,
   additionalRightElements,
   titleAlignment = 'center',
-  useDynamicColors = false
+  useDynamicColors = false,
+  showHelp = false,
+  rightIconLabel,
+  overflowBeforeItems,
+  overflowAfterItems
 }) => {
-  const { theme, isDarkMode } = useTheme();
-  
+  const { theme, isDarkMode, toggleTheme } = useTheme();
+  const { language } = useLanguage();
+  const [overflowVisible, setOverflowVisible] = useState(false);
+
   // Determinar colores dinámicos
   const dynamicBackgroundColor = useDynamicColors 
     ? (isDarkMode ? '#00B359' : '#007AFF')
@@ -71,17 +85,36 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
     
   const styles = createStyles(theme, titleAlignment, dynamicBackgroundColor);
 
-  const handleLeftPress = () => {
-    if (onLeftPress) {
-      onLeftPress();
-    }
+  // Contar cuántos elementos van a la derecha
+  const rightCount = [
+    showThemeToggle,
+    showLanguageSelector,
+    showHelp,
+    !!rightIcon,
+    !!rightText,
+  ].filter(Boolean).length
+    + (overflowBeforeItems?.length || 0)
+    + (overflowAfterItems?.length || 0);
+
+  const useOverflow = rightCount > 2;
+
+  const getLanguageFlag = () => {
+    const flags: Record<string, string> = { es: '🇦🇷', en: '🇺🇸', pt: '🇧🇷' };
+    return flags[language] || '🌐';
   };
 
-  const handleRightPress = () => {
-    if (onRightPress) {
-      onRightPress();
-    }
+  const menuLabels: Record<string, Record<string, string>> = {
+    es: { themeLight: 'Modo claro', themeDark: 'Modo oscuro', language: 'Idioma', help: 'Ayuda' },
+    en: { themeLight: 'Light mode', themeDark: 'Dark mode', language: 'Language', help: 'Help' },
+    pt: { themeLight: 'Modo claro', themeDark: 'Modo escuro', language: 'Idioma', help: 'Ajuda' },
   };
+  const ml = menuLabels[language] || menuLabels.es;
+
+  const getThemeLabel = () => isDarkMode ? ml.themeLight : ml.themeDark;
+  const getThemeIcon = () => isDarkMode ? 'white-balance-sunny' : 'moon-waning-crescent';
+
+  const handleLeftPress = () => { if (onLeftPress) onLeftPress(); };
+  const handleRightPress = () => { if (onRightPress) onRightPress(); };
 
   const renderLeftElement = () => {
     if (showBackButton) {
@@ -142,36 +175,60 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   };
 
   const renderRightElement = () => {
-    const elements = [];
-    
-    // Elementos adicionales personalizados
-    if (additionalRightElements) {
-      elements.push(additionalRightElements);
+    // Modo overflow: más de 2 íconos → mostrar botón "..."
+    if (useOverflow) {
+      return (
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => setOverflowVisible(true)}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons
+            name="dots-vertical"
+            size={24}
+            color={dynamicTitleColor}
+          />
+        </TouchableOpacity>
+      );
     }
-    
-    // ThemeToggle
+
+    // Modo normal: mostrar íconos directamente
+    const elements: React.ReactNode[] = [];
+
+    if (additionalRightElements) elements.push(additionalRightElements);
+    // overflowBeforeItems en modo normal
+    (overflowBeforeItems || []).forEach((item, i) => {
+      elements.push(
+        <TouchableOpacity key={`before-${i}`} style={styles.actionButton} onPress={item.onPress} activeOpacity={0.7}>
+          <MaterialCommunityIcons name={item.icon as any} size={24} color={dynamicTitleColor} />
+        </TouchableOpacity>
+      );
+    });
     if (showThemeToggle) {
       elements.push(
-        <ThemeToggle 
-          key="theme-toggle" 
-          size={22} 
-          color={dynamicTitleColor} 
-        />
+        <ThemeToggle key="theme-toggle" size={22} color={dynamicTitleColor} />
       );
     }
-    
-    // LanguageSelector
+
     if (showLanguageSelector) {
       elements.push(
-        <LanguageSelector 
-          key="language-selector" 
-          size={24} 
-          color={dynamicTitleColor} 
-        />
+        <LanguageSelector key="language-selector" size={24} color={dynamicTitleColor} />
       );
     }
-    
-    // Icono derecho tradicional
+
+    if (showHelp) {
+      elements.push(
+        <TouchableOpacity
+          key="help-button"
+          style={styles.actionButton}
+          onPress={() => Alert.alert('Próximamente', 'Esta función estará disponible en una próxima versión.')}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons name="help-circle-outline" size={24} color={dynamicTitleColor} />
+        </TouchableOpacity>
+      );
+    }
+
     if (rightIcon) {
       elements.push(
         <TouchableOpacity
@@ -180,16 +237,11 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
           onPress={handleRightPress}
           activeOpacity={0.7}
         >
-          <MaterialCommunityIcons
-            name={rightIcon as any}
-            size={24}
-            color={dynamicTitleColor}
-          />
+          <MaterialCommunityIcons name={rightIcon as any} size={24} color={dynamicTitleColor} />
         </TouchableOpacity>
       );
     }
-    
-    // Texto derecho tradicional
+
     if (rightText) {
       elements.push(
         <TouchableOpacity
@@ -198,13 +250,20 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
           onPress={handleRightPress}
           activeOpacity={0.7}
         >
-          <Text style={[styles.actionText, { color: dynamicTitleColor }]}>
-            {rightText}
-          </Text>
+          <Text style={[styles.actionText, { color: dynamicTitleColor }]}>{rightText}</Text>
         </TouchableOpacity>
       );
     }
-    
+
+    // overflowAfterItems en modo normal
+    (overflowAfterItems || []).forEach((item, i) => {
+      elements.push(
+        <TouchableOpacity key={`after-${i}`} style={styles.actionButton} onPress={item.onPress} activeOpacity={0.7}>
+          <MaterialCommunityIcons name={item.icon as any} size={24} color={dynamicTitleColor} />
+        </TouchableOpacity>
+      );
+    });
+
     if (elements.length > 0) {
       return (
         <View style={styles.rightElementsContainer}>
@@ -219,6 +278,117 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
 
     return <View style={styles.actionButton} />;
   };
+
+  const renderOverflowMenu = () => (
+    <Modal
+      visible={overflowVisible}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setOverflowVisible(false)}
+    >
+      <Pressable style={styles.overflowOverlay} onPress={() => setOverflowVisible(false)}>
+        <View style={[styles.overflowMenu, { backgroundColor: theme.colors.surfaceContainer }]}>
+          {/* Items antes del bloque estándar */}
+          {(overflowBeforeItems || []).map((item, i) => (
+            <TouchableOpacity
+              key={`before-${i}`}
+              style={styles.overflowItem}
+              onPress={() => { setOverflowVisible(false); item.onPress(); }}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name={item.icon as any} size={22} color={theme.colors.onSurface} />
+              <Text style={[styles.overflowItemLabel, { color: theme.colors.onSurface }]}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
+
+          {showThemeToggle && (
+            <TouchableOpacity
+              style={styles.overflowItem}
+              onPress={() => { toggleTheme(); setOverflowVisible(false); }}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name={getThemeIcon() as any}
+                size={22}
+                color={theme.colors.onSurface}
+              />
+              <Text style={[styles.overflowItemLabel, { color: theme.colors.onSurface }]}>
+                {getThemeLabel()}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {showLanguageSelector && (
+            <LanguageSelector
+              renderTrigger={(onPress) => (
+                <TouchableOpacity
+                  style={styles.overflowItem}
+                  onPress={() => { setOverflowVisible(false); onPress(); }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 20 }}>{getLanguageFlag()}</Text>
+                  <Text style={[styles.overflowItemLabel, { color: theme.colors.onSurface }]}>
+                    {ml.language}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+          )}
+
+          {showHelp && (
+            <TouchableOpacity
+              style={styles.overflowItem}
+              onPress={() => {
+                setOverflowVisible(false);
+                Alert.alert('Próximamente', 'Esta función estará disponible en una próxima versión.');
+              }}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="help-circle-outline" size={22} color={theme.colors.onSurface} />
+              <Text style={[styles.overflowItemLabel, { color: theme.colors.onSurface }]}>{ml.help}</Text>
+            </TouchableOpacity>
+          )}
+
+          {rightIcon && (
+            <TouchableOpacity
+              style={styles.overflowItem}
+              onPress={() => { setOverflowVisible(false); handleRightPress(); }}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name={rightIcon as any} size={22} color={theme.colors.onSurface} />
+              <Text style={[styles.overflowItemLabel, { color: theme.colors.onSurface }]}>
+                {rightIconLabel || rightIcon}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {rightText && (
+            <TouchableOpacity
+              style={styles.overflowItem}
+              onPress={() => { setOverflowVisible(false); handleRightPress(); }}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="text" size={22} color={theme.colors.onSurface} />
+              <Text style={[styles.overflowItemLabel, { color: theme.colors.onSurface }]}>{rightText}</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Items después del bloque estándar */}
+          {(overflowAfterItems || []).map((item, i) => (
+            <TouchableOpacity
+              key={`after-${i}`}
+              style={styles.overflowItem}
+              onPress={() => { setOverflowVisible(false); item.onPress(); }}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name={item.icon as any} size={22} color={theme.colors.onSurface} />
+              <Text style={[styles.overflowItemLabel, { color: theme.colors.onSurface }]}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </Pressable>
+    </Modal>
+  );
 
   return (
     <>
@@ -242,10 +412,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
           
           <View style={styles.titleContainer}>
             <Text
-              style={[
-                styles.title,
-                { color: dynamicTitleColor }
-              ]}
+              style={[styles.title, { color: dynamicTitleColor }]}
               numberOfLines={1}
               ellipsizeMode="tail"
             >
@@ -253,10 +420,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
             </Text>
             {subtitle && (
               <Text
-                style={[
-                  styles.subtitle,
-                  { color: dynamicTitleColor + '80' }
-                ]}
+                style={[styles.subtitle, { color: dynamicTitleColor + '80' }]}
                 numberOfLines={1}
                 ellipsizeMode="tail"
               >
@@ -268,6 +432,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
           {renderRightElement()}
         </View>
       </View>
+      {useOverflow && renderOverflowMenu()}
     </>
   );
 };
@@ -323,16 +488,18 @@ const createStyles = (theme: Theme, titleAlignment: 'left' | 'center' = 'center'
     
     titleContainer: {
       flex: 1,
-      alignItems: titleAlignment === 'left' ? 'flex-start' : 'center',
+      alignItems: 'flex-start',
       justifyContent: 'center',
-      paddingHorizontal: theme.spacing.sm,
+      paddingHorizontal: 2,
     } as ViewStyle,
     
     title: {
       ...theme.typography.titleLarge,
       fontWeight: '700',
-      textAlign: titleAlignment,
+      textAlign: 'left',
       fontSize: 20,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
     } as TextStyle,
     
     subtitle: {
@@ -349,6 +516,38 @@ const createStyles = (theme: Theme, titleAlignment: 'left' | 'center' = 'center'
     rightElementWrapper: {
       marginLeft: 12,
     } as ViewStyle,
+
+    overflowOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.2)',
+    } as ViewStyle,
+
+    overflowMenu: {
+      position: 'absolute',
+      top: 110,
+      right: 12,
+      borderRadius: 12,
+      paddingVertical: 8,
+      minWidth: 200,
+      elevation: 8,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+    } as ViewStyle,
+
+    overflowItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 14,
+      paddingHorizontal: 18,
+      gap: 14,
+    } as ViewStyle,
+
+    overflowItemLabel: {
+      fontSize: 15,
+      fontWeight: '500',
+    } as TextStyle,
   });
 };
 

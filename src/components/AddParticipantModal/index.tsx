@@ -305,7 +305,11 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
     <HeaderBar
       title={t('addParticipant.title')}
       titleAlignment="left"
+      showThemeToggle={true}
+      showLanguageSelector={true}
+      showHelp={true}
       rightIcon="close"
+      rightIconLabel="Cerrar"
       onRightPress={handleClose}
       useDynamicColors={true}
       elevation={true}

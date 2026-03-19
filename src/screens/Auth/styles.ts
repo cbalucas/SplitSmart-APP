@@ -7,21 +7,18 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.colors.surface
   },
   safeContent: {
-    flex: 1,
+    flexGrow: 1,
     padding: 20,
     justifyContent: 'center'
   },
   iconSection: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 8,
     marginTop: 0
   },
   appIcon: {
-    width: 150,
-    height: 150,
-    // borderRadius: 30,
-    // borderWidth: 1,
-    // borderColor: '#FFFFFF'
+    width: 110,
+    height: 110,
   },
   form: {
     backgroundColor: theme.colors.surfaceContainer,
@@ -305,5 +302,79 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     textAlign: 'right'
+  },
+  // Estilos para modal de contraseña generada (ForgotPassword)
+  successModal: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 20,
+    padding: 28,
+    width: '100%',
+    maxWidth: 380,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16
+  },
+  successModalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 8
+  },
+  successModalSubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20
+  },
+  passwordDisplayBox: {
+    borderRadius: 12,
+    borderWidth: 2,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 16
+  },
+  passwordDisplayLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 10
+  },
+  passwordDisplayText: {
+    fontSize: 28,
+    fontWeight: '800',
+    fontFamily: 'monospace',
+    letterSpacing: 4,
+    textAlign: 'center'
+  },
+  warningBox: {
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 14
+  },
+  warningText: {
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 19
+  },
+  successModalHint: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 22,
+    fontStyle: 'italic'
+  },
+  successModalButton: {
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center'
+  },
+  successModalButtonText: {
+    fontSize: 16,
+    fontWeight: '700'
   }
 });
