@@ -60,7 +60,7 @@ class NotificationService {
         whatsappMessage += `\n🧾 *Comprobante:* Enviado`;
       }
       
-      whatsappMessage += `\n\n_Enviado desde SplitSmart App_ 📱`;
+      whatsappMessage += `\n\n*Realizado con SplitSmart.*\n_Descarga tu app_`;
       
       // Abrir WhatsApp directamente (Opción 1)
       this.openWhatsApp(data.recipientPhone, whatsappMessage);

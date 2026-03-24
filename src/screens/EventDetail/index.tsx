@@ -869,16 +869,18 @@ export default function EventDetailScreen() {
     // Usar los settlements que se están mostrando actualmente (originales o consolidados)
     const currentSettlements = getDisplaySettlements();
     
-    let message = `📊 *${t('eventDetail.shareSummaryLabel')} - ${event.name}*\n\n`;
+    let message = `📊 *${t('eventDetail.shareSummaryLabel')} - ${event.name}*\n`;
+    message += `━━━━━━━━━━━━━━━━━━\n`;
     
     // Agregar advertencia si el evento está activo
     if (event.status === 'active') {
-      message += `${t('eventDetail.shareWarning')}\n\n`;
+      message += `${t('eventDetail.shareWarning')}\n`;
+      message += `━━━━━━━━━━━━━━━━━━\n`;
     }
     
     message += `💰 *Total gastado:* ${event.currency} $${totalAmount.toFixed(2)}\n`;
-    message += `👥 *${t('eventDetail.shareParticipantsLabel')}:* ${participantCount}\n\n`;
-    
+    message += `👥 *${t('eventDetail.shareParticipantsLabel')}:* ${participantCount}\n`;
+    message += `━━━━━━━━━━━━━━━━━━\n`;
     message += `💸 ${t('eventDetail.shareSettlementsLabel')}\n\n`;
     if (currentSettlements.length > 0) {
       // Agrupar liquidaciones por destinatario (quien recibe el dinero)
@@ -892,7 +894,8 @@ export default function EventDetailScreen() {
       }, {} as Record<string, Settlement[]>);
 
       // Generar mensaje agrupado por destinatario
-      Object.entries(settlementsByRecipient).forEach(([recipientName, settlementsForRecipient]) => {
+      const recipientEntries = Object.entries(settlementsByRecipient);
+      recipientEntries.forEach(([recipientName, settlementsForRecipient], index) => {
         const recipient = eventParticipants.find(p => p.name === recipientName);
         const cbuAlias = recipient?.alias_cbu || t('eventDetail.shareNoCbu');
         
@@ -903,15 +906,18 @@ export default function EventDetailScreen() {
           const receiptIcon = settlement.receiptImage ? ' 📎' : '';
           message += `  • ${settlement.fromParticipantName}: $${formatCurrency(settlement.amount)}${paymentStatus}${receiptIcon}\n`;
         });
-        message += `\n`;
+        if (index < recipientEntries.length - 1) {
+          message += `\n`; // línea en blanco solo entre grupos, no después del último
+        }
       });
+      message += `━━━━━━━━━━━━━━━━━━\n`;
     } else {
       message += `${t('eventDetail.shareSettled')}\n`;
+      message += `━━━━━━━━━━━━━━━━━━\n`;
     }
 
     // Mostrar información de consolidación después de las liquidaciones
     if (consolidationAssignments.length > 0 && !showOriginalView) {
-      message += `\n━━━━━━━━━━━━━━━━━━\n`;
       message += `🔄 *${t('eventDetail.shareConsolidatedView')}*\n\n`;
       
       // Mostrar quién paga por quién
@@ -919,7 +925,10 @@ export default function EventDetailScreen() {
       consolidationAssignments.forEach(assignment => {
         message += `• ${assignment.payerName} ${t('eventDetail.sharePaysWith')} ${assignment.debtorName}\n`;
       });
+      message += `━━━━━━━━━━━━━━━━━━\n`;
     }
+
+    message += `\n*Realizado con SplitSmart.*\n_Descarga tu app_`;
 
     // Enviar directamente a WhatsApp
     const encodedMessage = encodeURIComponent(message);
@@ -976,7 +985,7 @@ export default function EventDetailScreen() {
       message += `* ${p.name}\n`;
     });
     message += `━━━━━━━━━━━━━━━━━━\n`;
-    message += `💸 ${t('eventDetail.shareSettlementLabel')}\n`;
+    message += `💸 ${t('eventDetail.shareSettlementLabel')}\n\n`;
     
     if (currentSettlements.length > 0) {
       // Agrupar liquidaciones por destinatario (quien recibe el dinero)
@@ -990,35 +999,40 @@ export default function EventDetailScreen() {
       }, {} as Record<string, Settlement[]>);
 
       // Generar mensaje agrupado por destinatario
-      Object.entries(settlementsByRecipient).forEach(([recipientName, settlementsForRecipient]) => {
+      const recipientEntries2 = Object.entries(settlementsByRecipient);
+      recipientEntries2.forEach(([recipientName, settlementsForRecipient], index) => {
         const recipient = eventParticipants.find(p => p.name === recipientName);
         const cbuAlias = recipient?.alias_cbu || t('eventDetail.shareNoCbu');
         
-        message += `${recipientName}\n`;
-        message += `💳 ${cbuAlias}\n`;
+        message += `_${recipientName}_\n`;
+        message += `💳 *${cbuAlias}*\n`;
         (settlementsForRecipient as Settlement[]).forEach((settlement: Settlement) => {
           const paymentStatus = settlement.isPaid ? ' ✅' : ' ⏳';
           const receiptIcon = settlement.receiptImage ? ' 📎' : '';
           message += `  • ${settlement.fromParticipantName}: $${formatCurrency(settlement.amount)}${paymentStatus}${receiptIcon}\n`;
         });
+        if (index < recipientEntries2.length - 1) {
+          message += `\n`; // línea en blanco solo entre grupos
+        }
       });
+      message += `━━━━━━━━━━━━━━━━━━\n`;
     } else {
       message += `${t('eventDetail.shareSettled')}\n`;
+      message += `━━━━━━━━━━━━━━━━━━\n`;
     }
     
     // Mostrar información de consolidación después de las liquidaciones
     if (consolidationAssignments.length > 0 && !showOriginalView) {
-      message += `━━━━━━━━━━━━━━━━━━\n`;
       message += `🔄 ${t('eventDetail.shareConsolidatedView')}\n\n`;
       
       // Mostrar quién paga por quién
       message += `👤 ${t('eventDetail.shareAssignments')}\n`;
       consolidationAssignments.forEach(assignment => {
-        message += `* ${assignment.payerName} ${t('eventDetail.sharePaysWith')} ${assignment.debtorName}\n`;
+        message += `• ${assignment.payerName} ${t('eventDetail.sharePaysWith')} ${assignment.debtorName}\n`;
       });
+      message += `━━━━━━━━━━━━━━━━━━\n`;
     }
     
-    message += `━━━━━━━━━━━━━━━━━━\n`;
     message += `📝 ${t('eventDetail.shareExpensesLabel')} (${eventExpenses.length}):\n`;
     
     if (eventExpenses.length > 0) {
@@ -1060,10 +1074,13 @@ export default function EventDetailScreen() {
         });
       });
       
-      message += `\n💵 ${t('eventDetail.shareTotal')} $${formatCurrency(totalAmount)}\n`;
+      message += `💵 ${t('eventDetail.shareTotal')} $${formatCurrency(totalAmount)}\n`;
+      message += `━━━━━━━━━━━━━━━━━━\n`;
     } else {
       message += `${t('eventDetail.shareNoExpenses')}\n`;
     }
+
+    message += `\n*Realizado con SplitSmart.*\n_Descarga tu app_`;
 
     // Enviar directamente a WhatsApp
     const encodedMessage = encodeURIComponent(message);

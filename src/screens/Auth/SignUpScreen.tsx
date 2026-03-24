@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, KeyboardAvoidingView, Image, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, KeyboardAvoidingView, Image, Platform, Modal, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -50,6 +50,8 @@ export default function SignUpScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showFriendModal, setShowFriendModal] = useState(false);
+  const [pendingCredentials, setPendingCredentials] = useState<{ username: string; password: string } | null>(null);
   const [usernameValidation, setUsernameValidation] = useState<UsernameValidation>({
     isValid: false,
     isChecking: false,
@@ -240,27 +242,9 @@ export default function SignUpScreen() {
         skipPassword: formData.skipPassword
       });
 
-      // Auto-login después del registro
-      const success = await login(formData.username, formData.skipPassword ? '' : formData.password);
-      
-      if (success) {
-        const isDarkMode = theme.colors.surface !== '#FFFFFF';
-        Alert.alert(
-          t.success.title, 
-          t.success.message.replace('{name}', formData.name.split(' ')[0]),
-          [{ text: t.success.button, onPress: () => {} }],
-          { userInterfaceStyle: isDarkMode ? 'dark' : 'light' }
-        );
-      } else {
-        // Si el auto-login falla, mostrar mensaje de éxito manual
-        const isDarkMode = theme.colors.surface !== '#FFFFFF';
-        Alert.alert(
-          t.success.title, 
-          t.success.messageLoginManual,
-          [{ text: t.success.button, onPress: () => navigation.navigate('Login') }],
-          { userInterfaceStyle: isDarkMode ? 'dark' : 'light' }
-        );
-      }
+      // Guardar credenciales y mostrar modal de amigo (antes del auto-login)
+      setPendingCredentials({ username: formData.username, password: formData.skipPassword ? '' : formData.password });
+      setShowFriendModal(true);
 
     } catch (error) {
       console.error('Error creating user:', error);
@@ -279,8 +263,165 @@ export default function SignUpScreen() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleFriendDecision = async (create: boolean) => {
+    setShowFriendModal(false);
+    if (create) {
+      try {
+        await databaseService.createParticipant({
+          id: `friend_${Date.now()}`,
+          name: formData.name.trim(),
+          email: formData.email.trim() || undefined,
+          phone: formData.phone.trim() || undefined,
+          isActive: true,
+          participantType: 'friend',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        } as any);
+      } catch (e) {
+        console.error('Error creating self as friend:', e);
+      }
+    }
+    // Auto-login ahora que el usuario tomó la decisión
+    if (pendingCredentials) {
+      const success = await login(pendingCredentials.username, pendingCredentials.password);
+      if (!success) {
+        const isDarkMode = theme.colors.surface !== '#FFFFFF';
+        Alert.alert(
+          t.success.title,
+          t.success.messageLoginManual,
+          [{ text: t.success.button, onPress: () => navigation.navigate('Login') }],
+          { userInterfaceStyle: isDarkMode ? 'dark' : 'light' }
+        );
+      }
+    }
+    setPendingCredentials(null);
+  };
+
+  const fm = StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    card: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: 20,
+      padding: 24,
+      width: '100%',
+      elevation: 10,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.25,
+      shadowRadius: 16,
+    },
+    title: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: theme.colors.onSurface,
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    subtitle: {
+      fontSize: 13,
+      color: theme.colors.onSurfaceVariant,
+      textAlign: 'center',
+      lineHeight: 19,
+      marginBottom: 18,
+    },
+    dataRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 7,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.outline + '40',
+      gap: 10,
+    },
+    dataLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.colors.onSurfaceVariant,
+      width: 60,
+    },
+    dataValue: {
+      fontSize: 14,
+      color: theme.colors.onSurface,
+      flex: 1,
+    },
+    noteBox: {
+      backgroundColor: theme.colors.surfaceVariant,
+      borderRadius: 10,
+      padding: 12,
+      marginTop: 16,
+      marginBottom: 20,
+    },
+    noteText: {
+      fontSize: 12,
+      color: theme.colors.onSurfaceVariant,
+      lineHeight: 18,
+    },
+    confirmButton: {
+      backgroundColor: theme.colors.primary,
+      borderRadius: 10,
+      paddingVertical: 14,
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    confirmText: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: theme.colors.onPrimary,
+    },
+    skipButton: {
+      alignItems: 'center',
+      paddingVertical: 10,
+    },
+    skipText: {
+      fontSize: 14,
+      color: theme.colors.onSurfaceVariant,
+    },
+  });
+
   return (
     <View style={styles.container}>
+
+      {/* Modal: ¿Agregarte como amigo? */}
+      <Modal visible={showFriendModal} transparent animationType="fade" onRequestClose={() => {}}>
+        <View style={fm.overlay}>
+          <View style={fm.card}>
+            <Text style={fm.title}>{t.friendModal.title}</Text>
+            <Text style={fm.subtitle}>{t.friendModal.subtitle}</Text>
+
+            {/* Datos que se usarán */}
+            <View style={fm.dataRow}>
+              <Text style={fm.dataLabel}>{t.friendModal.nameLabel}</Text>
+              <Text style={fm.dataValue}>{formData.name.trim()}</Text>
+            </View>
+            <View style={fm.dataRow}>
+              <Text style={fm.dataLabel}>{t.friendModal.emailLabel}</Text>
+              <Text style={fm.dataValue}>{formData.email.trim() || t.friendModal.noEmail}</Text>
+            </View>
+            <View style={fm.dataRow}>
+              <Text style={fm.dataLabel}>{t.friendModal.phoneLabel}</Text>
+              <Text style={fm.dataValue}>{formData.phone.trim() || t.friendModal.noPhone}</Text>
+            </View>
+
+            {/* Nota de independencia */}
+            <View style={fm.noteBox}>
+              <Text style={fm.noteText}>{t.friendModal.note}</Text>
+            </View>
+
+            <TouchableOpacity style={fm.confirmButton} onPress={() => handleFriendDecision(true)} activeOpacity={0.8}>
+              <Text style={fm.confirmText}>{t.friendModal.confirmButton}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={fm.skipButton} onPress={() => handleFriendDecision(false)} activeOpacity={0.7}>
+              <Text style={fm.skipText}>{t.friendModal.skipButton}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <HeaderBar
         title={t.title}
         titleAlignment="left"

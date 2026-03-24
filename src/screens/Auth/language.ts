@@ -138,6 +138,18 @@ export const signUpLanguage = {
       messageLoginManual: 'Cuenta creada exitosamente. Por favor inicia sesión.',
       button: 'Continuar'
     },
+    friendModal: {
+      title: '¿Unirte como Amigo?',
+      subtitle: 'Podemos crearte en tu lista de amigos con tus datos para que seas participante de los eventos.',
+      nameLabel: 'Nombre',
+      emailLabel: 'Email',
+      phoneLabel: 'Teléfono',
+      noEmail: 'Sin email',
+      noPhone: 'Sin teléfono',
+      note: 'ℹ️ Este amigo es independiente de tu perfil. Los cambios al perfil no lo actualizarán. Podés editarlo desde Amigos.',
+      confirmButton: 'Sí, agregarme como Amigo',
+      skipButton: 'Ahora no'
+    },
     links: {
       backToLogin: '¿Ya tienes cuenta? Inicia sesión'
     },
@@ -200,6 +212,18 @@ export const signUpLanguage = {
       messageLoginManual: 'Account created successfully. Please sign in.',
       button: 'Continue'
     },
+    friendModal: {
+      title: 'Add Yourself as a Friend?',
+      subtitle: 'We can add you to your friends list so you can participate in events.',
+      nameLabel: 'Name',
+      emailLabel: 'Email',
+      phoneLabel: 'Phone',
+      noEmail: 'No email',
+      noPhone: 'No phone',
+      note: 'ℹ️ This friend is independent from your profile. Profile changes won\'t update it. You can edit it from Friends.',
+      confirmButton: 'Yes, add me as a Friend',
+      skipButton: 'Not now'
+    },
     links: {
       backToLogin: 'Already have an account? Sign in'
     },
@@ -261,6 +285,18 @@ export const signUpLanguage = {
       message: 'Bem-vindo/a {name}! Sua conta foi criada com sucesso.',
       messageLoginManual: 'Conta criada com sucesso. Por favor faça login.',
       button: 'Continuar'
+    },
+    friendModal: {
+      title: 'Adicionar-se como Amigo?',
+      subtitle: 'Podemos te adicionar à sua lista de amigos para que participe dos eventos.',
+      nameLabel: 'Nome',
+      emailLabel: 'Email',
+      phoneLabel: 'Telefone',
+      noEmail: 'Sem email',
+      noPhone: 'Sem telefone',
+      note: 'ℹ️ Este amigo é independente do seu perfil. Alterações no perfil não o atualizarão. Você pode editá-lo em Amigos.',
+      confirmButton: 'Sim, me adicionar como Amigo',
+      skipButton: 'Agora não'
     },
     links: {
       backToLogin: 'Já tem conta? Faça login'
