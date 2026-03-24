@@ -1,5 +1,23 @@
 # Changelog - SplitSmart
 
+## [1.4.5] - 2026-03-24
+
+### 🔧 Correcciones de Bugs
+- ✅ Ruta del ícono de la app corregida en `app.json` (`splash-icon-app_google.png` estaba fuera de la subcarpeta `splitsmart/`)
+
+### ✨ Mejoras
+- ✅ Mensajes de WhatsApp (Compartir Resumen y Compartir Evento): agregadas líneas divisoras `━━━` para mejorar la legibilidad
+- ✅ Nombres de destinatarios de liquidación con formato cursiva `_nombre_` y CBU en negrita `*cbu*`
+- ✅ Saltos de línea corregidos en ambos mensajes (sin líneas en blanco duplicadas ni divisoras dobles)
+- ✅ Bloque de consolidación con divisora de cierre en ambos mensajes
+- ✅ Leyenda final `*Realizado con SplitSmart.*` agregada a todos los envíos por WhatsApp
+
+### 🔢 Versiones
+- **versionCode**: 10 → 11
+- **versionName**: "1.4.4" → "1.4.5"
+
+---
+
 ## [1.4.4] - 2026-03-18
 
 ### 🔧 Correcciones de Bugs

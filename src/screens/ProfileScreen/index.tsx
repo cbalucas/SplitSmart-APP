@@ -1377,7 +1377,7 @@ const ProfileScreen: React.FC = () => {
             </View>
             <View style={styles.settingAction}>
               <View style={styles.versionBadge}>
-                <Text style={styles.versionBadgeText}>v1.4.4</Text>
+                <Text style={styles.versionBadgeText}>v1.4.5</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -1515,19 +1515,50 @@ const ProfileScreen: React.FC = () => {
               contentContainerStyle={{ flexGrow: 1 }}
               nestedScrollEnabled={true}
             >
-              {/* Versión 1.4.4 - Versión Actual - Fix teclado en todas las pantallas */}
+              {/* Versión 1.4.5 - Versión Actual - Mejoras mensajes WhatsApp */}
               <TouchableOpacity 
                 style={[styles.versionBlock, styles.currentVersionBlock]} 
+                onPress={() => toggleVersionExpanded('1.4.5')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.versionHeader}>
+                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.4.5 (Actual)</Text>
+                  <Text style={[styles.versionDate, styles.currentVersionDate]}>24 Mar 2026</Text>
+                  <MaterialCommunityIcons 
+                    name={expandedVersions.has('1.4.5') ? 'chevron-up' : 'chevron-down'} 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
+                </View>
+                {expandedVersions.has('1.4.5') && (
+                  <View style={styles.versionContent}>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>✨ Mejoras</Text>
+                      <Text style={styles.changelogItem}>• Mensajes de WhatsApp con divisoras y mejor formato</Text>
+                      <Text style={styles.changelogItem}>• Saltos de línea corregidos en Compartir Resumen y Evento</Text>
+                      <Text style={styles.changelogItem}>• Leyenda "Realizado con SplitSmart" al final de cada envío</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
+                      <Text style={styles.changelogItem}>• Ruta del ícono de la app corregida en app.json</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Versión 1.4.4 - Fix teclado en todas las pantallas */}
+              <TouchableOpacity 
+                style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.4.4')}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
-                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.4.4 (Actual)</Text>
-                  <Text style={[styles.versionDate, styles.currentVersionDate]}>18 Mar 2026</Text>
+                  <Text style={styles.versionNumber}>v1.4.4</Text>
+                  <Text style={styles.versionDate}>18 Mar 2026</Text>
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.4.4') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
-                    color={theme.colors.primary} 
+                    color={theme.colors.onSurfaceVariant} 
                   />
                 </View>
                 {expandedVersions.has('1.4.4') && (
@@ -1901,7 +1932,7 @@ const ProfileScreen: React.FC = () => {
                   color={theme.colors.primary} 
                   style={{ alignSelf: 'center', marginBottom: 16 }}
                 />
-                <Text style={styles.aboutTitle}>SplitSmart v1.4.4</Text>
+                <Text style={styles.aboutTitle}>SplitSmart v1.4.5</Text>
                 <Text style={styles.aboutDescription}>
                   {t('profile.about.appDescription')}
                 </Text>
@@ -1946,7 +1977,7 @@ const ProfileScreen: React.FC = () => {
               <View style={[styles.aboutSection, { backgroundColor: theme.colors.surfaceVariant, padding: 16, borderRadius: 12 }]}>
                 <Text style={styles.aboutSectionTitle}>{t('profile.about.techSpecs')}</Text>
                 <Text style={styles.aboutDescription}>
-                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.version')}:</Text> 1.4.4{'\n'}
+                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.version')}:</Text> 1.4.5{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.platform')}</Text>{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.database')}</Text>{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.languages')}</Text>
