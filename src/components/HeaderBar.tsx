@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   StyleSheet,
   StatusBar,
@@ -9,7 +10,8 @@ import {
   Modal,
   Pressable,
   ViewStyle,
-  TextStyle
+  TextStyle,
+  ImageStyle
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -43,6 +45,8 @@ export interface HeaderBarProps {
   rightIconLabel?: string; // Label para el overflow menu
   overflowBeforeItems?: Array<{ icon: string; label: string; onPress: () => void }>;
   overflowAfterItems?: Array<{ icon: string; label: string; onPress: () => void }>;
+  showLogo?: boolean;
+  isModal?: boolean;
 }
 
 const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -68,7 +72,9 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   showHelp = false,
   rightIconLabel,
   overflowBeforeItems,
-  overflowAfterItems
+  overflowAfterItems,
+  showLogo = true,
+  isModal = false
 }) => {
   const { theme, isDarkMode, toggleTheme } = useTheme();
   const { language } = useLanguage();
@@ -83,7 +89,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
     ? '#FFFFFF'
     : titleColor || theme.colors.onSurface;
     
-  const styles = createStyles(theme, titleAlignment, dynamicBackgroundColor);
+  const styles = createStyles(theme, titleAlignment, dynamicBackgroundColor, isModal);
 
   // Contar cuántos elementos van a la derecha
   const rightCount = [
@@ -170,6 +176,9 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
         </TouchableOpacity>
       );
     }
+
+    // Si hay logo visible y no hay ningún elemento izquierdo real, no renderizar placeholder
+    if (showLogo) return null;
 
     return <View style={styles.actionButton} />;
   };
@@ -411,22 +420,31 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
           {renderLeftElement()}
           
           <View style={styles.titleContainer}>
-            <Text
-              style={[styles.title, { color: dynamicTitleColor }]}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {title}
-            </Text>
-            {subtitle && (
+            {showLogo && (
+              <Image
+                source={require('../../assets/splitsmart/icon.png')}
+                style={styles.headerLogo}
+                resizeMode="contain"
+              />
+            )}
+            <View style={styles.titleTextContainer}>
               <Text
-                style={[styles.subtitle, { color: dynamicTitleColor + '80' }]}
+                style={[styles.title, { color: dynamicTitleColor }]}
                 numberOfLines={1}
                 ellipsizeMode="tail"
               >
-                {subtitle}
+                {title}
               </Text>
-            )}
+              {subtitle && (
+                <Text
+                  style={[styles.subtitle, { color: dynamicTitleColor + '80' }]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {subtitle}
+                </Text>
+              )}
+            </View>
           </View>
           
           {renderRightElement()}
@@ -437,7 +455,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   );
 };
 
-const createStyles = (theme: Theme, titleAlignment: 'left' | 'center' = 'center', backgroundColor?: string) => {
+const createStyles = (theme: Theme, titleAlignment: 'left' | 'center' = 'center', backgroundColor?: string, isModal: boolean = false) => {
   const isDynamic = backgroundColor && (backgroundColor === '#007AFF' || backgroundColor === '#00B359');
   const borderColor = isDynamic 
     ? (backgroundColor === '#007AFF' ? '#0056CC' : '#008A44')
@@ -445,7 +463,7 @@ const createStyles = (theme: Theme, titleAlignment: 'left' | 'center' = 'center'
 
   return StyleSheet.create({
     container: {
-      paddingTop: 50, // Account for status bar
+      paddingTop: isModal ? 0 : 30, // Account for status bar - 0 in modals (pageSheet)
       borderBottomWidth: 1,
       borderBottomColor: borderColor,
       shadowColor: theme.colors.shadow,
@@ -457,11 +475,12 @@ const createStyles = (theme: Theme, titleAlignment: 'left' | 'center' = 'center'
       flexDirection: 'row',
       alignItems: 'center',
       height: 56,
-      paddingHorizontal: theme.spacing.md,
+      paddingLeft: 8,
+      paddingRight: theme.spacing.md,
     } as ViewStyle,
     
     actionButton: {
-      width: 48,
+      width: 40,
       height: 48,
       alignItems: 'center',
       justifyContent: 'center',
@@ -488,10 +507,22 @@ const createStyles = (theme: Theme, titleAlignment: 'left' | 'center' = 'center'
     
     titleContainer: {
       flex: 1,
-      alignItems: 'flex-start',
-      justifyContent: 'center',
+      flexDirection: 'row',
+      alignItems: 'center',
       paddingHorizontal: 2,
     } as ViewStyle,
+
+    titleTextContainer: {
+      flex: 1,
+      justifyContent: 'center',
+    } as ViewStyle,
+
+    headerLogo: {
+      width: 34,
+      height: 34,
+      marginRight: 10,
+      borderRadius: 8,
+    } as ImageStyle,
     
     title: {
       ...theme.typography.titleLarge,
@@ -524,7 +555,7 @@ const createStyles = (theme: Theme, titleAlignment: 'left' | 'center' = 'center'
 
     overflowMenu: {
       position: 'absolute',
-      top: 110,
+      top: 88,
       right: 12,
       borderRadius: 12,
       paddingVertical: 8,

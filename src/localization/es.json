@@ -132,7 +132,8 @@
     "confirmation": {
       "title": "🔄 Confirmar Consolidación",
       "summary": "📋 Resumen de la consolidación:\n\n• {assignments} asignación(es) configurada(s)\n• {debtors} deudor(es) será(n) pagado(s) por otros\n• {payers} pagador(es) asumirá(n) deudas adicionales\n\n💡 Los pagos donde una persona se pagaría a sí misma se condonarán automáticamente.\n\n¿Confirmas aplicar esta consolidación?"
-    }
+    },
+    "applyButton": "Aplicar"
   },
   "profile": {
     "title": "Perfil",

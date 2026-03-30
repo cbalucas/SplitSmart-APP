@@ -65,6 +65,7 @@ export default function LoginScreen() {
         showHelp={true}
         showBackButton={false}
         elevation={true}
+        showLogo={false}
       />
       
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>

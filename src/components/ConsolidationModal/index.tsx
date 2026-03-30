@@ -9,7 +9,9 @@ import {
   Alert,
   ScrollView
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import HeaderBar from '../HeaderBar';
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { Settlement, ConsolidationAssignment, Participant } from '../../types';
@@ -306,30 +308,16 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['bottom', 'left', 'right']}>
         {/* Header */}
-        <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <MaterialCommunityIcons 
-              name="close" 
-              size={24} 
-              color={theme.colors.onSurface} 
-            />
-          </TouchableOpacity>
-          
-          <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-            {t('consolidationModal.title')}
-          </Text>
-          
-          <TouchableOpacity 
-            onPress={handleApplyConsolidation}
-            style={[styles.applyButton, { backgroundColor: theme.colors.primary }]}
-          >
-            <Text style={[styles.applyButtonText, { color: theme.colors.onPrimary }]}>
-              Aplicar
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <HeaderBar
+          title={t('consolidationModal.title')}
+          titleAlignment="left"
+          useDynamicColors={true}
+          showLogo={true}
+          showBackButton={false}
+          isModal={true}
+        />
 
         {/* Content */}
         <ScrollView style={styles.content}>
@@ -367,11 +355,21 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
             renderItem={renderDebtorItem}
             keyExtractor={(item, index) => `debtor_${item.participantId}_${index}`}
             scrollEnabled={false}
-
             removeClippedSubviews={false}
           />
         </ScrollView>
-      </View>
+
+        {/* Botón Aplicar fijo en la parte inferior */}
+        <TouchableOpacity
+          style={[styles.applyButton, { backgroundColor: theme.colors.primary }]}
+          onPress={handleApplyConsolidation}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.applyButtonText, { color: theme.colors.onPrimary }]}>
+            {t('consolidationModal.applyButton') || 'Aplicar'}
+          </Text>
+        </TouchableOpacity>
+      </SafeAreaView>
     </Modal>
   );
 };
@@ -380,32 +378,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
-  },
-  closeButton: {
-    padding: 8,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    flex: 1,
-    textAlign: 'center',
-  },
   applyButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    marginTop: 8,
+    marginBottom: 16,
+    marginHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
   },
   applyButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
   },
   content: {
     flex: 1,

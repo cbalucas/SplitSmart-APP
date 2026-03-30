@@ -132,7 +132,8 @@
     "confirmation": {
       "title": "🔄 Confirm Consolidation",
       "summary": "📋 Consolidation summary:\n\n• {assignments} assignment(s) configured\n• {debtors} debtor(s) will be paid by others\n• {payers} payer(s) will assume additional debts\n\n💡 Payments where a person would pay themselves will be automatically forgiven.\n\nConfirm applying this consolidation?"
-    }
+    },
+    "applyButton": "Apply"
   },
   "profile": {
     "title": "Profile",

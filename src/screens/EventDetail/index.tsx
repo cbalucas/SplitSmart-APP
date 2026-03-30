@@ -2921,7 +2921,7 @@ export default function EventDetailScreen() {
           setEditingParticipant(null);
         }}
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top', 'bottom', 'left', 'right']}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['bottom', 'left', 'right']}>
           <EditParticipantModalContent
             participant={editingParticipant}
             onSave={handleSaveEditedParticipant}
@@ -2940,7 +2940,7 @@ export default function EventDetailScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowExpenseDetailModal(false)}
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top', 'bottom', 'left', 'right']}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['bottom', 'left', 'right']}>
           <View style={{ flex: 1 }}>
             {/* Header genérico */}
             <HeaderBar 
@@ -2948,6 +2948,8 @@ export default function EventDetailScreen() {
               titleAlignment="left"
               showBackButton={false}
               useDynamicColors={true}
+              showLogo={true}
+              isModal={true}
             />
 
             {selectedExpenseForDetail && (
@@ -3067,22 +3069,23 @@ export default function EventDetailScreen() {
       <Modal
         visible={participantInfoModalVisible}
         animationType="slide"
-        transparent={false}
-        statusBarTranslucent={true}
+        presentationStyle="pageSheet"
         onRequestClose={() => {
           setParticipantInfoModalVisible(false);
           setSelectedParticipantForInfo(null);
         }}
       >
-        <ParticipantInfoModalContent
-          participant={selectedParticipantForInfo}
-          onClose={() => {
-            setParticipantInfoModalVisible(false);
-            setSelectedParticipantForInfo(null);
-          }}
-          eventStats={eventStats}
-          balance={selectedParticipantForInfo ? balancesById[selectedParticipantForInfo.id] || 0 : 0}
-        />
+        <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['bottom', 'left', 'right']}>
+          <ParticipantInfoModalContent
+            participant={selectedParticipantForInfo}
+            onClose={() => {
+              setParticipantInfoModalVisible(false);
+              setSelectedParticipantForInfo(null);
+            }}
+            eventStats={eventStats}
+            balance={selectedParticipantForInfo ? balancesById[selectedParticipantForInfo.id] || 0 : 0}
+          />
+        </SafeAreaView>
       </Modal>
 
       {/* Modal de Consolidación */}
@@ -3117,7 +3120,9 @@ const ParticipantInfoModalContent: React.FC<{
         title={t('participant.info')}
         titleAlignment="left"
         showBackButton={false}
+        showLogo={true}
         useDynamicColors={true}
+        isModal={true}
       />
 
       <ScrollView style={{ flex: 1, padding: 20, backgroundColor: theme.colors.background }}>

@@ -699,6 +699,7 @@ const translations = {
     'consolidationModal.example': 'Ejemplo: Si Ana paga por Bob, pero Bob le debía a Ana, esa deuda se cancela.',
     'consolidationModal.confirmation.title': '🔄 Confirmar Consolidación',
     'consolidationModal.confirmation.summary': '📋 Resumen de la consolidación:\\n\\n• {assignments} asignación(es) configurada(s)\\n• {debtors} deudor(es) será(n) pagado(s) por otros\\n• {payers} pagador(es) asumirá(n) deudas adicionales\\n\\n💡 Los pagos donde una persona se pagaría a sí misma se condonarán automáticamente.\\n\\n¿Confirmas aplicar esta consolidación?',
+    'consolidationModal.applyButton': 'Aplicar',
     // EventCard
     'eventCard.participant': 'participante',
     'eventCard.participants': 'participantes',
@@ -1309,6 +1310,7 @@ const translations = {
     'consolidationModal.example': 'Example: If Ana pays for Bob, but Bob owed Ana, that debt is canceled.',
     'consolidationModal.confirmation.title': '🔄 Confirm Consolidation',
     'consolidationModal.confirmation.summary': '📋 Consolidation summary:\\n\\n• {assignments} assignment(s) configured\\n• {debtors} debtor(s) will be paid by others\\n• {payers} payer(s) will assume additional debts\\n\\n💡 Payments where a person would pay themselves will be automatically forgiven.\\n\\nConfirm applying this consolidation?',
+    'consolidationModal.applyButton': 'Apply',
     // EventDetail - Textos hardcodeados en UI
     'eventDetail.consolidate': 'Consolidate',
     'eventDetail.viewConsolidated': 'View Consolidated',
