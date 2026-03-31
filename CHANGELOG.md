@@ -1,5 +1,31 @@
 # Changelog - SplitSmart
 
+## [1.4.6] - 2026-03-31
+
+### 🚀 Nuevas Funcionalidades
+- **Icono SplitSmart en HeaderBar**: Logo de la app visible a la izquierda del título en todas las pantallas (excepto Login)
+- **Patrón de validación visual unificado** (`submittedOnce`): campos obligatorios muestran `*` rojo y label en rojo al intentar guardar con campo vacío — implementado en 9 pantallas y modales: `SignUpScreen`, `LoginScreen`, `ForgotPasswordScreen`, `CreateEvent`, `CreateExpense`, `ManageFriends`, `ProfileScreen`, `EditParticipantModal` y `AddParticipantModal`
+- **Prop `isModal` en HeaderBar**: nuevo prop que elimina el `paddingTop: 30` cuando el componente se usa dentro de modales `pageSheet`
+
+### 🔧 Correcciones de Bugs
+- ✅ Bug en `SignUpScreen`: campo username duplicaba caracteres al tener `.toLowerCase()` en `onChangeText` — corregido aplicando la transformación solo al validar/enviar
+- ✅ Doble asterisco en campos obligatorios: eliminado `*` hardcodeado de textos de traducción (ES/EN/PT) en `CreateEvent/language.ts`, `CreateExpense/language.ts`, `LanguageContext.tsx` (`eventDetail.labelName`, `addParticipant.fullNameLabel`)
+- ✅ Safe Area top en modales `ConsolidationModal`, `ExpenseDetailModal` y `ParticipantInfoModal`: corregido `edges` de `['top','bottom','left','right']` a `['bottom','left','right']`
+- ✅ Botón "Aplicar" en `ConsolidationModal` quedaba oculto con muchos ítems: movido fuera del `ScrollView`
+- ✅ Overflow menu desalineado: ajustado `top: 88` (era `110`)
+- ✅ Traducción `consolidationModal.applyButton` no existía: agregada en ES y EN en `LanguageContext.tsx`
+
+### ✨ Mejoras
+- **Botón "Crear cuenta" fijo al pie** en `SignUpScreen`: movido fuera del `ScrollView` para que siempre sea visible con el teclado abierto
+- **Unificación estética de 3 modales**: `ConsolidationModal`, `ExpenseDetailModal` y `ParticipantInfoModal` comparten estructura `Modal presentationStyle="pageSheet"` + `SafeAreaView` + `HeaderBar` estándar con `showLogo={true}`, `isModal={true}`, `useDynamicColors={true}`
+- **`build-apk.ps1`**: directorio de copia backup cambiado a `C:\Users\cbalu\Dropbox\VsCode\SplitSmart APK`
+
+### 🔢 Versiones
+- **versionCode**: 11 → 12
+- **versionName**: "1.4.5" → "1.4.6"
+
+---
+
 ## [1.4.5] - 2026-03-24
 
 ### 🔧 Correcciones de Bugs

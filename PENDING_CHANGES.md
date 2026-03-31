@@ -6,9 +6,9 @@
 
 ---
 
-## 🗂️ Versión en desarrollo: v1.4.6
+## 🗂️ Versión en desarrollo: v1.4.7
 
-> Cambios realizados después del build de v1.4.5 (versionCode 11)
+> Cambios realizados después del build de v1.4.6 (versionCode 12)
 
 ### 🚀 Nuevas Funcionalidades
 
