@@ -69,6 +69,15 @@ export const createStyles = (theme: Theme, insets: EdgeInsets) => StyleSheet.cre
     marginBottom: 4,
   } as TextStyle,
 
+  inputLabelError: {
+    color: '#FF5252',
+  } as TextStyle,
+
+  requiredStar: {
+    color: '#FF5252',
+    fontWeight: '700',
+  } as TextStyle,
+
   inputValue: {
     fontSize: 16,
     color: theme.colors.onSurface,

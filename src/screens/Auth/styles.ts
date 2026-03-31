@@ -37,6 +37,13 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     marginBottom: 8,
     marginTop: 15
   },
+  labelError: {
+    color: '#FF5252'
+  },
+  requiredStar: {
+    color: '#FF5252',
+    fontWeight: '700'
+  },
   input: {
     borderWidth: 1,
     borderColor: theme.colors.outline,
@@ -142,6 +149,14 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   scrollView: {
     flex: 1
   },
+  fixedFooter: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 8,
+    backgroundColor: theme.colors.background,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.outline + '30'
+  },
   mainTitle: {
     fontSize: 28,
     fontWeight: '700',
@@ -209,7 +224,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 8
   },
   linkButton: {
-    alignItems: 'flex-end',
+    alignItems: 'center',
     marginTop: 10
   },
   linkText: {

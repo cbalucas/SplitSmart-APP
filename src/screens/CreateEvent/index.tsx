@@ -62,6 +62,7 @@ const CreateEventScreen: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [submittedOnce, setSubmittedOnce] = useState(false);
 
   // Cargar datos del evento si estamos editando - cada vez que la pantalla se enfoca
   // Cargar moneda preferida del usuario para eventos nuevos
@@ -253,6 +254,7 @@ const CreateEventScreen: React.FC = () => {
   };
 
   const handleCreateEvent = async () => {
+    setSubmittedOnce(true);
     if (!validateForm()) {
       return;
     }
@@ -416,6 +418,7 @@ const CreateEventScreen: React.FC = () => {
             onChangeText={(text) => handleInputChange('name', text)}
             icon="pencil"
             maxLength={50}
+            required={true}
             error={errors.name}
             containerStyle={styles.input}
           />
@@ -449,7 +452,9 @@ const CreateEventScreen: React.FC = () => {
                 style={styles.inputIcon}
               />
               <View style={styles.inputContent}>
-                <Text style={styles.inputLabel}>{t.form.startDate}</Text>
+                <Text style={[styles.inputLabel, submittedOnce && !formData.startDate && styles.inputLabelError]}>
+                  {t.form.startDate}<Text style={styles.requiredStar}> *</Text>
+                </Text>
                 <Text style={[
                   styles.inputValue,
                   !formData.startDate && styles.placeholder

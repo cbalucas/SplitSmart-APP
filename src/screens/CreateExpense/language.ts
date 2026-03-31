@@ -9,11 +9,11 @@ export const createExpenseLanguage = {
     // Card: Información del Gasto
     expenseInfoCard: {
       title: '📝 Información del Gasto',
-      descriptionLabel: '¿En qué se gastó? *',
+      descriptionLabel: '¿En qué se gastó?',
       descriptionPlaceholder: 'Ej: Cena en restaurante',
-      amountLabel: 'Monto Total *',
+      amountLabel: 'Monto Total',
       amountPlaceholder: '0.00',
-      dateLabel: 'Fecha del Gasto *'
+      dateLabel: 'Fecha del Gasto'
     },
     
     // Card: ¿Quién pagó?
@@ -132,11 +132,11 @@ export const createExpenseLanguage = {
     // Card: Información del Gasto
     expenseInfoCard: {
       title: '📝 Expense Information',
-      descriptionLabel: 'What was spent on? *',
+      descriptionLabel: 'What was spent on?',
       descriptionPlaceholder: 'e.g.: Restaurant dinner',
-      amountLabel: 'Total Amount *',
+      amountLabel: 'Total Amount',
       amountPlaceholder: '0.00',
-      dateLabel: 'Expense Date *'
+      dateLabel: 'Expense Date'
     },
     
     // Card: ¿Quién pagó?
@@ -255,11 +255,11 @@ export const createExpenseLanguage = {
     // Card: Información del Gasto
     expenseInfoCard: {
       title: '📝 Informações da Despesa',
-      descriptionLabel: 'Em que foi gasto? *',
+      descriptionLabel: 'Em que foi gasto?',
       descriptionPlaceholder: 'Ex: Jantar no restaurante',
-      amountLabel: 'Valor Total *',
+      amountLabel: 'Valor Total',
       amountPlaceholder: '0.00',
-      dateLabel: 'Data da Despesa *'
+      dateLabel: 'Data da Despesa'
     },
     
     // Card: ¿Quién pagó?

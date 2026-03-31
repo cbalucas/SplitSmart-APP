@@ -123,6 +123,7 @@ const ManageFriendsScreen: React.FC = () => {
     phone: '',
     alias_cbu: ''
   });
+  const [submittedOnce, setSubmittedOnce] = useState(false);
 
   useEffect(() => {
     loadFriends();
@@ -195,6 +196,7 @@ const ManageFriendsScreen: React.FC = () => {
   };
 
   const handleSaveFriend = async () => {
+    setSubmittedOnce(true);
     if (!newFriend.name.trim()) {
       Alert.alert(t.alerts.error.general, t.alerts.error.nameRequired);
       return;
@@ -233,6 +235,7 @@ const ManageFriendsScreen: React.FC = () => {
       // Reset form and return to list
       setNewFriend({ name: '', email: '', phone: '', alias_cbu: '' });
       setEditingFriend(null);
+      setSubmittedOnce(false);
       setActiveTab('list');
     } catch (error) {
       Alert.alert(t.alerts.error.general, t.alerts.error.saveFailed);
@@ -308,7 +311,9 @@ const ManageFriendsScreen: React.FC = () => {
         </Text>
         
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>{t.form.nameLabel} {t.form.required}</Text>
+          <Text style={[styles.inputLabel, submittedOnce && !newFriend.name.trim() && styles.inputLabelError]}>
+            {t.form.nameLabel}<Text style={styles.requiredStar}> *</Text>
+          </Text>
           <TextInput
             style={styles.input}
             placeholder={t.form.namePlaceholder}
@@ -363,6 +368,7 @@ const ManageFriendsScreen: React.FC = () => {
               setActiveTab('list');
               setEditingFriend(null);
               setNewFriend({ name: '', email: '', phone: '', alias_cbu: '' });
+              setSubmittedOnce(false);
             }}
             style={styles.cancelButton}
           />

@@ -42,6 +42,38 @@
 
 ---
 
+## 🗂️ Validación de campos obligatorios (patrón `submittedOnce`)
+
+> Trabajo realizado en sesión 31/03/2026
+
+### ✨ Mejoras
+
+- **Patrón de validación visual unificado**: Se implementó en todas las pantallas/modales con campos obligatorios el patrón `submittedOnce` + label rojo + asterisco rojo al intentar guardar con campo vacío. El `*` rojo lo muestra el componente `<Input>` via `required={true}` o el JSX con `<Text style={requiredStar}> *</Text>`. El label cambia a rojo `#FF5252` cuando `submittedOnce && !campo.trim()`.
+- **Fix bug duplicación de texto**: En `SignUpScreen`, el campo username duplicaba caracteres por tener `.toLowerCase()` en `onChangeText`. Corregido: la transformación se aplica solo al momento de validar/enviar.
+- **Botón fijo al pie en SignUpScreen**: El botón "Crear cuenta" se movió fuera del `ScrollView` a un `fixedFooter` para que siempre sea visible.
+- **Doble asterisco eliminado**: Se removió el `*` hardcodeado de los textos de traducción en todos los idiomas (ES/EN/PT) donde el JSX ya añadía el `*` visual.
+
+### 🔧 Archivos modificados — Validación
+
+- `src/screens/Auth/SignUpScreen.tsx` — Patrón completo: `submittedOnce`, `hasFieldError()`, `*` en labels requeridos, botón fijo al pie, fix duplicación texto
+- `src/screens/Auth/LoginScreen.tsx` — `submittedOnce`, función `hasFieldError('credential')`, label rojo en credencial
+- `src/screens/Auth/ForgotPasswordScreen.tsx` — `submittedOnce`, label rojo en credencial
+- `src/screens/Auth/styles.ts` — Estilos `labelError`, `requiredStar`, `fixedFooter`
+- `src/screens/CreateEvent/index.tsx` — `submittedOnce`, `required={true}` en nombre, label rojo en fecha inicio
+- `src/screens/CreateEvent/styles.ts` — Estilos `inputLabelError`, `requiredStar`
+- `src/screens/CreateEvent/language.ts` — Eliminado ` *` hardcodeado de `eventName` y `startDate` (ES/EN/PT)
+- `src/screens/CreateExpense/index.tsx` — `submittedOnce`, `required={true}` en descripción y monto, `*` JSX en fecha
+- `src/screens/CreateExpense/language.ts` — Eliminado ` *` hardcodeado de `descriptionLabel`, `amountLabel` y `dateLabel` (ES/EN/PT)
+- `src/screens/ManageFriends/index.tsx` — `submittedOnce`, label rojo en nombre, reset en cancelar
+- `src/screens/ManageFriends/styles.ts` — Estilos `inputLabelError`, `requiredStar`
+- `src/screens/ProfileScreen/index.tsx` — `submittedOnce`, `required={true}` y `error` en nombre/username/email, reset en cancelar
+- `src/screens/EventDetail/index.tsx` — `submittedOnce` en `EditParticipantModalContent`, label nombre con `*` y color rojo, botón guardar sin `disabled` estático
+- `src/components/AddParticipantModal/index.tsx` — `submittedOnce` (tab Nuevo) y `bulkSubmittedOnce` (tab Masivo custom), labels con `*` y color rojo, botones sin `disabled` estático, reset en `handleClose`; estilos `inputLabelError`, `requiredStar`
+- `src/context/LanguageContext.tsx` — Eliminado ` *` hardcodeado de `eventDetail.labelName` y `addParticipant.fullNameLabel` (ES/EN/PT)
+- `build-apk.ps1` — Directorio de copia backup cambiado a `C:\Users\cbalu\Dropbox\VsCode\SplitSmart APK`
+
+---
+
 ## 📋 Instrucciones de uso
 
 1. **Al inicio de cada sesión**: leer este archivo para retomar el contexto

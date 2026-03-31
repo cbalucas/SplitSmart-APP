@@ -17,6 +17,7 @@ export default function ForgotPasswordScreen() {
   const [credential, setCredential] = useState('');
   const [loading, setLoading] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
+  const [submittedOnce, setSubmittedOnce] = useState(false);
 
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
@@ -137,6 +138,7 @@ export default function ForgotPasswordScreen() {
   };
 
   const handleResetPassword = async () => {
+    setSubmittedOnce(true);
     if (!credential.trim()) {
       const isDarkMode = theme.colors.surface !== '#FFFFFF';
       Alert.alert(t.errors.title, t.errors.credentialRequired, [
@@ -252,7 +254,9 @@ export default function ForgotPasswordScreen() {
           
           <Text style={styles.infoText}>{t.form.infoText}</Text>
 
-          <Text style={styles.label}>{t.form.credentialLabel}</Text>
+          <Text style={[styles.label, submittedOnce && !credential.trim() && styles.labelError]}>
+            {t.form.credentialLabel}<Text style={styles.requiredStar}> *</Text>
+          </Text>
           <TextInput
             style={styles.input}
             value={credential}

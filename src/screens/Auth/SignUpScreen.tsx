@@ -52,6 +52,7 @@ export default function SignUpScreen() {
   const [loading, setLoading] = useState(false);
   const [showFriendModal, setShowFriendModal] = useState(false);
   const [pendingCredentials, setPendingCredentials] = useState<{ username: string; password: string } | null>(null);
+  const [submittedOnce, setSubmittedOnce] = useState(false);
   const [usernameValidation, setUsernameValidation] = useState<UsernameValidation>({
     isValid: false,
     isChecking: false,
@@ -119,7 +120,7 @@ export default function SignUpScreen() {
   React.useEffect(() => {
     if (formData.username.trim()) {
       const timeoutId = setTimeout(() => {
-        validateUsername(formData.username.trim());
+        validateUsername(formData.username.trim().toLowerCase());
       }, 500);
       return () => clearTimeout(timeoutId);
     } else {
@@ -191,6 +192,7 @@ export default function SignUpScreen() {
   };
 
   const handleSignUp = async () => {
+    setSubmittedOnce(true);
     const validation = validateForm();
     if (!validation.isValid) {
       const isDarkMode = theme.colors.surface !== '#FFFFFF';
@@ -234,8 +236,8 @@ export default function SignUpScreen() {
       const userId = `user_${Date.now()}`;
       await databaseService.createUser({
         id: userId,
-        username: formData.username.trim(),
-        email: formData.email.trim() ? formData.email.trim().toLowerCase() : `${formData.username}@temp.local`,
+        username: formData.username.trim().toLowerCase(),
+        email: formData.email.trim() ? formData.email.trim().toLowerCase() : `${formData.username.toLowerCase()}@temp.local`,
         password: formData.skipPassword ? '' : formData.password,
         name: formData.name.trim(),
         phone: formData.phone.trim(),
@@ -243,7 +245,7 @@ export default function SignUpScreen() {
       });
 
       // Guardar credenciales y mostrar modal de amigo (antes del auto-login)
-      setPendingCredentials({ username: formData.username, password: formData.skipPassword ? '' : formData.password });
+      setPendingCredentials({ username: formData.username.toLowerCase(), password: formData.skipPassword ? '' : formData.password });
       setShowFriendModal(true);
 
     } catch (error) {
@@ -261,6 +263,18 @@ export default function SignUpScreen() {
 
   const updateFormData = (field: keyof SignUpFormData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const hasFieldError = (field: keyof SignUpFormData): boolean => {
+    if (!submittedOnce) return false;
+    switch (field) {
+      case 'name': return !formData.name.trim();
+      case 'username': return !formData.username.trim() || (!usernameValidation.isValid && !usernameValidation.isChecking);
+      case 'phone': return !formData.phone.trim();
+      case 'password': return !formData.skipPassword && !formData.password;
+      case 'confirmPassword': return !formData.skipPassword && formData.password !== formData.confirmPassword;
+      default: return false;
+    }
   };
 
   const handleFriendDecision = async (create: boolean) => {
@@ -446,7 +460,9 @@ export default function SignUpScreen() {
           <View style={styles.form}>
 
             {/* Nombre completo */}
-            <Text style={styles.label}>{t.form.nameLabel}</Text>
+            <Text style={[styles.label, hasFieldError('name') && styles.labelError]}>
+              {t.form.nameLabel}<Text style={styles.requiredStar}> *</Text>
+            </Text>
             <TextInput
               style={styles.input}
               value={formData.name}
@@ -458,7 +474,9 @@ export default function SignUpScreen() {
             />
 
             {/* Username */}
-            <Text style={styles.label}>{t.form.usernameLabel}</Text>
+            <Text style={[styles.label, hasFieldError('username') && styles.labelError]}>
+              {t.form.usernameLabel}<Text style={styles.requiredStar}> *</Text>
+            </Text>
             <View style={styles.inputWithIndicator}>
               <TextInput
                 style={[
@@ -467,7 +485,7 @@ export default function SignUpScreen() {
                   (!usernameValidation.isValid && usernameValidation.message && !usernameValidation.isChecking) && styles.inputInvalid
                 ]}
                 value={formData.username}
-                onChangeText={(text) => updateFormData('username', text.toLowerCase())}
+                onChangeText={(text) => updateFormData('username', text)}
                 placeholder={t.form.usernamePlaceholder}
                 placeholderTextColor={theme.colors.onSurfaceVariant}
                 autoCapitalize="none"
@@ -493,7 +511,9 @@ export default function SignUpScreen() {
             )}
 
             {/* Teléfono (obligatorio) */}
-            <Text style={styles.label}>{t.form.phoneLabel}</Text>
+            <Text style={[styles.label, hasFieldError('phone') && styles.labelError]}>
+              {t.form.phoneLabel}<Text style={styles.requiredStar}> *</Text>
+            </Text>
             <TextInput
               style={styles.input}
               value={formData.phone}
@@ -532,7 +552,9 @@ export default function SignUpScreen() {
             {!formData.skipPassword && (
               <>
                 {/* Contraseña */}
-                <Text style={styles.label}>{t.form.passwordLabel}</Text>
+                <Text style={[styles.label, hasFieldError('password') && styles.labelError]}>
+                  {t.form.passwordLabel}<Text style={styles.requiredStar}> *</Text>
+                </Text>
                 <View style={styles.passwordContainer}>
                   <TextInput
                     style={styles.passwordInput}
@@ -575,7 +597,9 @@ export default function SignUpScreen() {
                 )}
 
                 {/* Confirmar contraseña */}
-                <Text style={styles.label}>{t.form.confirmPasswordLabel}</Text>
+                <Text style={[styles.label, hasFieldError('confirmPassword') && styles.labelError]}>
+                  {t.form.confirmPasswordLabel}<Text style={styles.requiredStar}> *</Text>
+                </Text>
                 <View style={styles.passwordContainer}>
                   <TextInput
                     style={styles.passwordInput}
@@ -604,26 +628,28 @@ export default function SignUpScreen() {
               </>
             )}
 
-            {/* Botón de registro */}
-            <TouchableOpacity 
-              style={[styles.button, loading && styles.buttonDisabled]} 
-              onPress={handleSignUp}
-              disabled={loading}
-            >
-              <Text style={styles.buttonText}>
-                {loading ? t.form.signUpButtonLoading : t.form.signUpButton}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Enlace para volver al login */}
-            <TouchableOpacity 
-              style={styles.linkButton}
-              onPress={() => navigation.navigate('Login')}
-            >
-              <Text style={styles.linkText}>{t.links.backToLogin}</Text>
-            </TouchableOpacity>
           </View>
         </ScrollView>
+
+        {/* Footer fijo con botón de registro */}
+        <View style={styles.fixedFooter}>
+          <TouchableOpacity 
+            style={[styles.button, loading && styles.buttonDisabled]} 
+            onPress={handleSignUp}
+            disabled={loading}
+          >
+            <Text style={styles.buttonText}>
+              {loading ? t.form.signUpButtonLoading : t.form.signUpButton}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.linkButton}
+            onPress={() => navigation.navigate('Login')}
+          >
+            <Text style={styles.linkText}>{t.links.backToLogin}</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
       </KeyboardAvoidingView>
     </View>

@@ -177,6 +177,7 @@ const ProfileScreen: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [newPassword, setNewPassword] = useState('');
+  const [submittedOnce, setSubmittedOnce] = useState(false);
   const [skipPassword, setSkipPassword] = useState(false);
   const [autoLogin, setAutoLogin] = useState(false);
   const [showAutoLogoutOptions, setShowAutoLogoutOptions] = useState(false);
@@ -289,6 +290,7 @@ const ProfileScreen: React.FC = () => {
   };
 
   const handleSaveProfile = async () => {
+    setSubmittedOnce(true);
     if (!user?.id) {
       Alert.alert('Error', 'No se pudo identificar el usuario');
       return;
@@ -911,23 +913,29 @@ const ProfileScreen: React.FC = () => {
               onPress={closeAutoLogoutDropdown}
             >
               <Input
-                label={`${t('profile.name')} *`}
+                label={`${t('profile.name')}`}
                 value={profileData.name}
                 onChangeText={(value) => setProfileData(prev => ({ ...prev, name: value }))}
                 containerStyle={styles.editInput}
+                required={true}
+                error={submittedOnce && !profileData.name?.trim() ? t('profile.name') : ''}
               />
               <Input
-                label={`${t('profile.username')} *`}
+                label={`${t('profile.username')}`}
                 value={profileData.username}
                 onChangeText={(value) => setProfileData(prev => ({ ...prev, username: value }))}
                 containerStyle={styles.editInput}
+                required={true}
+                error={submittedOnce && !profileData.username?.trim() ? t('profile.username') : ''}
               />
               <Input
-                label={`${t('profile.email')} *`}
+                label={`${t('profile.email')}`}
                 value={profileData.email}
                 onChangeText={(value) => setProfileData(prev => ({ ...prev, email: value }))}
                 keyboardType="email-address"
                 containerStyle={styles.editInput}
+                required={true}
+                error={submittedOnce && !profileData.email?.trim() ? t('profile.email') : ''}
               />
               <Input
                 label={`${t('profile.phone')} (${t('optional')})`}
@@ -946,6 +954,7 @@ const ProfileScreen: React.FC = () => {
                   onPress={() => {
                     closeAutoLogoutDropdown();
                     setIsEditing(false);
+                    setSubmittedOnce(false);
                     // Recargar datos originales
                     loadUserProfile();
                   }}

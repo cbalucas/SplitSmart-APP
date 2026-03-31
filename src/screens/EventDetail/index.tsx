@@ -3252,6 +3252,7 @@ const EditParticipantModalContent: React.FC<{
   const [phone, setPhone] = useState(participant?.phone || '');
   const [aliasCbu, setAliasCbu] = useState(participant?.alias_cbu || '');
   const [convertToFriend, setConvertToFriend] = useState(false);
+  const [submittedOnce, setSubmittedOnce] = useState(false);
 
   useEffect(() => {
     if (participant) {
@@ -3277,7 +3278,9 @@ const EditParticipantModalContent: React.FC<{
       <ScrollView style={{ flex: 1, padding: 20 }}>
         <Card>
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 6, color: theme.colors.onSurface }}>{t('eventDetail.labelName')}</Text>
+            <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 6, color: submittedOnce && !name.trim() ? '#FF5252' : theme.colors.onSurface }}>
+              {t('eventDetail.labelName')}<Text style={{ color: '#FF5252', fontWeight: '700' }}> *</Text>
+            </Text>
             <TextInput
               style={{
                 backgroundColor: theme.colors.surface,
@@ -3410,8 +3413,11 @@ const EditParticipantModalContent: React.FC<{
                 borderRadius: 8,
                 alignItems: 'center'
               }}
-              onPress={() => onSave(name, email, phone, aliasCbu, convertToFriend)}
-              disabled={!name.trim()}
+              onPress={() => {
+                setSubmittedOnce(true);
+                if (!name.trim()) return;
+                onSave(name, email, phone, aliasCbu, convertToFriend);
+              }}
             >
               <Text style={{ fontSize: 16, fontWeight: '600', color: theme.colors.onPrimary }}>{t('common.save')}</Text>
             </TouchableOpacity>

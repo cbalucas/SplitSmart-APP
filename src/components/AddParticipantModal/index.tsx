@@ -121,6 +121,8 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
   const [bulkType, setBulkType] = useState<'custom' | 'generic'>('custom');
   const [bulkNames, setBulkNames] = useState('');
   const [genericCount, setGenericCount] = useState(5);
+  const [submittedOnce, setSubmittedOnce] = useState(false);
+  const [bulkSubmittedOnce, setBulkSubmittedOnce] = useState(false);
 
   // Get current participant IDs to filter them out
   const currentParticipantIds = new Set(currentParticipants.map(p => p.id));
@@ -172,8 +174,8 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
   };
 
   const handleCreateNewParticipant = async () => {
+    setSubmittedOnce(true);
     if (!newParticipant.name.trim()) {
-      Alert.alert(t('common.error'), t('addParticipant.error.nameRequired'));
       return;
     }
 
@@ -201,6 +203,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       // Reset form and close
       setNewParticipant({ name: '', email: '', phone: '', alias_cbu: '' });
       setSaveAsFriend(false);
+      setSubmittedOnce(false);
       setActiveTab('friends');
       onClose();
       
@@ -215,6 +218,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       const baseTimestamp = Date.now();
 
       if (bulkType === 'custom') {
+        setBulkSubmittedOnce(true);
         // Crear participantes con nombres personalizados
         const names = bulkNames
           .split('\n')
@@ -222,7 +226,6 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
           .filter(name => name.length > 0);
 
         if (names.length === 0) {
-          Alert.alert(t('common.error'), t('addParticipant.error.atLeastOneName'));
           return;
         }
 
@@ -279,6 +282,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       setBulkNames('');
       setGenericCount(5);
       setBulkType('custom');
+      setBulkSubmittedOnce(false);
       setActiveTab('friends');
       onClose();
 
@@ -297,6 +301,8 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
     setBulkNames('');
     setGenericCount(5);
     setBulkType('custom');
+    setSubmittedOnce(false);
+    setBulkSubmittedOnce(false);
     setActiveTab('friends');
     onClose();
   };
@@ -660,7 +666,9 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
 
           {bulkType === 'custom' ? (
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>{t('addParticipant.namesLabel')}</Text>
+              <Text style={[styles.inputLabel, bulkSubmittedOnce && !bulkNames.trim() && styles.inputLabelError]}>
+                {t('addParticipant.namesLabel')}<Text style={styles.requiredStar}> *</Text>
+              </Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder={t('addParticipant.namesPlaceholder')}
@@ -722,7 +730,6 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
                   variant="filled"
                   size="large"
                   onPress={handleCreateBulkParticipants}
-                  disabled={bulkType === 'custom' ? !bulkNames.trim() : genericCount < 1}
                 />
               </View>
             </>
@@ -744,7 +751,9 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
           <Text style={styles.formTitle}>{t('addParticipant.newTitle')}</Text>
           
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('addParticipant.fullNameLabel')}</Text>
+            <Text style={[styles.inputLabel, submittedOnce && !newParticipant.name.trim() && styles.inputLabelError]}>
+              {t('addParticipant.fullNameLabel')}<Text style={styles.requiredStar}> *</Text>
+            </Text>
             <TextInput
               style={styles.input}
               placeholder={t('addParticipant.fullNamePlaceholder')}
@@ -822,7 +831,6 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
             variant="filled"
             size="large"
             onPress={handleCreateNewParticipant}
-            disabled={!newParticipant.name.trim()}
           />
         </View>
       </KeyboardAvoidingView>
@@ -1203,6 +1211,15 @@ const createStyles = (theme: Theme) =>
       fontWeight: '500',
       color: theme.colors.onSurface,
       marginBottom: 6,
+    } as TextStyle,
+
+    inputLabelError: {
+      color: '#FF5252',
+    } as TextStyle,
+
+    requiredStar: {
+      color: '#FF5252',
+      fontWeight: '700',
     } as TextStyle,
 
     input: {

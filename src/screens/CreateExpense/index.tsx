@@ -82,6 +82,7 @@ const CreateExpenseScreen: React.FC = () => {
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [payerSearchQuery, setPayerSearchQuery] = useState<string>('');
+  const [submittedOnce, setSubmittedOnce] = useState(false);
 
   // Cargar datos del evento y participantes cada vez que la pantalla se enfoca
   useFocusEffect(
@@ -524,6 +525,7 @@ const CreateExpenseScreen: React.FC = () => {
   };
 
   const handleCreateExpense = async () => {
+    setSubmittedOnce(true);
     if (!validateForm()) {
       return;
     }
@@ -736,6 +738,7 @@ const CreateExpenseScreen: React.FC = () => {
             onChangeText={(text) => handleInputChange('description', text)}
             icon="file-document-outline"
             maxLength={100}
+            required={true}
             error={errors.description}
             containerStyle={styles.input}
           />
@@ -748,6 +751,7 @@ const CreateExpenseScreen: React.FC = () => {
               onChangeText={(text) => handleInputChange('amount', text)}
               keyboardType="numeric"
               icon="currency-usd"
+              required={true}
               error={errors.amount}
               containerStyle={styles.input}
             />
@@ -766,7 +770,7 @@ const CreateExpenseScreen: React.FC = () => {
                 style={styles.inputIcon}
               />
               <View style={styles.inputContent}>
-                <Text style={styles.inputLabel}>{t.expenseInfoCard.dateLabel}</Text>
+                <Text style={styles.inputLabel}>{t.expenseInfoCard.dateLabel}<Text style={{ color: '#FF5252', fontWeight: '700' }}> *</Text></Text>
                 <Text style={styles.inputValue}>
                   {formatDate(formData.date)}
                 </Text>

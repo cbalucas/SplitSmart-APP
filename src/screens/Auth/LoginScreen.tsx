@@ -22,6 +22,7 @@ export default function LoginScreen() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showDemoModal, setShowDemoModal] = useState(false);
+  const [submittedOnce, setSubmittedOnce] = useState(false);
   const { login, loading } = useAuth();
   const { theme } = useTheme();
   const { language } = useLanguage();
@@ -30,7 +31,13 @@ export default function LoginScreen() {
   const styles = createStyles(theme);
   const t = loginLanguage[language as keyof typeof loginLanguage] || loginLanguage.es;
 
+  const hasFieldError = (field: 'credential'): boolean => {
+    if (!submittedOnce) return false;
+    return !formData[field];
+  };
+
   const handleLogin = async () => {
+    setSubmittedOnce(true);
     if (!formData.credential) {
       const isDarkMode = theme.colors.surface !== '#FFFFFF';
       Alert.alert(t.errors.general, t.errors.credentialRequired, [
@@ -85,7 +92,9 @@ export default function LoginScreen() {
         </View>
         
         <View style={styles.form}>
-        <Text style={styles.label}>{t.form.credentialLabel}</Text>
+        <Text style={[styles.label, hasFieldError('credential') && styles.labelError]}>
+          {t.form.credentialLabel}<Text style={styles.requiredStar}> *</Text>
+        </Text>
         <TextInput
           style={styles.input}
           value={formData.credential}

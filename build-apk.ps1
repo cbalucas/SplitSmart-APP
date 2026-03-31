@@ -7,7 +7,8 @@ Write-Host "  🚀 GENERAR APK DE SPLITSMART" -ForegroundColor Green
 Write-Host "════════════════════════════════════════`n" -ForegroundColor Cyan
 
 # ─── Directorio de copia (backup) ────────────────────────────────────────────
-$copiaDir = "C:\APPs\SplitSmart-APP\app_aab_apk\apk"
+$copiaDir = "C:\Users\cbalu\Dropbox\VsCode\SplitSmart APK"
+# $copiaDir = "C:\APPs\SplitSmart-APP\app_aab_apk\apk" # Ruta alternativa para pruebas locales y se guarda en SplitSmart
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Leer versión actual

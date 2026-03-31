@@ -113,6 +113,15 @@ export const createStyles = (theme: Theme) => {
       marginBottom: 6,
     } as TextStyle,
 
+    inputLabelError: {
+      color: '#FF5252',
+    } as TextStyle,
+
+    requiredStar: {
+      color: '#FF5252',
+      fontWeight: '700',
+    } as TextStyle,
+
     input: {
       backgroundColor: appColors.surfaceSecondary,
       borderWidth: 1,
