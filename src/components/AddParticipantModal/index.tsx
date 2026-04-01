@@ -160,6 +160,19 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       return;
     }
 
+    // Verificar duplicados de nombre con participantes actuales del evento
+    const currentNames = currentParticipants.map(p => p.name.trim().toLowerCase());
+    for (const friendId of selectedFriends) {
+      const friend = participants.find(p => p.id === friendId);
+      if (friend && currentNames.includes(friend.name.trim().toLowerCase())) {
+        Alert.alert(
+          t('addParticipant.alert.duplicateEventTitle'),
+          t('addParticipant.error.friendDuplicateInEvent', { name: friend.name })
+        );
+        return;
+      }
+    }
+
     selectedFriends.forEach(friendId => {
       const friend = participants.find(p => p.id === friendId);
       if (friend) {
@@ -177,6 +190,35 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
     setSubmittedOnce(true);
     if (!newParticipant.name.trim()) {
       return;
+    }
+
+    const trimmedName = newParticipant.name.trim().toLowerCase();
+
+    // Verificar nombre duplicado en participantes del evento
+    const isDuplicateInEvent = currentParticipants.some(
+      p => p.name.trim().toLowerCase() === trimmedName
+    );
+    if (isDuplicateInEvent) {
+      Alert.alert(
+        t('addParticipant.alert.duplicateEventTitle'),
+        t('addParticipant.error.duplicateEventName')
+      );
+      return;
+    }
+
+    // Si se guarda como amigo, verificar duplicado en la lista global de amigos
+    if (saveAsFriend) {
+      const allFriends = participants.filter(p => p.participantType === 'friend');
+      const isDuplicateFriend = allFriends.some(
+        f => f.name.trim().toLowerCase() === trimmedName
+      );
+      if (isDuplicateFriend) {
+        Alert.alert(
+          t('addParticipant.alert.duplicateFriendTitle'),
+          t('addParticipant.error.duplicateFriendName')
+        );
+        return;
+      }
     }
 
     try {
@@ -226,6 +268,17 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
           .filter(name => name.length > 0);
 
         if (names.length === 0) {
+          return;
+        }
+
+        // Verificar duplicados con participantes actuales del evento
+        const currentNames = currentParticipants.map(p => p.name.trim().toLowerCase());
+        const duplicateName = names.find(name => currentNames.includes(name.toLowerCase()));
+        if (duplicateName) {
+          Alert.alert(
+            t('addParticipant.alert.duplicateEventTitle'),
+            t('addParticipant.error.friendDuplicateInEvent', { name: duplicateName })
+          );
           return;
         }
 

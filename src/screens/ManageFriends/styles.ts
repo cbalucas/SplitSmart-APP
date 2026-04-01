@@ -117,6 +117,12 @@ export const createStyles = (theme: Theme) => {
       color: '#FF5252',
     } as TextStyle,
 
+    errorText: {
+      color: '#FF5252',
+      fontSize: 12,
+      marginTop: 4,
+    } as TextStyle,
+
     requiredStar: {
       color: '#FF5252',
       fontWeight: '700',

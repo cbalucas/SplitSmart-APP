@@ -124,6 +124,7 @@ const ManageFriendsScreen: React.FC = () => {
     alias_cbu: ''
   });
   const [submittedOnce, setSubmittedOnce] = useState(false);
+  const [duplicateNameError, setDuplicateNameError] = useState(false);
 
   useEffect(() => {
     loadFriends();
@@ -202,6 +203,18 @@ const ManageFriendsScreen: React.FC = () => {
       return;
     }
 
+    const trimmedName = newFriend.name.trim().toLowerCase();
+    const isDuplicate = friends.some(f => {
+      if (editingFriend && f.id === editingFriend.id) return false;
+      return f.name.trim().toLowerCase() === trimmedName;
+    });
+
+    if (isDuplicate) {
+      setDuplicateNameError(true);
+      return;
+    }
+    setDuplicateNameError(false);
+
     try {
       if (editingFriend) {
         // Editar amigo existente
@@ -236,6 +249,7 @@ const ManageFriendsScreen: React.FC = () => {
       setNewFriend({ name: '', email: '', phone: '', alias_cbu: '' });
       setEditingFriend(null);
       setSubmittedOnce(false);
+      setDuplicateNameError(false);
       setActiveTab('list');
     } catch (error) {
       Alert.alert(t.alerts.error.general, t.alerts.error.saveFailed);
@@ -268,6 +282,7 @@ const ManageFriendsScreen: React.FC = () => {
           if (activeTab === 'new') {
             setEditingFriend(null);
             setNewFriend({ name: '', email: '', phone: '', alias_cbu: '' });
+            setDuplicateNameError(false);
           }
         }}
       >
@@ -311,7 +326,7 @@ const ManageFriendsScreen: React.FC = () => {
         </Text>
         
         <View style={styles.inputGroup}>
-          <Text style={[styles.inputLabel, submittedOnce && !newFriend.name.trim() && styles.inputLabelError]}>
+          <Text style={[styles.inputLabel, (submittedOnce && !newFriend.name.trim()) || duplicateNameError ? styles.inputLabelError : undefined]}>
             {t.form.nameLabel}<Text style={styles.requiredStar}> *</Text>
           </Text>
           <TextInput
@@ -319,8 +334,14 @@ const ManageFriendsScreen: React.FC = () => {
             placeholder={t.form.namePlaceholder}
             placeholderTextColor={theme.colors.onSurfaceVariant}
             value={newFriend.name}
-            onChangeText={(text) => setNewFriend(prev => ({ ...prev, name: text }))}
+            onChangeText={(text) => {
+              setNewFriend(prev => ({ ...prev, name: text }));
+              setDuplicateNameError(false);
+            }}
           />
+          {duplicateNameError && (
+            <Text style={styles.errorText}>{t.alerts.error.duplicateName}</Text>
+          )}
         </View>
 
         <View style={styles.inputGroup}>
@@ -369,6 +390,7 @@ const ManageFriendsScreen: React.FC = () => {
               setEditingFriend(null);
               setNewFriend({ name: '', email: '', phone: '', alias_cbu: '' });
               setSubmittedOnce(false);
+              setDuplicateNameError(false);
             }}
             style={styles.cancelButton}
           />
