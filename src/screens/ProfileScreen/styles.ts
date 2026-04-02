@@ -350,12 +350,26 @@ export const createStyles = (theme: Theme) =>
       fontSize: 16,
       fontWeight: '600',
       color: theme.colors.onSurfaceVariant,
+      textAlign: 'center',
     } as TextStyle,
 
     modalButtonTextConfirm: {
       fontSize: 16,
       fontWeight: '600',
       color: theme.colors.onPrimary,
+      textAlign: 'center',
+    } as TextStyle,
+
+    modalButtonConfirmDisabled: {
+      backgroundColor: theme.colors.outline,
+    } as ViewStyle,
+
+    modalPasswordMismatch: {
+      fontSize: 12,
+      color: '#FF5252',
+      marginTop: -8,
+      marginBottom: 12,
+      marginLeft: 4,
     } as TextStyle,
 
     // Auto Logout Dropdown Styles
@@ -710,5 +724,53 @@ export const createStyles = (theme: Theme) =>
       fontSize: 14,
       color: theme.colors.onSurface,
       fontWeight: '500',
+    } as TextStyle,
+
+    // Modal contraseña — campos con ojo
+    modalPasswordRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.outline,
+      borderRadius: 12,
+      marginBottom: 12,
+    } as ViewStyle,
+
+    modalPasswordInput: {
+      flex: 1,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      fontSize: 16,
+      color: theme.colors.onSurface,
+    } as TextStyle,
+
+    modalEyeButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+    } as ViewStyle,
+
+    // Indicador de fortaleza de contraseña
+    passwordStrengthContainer: {
+      marginBottom: 12,
+    } as ViewStyle,
+
+    passwordStrengthBar: {
+      height: 4,
+      backgroundColor: theme.colors.outline,
+      borderRadius: 2,
+      overflow: 'hidden',
+      marginBottom: 4,
+    } as ViewStyle,
+
+    passwordStrengthFill: {
+      height: '100%',
+      borderRadius: 2,
+    } as ViewStyle,
+
+    passwordStrengthText: {
+      fontSize: 12,
+      fontWeight: '500',
+      textAlign: 'right',
     } as TextStyle,
   });

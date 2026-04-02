@@ -41,6 +41,7 @@ interface DataContextValue {
   createUser: (user: any) => Promise<void>;
   updateUserProfile: (userId: string, updates: any) => Promise<void>;
   updateUserPassword: (userId: string, newPassword: string) => Promise<void>;
+  verifyUserPassword: (userId: string, password: string) => Promise<boolean>;
   updateUserNotifications: (userId: string, notifications: any) => Promise<void>;
   updateUserPrivacy: (userId: string, privacy: any) => Promise<void>;
   // Utility methods
@@ -74,6 +75,7 @@ const DataContext = createContext<DataContextValue>({
   createUser: async () => {},
   updateUserProfile: async () => {},
   updateUserPassword: async () => {},
+  verifyUserPassword: async () => false,
   updateUserNotifications: async () => {},
   updateUserPrivacy: async () => {},
   addExpense: async () => {},
@@ -437,6 +439,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('❌ Error updating user profile:', error);
       throw error;
+    }
+  }, []);
+
+  const verifyUserPassword = useCallback(async (userId: string, password: string): Promise<boolean> => {
+    try {
+      return await databaseService.verifyUserPassword(userId, password);
+    } catch (error) {
+      console.error('❌ Error verifying user password:', error);
+      return false;
     }
   }, []);
 
@@ -1152,6 +1163,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       createUser,
       updateUserProfile,
       updateUserPassword,
+      verifyUserPassword,
       updateUserNotifications,
       updateUserPrivacy,
       addExpense,

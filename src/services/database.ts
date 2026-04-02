@@ -3043,6 +3043,20 @@ class DatabaseService {
     }
   }
 
+  async verifyUserPassword(userId: string, password: string): Promise<boolean> {
+    if (!this.db) throw new Error('Database not initialized');
+    try {
+      const user = await this.db.getFirstAsync(
+        'SELECT password FROM users WHERE id = ?',
+        [userId]
+      ) as { password: string } | null;
+      return user?.password === password;
+    } catch (error) {
+      console.error('❌ Error verifying user password:', error);
+      return false;
+    }
+  }
+
   async updateUserPassword(userId: string, newPassword: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 

@@ -150,6 +150,7 @@ const ProfileScreen: React.FC = () => {
     getUserProfile,
     updateUserProfile,
     updateUserPassword,
+    verifyUserPassword,
     updateUserNotifications,
     updateUserPrivacy
   } = useData();
@@ -176,7 +177,12 @@ const ProfileScreen: React.FC = () => {
 
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPasswordVis, setShowConfirmPasswordVis] = useState(false);
   const [submittedOnce, setSubmittedOnce] = useState(false);
   const [skipPassword, setSkipPassword] = useState(false);
   const [autoLogin, setAutoLogin] = useState(false);
@@ -232,6 +238,25 @@ const ProfileScreen: React.FC = () => {
       newExpandedVersions.add(version);
     }
     setExpandedVersions(newExpandedVersions);
+  };
+
+  const calculatePasswordStrength = (password: string): { score: number; label: string; color: string } => {
+    if (!password) return { score: 0, label: '', color: theme.colors.onSurfaceVariant };
+    let score = 0;
+    if (password.length >= 6) score++;
+    if (password.length >= 8) score++;
+    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
+    if (/\d/.test(password)) score++;
+    if (/[^a-zA-Z0-9]/.test(password)) score++;
+    const levels: Record<number, { label: string; color: string }> = {
+      0: { label: t('profile.passwordStrength.veryWeak'),  color: '#FF5252' },
+      1: { label: t('profile.passwordStrength.weak'),      color: '#FF9800' },
+      2: { label: t('profile.passwordStrength.fair'),      color: '#FFC107' },
+      3: { label: t('profile.passwordStrength.good'),      color: '#4CAF50' },
+      4: { label: t('profile.passwordStrength.strong'),    color: '#2E7D32' },
+      5: { label: t('profile.passwordStrength.veryStrong'),color: '#1B5E20' },
+    };
+    return { score, ...(levels[score] ?? levels[0]) };
   };
 
   const loadUserProfile = async () => {
@@ -906,7 +931,6 @@ const ProfileScreen: React.FC = () => {
 
         {/* Información Personal */}
         {isEditing ? (
-          <>
             <ProfileSection 
               title={t('profile.personalInfo')} 
               icon="account-edit" 
@@ -971,82 +995,6 @@ const ProfileScreen: React.FC = () => {
                 />
               </View>
             </ProfileSection>
-            
-            <ProfileSection title={t('profile.security')} icon="lock" onPress={closeAutoLogoutDropdown}>
-              <TouchableOpacity
-                style={styles.settingItem}
-                onPress={() => {
-                  closeAutoLogoutDropdown();
-                  setNewPassword('');
-                  setShowPasswordModal(true);
-                }}
-              >
-                <View style={styles.settingIcon}>
-                  <MaterialCommunityIcons name="lock-reset" size={20} color={theme.colors.onSurfaceVariant} />
-                </View>
-                <View style={styles.settingContent}>
-                  <Text style={styles.settingTitle}>{t('profile.changePassword')}</Text>
-                  <Text style={styles.settingSubtitle}>{t('profile.changePassword')}</Text>
-                </View>
-                <View style={styles.settingAction}>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
-                </View>
-              </TouchableOpacity>
-
-              <View style={styles.settingItem}>
-                <View style={styles.settingIcon}>
-                  <MaterialCommunityIcons name="login-variant" size={20} color={theme.colors.onSurfaceVariant} />
-                </View>
-                <View style={styles.settingContent}>
-                  <Text style={styles.settingTitle}>{t('profile.skipPassword')}</Text>
-                  <Text style={styles.settingSubtitle}>
-                    {skipPassword ? t('profile.skipPasswordOn') : t('profile.skipPasswordOff')}
-                  </Text>
-                </View>
-                <View style={styles.settingAction}>
-                  <Switch
-                    value={skipPassword}
-                    onValueChange={async (value) => {
-                      try {
-                        if (!user?.id) {
-                          Alert.alert('Error', 'No se pudo identificar el usuario');
-                          return;
-                        }
-                        await updateUserProfile(user.id, { skipPassword: value });
-                        setSkipPassword(value);
-                        await refreshUser(); // Recargar usuario con nueva configuración
-                        Alert.alert(
-                          `✅ ${t('profile.skipPasswordUpdated')}`, 
-                          value 
-                            ? t('profile.skipPasswordEnabled') 
-                            : t('profile.skipPasswordDisabled')
-                        );
-                      } catch (error) {
-                        Alert.alert(t('error'), t('profile.message.settingUpdateError'));
-                      }
-                    }}
-                    trackColor={{ false: theme.colors.outline, true: theme.colors.primary }}
-                    thumbColor={theme.colors.surface}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.settingItem}>
-                <View style={styles.settingIcon}>
-                  <MaterialCommunityIcons name="fingerprint" size={20} color={theme.colors.onSurfaceVariant} />
-                </View>
-                <View style={styles.settingContent}>
-                  <Text style={styles.settingTitle}>{t('profile.biometricLogin')}</Text>
-                  <Text style={styles.settingSubtitle}>{t('profile.biometricLoginDesc')}</Text>
-                </View>
-                <View style={styles.settingAction}>
-                  <View style={styles.comingSoonBadge}>
-                    <Text style={styles.comingSoonText}>{t('profile.comingSoon')}</Text>
-                  </View>
-                </View>
-              </View>
-            </ProfileSection>
-          </>
         ) : (
           <ProfileSection 
             title={t('profile.personalInfo')} 
@@ -1100,6 +1048,87 @@ const ProfileScreen: React.FC = () => {
             )}
           </ProfileSection>
         )}
+
+        {/* Seguridad */}
+        <ProfileSection title={t('profile.security')} icon="lock" onPress={closeAutoLogoutDropdown}>
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => {
+              closeAutoLogoutDropdown();
+              setCurrentPassword('');
+              setNewPassword('');
+              setConfirmPassword('');
+              setShowCurrentPassword(false);
+              setShowNewPassword(false);
+              setShowConfirmPasswordVis(false);
+              setShowPasswordModal(true);
+            }}
+          >
+            <View style={styles.settingIcon}>
+              <MaterialCommunityIcons name="lock-reset" size={20} color={theme.colors.onSurfaceVariant} />
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={styles.settingTitle}>{t('profile.changePassword')}</Text>
+              <Text style={styles.settingSubtitle}>{t('profile.changePassword')}</Text>
+            </View>
+            <View style={styles.settingAction}>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingIcon}>
+              <MaterialCommunityIcons name="login-variant" size={20} color={theme.colors.onSurfaceVariant} />
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={styles.settingTitle}>{t('profile.skipPassword')}</Text>
+              <Text style={styles.settingSubtitle}>
+                {skipPassword ? t('profile.skipPasswordOn') : t('profile.skipPasswordOff')}
+              </Text>
+            </View>
+            <View style={styles.settingAction}>
+              <Switch
+                value={skipPassword}
+                onValueChange={async (value) => {
+                  try {
+                    if (!user?.id) {
+                      Alert.alert('Error', 'No se pudo identificar el usuario');
+                      return;
+                    }
+                    await updateUserProfile(user.id, { skipPassword: value });
+                    setSkipPassword(value);
+                    await refreshUser();
+                    Alert.alert(
+                      `✅ ${t('profile.skipPasswordUpdated')}`, 
+                      value 
+                        ? t('profile.skipPasswordEnabled') 
+                        : t('profile.skipPasswordDisabled')
+                    );
+                  } catch (error) {
+                    Alert.alert(t('error'), t('profile.message.settingUpdateError'));
+                  }
+                }}
+                trackColor={{ false: theme.colors.outline, true: theme.colors.primary }}
+                thumbColor={theme.colors.surface}
+              />
+            </View>
+          </View>
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingIcon}>
+              <MaterialCommunityIcons name="fingerprint" size={20} color={theme.colors.onSurfaceVariant} />
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={styles.settingTitle}>{t('profile.biometricLogin')}</Text>
+              <Text style={styles.settingSubtitle}>{t('profile.biometricLoginDesc')}</Text>
+            </View>
+            <View style={styles.settingAction}>
+              <View style={styles.comingSoonBadge}>
+                <Text style={styles.comingSoonText}>{t('profile.comingSoon')}</Text>
+              </View>
+            </View>
+          </View>
+        </ProfileSection>
 
         {/* Preferencias */}
         {!isEditing && (
@@ -1447,48 +1476,123 @@ const ProfileScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{t('profile.changePassword')}</Text>
-            <Text style={styles.modalSubtitle}>{t('profile.changePassword')}</Text>
-            
-            <TextInput
-              style={styles.modalInput}
-              placeholder={t('profile.newPassword')}
-              placeholderTextColor={theme.colors.onSurfaceVariant}
-              secureTextEntry
-              value={newPassword}
-              onChangeText={setNewPassword}
-              autoFocus
-            />
+
+            {/* Contraseña actual */}
+            <View style={styles.modalPasswordRow}>
+              <TextInput
+                style={styles.modalPasswordInput}
+                placeholder={t('profile.currentPassword')}
+                placeholderTextColor={theme.colors.onSurfaceVariant}
+                secureTextEntry={!showCurrentPassword}
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                autoFocus
+              />
+              <TouchableOpacity style={styles.modalEyeButton} onPress={() => setShowCurrentPassword(v => !v)}>
+                <MaterialCommunityIcons name={showCurrentPassword ? 'eye-off' : 'eye'} size={22} color={theme.colors.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Nueva contraseña */}
+            <View style={styles.modalPasswordRow}>
+              <TextInput
+                style={styles.modalPasswordInput}
+                placeholder={t('profile.newPassword')}
+                placeholderTextColor={theme.colors.onSurfaceVariant}
+                secureTextEntry={!showNewPassword}
+                value={newPassword}
+                onChangeText={setNewPassword}
+              />
+              <TouchableOpacity style={styles.modalEyeButton} onPress={() => setShowNewPassword(v => !v)}>
+                <MaterialCommunityIcons name={showNewPassword ? 'eye-off' : 'eye'} size={22} color={theme.colors.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Indicador de fortaleza */}
+            {newPassword.length > 0 && (() => {
+              const ps = calculatePasswordStrength(newPassword);
+              return (
+                <View style={styles.passwordStrengthContainer}>
+                  <View style={styles.passwordStrengthBar}>
+                    <View style={[styles.passwordStrengthFill, { width: `${(ps.score / 5) * 100}%` as any, backgroundColor: ps.color }]} />
+                  </View>
+                  <Text style={[styles.passwordStrengthText, { color: ps.color }]}>{ps.label}</Text>
+                </View>
+              );
+            })()}
+
+            {/* Confirmar nueva contraseña */}
+            <View style={styles.modalPasswordRow}>
+              <TextInput
+                style={styles.modalPasswordInput}
+                placeholder={t('profile.confirmPassword')}
+                placeholderTextColor={theme.colors.onSurfaceVariant}
+                secureTextEntry={!showConfirmPasswordVis}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+              />
+              <TouchableOpacity style={styles.modalEyeButton} onPress={() => setShowConfirmPasswordVis(v => !v)}>
+                <MaterialCommunityIcons name={showConfirmPasswordVis ? 'eye-off' : 'eye'} size={22} color={theme.colors.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+            {confirmPassword.length > 0 && newPassword !== confirmPassword && (
+              <Text style={styles.modalPasswordMismatch}>{t('profile.message.passwordMismatch')}</Text>
+            )}
             
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonCancel]}
                 onPress={() => {
                   setShowPasswordModal(false);
+                  setCurrentPassword('');
                   setNewPassword('');
+                  setConfirmPassword('');
+                  setShowCurrentPassword(false);
+                  setShowNewPassword(false);
+                  setShowConfirmPasswordVis(false);
                 }}
               >
                 <Text style={styles.modalButtonTextCancel}>{t('cancel')}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonConfirm]}
+                style={[
+                  styles.modalButton,
+                  styles.modalButtonConfirm,
+                  (confirmPassword.length > 0 && newPassword !== confirmPassword) && styles.modalButtonConfirmDisabled,
+                ]}
+                disabled={confirmPassword.length > 0 && newPassword !== confirmPassword}
                 onPress={async () => {
-                  if (newPassword.length >= 6) {
-                    if (!user?.id) {
-                      Alert.alert(t('error'), t('profile.message.userNotFound'));
-                      return;
-                    }
-                    try {
-                      await updateUserPassword(user.id, newPassword);
-                      await refreshUser(); // Recargar usuario con nueva contraseña
-                      setShowPasswordModal(false);
-                      setNewPassword('');
-                      Alert.alert(`✅ ${t('profile.passwordUpdated')}`, t('profile.passwordUpdateSuccess'));
-                    } catch (error) {
-                      Alert.alert(t('error'), t('profile.message.passwordChangeError'));
-                    }
-                  } else {
+                  if (!user?.id) {
+                    Alert.alert(t('error'), t('profile.message.userNotFound'));
+                    return;
+                  }
+                  if (newPassword.length < 6) {
                     Alert.alert(t('error'), t('profile.message.passwordTooShort'));
+                    return;
+                  }
+                  if (newPassword !== confirmPassword) {
+                    Alert.alert(t('error'), t('profile.message.passwordMismatch'));
+                    return;
+                  }
+                  const isValid = await verifyUserPassword(user.id, currentPassword);
+                  if (!isValid) {
+                    Alert.alert(t('error'), t('profile.message.passwordIncorrect'));
+                    return;
+                  }
+                  try {
+                    await updateUserPassword(user.id, newPassword);
+                    await refreshUser();
+                    setShowPasswordModal(false);
+                    setCurrentPassword('');
+                    setNewPassword('');
+                    setConfirmPassword('');
+                    setShowCurrentPassword(false);
+                    setShowNewPassword(false);
+                    setShowConfirmPasswordVis(false);
+                    Alert.alert(`✅ ${t('profile.passwordUpdated')}`, t('profile.passwordUpdateSuccess'));
+                  } catch (error) {
+                    Alert.alert(t('error'), t('profile.message.passwordChangeError'));
                   }
                 }}
               >
