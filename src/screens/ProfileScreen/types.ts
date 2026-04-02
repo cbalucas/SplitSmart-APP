@@ -23,6 +23,7 @@ export interface ProfileSectionProps {
   children: React.ReactNode;
   onPress?: () => void;
   rightAction?: React.ReactNode;
+  collapsible?: boolean;
 }
 
 export interface SettingItemProps {

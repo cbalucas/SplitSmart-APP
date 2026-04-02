@@ -39,18 +39,31 @@ import {
 import { createStyles } from './styles';
 import { PROFILE_KEYS, NOTIFICATION_KEYS, getLanguageDisplayName, getUserInitials } from './language';
 
-const ProfileSection: React.FC<ProfileSectionProps> = ({ title, icon, children, onPress, rightAction }) => {
+const ProfileSection: React.FC<ProfileSectionProps> = ({ title, icon, children, onPress, rightAction, collapsible }) => {
   const { theme } = useTheme();
   const { t } = useLanguage();
   const styles = createStyles(theme);
-  
+  const [collapsed, setCollapsed] = useState(collapsible === true);
+
   // Special handling for logout section
   const isLogout = title === t('logout');
   const iconColor = isLogout ? '#F44336' : theme.colors.primary;
 
+  const handleHeaderPress = () => {
+    if (collapsible) {
+      setCollapsed(prev => !prev);
+    }
+    onPress?.();
+  };
+
   return (
-    <Card style={styles.card} onPress={onPress}>
-      <View style={styles.sectionHeader}>
+    <Card style={styles.card} onPress={collapsible ? undefined : onPress}>
+      <TouchableOpacity
+        style={styles.sectionHeader}
+        onPress={handleHeaderPress}
+        activeOpacity={collapsible ? 0.6 : 1}
+        disabled={!collapsible && !onPress}
+      >
         <View style={styles.sectionHeaderLeft}>
           <MaterialCommunityIcons
             name={icon as any}
@@ -59,13 +72,18 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ title, icon, children, 
           />
           <Text style={[styles.sectionTitle, isLogout && { color: '#F44336' }]}>{title}</Text>
         </View>
-        {rightAction && (
-          <View style={styles.sectionHeaderRight}>
-            {rightAction}
-          </View>
-        )}
-      </View>
-      {children}
+        <View style={styles.sectionHeaderRight}>
+          {rightAction}
+          {collapsible && (
+            <MaterialCommunityIcons
+              name={collapsed ? 'chevron-down' : 'chevron-up'}
+              size={20}
+              color={theme.colors.onSurfaceVariant}
+            />
+          )}
+        </View>
+      </TouchableOpacity>
+      {!collapsed && children}
     </Card>
   );
 };
@@ -1061,7 +1079,8 @@ const ProfileScreen: React.FC = () => {
         )}
 
         {/* Seguridad */}
-        <ProfileSection title={t('profile.security')} icon="lock" onPress={closeAutoLogoutDropdown}>
+        {!isEditing && (
+        <ProfileSection title={t('profile.security')} icon="lock" onPress={closeAutoLogoutDropdown} collapsible>
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => {
@@ -1140,10 +1159,11 @@ const ProfileScreen: React.FC = () => {
             </View>
           </View>
         </ProfileSection>
+        )}
 
         {/* Preferencias */}
         {!isEditing && (
-        <ProfileSection title={t('profile.preferences')} icon="cog">
+        <ProfileSection title={t('profile.preferences')} icon="cog" collapsible>
              {/* Auto Login Section */}
           <View style={styles.settingItem}>
             <View style={styles.settingIcon}>
@@ -1345,7 +1365,7 @@ const ProfileScreen: React.FC = () => {
 
         {/* Notificaciones */}
         {!isEditing && (
-        <ProfileSection title={t('profile.notifications')} icon="bell" onPress={closeAutoLogoutDropdown}>
+        <ProfileSection title={t('profile.notifications')} icon="bell" onPress={closeAutoLogoutDropdown} collapsible>
           <SettingItem
             title={t('notifications.paymentReceived')}
             subtitle={t('notifications.paymentReceivedDesc')}
@@ -1359,7 +1379,7 @@ const ProfileScreen: React.FC = () => {
 
         {/* Privacidad */}
         {!isEditing && (
-        <ProfileSection title={t('profile.privacySection')} icon="shield-account" onPress={closeAutoLogoutDropdown}>
+        <ProfileSection title={t('profile.privacySection')} icon="shield-account" onPress={closeAutoLogoutDropdown} collapsible>
           <View style={styles.settingItem}>
             <View style={styles.settingIcon}>
               <MaterialCommunityIcons name="share" size={20} color={theme.colors.onSurfaceVariant} />
@@ -1379,7 +1399,7 @@ const ProfileScreen: React.FC = () => {
 
         {/* Datos y Respaldo */}
         {!isEditing && (
-        <ProfileSection title={t('profile.dataBackup')} icon="database" onPress={closeAutoLogoutDropdown}>
+        <ProfileSection title={t('profile.dataBackup')} icon="database" onPress={closeAutoLogoutDropdown} collapsible>
           <SettingItem
             title={t('profile.dataStats')}
             subtitle={t('profile.dataStatsDesc')}
@@ -1413,7 +1433,7 @@ const ProfileScreen: React.FC = () => {
 
         {/* Información de la App */}
         {!isEditing && (
-        <ProfileSection title={t('profile.information')} icon="information" onPress={closeAutoLogoutDropdown}>
+        <ProfileSection title={t('profile.information')} icon="information" onPress={closeAutoLogoutDropdown} collapsible>
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => setShowChangelogModal(true)}

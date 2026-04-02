@@ -22,7 +22,7 @@ _(ninguna aún)_
   - Al crear un participante nuevo (tab "Nuevo"): verifica duplicado contra el evento; si `saveAsFriend` está activo, también verifica contra la lista global de amigos.
   - Al crear participantes masivos (tab "Masivo", nombres propios): verifica todos los nombres contra los participantes existentes del evento.
 
-- **Sección Seguridad en Perfil siempre visible**: la sección "Seguridad" (cambio de contraseña) dejó de estar oculta detrás del modo edición y ahora siempre se muestra en `ProfileScreen`.
+- **Sección Seguridad oculta en modo edición**: la sección "Seguridad" ya no aparece cuando el usuario está editando su perfil (`!isEditing`), consistente con el resto de secciones.
 
 - **Modal cambio de contraseña mejorado**: el popup ahora incluye:
   - Campo "Contraseña actual" con validación contra la base de datos (`verifyUserPassword`)
@@ -45,7 +45,7 @@ _(ninguna aún)_
 
 ### ✨ Mejoras
 
-_(ninguna aún)_
+- **Secciones colapsables en Perfil**: las secciones Seguridad, Preferencias, Notificaciones, Privacidad, Datos y Respaldo e Información de la App ahora inician contraídas y se despliegan al presionar el header. Cada una muestra un chevron `▼`/`▲` para indicar el estado. Implementado directamente en el componente `ProfileSection` mediante prop `collapsible` y estado interno — sin estados adicionales en el screen padre.
 
 ### 📁 Archivos Modificados
 
@@ -54,7 +54,8 @@ _(ninguna aún)_
 - `src/screens/ManageFriends/index.tsx` — estado `duplicateNameError`; filtros y validaciones de teléfono y email
 - `src/components/AddParticipantModal/index.tsx` — validaciones de duplicado; filtros y validaciones de teléfono y email
 - `src/context/LanguageContext.tsx` — claves bajo `addParticipant.error`, `profile.message`, `profile.passwordStrength.*`, `profile.currentPassword`, `profile.confirmPassword`, `eventDetail.error.emailInvalid` (ES/EN/PT)
-- `src/screens/ProfileScreen/index.tsx` — sección seguridad siempre visible; modal contraseña reconstruido; filtros y validaciones de teléfono y email
+- `src/screens/ProfileScreen/index.tsx` — sección seguridad oculta en modo edición; secciones colapsables con prop `collapsible`; modal contraseña reconstruido; filtros y validaciones de teléfono y email
+- `src/screens/ProfileScreen/types.ts` — prop `collapsible?: boolean` agregada a `ProfileSectionProps`
 - `src/screens/ProfileScreen/styles.ts` — estilos para modal contraseña: `modalPasswordRow`, `modalPasswordInput`, `modalEyeButton`, `passwordStrengthContainer/Bar/Fill/Text`, `modalButtonConfirmDisabled`, `modalPasswordMismatch`
 - `src/services/database.ts` — nuevo método `verifyUserPassword(userId, password)`
 - `src/context/DataContext.tsx` — interfaz, implementación y valor de `verifyUserPassword`
