@@ -1,5 +1,27 @@
 # Changelog - SplitSmart
 
+## [1.4.7] - 2026-04-02
+
+### 🚀 Nuevas Funcionalidades
+_(ninguna)_
+
+### 🔧 Correcciones de Bugs
+- ✅ Validación de nombres duplicados (case-insensitive) en `ManageFriends` y `AddParticipantModal` — error inline sin Alert
+- ✅ Sección "Seguridad" oculta correctamente en modo edición del perfil
+- ✅ Modal cambio de contraseña reconstruido: campo contraseña actual con validación DB, indicador de fortaleza en tiempo real (6 niveles), botones ojo en los 3 campos, botón Confirmar deshabilitado si no coinciden
+- ✅ Validación y filtrado de teléfono en tiempo real en los 5 campos de la app (SignUp, Perfil, AddParticipantModal, ManageFriends, EventDetail)
+- ✅ Validación y filtrado de email en tiempo real en los 5 campos de la app; mensajes de error descriptivos con formato esperado
+- ✅ Mensaje de email inválido en SignUp más descriptivo (indica formato `usuario@dominio.com`)
+
+### ✨ Mejoras
+- **Secciones colapsables en Perfil**: Seguridad, Preferencias, Notificaciones, Privacidad, Datos y Respaldo, Información de la App inician contraídas y se despliegan al tocar el header
+
+### 🔢 Versiones
+- **versionCode**: 12 → 13
+- **versionName**: "1.4.6" → "1.4.7"
+
+---
+
 ## [1.4.6] - 2026-03-31
 
 ### 🚀 Nuevas Funcionalidades
