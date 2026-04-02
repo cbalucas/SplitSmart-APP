@@ -3335,7 +3335,12 @@ const EditParticipantModalContent: React.FC<{
               placeholder={t('eventDetail.placeholderPhone')}
               placeholderTextColor={theme.colors.onSurfaceVariant}
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={(text) => {
+                const startsWithPlus = text.startsWith('+');
+                let filtered = text.replace(/[^\d\s\-()+]/g, '').replace(/\+/g, '');
+                if (startsWithPlus) filtered = '+' + filtered;
+                setPhone(filtered);
+              }}
               keyboardType="phone-pad"
             />
           </View>
@@ -3357,7 +3362,7 @@ const EditParticipantModalContent: React.FC<{
                 placeholder={t('eventDetail.placeholderEmail')}
                 placeholderTextColor={theme.colors.onSurfaceVariant}
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => setEmail(text.toLowerCase().replace(/\s/g, ''))}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
@@ -3416,6 +3421,10 @@ const EditParticipantModalContent: React.FC<{
               onPress={() => {
                 setSubmittedOnce(true);
                 if (!name.trim()) return;
+                if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+                  Alert.alert(t('common.error'), t('eventDetail.error.emailInvalid'));
+                  return;
+                }
                 onSave(name, email, phone, aliasCbu, convertToFriend);
               }}
             >

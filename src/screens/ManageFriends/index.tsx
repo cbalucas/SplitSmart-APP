@@ -215,6 +215,18 @@ const ManageFriendsScreen: React.FC = () => {
     }
     setDuplicateNameError(false);
 
+    // Validar formato de teléfono (si fue ingresado)
+    if (newFriend.phone.trim() && !/^\+?[\d\s\-()]+$/.test(newFriend.phone.trim())) {
+      Alert.alert(t.alerts.error.general, t.alerts.error.phoneInvalid);
+      return;
+    }
+
+    // Validar formato de email (si fue ingresado)
+    if (newFriend.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newFriend.email.trim())) {
+      Alert.alert(t.alerts.error.general, t.alerts.error.emailInvalid);
+      return;
+    }
+
     try {
       if (editingFriend) {
         // Editar amigo existente
@@ -362,7 +374,12 @@ const ManageFriendsScreen: React.FC = () => {
             placeholder={t.form.phonePlaceholder}
             placeholderTextColor={theme.colors.onSurfaceVariant}
             value={newFriend.phone}
-            onChangeText={(text) => setNewFriend(prev => ({ ...prev, phone: text }))}
+            onChangeText={(text) => {
+              const startsWithPlus = text.startsWith('+');
+              let filtered = text.replace(/[^\d\s\-()+]/g, '').replace(/\+/g, '');
+              if (startsWithPlus) filtered = '+' + filtered;
+              setNewFriend(prev => ({ ...prev, phone: filtered }));
+            }}
             keyboardType="phone-pad"
           />
         </View>
@@ -374,7 +391,7 @@ const ManageFriendsScreen: React.FC = () => {
             placeholder={t.form.emailPlaceholder}
             placeholderTextColor={theme.colors.onSurfaceVariant}
             value={newFriend.email}
-            onChangeText={(text) => setNewFriend(prev => ({ ...prev, email: text }))}
+            onChangeText={(text) => setNewFriend(prev => ({ ...prev, email: text.toLowerCase().replace(/\s/g, '') }))}
             keyboardType="email-address"
             autoCapitalize="none"
           />

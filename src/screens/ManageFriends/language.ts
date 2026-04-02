@@ -54,6 +54,8 @@ export interface ManageFriendsLanguage {
       inUse: string;
       deleteFailed: string;
       saveFailed: string;
+      phoneInvalid: string;
+      emailInvalid: string;
     };
   };
 }
@@ -115,6 +117,8 @@ export const manageFriendsLanguage: Record<string, ManageFriendsLanguage> = {
         inUse: '{name} está siendo usado en eventos activos. Para eliminarlo, primero debes quitarlo de todos los eventos.',
         deleteFailed: 'No se pudo eliminar el amigo',
         saveFailed: 'No se pudo guardar el amigo',
+        phoneInvalid: 'Formato de teléfono inválido. Solo se permite + al inicio, seguido de números, espacios, guiones y paréntesis',
+        emailInvalid: 'Formato de email inválido. Debe contener @ y un dominio válido',
       },
     },
   },
@@ -174,6 +178,8 @@ export const manageFriendsLanguage: Record<string, ManageFriendsLanguage> = {
         inUse: '{name} is being used in active events. To delete it, first remove it from all events.',
         deleteFailed: 'Could not delete friend',
         saveFailed: 'Could not save friend',
+        phoneInvalid: 'Invalid phone format. Only + at the start, followed by numbers, spaces, hyphens and parentheses is allowed',
+        emailInvalid: 'Invalid email format. It must contain @ and a valid domain',
       },
     },
   },
@@ -233,6 +239,8 @@ export const manageFriendsLanguage: Record<string, ManageFriendsLanguage> = {
         inUse: '{name} está sendo usado em eventos ativos. Para excluí-lo, primeiro remova-o de todos os eventos.',
         deleteFailed: 'Não foi possível excluir o amigo',
         saveFailed: 'Não foi possível salvar o amigo',
+        phoneInvalid: 'Formato de telefone inválido. Apenas + no início, seguido de números, espaços, hífens e parênteses é permitido',
+        emailInvalid: 'Formato de e-mail inválido. Deve conter @ e um domínio válido',
       },
     },
   },

@@ -342,7 +342,13 @@ const ProfileScreen: React.FC = () => {
     // Validar formato de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(profileData.email)) {
-      Alert.alert('Email Inválido', 'Por favor ingresa un email válido');
+      Alert.alert(t('error'), t('profile.message.emailInvalid'));
+      return;
+    }
+
+    // Validar formato de teléfono (si fue ingresado)
+    if (profileData.phone?.trim() && !/^\+?[\d\s\-()]+$/.test(profileData.phone.trim())) {
+      Alert.alert(t('error'), t('profile.message.phoneInvalid'));
       return;
     }
 
@@ -955,7 +961,7 @@ const ProfileScreen: React.FC = () => {
               <Input
                 label={`${t('profile.email')}`}
                 value={profileData.email}
-                onChangeText={(value) => setProfileData(prev => ({ ...prev, email: value }))}
+                onChangeText={(value) => setProfileData(prev => ({ ...prev, email: value.toLowerCase().replace(/\s/g, '') }))}
                 keyboardType="email-address"
                 containerStyle={styles.editInput}
                 required={true}
@@ -964,7 +970,12 @@ const ProfileScreen: React.FC = () => {
               <Input
                 label={`${t('profile.phone')} (${t('optional')})`}
                 value={profileData.phone}
-                onChangeText={(value) => setProfileData(prev => ({ ...prev, phone: value }))}
+                onChangeText={(value) => {
+                  const startsWithPlus = value.startsWith('+');
+                  let filtered = value.replace(/[^\d\s\-()+]/g, '').replace(/\+/g, '');
+                  if (startsWithPlus) filtered = '+' + filtered;
+                  setProfileData(prev => ({ ...prev, phone: filtered }));
+                }}
                 keyboardType="phone-pad"
                 containerStyle={styles.editInput}
               />

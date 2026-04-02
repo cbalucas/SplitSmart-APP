@@ -221,6 +221,18 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       }
     }
 
+    // Validar formato de teléfono (si fue ingresado)
+    if (newParticipant.phone.trim() && !/^\+?[\d\s\-()]+$/.test(newParticipant.phone.trim())) {
+      Alert.alert(t('common.error'), t('addParticipant.error.phoneInvalid'));
+      return;
+    }
+
+    // Validar formato de email (si fue ingresado)
+    if (newParticipant.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newParticipant.email.trim())) {
+      Alert.alert(t('common.error'), t('addParticipant.error.emailInvalid'));
+      return;
+    }
+
     try {
       const participant: Participant = {
         id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -834,7 +846,12 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
               placeholder={t('addParticipant.phonePlaceholder')}
               placeholderTextColor={theme.colors.onSurfaceVariant}
               value={newParticipant.phone}
-              onChangeText={(text) => setNewParticipant(prev => ({ ...prev, phone: text }))}
+              onChangeText={(text) => {
+                const startsWithPlus = text.startsWith('+');
+                let filtered = text.replace(/[^\d\s\-()+]/g, '').replace(/\+/g, '');
+                if (startsWithPlus) filtered = '+' + filtered;
+                setNewParticipant(prev => ({ ...prev, phone: filtered }));
+              }}
               keyboardType="phone-pad"
             />
           </View>
@@ -846,7 +863,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
               placeholder={t('addParticipant.emailPlaceholder')}
               placeholderTextColor={theme.colors.onSurfaceVariant}
               value={newParticipant.email}
-              onChangeText={(text) => setNewParticipant(prev => ({ ...prev, email: text }))}
+              onChangeText={(text) => setNewParticipant(prev => ({ ...prev, email: text.toLowerCase().replace(/\s/g, '') }))}
               keyboardType="email-address"
               autoCapitalize="none"
             />

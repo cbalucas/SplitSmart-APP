@@ -517,7 +517,12 @@ export default function SignUpScreen() {
             <TextInput
               style={styles.input}
               value={formData.phone}
-              onChangeText={(text) => updateFormData('phone', text)}
+              onChangeText={(text) => {
+                const startsWithPlus = text.startsWith('+');
+                let filtered = text.replace(/[^\d\s\-()+]/g, '').replace(/\+/g, '');
+                if (startsWithPlus) filtered = '+' + filtered;
+                updateFormData('phone', filtered);
+              }}
               placeholder={t.form.phonePlaceholder}
               placeholderTextColor={theme.colors.onSurfaceVariant}
               keyboardType="phone-pad"
@@ -528,7 +533,7 @@ export default function SignUpScreen() {
             <TextInput
               style={styles.input}
               value={formData.email}
-              onChangeText={(text) => updateFormData('email', text)}
+              onChangeText={(text) => updateFormData('email', text.toLowerCase().replace(/\s/g, ''))}
               placeholder={t.form.emailPlaceholder}
               placeholderTextColor={theme.colors.onSurfaceVariant}
               keyboardType="email-address"
