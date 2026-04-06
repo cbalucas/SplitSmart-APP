@@ -69,8 +69,23 @@ const HomeScreen: React.FC = () => {
       }
       try {
         const settlements = await databaseService.getSettlementsByEvent(event.id);
+        const consolidationAssignments = await databaseService.getConsolidationAssignments(event.id);
+
+        // Construir mapa de asignaciones para detectar liquidaciones condonadas (auto-pagos)
+        const assignmentMap: { [debtorId: string]: string } = {};
+        consolidationAssignments.forEach((a: any) => {
+          assignmentMap[a.debtorId] = a.payerId;
+        });
+
+        // Una liquidación es condonada si, después de aplicar la consolidación, el pagador real
+        // y el acreedor son la misma persona (pago a sí mismo → no requiere acción real)
+        const forgivenCount = settlements.filter((s: any) => {
+          const actualPayer = assignmentMap[s.fromParticipantId] || s.fromParticipantId;
+          return actualPayer === s.toParticipantId;
+        }).length;
+
         settlementCounts[event.id] = {
-          total: settlements.length,
+          total: settlements.length - forgivenCount,
           paid: settlements.filter((s: any) => s.isPaid === true).length
         };
       } catch (error) {

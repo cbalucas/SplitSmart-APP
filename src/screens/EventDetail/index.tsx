@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -1701,6 +1701,12 @@ export default function EventDetailScreen() {
       );
     }
 
+    // Mapa de condonaciones para ajustar balances de participantes
+    const assignmentMap: { [debtorId: string]: string } = {};
+    consolidationAssignments.forEach((a: any) => {
+      assignmentMap[a.debtorId] = a.payerId;
+    });
+
     return (
       <View style={styles.tabContent}>
         <View style={{ paddingHorizontal: 16 }}>
@@ -1749,7 +1755,16 @@ export default function EventDetailScreen() {
             const participantBalance = balances.find(b => b.participantId === participant.id);
             const totalPaid = participantBalance?.totalPaid || 0;
             const totalOwed = participantBalance?.totalOwed || 0;
-            const balance = totalPaid - totalOwed; // Lo que pagó - lo que debe
+            // Monto condonado: deuda de este participante absorbida y anulada por consolidación
+            const forgivenAmount = dbSettlements
+              .filter((s: any) => {
+                const actualPayer = assignmentMap[s.fromParticipantId] || s.fromParticipantId;
+                return s.fromParticipantId === participant.id && actualPayer === s.toParticipantId;
+              })
+              .reduce((sum: number, s: any) => sum + s.amount, 0);
+            // participantBalance.balance = totalOwed - totalPaid - pagosPagados (positivo=debe, negativo=le deben)
+            // Lo negamos para que positivo=crédito(verde) y negativo=deuda(rojo), y sumamos condonaciones
+            const balance = participantBalance ? (-participantBalance.balance + forgivenAmount) : forgivenAmount;
             
             return (
               <TouchableOpacity 
@@ -1776,12 +1791,28 @@ export default function EventDetailScreen() {
                     <View style={styles.participantNameContainer}>
                       <Text style={styles.participantName}>{participant.name}</Text>
                     </View>
+                    {consolidationAssignments.some((a: any) => a.debtorId === participant.id) && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, marginBottom: 1 }}>
+                        <MaterialCommunityIcons
+                          name={forgivenAmount > 0 ? 'cancel' : 'account-arrow-right'}
+                          size={11}
+                          color="#FF9800"
+                        />
+                        <Text style={{ fontSize: 10, color: '#FF9800', marginLeft: 3, fontWeight: '600' }}>
+                          {forgivenAmount > 0 ? 'Deuda condonada' : 'Pagado por otro'}
+                        </Text>
+                      </View>
+                    )}
                     {participant.alias_cbu && (
                       <Text style={styles.participantEmail}>💳 {participant.alias_cbu}</Text>
                     )}
                     {participant.phone && (
                       <Text style={styles.participantEmail}>📞 {participant.phone}</Text>
                     )}
+                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 3 }}>
+                      <Text style={{ fontSize: 11, color: '#388E3C' }}>💰 ${totalPaid.toFixed(2)}</Text>
+                      <Text style={{ fontSize: 11, color: theme.colors.error }}>💵 ${totalOwed.toFixed(2)}</Text>
+                    </View>
                   </View>
                 </View>
                 <View style={styles.participantRightSection}>
@@ -1796,11 +1827,6 @@ export default function EventDetailScreen() {
                       {balance > 0.01 ? `+$${balance.toFixed(2)}` :
                        balance < -0.01 ? `-$${Math.abs(balance).toFixed(2)}` :
                        '$0.00'}
-                    </Text>
-                    <Text style={styles.participantBalanceLabel}>
-                      {balance > 0.01 ? t('participants.owes') :
-                       balance < -0.01 ? t('participants.shouldPay') :
-                       t('participants.balanced')}
                     </Text>
                   </View>
                   {event?.status === 'active' && (
