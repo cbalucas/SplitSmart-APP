@@ -323,6 +323,13 @@ export default function EventDetailScreen() {
     loadEventData();
   }, [loadEventData]);
 
+  // Refrescar datos al cambiar al tab de participantes o gastos (garantiza balances frescos)
+  useEffect(() => {
+    if (activeTab === 'participantes' || activeTab === 'gastos') {
+      loadEventData();
+    }
+  }, [activeTab]);
+
   // Sincronizar liquidaciones cuando cambien los cálculos
   // Usar referencia para evitar bucles infinitos
   const previousSettlementsRef = useRef<string>('');
@@ -1752,19 +1759,61 @@ export default function EventDetailScreen() {
             </View>
           ) : (
             visibleParticipants.map(participant => {
-            const participantBalance = balances.find(b => b.participantId === participant.id);
-            const totalPaid = participantBalance?.totalPaid || 0;
-            const totalOwed = participantBalance?.totalOwed || 0;
-            // Monto condonado: deuda de este participante absorbida y anulada por consolidación
+            // Calcular directamente desde eventExpenses y eventSplits para garantizar datos frescos
+            const totalPaid = eventExpenses
+              .filter(e => e.payerId === participant.id)
+              .reduce((sum, e) => sum + e.amount, 0);
+            const totalOwed = eventSplits
+              .filter(s => s.participantId === participant.id)
+              .reduce((sum, s) => sum + s.amount, 0);
+            // Ajustar por settlements pagados
+            const paidByParticipant = dbSettlements
+              .filter((s: any) => s.fromParticipantId === participant.id && s.isPaid)
+              .reduce((sum: number, s: any) => sum + s.amount, 0);
+            const receivedByParticipant = dbSettlements
+              .filter((s: any) => s.toParticipantId === participant.id && s.isPaid)
+              .reduce((sum: number, s: any) => sum + s.amount, 0);
+            // Monto condonado (auto-cancelación): deudor cuya deuda fue absorbida por el propio acreedor
             const forgivenAmount = dbSettlements
               .filter((s: any) => {
                 const actualPayer = assignmentMap[s.fromParticipantId] || s.fromParticipantId;
                 return s.fromParticipantId === participant.id && actualPayer === s.toParticipantId;
               })
               .reduce((sum: number, s: any) => sum + s.amount, 0);
-            // participantBalance.balance = totalOwed - totalPaid - pagosPagados (positivo=debe, negativo=le deben)
-            // Lo negamos para que positivo=crédito(verde) y negativo=deuda(rojo), y sumamos condonaciones
-            const balance = participantBalance ? (-participantBalance.balance + forgivenAmount) : forgivenAmount;
+            // Monto absorbido por tercero C: "Pagado por otro" — también reduce el balance del deudor A
+            const absorbedByThirdParty = dbSettlements
+              .filter((s: any) => {
+                if (s.fromParticipantId !== participant.id) return false;
+                const actualPayer = assignmentMap[s.fromParticipantId];
+                return actualPayer !== undefined && actualPayer !== s.toParticipantId;
+              })
+              .reduce((sum: number, s: any) => sum + s.amount, 0);
+            // Monto que este participante perdonó siendo acreedor (auto-cancelación — B absorbe A → B no cobra)
+            const forgivenToOthers = dbSettlements
+              .filter((s: any) => {
+                const actualPayer = assignmentMap[s.fromParticipantId];
+                return s.toParticipantId === participant.id &&
+                       actualPayer === participant.id &&
+                       s.fromParticipantId !== participant.id;
+              })
+              .reduce((sum: number, s: any) => sum + s.amount, 0);
+            // Monto que este participante absorbió de otros (C asumió deuda de A hacia B → C debe más)
+            const absorbedFromOthers = dbSettlements
+              .filter((s: any) => {
+                const actualPayer = assignmentMap[s.fromParticipantId];
+                return actualPayer === participant.id &&
+                       s.fromParticipantId !== participant.id &&
+                       s.toParticipantId !== participant.id;
+              })
+              .reduce((sum: number, s: any) => sum + s.amount, 0);
+            // balance positivo = le deben (verde), negativo = debe (rojo)
+            const balance = (totalPaid - totalOwed)
+              + paidByParticipant       // settlements que ya pagó → reduce deuda
+              - receivedByParticipant   // settlements que ya recibió → reduce crédito
+              + forgivenAmount          // deuda perdonada por el acreedor → reduce deuda del deudor
+              + absorbedByThirdParty    // deuda asumida por un tercero → reduce deuda del deudor
+              - forgivenToOthers        // crédito que perdonó siendo acreedor → reduce su crédito
+              - absorbedFromOthers;     // deuda extra asumida de otros → aumenta su deuda
             
             return (
               <TouchableOpacity 
@@ -1809,7 +1858,7 @@ export default function EventDetailScreen() {
                     {participant.phone && (
                       <Text style={styles.participantEmail}>📞 {participant.phone}</Text>
                     )}
-                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 3 }}>
+                    <View style={{ flexDirection: 'column', gap: 2, marginTop: 3 }}>
                       <Text style={{ fontSize: 11, color: '#388E3C' }}>💰 ${totalPaid.toFixed(2)}</Text>
                       <Text style={{ fontSize: 11, color: theme.colors.error }}>💵 ${totalOwed.toFixed(2)}</Text>
                     </View>

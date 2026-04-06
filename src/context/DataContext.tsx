@@ -519,16 +519,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const getSplitsByEvent = useCallback(async (eventId: string) => {
     try {
-      // Filter splits by eventId from global state
-      const eventExpenses = expenses.filter(e => e.eventId === eventId);
-      const eventExpenseIds = new Set(eventExpenses.map(e => e.id));
-      const eventSplits = splits.filter(s => eventExpenseIds.has(s.expenseId));
-      return eventSplits;
+      return await databaseService.getSplitsByEvent(eventId);
     } catch (error) {
       console.error('❌ Error getting splits by event:', error);
       return [];
     }
-  }, [expenses, splits]);
+  }, []);
 
   // Payment methods
   const createPayment = useCallback(async (payment: Payment) => {

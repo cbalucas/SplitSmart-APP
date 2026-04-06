@@ -16,7 +16,7 @@ _(ninguna aún)_
 
 ### 🔧 Correcciones de Bugs
 
-_(ninguna aún)_
+- ✅ **EventDetail — Totales de participantes no se actualizaban al agregar gastos** (`src/context/DataContext.tsx`): `getSplitsByEvent` leía del estado en memoria (`splits`) en lugar de la BD. Al volver de `CreateExpense`, `useFocusEffect` llamaba `loadEventData()` antes de que el estado global se propagara, dejando los splits stale. Corregido consultando `databaseService.getSplitsByEvent(eventId)` directamente (igual que `getExpensesByEvent`), garantizando datos frescos en cada carga.
 
 ### ✨ Mejoras
 
@@ -24,7 +24,7 @@ _(ninguna aún)_
 
 ### 📁 Archivos Modificados
 
-_(ninguno aún)_
+- `src/context/DataContext.tsx`
 
 ---
 
