@@ -1,5 +1,25 @@
 ﻿# Changelog - SplitSmart
 
+## [1.4.10] - 2026-04-06
+
+### 🚀 Nuevas Funcionalidades
+_(ninguna)_
+
+### 🔧 Correcciones de Bugs
+- ✅ **LanguageSelector — Modal no aparecía al abrirlo desde el overflow del HeaderBar**: Android no soporta Modals anidados. El modal de selección de idioma estaba siendo renderizado dentro del modal del overflow. Solucionado extrayendo el `LanguageSelector` al nivel del `HeaderBar` con control externo via props `visible`/`onClose`, renderizándolo fuera del modal de overflow.
+- ✅ **ProfileScreen — Labels `profile.dataStats` y `profile.changelogTitle` se mostraban como clave sin traducir**: las claves existían en `es.json` pero no estaban definidas en `LanguageContext.tsx`. Agregadas en los 3 idiomas (ES/EN/PT).
+- ✅ **ProfileScreen — Bloque v1.4.9 ausente en el historial modal**: el script `versiones.ps1` no insertaba el bloque porque buscaba el marcador con `.IndexOf()` exacto pero el comentario tenía texto adicional. Corregido usando `[regex]::Match()` tolerante a texto extra. El bloque v1.4.9 fue insertado manualmente.
+
+### ✨ Mejoras
+- **`versiones.ps1` — Búsqueda del marcador de versión con regex**: reemplazado `.IndexOf("{/* Versión $curVer")` por `[regex]::Match()` para tolerar cualquier texto después del número de versión en el comentario JSX.
+
+### 🔢 Versiones
+- **versionCode**: 15 → 16
+- **versionName**: "1.4.9" → "1.4.10"
+
+---
+
+
 ## [1.4.9] - 2026-04-06
 
 ### 🚀 Nuevas Funcionalidades
@@ -14,6 +34,26 @@
 - **EventDetail — Refresco de datos al cambiar de tab**: nuevo `useEffect` sobre `activeTab` que llama `loadEventData()` al navegar a los tabs `participantes` o `gastos`, garantizando balances siempre actualizados sin necesidad de salir y volver a entrar al evento.
 - **EventDetail — Layout de importes del participante**: cambiado de `flexDirection: 'row'` a `flexDirection: 'column'` en la fila de montos (💰 pagado / 💵 debe), mejorando la legibilidad en nombres largos.
 - **EventDetail — Visualización de monto efectivo adeudado**: cuando hay condonación o absorción activa, el monto `💵 debe` ahora muestra el original tachado y el monto real que queda pendiente (ej. ~~$50.00~~ → # Changelog - SplitSmart
+
+## [1.4.10] - 2026-04-06
+
+### 🚀 Nuevas Funcionalidades
+_(ninguna)_
+
+### 🔧 Correcciones de Bugs
+- ✅ **LanguageSelector — Modal no aparecía al abrirlo desde el overflow del HeaderBar**: Android no soporta Modals anidados. El modal de selección de idioma estaba siendo renderizado dentro del modal del overflow. Solucionado extrayendo el `LanguageSelector` al nivel del `HeaderBar` con control externo via props `visible`/`onClose`, renderizándolo fuera del modal de overflow.
+- ✅ **ProfileScreen — Labels `profile.dataStats` y `profile.changelogTitle` se mostraban como clave sin traducir**: las claves existían en `es.json` pero no estaban definidas en `LanguageContext.tsx`. Agregadas en los 3 idiomas (ES/EN/PT).
+- ✅ **ProfileScreen — Bloque v1.4.9 ausente en el historial modal**: el script `versiones.ps1` no insertaba el bloque porque buscaba el marcador con `.IndexOf()` exacto pero el comentario tenía texto adicional. Corregido usando `[regex]::Match()` tolerante a texto extra. El bloque v1.4.9 fue insertado manualmente.
+
+### ✨ Mejoras
+- **`versiones.ps1` — Búsqueda del marcador de versión con regex**: reemplazado `.IndexOf("{/* Versión $curVer")` por `[regex]::Match()` para tolerar cualquier texto después del número de versión en el comentario JSX.
+
+### 🔢 Versiones
+- **versionCode**: 15 → 16
+- **versionName**: "1.4.9" → "1.4.10"
+
+---
+
 .00), en lugar del monto total original que confundía al usuario.
 - **EventDetail — Sección "Condonadas automáticamente" en liquidaciones**: se agregó un bloque debajo de las liquidaciones activas que lista cada deuda condonada por consolidación (tachada, con label explicativo), visible solo en vista consolidada. Permite al usuario confirmar qué deudas fueron resueltas sin acción real.
 - **EventDetail — Debug log de balance por participante**: cuando hay consolidaciones activas, se emite un `console.log` con todos los valores intermedios del cálculo de balance por participante, facilitando el diagnóstico de errores en producción.
