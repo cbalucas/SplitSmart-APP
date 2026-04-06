@@ -1,5 +1,26 @@
 # Changelog - SplitSmart
 
+## [1.4.8] - 2026-04-06
+
+### 🚀 Nuevas Funcionalidades
+_(ninguna)_
+
+### 🔧 Correcciones de Bugs
+- ✅ **Home — Contador de liquidaciones ignoraba condonaciones** (`src/screens/Home/index.tsx`): el `total` en la card del evento incluía liquidaciones condonadas por consolidación, que nunca se marcan `isPaid`. Se carga el mapa de asignaciones de consolidación y se descuentan los auto-pagos del total. Corrige que la card nunca llegara al 100% cuando existían condonaciones.
+- ✅ **EventDetail — Balance de participante ignoraba liquidaciones confirmadas** (`src/screens/EventDetail/index.tsx`): la card calculaba el balance con valores brutos (`totalPaid - totalOwed`) que no variaban al confirmar liquidaciones. Ahora usa `participantBalance.balance` del hook `useCalculations`, que descuenta los `paidSettlements` reactivamente en cada `loadEventData()`.
+- ✅ **EventDetail — Balance de participante ignoraba condonaciones** (`src/screens/EventDetail/index.tsx`): participantes cuya deuda fue condonada seguían en rojo. Se agrega `forgivenAmount` por participante (settlements donde el pagador real post-asignación coincide con el acreedor) y se suma al balance neto.
+
+### ✨ Mejoras
+- **EventDetail — Desglose en cards de participantes**: cada card muestra 💰 lo que pagó en gastos (verde) y 💵 lo que le corresponde aportar (rojo), permitiendo entender el balance a simple vista.
+- **EventDetail — Etiqueta de estado removida**: se eliminó el texto "Se le debe / Debe pagar / Equilibrado"; el color del monto es indicador suficiente.
+- **EventDetail — Badge de consolidación/condonación**: bajo el nombre del participante aparece una leyenda naranja ("Pagado por otro" o "Deuda condonada") cuando su deuda fue afectada por la consolidación.
+
+### 🔢 Versiones
+- **versionCode**: 13 → 14
+- **versionName**: "1.4.7" → "1.4.8"
+
+---
+
 ## [1.4.7] - 2026-04-02
 
 ### 🚀 Nuevas Funcionalidades
