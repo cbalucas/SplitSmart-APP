@@ -1773,9 +1773,10 @@ export default function EventDetailScreen() {
             const receivedByParticipant = dbSettlements
               .filter((s: any) => s.toParticipantId === participant.id && s.isPaid)
               .reduce((sum: number, s: any) => sum + s.amount, 0);
-            // Monto condonado (auto-cancelación): deudor cuya deuda fue absorbida por el propio acreedor
+            // Monto condonado (auto-cancelación, solo no pagados para evitar doble conteo con paidByParticipant)
             const forgivenAmount = dbSettlements
               .filter((s: any) => {
+                if (s.isPaid) return false; // evitar doble conteo con paidByParticipant
                 const actualPayer = assignmentMap[s.fromParticipantId] || s.fromParticipantId;
                 return s.fromParticipantId === participant.id && actualPayer === s.toParticipantId;
               })
@@ -1783,29 +1784,36 @@ export default function EventDetailScreen() {
             // Monto absorbido por tercero C: "Pagado por otro" — también reduce el balance del deudor A
             const absorbedByThirdParty = dbSettlements
               .filter((s: any) => {
+                if (s.isPaid) return false; // evitar doble conteo con paidByParticipant
                 if (s.fromParticipantId !== participant.id) return false;
                 const actualPayer = assignmentMap[s.fromParticipantId];
                 return actualPayer !== undefined && actualPayer !== s.toParticipantId;
               })
               .reduce((sum: number, s: any) => sum + s.amount, 0);
-            // Monto que este participante perdonó siendo acreedor (auto-cancelación — B absorbe A → B no cobra)
+            // Monto que este participante perdonó siendo acreedor (solo no pagados)
             const forgivenToOthers = dbSettlements
               .filter((s: any) => {
+                if (s.isPaid) return false; // evitar doble conteo con receivedByParticipant
                 const actualPayer = assignmentMap[s.fromParticipantId];
                 return s.toParticipantId === participant.id &&
                        actualPayer === participant.id &&
                        s.fromParticipantId !== participant.id;
               })
               .reduce((sum: number, s: any) => sum + s.amount, 0);
-            // Monto que este participante absorbió de otros (C asumió deuda de A hacia B → C debe más)
+            // Monto que este participante absorbió de otros (solo no pagados)
             const absorbedFromOthers = dbSettlements
               .filter((s: any) => {
+                if (s.isPaid) return false; // evitar doble conteo con paidByParticipant
                 const actualPayer = assignmentMap[s.fromParticipantId];
                 return actualPayer === participant.id &&
                        s.fromParticipantId !== participant.id &&
                        s.toParticipantId !== participant.id;
               })
               .reduce((sum: number, s: any) => sum + s.amount, 0);
+
+            // Monto efectivamente adeudado (visible al usuario, descuenta lo condonado/absorbido)
+            const effectiveOwed = Math.max(0, totalOwed - forgivenAmount - absorbedByThirdParty);
+
             // balance positivo = le deben (verde), negativo = debe (rojo)
             const balance = (totalPaid - totalOwed)
               + paidByParticipant       // settlements que ya pagó → reduce deuda
@@ -1814,6 +1822,17 @@ export default function EventDetailScreen() {
               + absorbedByThirdParty    // deuda asumida por un tercero → reduce deuda del deudor
               - forgivenToOthers        // crédito que perdonó siendo acreedor → reduce su crédito
               - absorbedFromOthers;     // deuda extra asumida de otros → aumenta su deuda
+
+            // Debug log para diagnosticar problemas de balance
+            if (consolidationAssignments.length > 0) {
+              console.log(`👤 Balance [${participant.name}]:`, {
+                totalPaid, totalOwed, effectiveOwed,
+                paidByParticipant, receivedByParticipant,
+                forgivenAmount, absorbedByThirdParty,
+                forgivenToOthers, absorbedFromOthers,
+                balance
+              });
+            }
             
             return (
               <TouchableOpacity 
@@ -1848,7 +1867,9 @@ export default function EventDetailScreen() {
                           color="#FF9800"
                         />
                         <Text style={{ fontSize: 10, color: '#FF9800', marginLeft: 3, fontWeight: '600' }}>
-                          {forgivenAmount > 0 ? 'Deuda condonada' : 'Pagado por otro'}
+                          {forgivenAmount > 0
+                            ? `Deuda condonada ($${forgivenAmount.toFixed(2)})`
+                            : 'Pagado por otro'}
                         </Text>
                       </View>
                     )}
@@ -1860,7 +1881,21 @@ export default function EventDetailScreen() {
                     )}
                     <View style={{ flexDirection: 'column', gap: 2, marginTop: 3 }}>
                       <Text style={{ fontSize: 11, color: '#388E3C' }}>💰 ${totalPaid.toFixed(2)}</Text>
-                      <Text style={{ fontSize: 11, color: theme.colors.error }}>💵 ${totalOwed.toFixed(2)}</Text>
+                      {/* Mostrar monto efectivo adeudado (descuenta condonación y absorción) */}
+                      {effectiveOwed < totalOwed && totalOwed > 0 ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Text style={{ fontSize: 11, color: theme.colors.onSurfaceVariant, textDecorationLine: 'line-through' }}>
+                            💵 ${totalOwed.toFixed(2)}
+                          </Text>
+                          {effectiveOwed > 0 && (
+                            <Text style={{ fontSize: 11, color: theme.colors.error }}>
+                              → ${effectiveOwed.toFixed(2)}
+                            </Text>
+                          )}
+                        </View>
+                      ) : (
+                        <Text style={{ fontSize: 11, color: theme.colors.error }}>💵 ${effectiveOwed.toFixed(2)}</Text>
+                      )}
                     </View>
                   </View>
                 </View>
@@ -2293,6 +2328,57 @@ export default function EventDetailScreen() {
             </Text>
           </View>
         )}
+
+        {/* Liquidaciones condonadas — auto-resueltas por consolidación */}
+        {consolidationAssignments.length > 0 && !showOriginalView && (() => {
+          const assignMap: { [debtorId: string]: string } = {};
+          consolidationAssignments.forEach((a: any) => { assignMap[a.debtorId] = a.payerId; });
+          const forgivenSettlements = dbSettlements.filter((s: any) => {
+            const actualPayer = assignMap[s.fromParticipantId] || s.fromParticipantId;
+            return actualPayer === s.toParticipantId && s.fromParticipantId !== s.toParticipantId;
+          });
+          if (forgivenSettlements.length === 0) return null;
+          return (
+            <View style={{ marginTop: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 }}>
+                <MaterialCommunityIcons name="cancel" size={16} color={theme.colors.onSurfaceVariant} />
+                <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colors.onSurfaceVariant }}>
+                  Condonadas automáticamente
+                </Text>
+              </View>
+              {forgivenSettlements.map((s: any, idx: number) => (
+                <View
+                  key={`forgiven_${s.id}_${idx}`}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingVertical: 8,
+                    paddingHorizontal: 12,
+                    marginBottom: 6,
+                    backgroundColor: theme.colors.surfaceVariant + '60',
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: theme.colors.outline + '40',
+                    opacity: 0.75
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, color: theme.colors.onSurfaceVariant, textDecorationLine: 'line-through' }}>
+                      {s.fromParticipantName} → {s.toParticipantName}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
+                      🚫 Deuda condonada por consolidación
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 13, color: theme.colors.onSurfaceVariant, textDecorationLine: 'line-through', marginLeft: 8 }}>
+                    ${s.amount.toFixed(2)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          );
+        })()}
       </Card>
 
       {/* Consolidaciones Aplicadas - Solo mostrar cuando hay consolidaciones */}

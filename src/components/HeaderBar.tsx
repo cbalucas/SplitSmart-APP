@@ -79,6 +79,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   const { theme, isDarkMode, toggleTheme } = useTheme();
   const { language } = useLanguage();
   const [overflowVisible, setOverflowVisible] = useState(false);
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
 
   // Determinar colores dinámicos
   const dynamicBackgroundColor = useDynamicColors 
@@ -328,20 +329,16 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
           )}
 
           {showLanguageSelector && (
-            <LanguageSelector
-              renderTrigger={(onPress) => (
-                <TouchableOpacity
-                  style={styles.overflowItem}
-                  onPress={() => { setOverflowVisible(false); onPress(); }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={{ fontSize: 20 }}>{getLanguageFlag()}</Text>
-                  <Text style={[styles.overflowItemLabel, { color: theme.colors.onSurface }]}>
-                    {ml.language}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            />
+            <TouchableOpacity
+              style={styles.overflowItem}
+              onPress={() => { setOverflowVisible(false); setTimeout(() => setLanguageModalVisible(true), 300); }}
+              activeOpacity={0.7}
+            >
+              <Text style={{ fontSize: 20 }}>{getLanguageFlag()}</Text>
+              <Text style={[styles.overflowItemLabel, { color: theme.colors.onSurface }]}>
+                {ml.language}
+              </Text>
+            </TouchableOpacity>
           )}
 
           {showHelp && (
@@ -451,6 +448,13 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
         </View>
       </View>
       {useOverflow && renderOverflowMenu()}
+      {/* LanguageSelector controlado FUERA del overflow Modal para evitar Modals anidados en Android */}
+      {showLanguageSelector && useOverflow && (
+        <LanguageSelector
+          visible={languageModalVisible}
+          onClose={() => setLanguageModalVisible(false)}
+        />
+      )}
     </>
   );
 };

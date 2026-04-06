@@ -1,4 +1,30 @@
-# Changelog - SplitSmart
+﻿# Changelog - SplitSmart
+
+## [1.4.9] - 2026-04-06
+
+### 🚀 Nuevas Funcionalidades
+- ✨ **Script `build-all.ps1`**: nuevo script PowerShell para generar APK y/o AAB en un solo comando, con parámetros `-APK`, `-AAB` y `-Copia`.
+
+### 🔧 Correcciones de Bugs
+- ✅ **DataContext — `getSplitsByEvent` con datos stale**: leía del estado en memoria (`splits`) en lugar de la BD. Al volver de `CreateExpense`, `useFocusEffect` llamaba `loadEventData()` antes de que el estado se propagara. Corregido consultando `databaseService.getSplitsByEvent(eventId)` directamente, garantizando datos frescos.
+- ✅ **EventDetail — Balance de participantes incorrecto con consolidaciones**: el cálculo anterior usaba `participantBalance.balance` del contexto, que no incorporaba settlements pagados, montos condonados (auto-cancelación) ni deudas absorbidas por terceros. Reescrito calculando directamente desde `eventExpenses` y `eventSplits`, con ajustes por `paidByParticipant`, `receivedByParticipant`, `forgivenAmount`, `absorbedByThirdParty`, `forgivenToOthers` y `absorbedFromOthers`.
+- ✅ **EventDetail — Doble conteo en balance cuando settlement condonado se marca como pagado**: los filtros de consolidación (`forgivenAmount`, `absorbedByThirdParty`, `forgivenToOthers`, `absorbedFromOthers`) no excluían los settlements ya pagados, causando que un monto se contara tanto en `paidByParticipant` como en los ajustes de consolidación. Corregido agregando `if (s.isPaid) return false` como primer guard en cada filtro.
+
+### ✨ Mejoras
+- **EventDetail — Refresco de datos al cambiar de tab**: nuevo `useEffect` sobre `activeTab` que llama `loadEventData()` al navegar a los tabs `participantes` o `gastos`, garantizando balances siempre actualizados sin necesidad de salir y volver a entrar al evento.
+- **EventDetail — Layout de importes del participante**: cambiado de `flexDirection: 'row'` a `flexDirection: 'column'` en la fila de montos (💰 pagado / 💵 debe), mejorando la legibilidad en nombres largos.
+- **EventDetail — Visualización de monto efectivo adeudado**: cuando hay condonación o absorción activa, el monto `💵 debe` ahora muestra el original tachado y el monto real que queda pendiente (ej. ~~$50.00~~ → # Changelog - SplitSmart
+.00), en lugar del monto total original que confundía al usuario.
+- **EventDetail — Sección "Condonadas automáticamente" en liquidaciones**: se agregó un bloque debajo de las liquidaciones activas que lista cada deuda condonada por consolidación (tachada, con label explicativo), visible solo en vista consolidada. Permite al usuario confirmar qué deudas fueron resueltas sin acción real.
+- **EventDetail — Debug log de balance por participante**: cuando hay consolidaciones activas, se emite un `console.log` con todos los valores intermedios del cálculo de balance por participante, facilitando el diagnóstico de errores en producción.
+- **`versiones.ps1` — Nuevo flujo Copilot**: la Parte 1 del script ahora muestra el git log y archivos modificados, pausa para que Copilot actualice `PENDING_CHANGES.md` directamente, y solo requiere intervención manual del usuario para decidir si incrementar la versión.
+
+### 🔢 Versiones
+- **versionCode**: 14 → 15
+- **versionName**: "1.4.8" → "1.4.9"
+
+---
+
 
 ## [1.4.8] - 2026-04-06
 

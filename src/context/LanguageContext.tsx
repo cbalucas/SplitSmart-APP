@@ -175,6 +175,9 @@ const additionalEsTranslations = {
   'profile.exportDataDesc': 'Descargar una copia de tus datos',
   'profile.deleteAllData': 'Eliminar todos los datos',
   'profile.deleteAllDataDesc': 'Borrar permanentemente toda la información',
+  'profile.dataStats': 'Estadísticas de Datos',
+  'profile.dataStatsDesc': 'Ver cantidad de registros por tabla',
+  'profile.changelogTitle': 'Historial de Versiones',
   // ProfileScreen Information Section
   'profile.information': 'Información',
   'profile.appVersion': 'Versión de la app',
@@ -1155,6 +1158,9 @@ const translations = {
     'profile.exportDataDesc': 'Download a copy of your data',
     'profile.deleteAllData': 'Delete all data',
     'profile.deleteAllDataDesc': 'Permanently delete all information',
+    'profile.dataStats': 'Data Statistics',
+    'profile.dataStatsDesc': 'View number of records per table',
+    'profile.changelogTitle': 'Version History',
     // ProfileScreen Information Section
     'profile.information': 'Information',
     'profile.appVersion': 'App version',
@@ -1784,6 +1790,9 @@ const translations = {
   'profile.exportDataDesc': 'Baixar uma cópia dos seus dados',
   'profile.deleteAllData': 'Excluir todos os dados',
   'profile.deleteAllDataDesc': 'Apagar permanentemente todas as informações',
+  'profile.dataStats': 'Estatísticas de Dados',
+  'profile.dataStatsDesc': 'Ver quantidade de registros por tabela',
+  'profile.changelogTitle': 'Histórico de Versões',
   // ProfileScreen Information Section
   'profile.information': 'Informações',
   'profile.appVersion': 'Versão do app',

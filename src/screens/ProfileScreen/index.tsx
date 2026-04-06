@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -1446,7 +1446,7 @@ const ProfileScreen: React.FC = () => {
             </View>
             <View style={styles.settingAction}>
               <View style={styles.versionBadge}>
-                <Text style={styles.versionBadgeText}>v1.4.8</Text>
+                <Text style={styles.versionBadgeText}>v1.4.9</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -1659,15 +1659,53 @@ const ProfileScreen: React.FC = () => {
               contentContainerStyle={{ flexGrow: 1 }}
               nestedScrollEnabled={true}
             >
-              {/* Versión 1.4.8 - Versión Actual - Condonaciones y mejoras cards de participantes */}
+              {/* Versión 1.4.9 - Versión Actual */}
               <TouchableOpacity 
                 style={[styles.versionBlock, styles.currentVersionBlock]} 
+                onPress={() => toggleVersionExpanded('1.4.9')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.versionHeader}>
+                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.4.9 (Actual)</Text>
+                  <Text style={[styles.versionDate, styles.currentVersionDate]}>6 Abr 2026</Text>
+                  <MaterialCommunityIcons 
+                    name={expandedVersions.has('1.4.9') ? 'chevron-up' : 'chevron-down'} 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
+                </View>
+                {expandedVersions.has('1.4.9') && (
+                  <View style={styles.versionContent}>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🚀 Novedades</Text>
+                      <Text style={styles.changelogItem}>• Script build-all.ps1: genera APK/AAB en un solo comando</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
+                      <Text style={styles.changelogItem}>• getSplitsByEvent consulta BD directamente</Text>
+                      <Text style={styles.changelogItem}>• Balance de participantes recalculado con consolidaciones</Text>
+                      <Text style={styles.changelogItem}>• Doble conteo en balance con settlement condonado pagado</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>✨ Mejoras</Text>
+                      <Text style={styles.changelogItem}>• Refresco automático al cambiar de tab</Text>
+                      <Text style={styles.changelogItem}>• Monto adeudado muestra valor real con original tachado</Text>
+                      <Text style={styles.changelogItem}>• Sección "Condonadas automáticamente" en liquidaciones</Text>
+                      <Text style={styles.changelogItem}>• versiones.ps1: flujo Copilot integrado</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Versión 1.4.8 - Condonaciones y mejoras cards de participantes */}
+              <TouchableOpacity 
+                style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.4.8')}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
-                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.4.8 (Actual)</Text>
-                  <Text style={[styles.versionDate, styles.currentVersionDate]}>6 Abr 2026</Text>
+                  <Text style={[styles.versionNumber]}>v1.4.8</Text>
+                  <Text style={[styles.versionDate]}>6 Abr 2026</Text>
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.4.8') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
@@ -2179,7 +2217,7 @@ const ProfileScreen: React.FC = () => {
                   color={theme.colors.primary} 
                   style={{ alignSelf: 'center', marginBottom: 16 }}
                 />
-                <Text style={styles.aboutTitle}>SplitSmart v1.4.8</Text>
+                <Text style={styles.aboutTitle}>SplitSmart v1.4.9</Text>
                 <Text style={styles.aboutDescription}>
                   {t('profile.about.appDescription')}
                 </Text>
@@ -2224,7 +2262,7 @@ const ProfileScreen: React.FC = () => {
               <View style={[styles.aboutSection, { backgroundColor: theme.colors.surfaceVariant, padding: 16, borderRadius: 12 }]}>
                 <Text style={styles.aboutSectionTitle}>{t('profile.about.techSpecs')}</Text>
                 <Text style={styles.aboutDescription}>
-                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.version')}:</Text> 1.4.8{'\n'}
+                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.version')}:</Text> 1.4.9{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.platform')}</Text>{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.database')}</Text>{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.languages')}</Text>

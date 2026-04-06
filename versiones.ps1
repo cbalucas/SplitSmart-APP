@@ -1,4 +1,4 @@
-# versiones.ps1 — Gestión de versiones SplitSmart
+﻿# versiones.ps1 — Gestión de versiones SplitSmart
 # Uso: .\versiones.ps1
 #
 # PARTE 1 → Actualiza PENDING_CHANGES.md con nuevos cambios (features, fixes, mejoras, archivos)
@@ -99,57 +99,96 @@ Write-Host "══════════════════════�
 Write-Host "`n  Version actual : v$curVer  (versionCode: $curCode)`n" -ForegroundColor Yellow
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PARTE 1 — ACTUALIZAR PENDING_CHANGES.md
+# PARTE 1 — REVISAR PENDING_CHANGES.md  (Git + Copilot)
 # ═══════════════════════════════════════════════════════════════════════════════
-Write-Host "════ PASO 1: Registro de cambios pendientes ════`n" -ForegroundColor Magenta
+Write-Host "════ PASO 1: Revisión de cambios pendientes ════`n" -ForegroundColor Magenta
 
-Write-Host "Contenido actual de PENDING_CHANGES.md:" -ForegroundColor Yellow
+# — Resumen de git ────────────────────────────────────────────────────────────
+$gitAvail = $null -ne (Get-Command git -ErrorAction SilentlyContinue)
+if ($gitAvail) {
+    Write-Host "📋 Últimos commits:" -ForegroundColor Cyan
+    Write-Host "─────────────────────────────────────────" -ForegroundColor DarkGray
+    git log --oneline -15 2>$null | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+    Write-Host ""
+
+    $gitStat = git diff --stat HEAD 2>$null
+    if (-not $gitStat) { $gitStat = git status --short 2>$null }
+    if ($gitStat) {
+        Write-Host "📁 Archivos con cambios:" -ForegroundColor Cyan
+        $gitStat | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+        Write-Host ""
+    }
+} else {
+    Write-Host "  (git no disponible en este entorno)`n" -ForegroundColor DarkGray
+}
+
+# — Estado actual de PENDING_CHANGES ─────────────────────────────────────────
+Write-Host "📄 PENDING_CHANGES.md actual:" -ForegroundColor Yellow
 Write-Host "─────────────────────────────────────────" -ForegroundColor DarkGray
 Get-Content $pendingPath | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
 Write-Host "─────────────────────────────────────────`n" -ForegroundColor DarkGray
 
-$newFeatures = [System.Collections.ArrayList]@()
-$newFixes    = [System.Collections.ArrayList]@()
-$newMejoras  = [System.Collections.ArrayList]@()
-$newArchivos = [System.Collections.ArrayList]@()
+# — Instrucción para Copilot ──────────────────────────────────────────────────
+Write-Host "  💡 Abrí Copilot Chat en VS Code y pedile:" -ForegroundColor Cyan
+Write-Host "     Analizá el git log y actualizá PENDING_CHANGES.md" -ForegroundColor White
+Write-Host "     con features, fixes y mejoras de esta sesión." -ForegroundColor White
+Write-Host "     Copilot editará el archivo directamente.`n" -ForegroundColor White
 
-Write-Host "Nuevas FUNCIONALIDADES — Enter vacío para continuar:" -ForegroundColor Cyan
-do {
-    $item = (Read-Host "  Feature").Trim()
-    if ($item -ne '') { [void]$newFeatures.Add("✨ $item") }
-} while ($item -ne '')
+Read-Host "  → Presioná Enter cuando PENDING_CHANGES.md esté listo"
+Write-Host ""
 
-Write-Host "`nCORRECCIONES de bugs — Enter vacío para continuar:" -ForegroundColor Cyan
-do {
-    $item = (Read-Host "  Fix").Trim()
-    if ($item -ne '') { [void]$newFixes.Add("✅ $item") }
-} while ($item -ne '')
+# — Mostrar PENDING_CHANGES actualizado ───────────────────────────────────────
+Write-Host "📄 PENDING_CHANGES.md (actualizado):" -ForegroundColor Yellow
+Write-Host "─────────────────────────────────────────" -ForegroundColor DarkGray
+Get-Content $pendingPath | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+Write-Host "─────────────────────────────────────────`n" -ForegroundColor DarkGray
 
-Write-Host "`nMEJORAS — Enter vacío para continuar:" -ForegroundColor Cyan
-do {
-    $item = (Read-Host "  Mejora").Trim()
-    if ($item -ne '') { [void]$newMejoras.Add($item) }
-} while ($item -ne '')
+# — ¿Agregar items manualmente? ───────────────────────────────────────────────
+$modPending = (Read-Host "¿Querés agregar algo manualmente? (S/N)").Trim()
+if ($modPending -match '^[Ss]') {
+    $newFeatures = [System.Collections.ArrayList]@()
+    $newFixes    = [System.Collections.ArrayList]@()
+    $newMejoras  = [System.Collections.ArrayList]@()
+    $newArchivos = [System.Collections.ArrayList]@()
 
-Write-Host "`nARCHIVOS modificados — Enter vacío para continuar:" -ForegroundColor Cyan
-do {
-    $item = (Read-Host "  Archivo").Trim()
-    if ($item -ne '') { [void]$newArchivos.Add("``$item``") }
-} while ($item -ne '')
+    Write-Host "`nNuevas FUNCIONALIDADES — Enter vacío para continuar:" -ForegroundColor Cyan
+    do {
+        $item = (Read-Host "  Feature").Trim()
+        if ($item -ne '') { [void]$newFeatures.Add("✨ $item") }
+    } while ($item -ne '')
 
-$totalNew = $newFeatures.Count + $newFixes.Count + $newMejoras.Count + $newArchivos.Count
-if ($totalNew -gt 0) {
-    $pendingLines = [System.Collections.ArrayList]@(Get-Content $pendingPath)
+    Write-Host "`nCORRECCIONES de bugs — Enter vacío para continuar:" -ForegroundColor Cyan
+    do {
+        $item = (Read-Host "  Fix").Trim()
+        if ($item -ne '') { [void]$newFixes.Add("✅ $item") }
+    } while ($item -ne '')
 
-    Add-ItemsToSection -lines $pendingLines -header '### 🚀 Nuevas Funcionalidades' -newItems $newFeatures.ToArray()
-    Add-ItemsToSection -lines $pendingLines -header '### 🔧 Correcciones de Bugs'   -newItems $newFixes.ToArray()
-    Add-ItemsToSection -lines $pendingLines -header '### ✨ Mejoras'                -newItems $newMejoras.ToArray()
-    Add-ItemsToSection -lines $pendingLines -header '### 📁 Archivos Modificados'   -newItems $newArchivos.ToArray()
+    Write-Host "`nMEJORAS — Enter vacío para continuar:" -ForegroundColor Cyan
+    do {
+        $item = (Read-Host "  Mejora").Trim()
+        if ($item -ne '') { [void]$newMejoras.Add($item) }
+    } while ($item -ne '')
 
-    $pendingLines | Set-Content $pendingPath -Encoding UTF8
-    Write-Host "`n✅ PENDING_CHANGES.md actualizado con $totalNew nuevo(s) item(s).`n" -ForegroundColor Green
-} else {
-    Write-Host "`n  No se agregaron items nuevos.`n" -ForegroundColor Gray
+    Write-Host "`nARCHIVOS modificados — Enter vacío para continuar:" -ForegroundColor Cyan
+    do {
+        $item = (Read-Host "  Archivo").Trim()
+        if ($item -ne '') { [void]$newArchivos.Add("``$item``") }
+    } while ($item -ne '')
+
+    $totalNew = $newFeatures.Count + $newFixes.Count + $newMejoras.Count + $newArchivos.Count
+    if ($totalNew -gt 0) {
+        $pendingLines = [System.Collections.ArrayList]@(Get-Content $pendingPath)
+
+        Add-ItemsToSection -lines $pendingLines -header '### 🚀 Nuevas Funcionalidades' -newItems $newFeatures.ToArray()
+        Add-ItemsToSection -lines $pendingLines -header '### 🔧 Correcciones de Bugs'   -newItems $newFixes.ToArray()
+        Add-ItemsToSection -lines $pendingLines -header '### ✨ Mejoras'                -newItems $newMejoras.ToArray()
+        Add-ItemsToSection -lines $pendingLines -header '### 📁 Archivos Modificados'   -newItems $newArchivos.ToArray()
+
+        $pendingLines | Set-Content $pendingPath -Encoding UTF8
+        Write-Host "`n✅ PENDING_CHANGES.md actualizado con $totalNew nuevo(s) item(s).`n" -ForegroundColor Green
+    } else {
+        Write-Host "`n  No se agregaron items nuevos.`n" -ForegroundColor Gray
+    }
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -305,9 +344,11 @@ $profileContent = $profileContent -replace '\[styles\.versionDate, styles\.curre
 $profileContent = $profileContent -replace "v$([regex]::Escape($curVer)) \(Actual\)", "v$curVer"
 
 # — b) Insertar nuevo bloque ANTES del comentario de la versión anterior —
-$marker = "{/* Versión $curVer"
-$idx = $profileContent.IndexOf($marker)
-if ($idx -ge 0) {
+# Búsqueda con regex para tolerar texto adicional después del número de versión
+$markerRegex = [regex]::Escape("{/* Versión $curVer")
+$markerMatch = [regex]::Match($profileContent, $markerRegex)
+if ($markerMatch.Success) {
+    $idx = $markerMatch.Index
     $profileContent = $profileContent.Substring(0, $idx) + $newBlock + $profileContent.Substring($idx)
     Write-Host "    → Nuevo bloque v$newVer insertado en el changelog modal" -ForegroundColor DarkGray
 } else {

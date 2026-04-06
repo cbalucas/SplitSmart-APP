@@ -6,15 +6,29 @@ interface LanguageSelectorProps {
   size?: number;
   color?: string;
   renderTrigger?: (onPress: () => void) => React.ReactNode;
+  // Control externo del modal (para evitar Modals anidados)
+  visible?: boolean;
+  onClose?: () => void;
 }
 
 export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ 
   size = 28, 
   color = '#FFFFFF',
-  renderTrigger
+  renderTrigger,
+  visible: externalVisible,
+  onClose
 }) => {
   const { language, setLanguage, t } = useLanguage();
-  const [modalVisible, setModalVisible] = useState(false);
+  const [internalVisible, setInternalVisible] = useState(false);
+
+  // Si se pasa visible externamente, usar ese; si no, usar estado interno
+  const isControlled = externalVisible !== undefined;
+  const modalVisible = isControlled ? externalVisible : internalVisible;
+  const openModal = () => { if (!isControlled) setInternalVisible(true); };
+  const closeModal = () => {
+    if (isControlled) { onClose?.(); }
+    else { setInternalVisible(false); }
+  };
 
   const getFlag = () => {
     switch (language) {
@@ -33,26 +47,29 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
 
   const handleSelectLanguage = (code: string) => {
     setLanguage(code as 'es' | 'en' | 'pt');
-    setModalVisible(false);
+    closeModal();
   };
 
   return (
     <>
-      {renderTrigger ? (
-        renderTrigger(() => setModalVisible(true))
-      ) : (
-        <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.container}>
-          <Text style={{ fontSize: size }}>{getFlag()}</Text>
-        </TouchableOpacity>
+      {/* Solo renderizar el trigger si no está en modo controlado externamente */}
+      {!isControlled && (
+        renderTrigger ? (
+          renderTrigger(openModal)
+        ) : (
+          <TouchableOpacity onPress={openModal} style={styles.container}>
+            <Text style={{ fontSize: size }}>{getFlag()}</Text>
+          </TouchableOpacity>
+        )
       )}
 
       <Modal
         animationType="fade"
         transparent={true}
         visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={closeModal}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
+        <Pressable style={styles.modalOverlay} onPress={closeModal}>
           <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
             <Text style={styles.modalTitle}>{t('message.selectLanguage')}</Text>
             
