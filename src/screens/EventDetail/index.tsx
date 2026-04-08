@@ -526,6 +526,41 @@ export default function EventDetailScreen() {
       return;
     }
 
+    // Verificar si hay un amigo existente con el mismo nombre al convertir
+    if (convertToFriend) {
+      const existingFriend = participants.find(
+        p => p.participantType === 'friend' &&
+          p.id !== editingParticipant.id &&
+          p.name.trim().toLowerCase() === name.trim().toLowerCase()
+      );
+
+      if (existingFriend) {
+        Alert.alert(
+          t('eventDetail.convertDuplicateTitle'),
+          t('eventDetail.convertDuplicateMessage', { name: existingFriend.name }),
+          [
+            { text: t('common.cancel'), style: 'cancel' },
+            {
+              text: t('eventDetail.replaceWithExisting'),
+              onPress: async () => {
+                try {
+                  await removeParticipantFromEvent(event!.id, editingParticipant.id);
+                  await addExistingParticipantToEvent(event!.id, existingFriend);
+                  await loadEventData();
+                  setShowEditModal(false);
+                  setEditingParticipant(null);
+                  Alert.alert('✅', t('eventDetail.replacedSuccess', { name: existingFriend.name }));
+                } catch {
+                  Alert.alert(t('common.error'), t('message.participantUpdatedError'));
+                }
+              }
+            }
+          ]
+        );
+        return;
+      }
+    }
+
     try {
       const updates: any = {
         name: name.trim(),
@@ -3408,12 +3443,20 @@ const EditParticipantModalContent: React.FC<{
 }> = ({ participant, onSave, onCancel }) => {
   const { theme } = useTheme();
   const { t } = useLanguage();
+  const { participants } = useData();
   const [name, setName] = useState(participant?.name || '');
   const [email, setEmail] = useState(participant?.email || '');
   const [phone, setPhone] = useState(participant?.phone || '');
   const [aliasCbu, setAliasCbu] = useState(participant?.alias_cbu || '');
   const [convertToFriend, setConvertToFriend] = useState(false);
   const [submittedOnce, setSubmittedOnce] = useState(false);
+
+  const duplicateFriend = convertToFriend
+    ? participants.find(
+        p => p.participantType === 'friend' &&
+        p.name.trim().toLowerCase() === name.trim().toLowerCase()
+      ) || null
+    : null;
 
   useEffect(() => {
     if (participant) {
@@ -3557,6 +3600,25 @@ const EditParticipantModalContent: React.FC<{
               </Text>
             </View>
           </TouchableOpacity>
+
+          {duplicateFriend && (
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'flex-start',
+              backgroundColor: '#FFF3E0',
+              borderRadius: 8,
+              padding: 12,
+              marginBottom: 8,
+              borderWidth: 1,
+              borderColor: '#FF9800',
+              gap: 8
+            }}>
+              <MaterialCommunityIcons name="alert-circle" size={20} color="#FF9800" style={{ marginTop: 1 }} />
+              <Text style={{ flex: 1, fontSize: 13, color: '#E65100', lineHeight: 18 }}>
+                {t('eventDetail.duplicateFriendWarning', { name: duplicateFriend.name })}
+              </Text>
+            </View>
+          )}
 
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
             <TouchableOpacity

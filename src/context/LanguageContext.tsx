@@ -160,6 +160,11 @@ const additionalEsTranslations = {
   'addParticipant.alert.understood': 'Entendido',
   'addParticipant.alert.participantsAdded': '✅ Participantes Agregados',
   'addParticipant.alert.participantsAddedMessage': 'Se agregaron {count} participante{plural} correctamente',
+  'addParticipant.nameValidation.tooShort': 'El nombre debe tener al menos 2 caracteres',
+  'addParticipant.nameValidation.checking': 'Verificando...',
+  'addParticipant.nameValidation.availableInEvent': '✓ Nombre disponible en el evento',
+  'addParticipant.nameValidation.duplicateInEvent': 'Ya existe un participante con ese nombre en el evento',
+  'addParticipant.nameValidation.duplicateInFriends': 'Ya existe un amigo con ese nombre',
   // ProfileScreen Privacy Section
   'profile.privacy': 'Privacidad',
   'profile.privacySection': 'Privacidad',
@@ -394,6 +399,11 @@ const additionalEsTranslations = {
   'eventDetail.addReceipt': 'Agregar comprobante',
   'eventDetail.convertToFriendTitle': '⭐ Convertir en Amigo Permanente',
   'eventDetail.convertToFriendSubtitle': 'Aparecerá en "Mis Amigos" y podrás agregarlo fácilmente a otros eventos',
+  'eventDetail.duplicateFriendWarning': '⚠️ Ya existe el amigo "{name}". Al guardar podrás reemplazar este participante por el amigo existente.',
+  'eventDetail.convertDuplicateTitle': '⚠️ Amigo duplicado',
+  'eventDetail.convertDuplicateMessage': 'Ya existe el amigo "{name}" en tu lista. ¿Querés reemplazar este participante temporal por el amigo existente?',
+  'eventDetail.replaceWithExisting': 'Usar amigo existente',
+  'eventDetail.replacedSuccess': 'Participante reemplazado por el amigo "{name}"',
 };
 
 interface LanguageContextValue {
@@ -1143,6 +1153,11 @@ const translations = {
     'addParticipant.alert.understood': 'Understood',
     'addParticipant.alert.participantsAdded': '✅ Participants Added',
     'addParticipant.alert.participantsAddedMessage': '{count} participant{plural} added successfully',
+    'addParticipant.nameValidation.tooShort': 'Name must be at least 2 characters',
+    'addParticipant.nameValidation.checking': 'Checking...',
+    'addParticipant.nameValidation.availableInEvent': '✓ Name available in event',
+    'addParticipant.nameValidation.duplicateInEvent': 'A participant with that name already exists in the event',
+    'addParticipant.nameValidation.duplicateInFriends': 'A friend with that name already exists',
     // ProfileScreen Privacy Section
     'profile.privacy': 'Privacy',
     'profile.privacySection': 'Privacy',
@@ -1412,6 +1427,13 @@ const translations = {
     'eventCard.expenses': 'expenses',
     'eventCard.settlement': 'settlement',
     'eventCard.settlements': 'settlements',
+    'eventDetail.convertToFriendTitle': '⭐ Convert to Permanent Friend',
+    'eventDetail.convertToFriendSubtitle': 'Will appear in "My Friends" and you can easily add them to other events',
+    'eventDetail.duplicateFriendWarning': '⚠️ Friend "{name}" already exists. When saving you can replace this participant with the existing friend.',
+    'eventDetail.convertDuplicateTitle': '⚠️ Duplicate friend',
+    'eventDetail.convertDuplicateMessage': 'Friend "{name}" already exists in your list. Do you want to replace this temporary participant with the existing friend?',
+    'eventDetail.replaceWithExisting': 'Use existing friend',
+    'eventDetail.replacedSuccess': 'Participant replaced by friend "{name}"',
   },
   pt: {
     // General
@@ -1776,6 +1798,11 @@ const translations = {
     'addParticipant.alert.understood': 'Entendido',
     'addParticipant.alert.participantsAdded': '✅ Participantes Adicionados',
     'addParticipant.alert.participantsAddedMessage': '{count} participante{plural} adicionado{pluralSelected} com sucesso',
+    'addParticipant.nameValidation.tooShort': 'O nome deve ter pelo menos 2 caracteres',
+    'addParticipant.nameValidation.checking': 'Verificando...',
+    'addParticipant.nameValidation.availableInEvent': '✓ Nome disponível no evento',
+    'addParticipant.nameValidation.duplicateInEvent': 'Já existe um participante com esse nome no evento',
+    'addParticipant.nameValidation.duplicateInFriends': 'Já existe um amigo com esse nome',
   // ProfileScreen Privacy Section
   'profile.privacy': 'Privacidade',
   'profile.shareEmail': 'Compartilhar email',
@@ -1924,6 +1951,11 @@ const translations = {
   'eventDetail.addReceipt': 'Adicionar comprovante',
   'eventDetail.convertToFriendTitle': '⭐ Converter em Amigo Permanente',
   'eventDetail.convertToFriendSubtitle': 'Aparecerá em "Meus Amigos" e você poderá adicioná-lo facilmente a outros eventos',
+  'eventDetail.duplicateFriendWarning': '⚠️ O amigo "{name}" já existe. Ao salvar, poderá substituir este participante pelo amigo existente.',
+  'eventDetail.convertDuplicateTitle': '⚠️ Amigo duplicado',
+  'eventDetail.convertDuplicateMessage': 'O amigo "{name}" já existe na sua lista. Quer substituir este participante temporário pelo amigo existente?',
+  'eventDetail.replaceWithExisting': 'Usar amigo existente',
+  'eventDetail.replacedSuccess': 'Participante substituído pelo amigo "{name}"',
   // EventDetail - Textos hardcodeados en UI (PT)
   'eventDetail.consolidate': 'Consolidar',
   'eventDetail.viewConsolidated': 'Ver Consolidado',

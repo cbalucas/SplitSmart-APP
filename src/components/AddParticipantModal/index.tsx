@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -31,6 +31,12 @@ interface AddParticipantModalProps {
   onAddParticipant: (participant: Participant) => void;
   currentParticipants: Participant[];
   hasExpenses?: boolean; // Nueva prop para saber si el evento tiene gastos
+}
+
+interface NameValidation {
+  isValid: boolean;
+  isChecking: boolean;
+  message: string;
 }
 
 interface FriendSelectItemProps {
@@ -116,7 +122,20 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
     alias_cbu: ''
   });
   const [saveAsFriend, setSaveAsFriend] = useState(false);
-  
+  const [nameValidation, setNameValidation] = useState<NameValidation>({
+    isValid: false,
+    isChecking: false,
+    message: ''
+  });
+
+  // Refs para evitar que cambios de referencia de arrays del contexto disparen el effect de validación
+  const currentParticipantsRef = useRef(currentParticipants);
+  currentParticipantsRef.current = currentParticipants;
+  const participantsRef = useRef(participants);
+  participantsRef.current = participants;
+  const saveAsFriendRef = useRef(saveAsFriend);
+  saveAsFriendRef.current = saveAsFriend;
+
   // Estados para creación masiva
   const [bulkType, setBulkType] = useState<'custom' | 'generic'>('custom');
   const [bulkNames, setBulkNames] = useState('');
@@ -143,6 +162,44 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       setFilteredFriends(filtered);
     }
   }, [participants, currentParticipants, searchQuery]);
+
+  useEffect(() => {
+    const name = newParticipant.name.trim();
+    if (!name) {
+      setNameValidation({ isValid: false, isChecking: false, message: '' });
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      if (name.length < 2) {
+        setNameValidation({ isValid: false, isChecking: false, message: t('addParticipant.nameValidation.tooShort') });
+        return;
+      }
+
+      const trimmedName = name.toLowerCase();
+
+      const isDuplicateInEvent = currentParticipantsRef.current.some(
+        p => p.name.trim().toLowerCase() === trimmedName
+      );
+      if (isDuplicateInEvent) {
+        setNameValidation({ isValid: false, isChecking: false, message: t('addParticipant.nameValidation.duplicateInEvent') });
+        return;
+      }
+
+      if (saveAsFriendRef.current) {
+        const allFriends = participantsRef.current.filter(p => p.participantType === 'friend');
+        const isDuplicateFriend = allFriends.some(f => f.name.trim().toLowerCase() === trimmedName);
+        if (isDuplicateFriend) {
+          setNameValidation({ isValid: false, isChecking: false, message: t('addParticipant.nameValidation.duplicateInFriends') });
+          return;
+        }
+      }
+
+      setNameValidation({ isValid: true, isChecking: false, message: t('addParticipant.nameValidation.availableInEvent') });
+    }, 400);
+
+    return () => clearTimeout(timeoutId);
+  }, [newParticipant.name, saveAsFriend]);
 
   const handleSelectFriend = (friendId: string) => {
     const newSelected = new Set(selectedFriends);
@@ -258,6 +315,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       setNewParticipant({ name: '', email: '', phone: '', alias_cbu: '' });
       setSaveAsFriend(false);
       setSubmittedOnce(false);
+      setNameValidation({ isValid: false, isChecking: false, message: '' });
       setActiveTab('friends');
       onClose();
       
@@ -368,6 +426,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
     setBulkType('custom');
     setSubmittedOnce(false);
     setBulkSubmittedOnce(false);
+    setNameValidation({ isValid: false, isChecking: false, message: '' });
     setActiveTab('friends');
     onClose();
   };
@@ -816,16 +875,43 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
           <Text style={styles.formTitle}>{t('addParticipant.newTitle')}</Text>
           
           <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, submittedOnce && !newParticipant.name.trim() && styles.inputLabelError]}>
+            <Text style={[
+              styles.inputLabel,
+              (submittedOnce && !newParticipant.name.trim()) || (!nameValidation.isValid && !!nameValidation.message && !nameValidation.isChecking) ? styles.inputLabelError : undefined
+            ]}>
               {t('addParticipant.fullNameLabel')}<Text style={styles.requiredStar}> *</Text>
             </Text>
-            <TextInput
-              style={styles.input}
-              placeholder={t('addParticipant.fullNamePlaceholder')}
-              placeholderTextColor={theme.colors.onSurfaceVariant}
-              value={newParticipant.name}
-              onChangeText={(text) => setNewParticipant(prev => ({ ...prev, name: text }))}
-            />
+            <View style={styles.inputWithIndicator}>
+              <TextInput
+                style={[
+                  styles.input,
+                  { flex: 1 },
+                  nameValidation.isValid && styles.inputValid,
+                  (!nameValidation.isValid && nameValidation.message && !nameValidation.isChecking) && styles.inputInvalid
+                ]}
+                placeholder={t('addParticipant.fullNamePlaceholder')}
+                placeholderTextColor={theme.colors.onSurfaceVariant}
+                value={newParticipant.name}
+                onChangeText={(text) => setNewParticipant(prev => ({ ...prev, name: text }))}
+              />
+              <View style={styles.validationIndicator}>
+                {nameValidation.isChecking ? (
+                  <MaterialCommunityIcons name="loading" size={20} color={theme.colors.primary} />
+                ) : nameValidation.isValid ? (
+                  <MaterialCommunityIcons name="check-circle" size={20} color="#4CAF50" />
+                ) : nameValidation.message ? (
+                  <MaterialCommunityIcons name="close-circle" size={20} color="#FF5252" />
+                ) : null}
+              </View>
+            </View>
+            {nameValidation.message ? (
+              <Text style={[
+                styles.validationText,
+                nameValidation.isValid ? styles.validationTextSuccess : styles.validationTextError
+              ]}>
+                {nameValidation.message}
+              </Text>
+            ) : null}
           </View>
 
           <View style={styles.inputGroup}>
@@ -1482,6 +1568,41 @@ const createStyles = (theme: Theme) =>
       fontStyle: 'italic',
       color: theme.colors.primary,
       textAlign: 'center',
+    } as TextStyle,
+
+    inputWithIndicator: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      position: 'relative',
+    } as ViewStyle,
+
+    inputValid: {
+      borderColor: '#4CAF50',
+    } as ViewStyle,
+
+    inputInvalid: {
+      borderColor: '#FF5252',
+    } as ViewStyle,
+
+    validationIndicator: {
+      position: 'absolute',
+      right: 12,
+      height: '100%',
+      justifyContent: 'center',
+    } as ViewStyle,
+
+    validationText: {
+      fontSize: 12,
+      marginTop: 4,
+      marginLeft: 2,
+    } as TextStyle,
+
+    validationTextSuccess: {
+      color: '#4CAF50',
+    } as TextStyle,
+
+    validationTextError: {
+      color: '#FF5252',
     } as TextStyle,
   });
 

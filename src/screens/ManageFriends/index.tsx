@@ -23,6 +23,12 @@ import { FriendItemProps, NewFriendData, TabType, AVATAR_COLORS } from './types'
 import { createStyles } from './styles';
 import { manageFriendsLanguage } from './language';
 
+interface NameValidation {
+  isValid: boolean;
+  isChecking: boolean;
+  message: string;
+}
+
 
 
 const FriendItem: React.FC<FriendItemProps> = ({ friend, onPress, onDelete }) => {
@@ -124,7 +130,11 @@ const ManageFriendsScreen: React.FC = () => {
     alias_cbu: ''
   });
   const [submittedOnce, setSubmittedOnce] = useState(false);
-  const [duplicateNameError, setDuplicateNameError] = useState(false);
+  const [nameValidation, setNameValidation] = useState<NameValidation>({
+    isValid: false,
+    isChecking: false,
+    message: ''
+  });
 
   useEffect(() => {
     loadFriends();
@@ -152,6 +162,38 @@ const ManageFriendsScreen: React.FC = () => {
       setFilteredFriends(filtered);
     }
   }, [friends, searchQuery]);
+
+  const validateFriendName = (name: string) => {
+    if (name.length < 2) {
+      setNameValidation({ isValid: false, isChecking: false, message: t.nameValidation.tooShort });
+      return;
+    }
+
+    setNameValidation({ isValid: false, isChecking: true, message: t.nameValidation.checking });
+
+    const trimmedName = name.trim().toLowerCase();
+    const isDuplicate = friends.some(f => {
+      if (editingFriend && f.id === editingFriend.id) return false;
+      return f.name.trim().toLowerCase() === trimmedName;
+    });
+
+    if (isDuplicate) {
+      setNameValidation({ isValid: false, isChecking: false, message: t.nameValidation.duplicate });
+    } else {
+      setNameValidation({ isValid: true, isChecking: false, message: t.nameValidation.available });
+    }
+  };
+
+  useEffect(() => {
+    if (newFriend.name.trim()) {
+      const timeoutId = setTimeout(() => {
+        validateFriendName(newFriend.name.trim());
+      }, 400);
+      return () => clearTimeout(timeoutId);
+    } else {
+      setNameValidation({ isValid: false, isChecking: false, message: '' });
+    }
+  }, [newFriend.name, friends, editingFriend]);
 
 
 
@@ -203,6 +245,7 @@ const ManageFriendsScreen: React.FC = () => {
       return;
     }
 
+    // Verificación sincrónica de seguridad (cubre el caso de presionar guardar antes del debounce)
     const trimmedName = newFriend.name.trim().toLowerCase();
     const isDuplicate = friends.some(f => {
       if (editingFriend && f.id === editingFriend.id) return false;
@@ -210,10 +253,9 @@ const ManageFriendsScreen: React.FC = () => {
     });
 
     if (isDuplicate) {
-      setDuplicateNameError(true);
+      setNameValidation({ isValid: false, isChecking: false, message: t.nameValidation.duplicate });
       return;
     }
-    setDuplicateNameError(false);
 
     // Validar formato de teléfono (si fue ingresado)
     if (newFriend.phone.trim() && !/^\+?[\d\s\-()]+$/.test(newFriend.phone.trim())) {
@@ -261,7 +303,7 @@ const ManageFriendsScreen: React.FC = () => {
       setNewFriend({ name: '', email: '', phone: '', alias_cbu: '' });
       setEditingFriend(null);
       setSubmittedOnce(false);
-      setDuplicateNameError(false);
+      setNameValidation({ isValid: false, isChecking: false, message: '' });
       setActiveTab('list');
     } catch (error) {
       Alert.alert(t.alerts.error.general, t.alerts.error.saveFailed);
@@ -294,7 +336,7 @@ const ManageFriendsScreen: React.FC = () => {
           if (activeTab === 'new') {
             setEditingFriend(null);
             setNewFriend({ name: '', email: '', phone: '', alias_cbu: '' });
-            setDuplicateNameError(false);
+            setNameValidation({ isValid: false, isChecking: false, message: '' });
           }
         }}
       >
@@ -338,22 +380,40 @@ const ManageFriendsScreen: React.FC = () => {
         </Text>
         
         <View style={styles.inputGroup}>
-          <Text style={[styles.inputLabel, (submittedOnce && !newFriend.name.trim()) || duplicateNameError ? styles.inputLabelError : undefined]}>
+          <Text style={[styles.inputLabel, (submittedOnce && !newFriend.name.trim()) || (!nameValidation.isValid && !!nameValidation.message && !nameValidation.isChecking) ? styles.inputLabelError : undefined]}>
             {t.form.nameLabel}<Text style={styles.requiredStar}> *</Text>
           </Text>
-          <TextInput
-            style={styles.input}
-            placeholder={t.form.namePlaceholder}
-            placeholderTextColor={theme.colors.onSurfaceVariant}
-            value={newFriend.name}
-            onChangeText={(text) => {
-              setNewFriend(prev => ({ ...prev, name: text }));
-              setDuplicateNameError(false);
-            }}
-          />
-          {duplicateNameError && (
-            <Text style={styles.errorText}>{t.alerts.error.duplicateName}</Text>
-          )}
+          <View style={styles.inputWithIndicator}>
+            <TextInput
+              style={[
+                styles.input,
+                { flex: 1 },
+                nameValidation.isValid && styles.inputValid,
+                (!nameValidation.isValid && nameValidation.message && !nameValidation.isChecking) && styles.inputInvalid
+              ]}
+              placeholder={t.form.namePlaceholder}
+              placeholderTextColor={theme.colors.onSurfaceVariant}
+              value={newFriend.name}
+              onChangeText={(text) => setNewFriend(prev => ({ ...prev, name: text }))}
+            />
+            <View style={styles.validationIndicator}>
+              {nameValidation.isChecking ? (
+                <MaterialCommunityIcons name="loading" size={20} color={theme.colors.primary} />
+              ) : nameValidation.isValid ? (
+                <MaterialCommunityIcons name="check-circle" size={20} color="#4CAF50" />
+              ) : nameValidation.message ? (
+                <MaterialCommunityIcons name="close-circle" size={20} color="#FF5252" />
+              ) : null}
+            </View>
+          </View>
+          {nameValidation.message ? (
+            <Text style={[
+              styles.validationText,
+              nameValidation.isValid ? styles.validationTextSuccess : styles.validationTextError
+            ]}>
+              {nameValidation.message}
+            </Text>
+          ) : null}
         </View>
 
         <View style={styles.inputGroup}>
@@ -407,7 +467,7 @@ const ManageFriendsScreen: React.FC = () => {
               setEditingFriend(null);
               setNewFriend({ name: '', email: '', phone: '', alias_cbu: '' });
               setSubmittedOnce(false);
-              setDuplicateNameError(false);
+              setNameValidation({ isValid: false, isChecking: false, message: '' });
             }}
             style={styles.cancelButton}
           />

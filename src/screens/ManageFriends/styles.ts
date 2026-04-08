@@ -123,6 +123,41 @@ export const createStyles = (theme: Theme) => {
       marginTop: 4,
     } as TextStyle,
 
+    inputWithIndicator: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      position: 'relative',
+    } as ViewStyle,
+
+    inputValid: {
+      borderColor: '#4CAF50',
+    } as ViewStyle,
+
+    inputInvalid: {
+      borderColor: '#FF5252',
+    } as ViewStyle,
+
+    validationIndicator: {
+      position: 'absolute',
+      right: 12,
+      height: '100%',
+      justifyContent: 'center',
+    } as ViewStyle,
+
+    validationText: {
+      fontSize: 12,
+      marginTop: 4,
+      marginLeft: 2,
+    } as TextStyle,
+
+    validationTextSuccess: {
+      color: '#4CAF50',
+    } as TextStyle,
+
+    validationTextError: {
+      color: '#FF5252',
+    } as TextStyle,
+
     requiredStar: {
       color: '#FF5252',
       fontWeight: '700',

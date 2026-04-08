@@ -21,6 +21,12 @@ export interface ManageFriendsLanguage {
     optional: string;
     required: string;
   };
+  nameValidation: {
+    tooShort: string;
+    checking: string;
+    available: string;
+    duplicate: string;
+  };
   buttons: {
     add: string;
     edit: string;
@@ -62,6 +68,12 @@ export interface ManageFriendsLanguage {
 
 export const manageFriendsLanguage: Record<string, ManageFriendsLanguage> = {
   es: {
+    nameValidation: {
+      tooShort: 'El nombre debe tener al menos 2 caracteres',
+      checking: 'Verificando...',
+      available: '✓ Nombre disponible',
+      duplicate: 'Ya existe un amigo con ese nombre',
+    },
     screen: {
       title: 'Gestionar Amigos',
       searchPlaceholder: 'Buscar amigos...',
@@ -123,6 +135,12 @@ export const manageFriendsLanguage: Record<string, ManageFriendsLanguage> = {
     },
   },
   en: {
+    nameValidation: {
+      tooShort: 'Name must be at least 2 characters',
+      checking: 'Checking...',
+      available: '✓ Name available',
+      duplicate: 'A friend with that name already exists',
+    },
     screen: {
       title: 'Manage Friends',
       searchPlaceholder: 'Search friends...',
@@ -184,6 +202,12 @@ export const manageFriendsLanguage: Record<string, ManageFriendsLanguage> = {
     },
   },
   pt: {
+    nameValidation: {
+      tooShort: 'O nome deve ter pelo menos 2 caracteres',
+      checking: 'Verificando...',
+      available: '✓ Nome disponível',
+      duplicate: 'Já existe um amigo com esse nome',
+    },
     screen: {
       title: 'Gerenciar Amigos',
       searchPlaceholder: 'Buscar amigos...',

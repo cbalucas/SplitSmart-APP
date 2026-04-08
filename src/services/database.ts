@@ -2695,14 +2695,21 @@ class DatabaseService {
         [eventId, participantId]
       );
 
-      // Delete participant if not in other events
+      // Delete participant only if not in other events AND is not a permanent friend
       const otherEvents = await this.db.getFirstAsync(
         'SELECT COUNT(*) as count FROM event_participants WHERE participant_id = ?',
         [participantId]
       ) as { count: number };
 
       if (otherEvents.count === 0) {
-        await this.db.runAsync('DELETE FROM participants WHERE id = ?', [participantId]);
+        const participantRow = await this.db.getFirstAsync(
+          'SELECT participant_type FROM participants WHERE id = ?',
+          [participantId]
+        ) as { participant_type: string } | null;
+
+        if (participantRow && participantRow.participant_type !== 'friend') {
+          await this.db.runAsync('DELETE FROM participants WHERE id = ?', [participantId]);
+        }
       }
 
       console.log('✅ Participant removed successfully');
