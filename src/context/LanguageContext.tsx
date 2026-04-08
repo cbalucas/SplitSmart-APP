@@ -40,6 +40,12 @@ const additionalEsTranslations = {
   'expenses.noExpensesDesc': 'Agrega gastos para comenzar a dividir cuentas',
   'expenses.noResults': 'No se encontraron gastos',
   'expenses.noResultsDesc': 'Intenta con otros criterios de búsqueda',
+  'expenses.selectMode': 'Seleccionar',
+  'expenses.cancelSelect': 'Cancelar',
+  'expenses.selectedCount': '{count} seleccionado{plural}',
+  'expenses.deleteSelected': 'Eliminar seleccionados',
+  'expenses.confirmDeleteSelected': '¿Eliminar los {count} gastos seleccionados del evento?',
+  'expenses.deletedSelected': '{count} gasto{plural} eliminado{plural}',
   'expenses.detailTitle': 'Detalle del Gasto',
   'expenses.generalInfo': 'Información General',
   'expenses.excludedParticipants': 'Participantes Excluidos',
@@ -574,6 +580,12 @@ const translations = {
     'expenses.payer': 'Pagador',
     'expenses.all': 'Todos',
     'expenses.clearFilters': 'Limpiar Filtros',
+    'expenses.selectMode': 'Seleccionar',
+    'expenses.cancelSelect': 'Cancelar',
+    'expenses.selectedCount': '{count} seleccionado{plural}',
+    'expenses.deleteSelected': 'Eliminar seleccionados',
+    'expenses.confirmDeleteSelected': '¿Eliminar los {count} gastos seleccionados del evento?',
+    'expenses.deletedSelected': '{count} gasto{plural} eliminado{plural}',
     
     // Participants
     'participants.title': 'Participantes',
@@ -950,6 +962,12 @@ const translations = {
     'expenses.payer': 'Payer',
     'expenses.all': 'All',
     'expenses.clearFilters': 'Clear Filters',
+    'expenses.selectMode': 'Select',
+    'expenses.cancelSelect': 'Cancel',
+    'expenses.selectedCount': '{count} selected',
+    'expenses.deleteSelected': 'Delete selected',
+    'expenses.confirmDeleteSelected': 'Delete the {count} selected expenses from the event?',
+    'expenses.deletedSelected': '{count} expense{plural} deleted',
     
     // Participants
     'participants.title': 'Participants',
@@ -1599,6 +1617,12 @@ const translations = {
     'expenses.payer': 'Pagador',
     'expenses.all': 'Todos',
     'expenses.clearFilters': 'Limpar Filtros',
+    'expenses.selectMode': 'Selecionar',
+    'expenses.cancelSelect': 'Cancelar',
+    'expenses.selectedCount': '{count} selecionado{plural}',
+    'expenses.deleteSelected': 'Excluir selecionados',
+    'expenses.confirmDeleteSelected': 'Excluir os {count} gastos selecionados do evento?',
+    'expenses.deletedSelected': '{count} despesa{plural} excluída{plural}',
     
     // Participants
     'participants.title': 'Participantes',

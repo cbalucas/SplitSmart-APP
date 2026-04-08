@@ -86,6 +86,10 @@ export default function EventDetailScreen() {
   // Estados para selección múltiple de participantes
   const [isParticipantSelectMode, setIsParticipantSelectMode] = useState(false);
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<Set<string>>(new Set());
+
+  // Estados para selección múltiple de gastos
+  const [isExpenseSelectMode, setIsExpenseSelectMode] = useState(false);
+  const [selectedExpenseIds, setSelectedExpenseIds] = useState<Set<string>>(new Set());
   
   // Estados de filtros y búsqueda
   const [searchQuery, setSearchQuery] = useState('');
@@ -336,6 +340,11 @@ export default function EventDetailScreen() {
       setIsParticipantSelectMode(false);
       setSelectedParticipantIds(new Set());
       setParticipantSearchQuery('');
+    }
+    // Al salir del tab gastos, resetear modo selección múltiple
+    if (activeTab !== 'gastos') {
+      setIsExpenseSelectMode(false);
+      setSelectedExpenseIds(new Set());
     }
   }, [activeTab]);
 
@@ -655,6 +664,40 @@ export default function EventDetailScreen() {
             } catch (error: any) {
               console.error('Error removing participants:', error);
               Alert.alert(t('common.error'), error.message || t('message.participantDeletedError'));
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRemoveSelectedExpenses = () => {
+    if (selectedExpenseIds.size === 0) return;
+    const count = selectedExpenseIds.size;
+    Alert.alert(
+      t('message.deleteExpenseTitle'),
+      t('expenses.confirmDeleteSelected', { count, plural: count !== 1 ? 's' : '' }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              for (const expenseId of selectedExpenseIds) {
+                await deleteExpense(expenseId);
+              }
+              await loadEventData();
+              setIsExpenseSelectMode(false);
+              setSelectedExpenseIds(new Set());
+              setSearchQuery('');
+              Alert.alert(
+                t('common.success'),
+                t('expenses.deletedSelected', { count, plural: count !== 1 ? 's' : '' })
+              );
+            } catch (error: any) {
+              console.error('Error removing expenses:', error);
+              Alert.alert(t('common.error'), error.message || t('message.expenseDeletedError'));
             }
           },
         },
@@ -1630,8 +1673,8 @@ export default function EventDetailScreen() {
     
     return (
       <View style={styles.tabContent}>
-        {/* Barra de búsqueda simple */}
-        <View style={styles.searchContainer}>
+        {/* Barra de búsqueda fija */}
+        <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
           <SearchBar
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -1639,25 +1682,72 @@ export default function EventDetailScreen() {
             showClearButton={true}
             onClear={() => setSearchQuery('')}
           />
-          
-
-          
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              💸 {t('expenses.title')} ({filteredExpenses.length}{filteredExpenses.length !== eventExpenses.length ? ` de ${eventExpenses.length}` : ''})
-            </Text>
-            {event?.status === 'active' && (
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={handleAddExpense}
-              >
-                <MaterialCommunityIcons name="plus" size={16} color={theme.colors.onPrimary} />
-                <Text style={styles.addButtonText}>{t('add')}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
         </View>
 
+        {/* Barra de acciones fija */}
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+          backgroundColor: theme.colors.surface,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.colors.outline + '30',
+        }}>
+          {isExpenseSelectMode ? (
+            <>
+              <Text style={styles.sectionTitle}>
+                {t('expenses.selectedCount', {
+                  count: selectedExpenseIds.size,
+                  plural: selectedExpenseIds.size !== 1 ? 's' : ''
+                })}
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {selectedExpenseIds.size > 0 && (
+                  <TouchableOpacity
+                    style={{ backgroundColor: theme.colors.error, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
+                    onPress={handleRemoveSelectedExpenses}
+                  >
+                    <MaterialCommunityIcons name="delete" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>{t('common.delete')}</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={{ backgroundColor: theme.colors.outline + '30', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 }}
+                  onPress={() => { setIsExpenseSelectMode(false); setSelectedExpenseIds(new Set()); }}
+                >
+                  <Text style={{ color: theme.colors.onSurface, fontWeight: '600', fontSize: 14 }}>{t('expenses.cancelSelect')}</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={styles.sectionTitle}>
+                💸 {t('expenses.title')} ({filteredExpenses.length}{filteredExpenses.length !== eventExpenses.length ? ` de ${eventExpenses.length}` : ''})
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {event?.status === 'active' && (
+                  <TouchableOpacity
+                    style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
+                    onPress={handleAddExpense}
+                  >
+                    <MaterialCommunityIcons name="plus" size={16} color={theme.colors.onPrimary} style={{ marginRight: 6 }} />
+                    <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 14 }}>{t('add')}</Text>
+                  </TouchableOpacity>
+                )}
+                {event?.status === 'active' && eventExpenses.length > 0 && (
+                  <TouchableOpacity
+                    style={{ backgroundColor: theme.colors.error + '15', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 }}
+                    onPress={() => { setIsExpenseSelectMode(true); setSelectedExpenseIds(new Set()); }}
+                  >
+                    <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.error} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </>
+          )}
+        </View>
 
         <ScrollView style={{ flex: 1 }}>
           <Card>
@@ -1681,29 +1771,51 @@ export default function EventDetailScreen() {
               const expenseSplits = eventSplits.filter(split => split.expenseId === item.id);
               const includedParticipantIds = expenseSplits.map(split => split.participantId);
               const excludedParticipants = eventParticipants.filter(p => !includedParticipantIds.includes(p.id));
+              const isSelected = selectedExpenseIds.has(item.id);
               
               return (
                 <TouchableOpacity
-                  style={styles.expenseItem}
+                  style={[
+                    styles.expenseItem,
+                    isExpenseSelectMode && isSelected && { backgroundColor: theme.colors.primary + '18' }
+                  ]}
                   onPress={() => {
-                    setSelectedExpenseForDetail({ 
-                      expense: item, 
-                      splits: expenseSplits, 
-                      excludedParticipants 
-                    });
-                    setShowExpenseDetailModal(true);
+                    if (isExpenseSelectMode) {
+                      const next = new Set(selectedExpenseIds);
+                      if (next.has(item.id)) next.delete(item.id);
+                      else next.add(item.id);
+                      setSelectedExpenseIds(next);
+                    } else {
+                      setSelectedExpenseForDetail({ 
+                        expense: item, 
+                        splits: expenseSplits, 
+                        excludedParticipants 
+                      });
+                      setShowExpenseDetailModal(true);
+                    }
                   }}
                   activeOpacity={0.7}
                 >
+                  {/* Checkbox en modo selección */}
+                  {isExpenseSelectMode && (
+                    <View style={{ marginRight: 10, justifyContent: 'center' }}>
+                      <MaterialCommunityIcons
+                        name={isSelected ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'}
+                        size={24}
+                        color={isSelected ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                      />
+                    </View>
+                  )}
+
                   {/* Primera fila: Descripción | Monto + Icono */}
-                  <View style={styles.expenseFirstRow}>
+                  <View style={[styles.expenseFirstRow, { flex: 1 }]}>
                     <Text style={styles.expenseDescription}>{item.description}</Text>
                     <View style={styles.expenseRightSection}>
                       <Text style={styles.expenseAmount}>
                         ${item.amount.toFixed(2)} {item.currency}
                       </Text>
-                      {/* Icono de comprobante */}
-                      {item.receiptImage && (
+                      {/* Icono de comprobante — oculto en modo selección */}
+                      {item.receiptImage && !isExpenseSelectMode && (
                         <TouchableOpacity
                           style={styles.receiptIconButton}
                           onPress={(e) => {
@@ -1732,14 +1844,14 @@ export default function EventDetailScreen() {
                     </Text>
                   </View>
                   
-                  {/* Tercera fila: División | Acciones */}
+                  {/* Tercera fila: División | Acciones (ocultas en modo selección) */}
                   <View style={styles.expenseThirdRow}>
                     <Text style={styles.expenseDivisionSummary}>
                       {t('expenses.division')} ({expenseSplits.length} part | {excludedParticipants.length} exc)
                     </Text>
                     
-                    {/* Acciones a la derecha */}
-                    {event?.status === 'active' && (
+                    {/* Acciones a la derecha — solo en modo normal */}
+                    {event?.status === 'active' && !isExpenseSelectMode && (
                       <View style={styles.expenseActions}>
                         <TouchableOpacity 
                           style={styles.actionButton}
