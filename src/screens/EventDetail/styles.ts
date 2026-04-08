@@ -321,8 +321,9 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 2
   },
   participantRightSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: 4,
   },
   participantStats: {
     alignItems: 'flex-end'

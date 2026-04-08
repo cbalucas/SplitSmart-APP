@@ -15,6 +15,8 @@
 - ✨ **ManageFriends — Validación de nombre en tiempo real**: al escribir el nombre de un nuevo amigo (o al editar uno existente), se verifica instantáneamente (debounce 400ms) si ya existe otro amigo con ese nombre. Muestra indicadores visuales: ícono ✅/❌ sobre el campo, borde verde/rojo, y mensaje de estado debajo del input. Reemplaza la validación anterior que solo ocurría al presionar "Crear".
 - ✨ **AddParticipantModal — Validación de nombre en tiempo real (tab "Nuevo")**: al escribir el nombre de un nuevo participante, se verifica en tiempo real (debounce 400ms) si ya existe en el evento actual. Si el toggle "Guardar como amigo" está activo, también verifica contra la lista global de amigos. Indicadores visuales idénticos al patrón de ManageFriends.
 - ✨ **EventDetail — Detección y resolución de amigo duplicado al convertir participante**: al activar "Convertir en Amigo" en el modal de edición de un participante temporal, se muestra un banner de advertencia naranja en tiempo real si ya existe un amigo con ese nombre. Al intentar guardar, se ofrece la opción "Usar amigo existente" que reemplaza el participante temporal por el amigo ya registrado (elimina el temporal del evento y agrega el amigo real).
+- ✨ **EventDetail — Eliminación múltiple de participantes**: nuevo modo de selección múltiple en el tab Participantes. Botón tacho de basura (rojo) a la derecha del "Agregar" activa el modo. Participantes con gastos aparecen bloqueados (ícono candado, opacidad reducida) con mensaje explicativo al tocarlos. Un único Alert de confirmación elimina todos los seleccionados. Al confirmar, limpia filtro de búsqueda y vuelve al modo normal.
+- ✨ **AddParticipantModal — Mensaje de éxito consolidado al agregar participantes**: al agregar múltiples participantes (tab Amigos o Masivo) se muestra un único Alert al final en lugar de N alertas individuales.
 
 ### 🔧 Correcciones de Bugs
 
@@ -26,6 +28,11 @@
 - **ManageFriends — Nuevas traducciones de validación de nombre** (`nameValidation.tooShort/checking/available/duplicate`) en ES, EN y PT, en archivo `language.ts` propio de la pantalla.
 - **AddParticipantModal — Nuevas claves de traducción** (`addParticipant.nameValidation.*`) en ES, EN y PT dentro de `LanguageContext.tsx`.
 - **LanguageContext — Nuevas claves para flujo de amigo duplicado** en EventDetail (`eventDetail.duplicateFriendWarning`, `eventDetail.convertDuplicateTitle`, `eventDetail.convertDuplicateMessage`, `eventDetail.replaceWithExisting`, `eventDetail.replacedSuccess`) en ES, EN y PT.
+- **LanguageContext — Nuevas claves para eliminación múltiple de participantes** (`participants.selectMode`, `participants.cancelSelect`, `participants.selectedCount`, `participants.deleteSelected`, `participants.confirmDeleteSelected`, `participants.deletedSelected`, `participants.cannotDeleteHasExpenses`) en ES, EN y PT.
+- **EventDetail — Tab Participantes: modo selección se resetea al cambiar de tab**: al navegar a otro tab y volver, los participantes siempre se muestran en modo normal (sin selección activa ni filtro de búsqueda).
+- **EventDetail — Cards de participantes: botón eliminar individual eliminado**: la eliminación individual por ✕ fue removida. La única vía de eliminación es el modo selección múltiple con el tacho de basura.
+- **EventDetail — Cards de participantes: layout del panel derecho invertido**: el lápiz de editar queda arriba y el balance abajo (`flexDirection: 'column'`).
+- **EventDetail — Cards de participantes: montos de pagado/división más grandes**: `fontSize` subido de `11` a `13` con `fontWeight: '500'`. El 💰 (pagado) solo se muestra si el monto es mayor a $0.
 
 ### 📁 Archivos Modificados
 
@@ -34,10 +41,11 @@
 | `src/screens/ManageFriends/language.ts` | Nuevo: sección `nameValidation` en interfaz y 3 idiomas |
 | `src/screens/ManageFriends/styles.ts` | Nuevo: 7 estilos de validación de input |
 | `src/screens/ManageFriends/index.tsx` | Reemplaza estado `duplicateNameError` por `NameValidation`; nueva lógica y UI de validación en tiempo real |
-| `src/components/AddParticipantModal/index.tsx` | Nuevo: `NameValidation` + `useRef` + validación en tiempo real con debounce; fix re-renders |
-| `src/context/LanguageContext.tsx` | Nuevas claves: `addParticipant.nameValidation.*` y `eventDetail.convertDuplicate*` / `replacedSuccess` / `duplicateFriendWarning` |
-| `src/screens/EventDetail/index.tsx` | `EditParticipantModalContent`: banner de advertencia por amigo duplicado. `handleSaveEditedParticipant`: intercepción de duplicado con Alert y opción de reemplazo |
-| `src/services/database.ts` | Fix: `removeParticipantFromEvent` ya no borra amigos permanentes de `participants` |
+| `src/components/AddParticipantModal/index.tsx` | `NameValidation` + `useRef` + validación en tiempo real; fix re-renders; prop `onAddParticipant` cambiada a `Participant \| Participant[]`; mensaje consolidado |
+| `src/context/LanguageContext.tsx` | Nuevas claves: `addParticipant.nameValidation.*`, `eventDetail.convertDuplicate*`, `participants.selectMode/cancelSelect/selectedCount/deleteSelected/confirmDeleteSelected/deletedSelected/cannotDeleteHasExpenses` |
+| `src/screens/EventDetail/index.tsx` | `EditParticipantModalContent`: banner amigo duplicado. `handleSaveEditedParticipant`: intercepción duplicado + reemplazo. `handleAddParticipant`: refactorizado a `async`, acepta array, Alert consolidado. Nuevos estados `isParticipantSelectMode`/`selectedParticipantIds`. Nueva función `handleRemoveSelectedParticipants`. `renderParticipantesTab`: nuevo header modo selección, checkbox/candado por item, reset al cambiar tab, layout panel derecho invertido, montos más grandes, 💰 oculto si $0 |
+| `src/screens/EventDetail/styles.ts` | `participantRightSection`: cambiado a `flexDirection: 'column'` |
+| `src/services/database.ts` | Fix: `removeParticipantFromEvent` no borra amigos permanentes |
 
 ---
 

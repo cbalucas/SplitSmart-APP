@@ -83,6 +83,9 @@ export default function EventDetailScreen() {
   const [settlementsSearchQuery, setSettlementsSearchQuery] = useState('');
   const [participantInfoModalVisible, setParticipantInfoModalVisible] = useState(false);
   const [selectedParticipantForInfo, setSelectedParticipantForInfo] = useState<Participant | null>(null);
+  // Estados para selección múltiple de participantes
+  const [isParticipantSelectMode, setIsParticipantSelectMode] = useState(false);
+  const [selectedParticipantIds, setSelectedParticipantIds] = useState<Set<string>>(new Set());
   
   // Estados de filtros y búsqueda
   const [searchQuery, setSearchQuery] = useState('');
@@ -327,6 +330,12 @@ export default function EventDetailScreen() {
   useEffect(() => {
     if (activeTab === 'participantes' || activeTab === 'gastos') {
       loadEventData();
+    }
+    // Al salir del tab participantes, resetear modo selección múltiple
+    if (activeTab !== 'participantes') {
+      setIsParticipantSelectMode(false);
+      setSelectedParticipantIds(new Set());
+      setParticipantSearchQuery('');
     }
   }, [activeTab]);
 
@@ -611,6 +620,40 @@ export default function EventDetailScreen() {
               Alert.alert(t('common.success'), t('message.participantDeletedSuccess'));
             } catch (error: any) {
               console.error('Error removing participant:', error);
+              Alert.alert(t('common.error'), error.message || t('message.participantDeletedError'));
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRemoveSelectedParticipants = () => {
+    if (selectedParticipantIds.size === 0) return;
+    const count = selectedParticipantIds.size;
+    Alert.alert(
+      t('message.removeParticipantTitle'),
+      t('participants.confirmDeleteSelected', { count, plural: count !== 1 ? 's' : '' }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              for (const participantId of selectedParticipantIds) {
+                await removeParticipantFromEvent(event?.id || '', participantId);
+              }
+              await loadEventData();
+              setIsParticipantSelectMode(false);
+              setSelectedParticipantIds(new Set());
+              setParticipantSearchQuery('');
+              Alert.alert(
+                t('common.success'),
+                t('participants.deletedSelected', { count, plural: count !== 1 ? 's' : '' })
+              );
+            } catch (error: any) {
+              console.error('Error removing participants:', error);
               Alert.alert(t('common.error'), error.message || t('message.participantDeletedError'));
             }
           },
@@ -1430,32 +1473,38 @@ export default function EventDetailScreen() {
     );
   };
 
-  const handleAddParticipant = (participant: Participant) => {
-    // Check if participant already exists in global participants list
-    const existingParticipant = participants.find(p => p.id === participant.id);
-    
-    if (existingParticipant || participant.participantType === 'friend') {
-      // Participant already exists globally or is marked as friend, just add to event
-      addExistingParticipantToEvent(eventId, participant)
-        .then(() => {
-          loadEventData();
-          Alert.alert(`✅ ${t('message.participantAdded')}`, `${participant.name} ${t('message.participantAddedDesc')}`);
-        })
-        .catch((error) => {
-          console.error('Error adding existing participant:', error);
-          Alert.alert(t('error'), t('message.participantAddedError'));
-        });
-    } else {
-      // New temporary participant, create and add to event
-      addParticipantToEvent(eventId, participant)
-        .then(() => {
-          loadEventData();
-          Alert.alert(`✅ ${t('message.participantAdded')}`, `${participant.name} ${t('message.participantAddedDesc')}`);
-        })
-        .catch((error) => {
-          console.error('Error adding new participant:', error);
-          Alert.alert(t('error'), t('message.participantAddedError'));
-        });
+  const handleAddParticipant = async (input: Participant | Participant[]) => {
+    const list = Array.isArray(input) ? input : [input];
+
+    try {
+      for (const participant of list) {
+        const existingParticipant = participants.find(p => p.id === participant.id);
+        if (existingParticipant || participant.participantType === 'friend') {
+          await addExistingParticipantToEvent(eventId, participant);
+        } else {
+          await addParticipantToEvent(eventId, participant);
+        }
+      }
+
+      await loadEventData();
+
+      if (list.length === 1) {
+        Alert.alert(
+          `✅ ${t('message.participantAdded')}`,
+          `${list[0].name} ${t('message.participantAddedDesc')}`
+        );
+      } else {
+        Alert.alert(
+          `✅ ${t('message.participantAdded')}`,
+          t('addParticipant.alert.participantsAddedMessage', {
+            count: list.length,
+            plural: list.length !== 1 ? 's' : ''
+          })
+        );
+      }
+    } catch (error: any) {
+      console.error('Error adding participant(s):', error);
+      Alert.alert(t('error'), error.message || t('message.participantAddedError'));
     }
   };
 
@@ -1765,24 +1814,57 @@ export default function EventDetailScreen() {
         <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
           <Card style={{ marginHorizontal: 16, marginBottom: 16 }}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              👥 {t('participants.title')} ({visibleParticipants.length}{visibleParticipants.length !== eventParticipants.length ? ` de ${eventParticipants.length}` : ''})
-            </Text>
-            {event?.status === 'active' && (
-              <TouchableOpacity 
-                style={{ 
-                  backgroundColor: theme.colors.primary, 
-                  paddingHorizontal: 12, 
-                  paddingVertical: 8, 
-                  borderRadius: 8, 
-                  flexDirection: 'row', 
-                  alignItems: 'center'
-                }}
-                onPress={() => setShowAddParticipantModal(true)}
-              >
-                <MaterialCommunityIcons name="plus" size={16} color={theme.colors.onPrimary} style={{ marginRight: 6 }} />
-                <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 14 }}>{t('common.add')}</Text>
-              </TouchableOpacity>
+            {isParticipantSelectMode ? (
+              <>
+                <Text style={styles.sectionTitle}>
+                  {t('participants.selectedCount', {
+                    count: selectedParticipantIds.size,
+                    plural: selectedParticipantIds.size !== 1 ? 's' : ''
+                  })}
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {selectedParticipantIds.size > 0 && (
+                    <TouchableOpacity
+                      style={{ backgroundColor: theme.colors.error, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
+                      onPress={handleRemoveSelectedParticipants}
+                    >
+                      <MaterialCommunityIcons name="delete" size={16} color="#fff" style={{ marginRight: 6 }} />
+                      <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>{t('common.delete')}</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={{ backgroundColor: theme.colors.outline + '30', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 }}
+                    onPress={() => { setIsParticipantSelectMode(false); setSelectedParticipantIds(new Set()); }}
+                  >
+                    <Text style={{ color: theme.colors.onSurface, fontWeight: '600', fontSize: 14 }}>{t('participants.cancelSelect')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={styles.sectionTitle}>
+                  👥 {t('participants.title')} ({visibleParticipants.length}{visibleParticipants.length !== eventParticipants.length ? ` de ${eventParticipants.length}` : ''})
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {event?.status === 'active' && (
+                    <TouchableOpacity
+                      style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
+                      onPress={() => setShowAddParticipantModal(true)}
+                    >
+                      <MaterialCommunityIcons name="plus" size={16} color={theme.colors.onPrimary} style={{ marginRight: 6 }} />
+                      <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 14 }}>{t('common.add')}</Text>
+                    </TouchableOpacity>
+                  )}
+                  {event?.status === 'active' && visibleParticipants.length > 1 && (
+                    <TouchableOpacity
+                      style={{ backgroundColor: theme.colors.error + '15', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 }}
+                      onPress={() => { setIsParticipantSelectMode(true); setSelectedParticipantIds(new Set()); }}
+                    >
+                      <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.error} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </>
             )}
           </View>
           
@@ -1869,25 +1951,55 @@ export default function EventDetailScreen() {
               });
             }
             
+            const isSelected = selectedParticipantIds.has(participant.id);
+            const hasExpenses = totalPaid > 0;
+
             return (
-              <TouchableOpacity 
-                key={participant.id} 
-                style={styles.participantItem}
+              <TouchableOpacity
+                key={participant.id}
+                style={[
+                  styles.participantItem,
+                  isParticipantSelectMode && isSelected && { backgroundColor: theme.colors.primary + '18' },
+                  isParticipantSelectMode && hasExpenses && { opacity: 0.45 }
+                ]}
                 onPress={() => {
-                  setSelectedParticipantForInfo(participant);
-                  setParticipantInfoModalVisible(true);
+                  if (isParticipantSelectMode) {
+                    if (hasExpenses) {
+                      Alert.alert(
+                        t('common.error'),
+                        t('participants.cannotDeleteHasExpenses', { name: participant.name })
+                      );
+                      return;
+                    }
+                    const next = new Set(selectedParticipantIds);
+                    if (next.has(participant.id)) next.delete(participant.id);
+                    else next.add(participant.id);
+                    setSelectedParticipantIds(next);
+                  } else {
+                    setSelectedParticipantForInfo(participant);
+                    setParticipantInfoModalVisible(true);
+                  }
                 }}
                 activeOpacity={0.7}
               >
+                {isParticipantSelectMode && (
+                  <View style={{ marginRight: 10, justifyContent: 'center' }}>
+                    <MaterialCommunityIcons
+                      name={hasExpenses ? 'lock-outline' : isSelected ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'}
+                      size={24}
+                      color={hasExpenses ? theme.colors.onSurfaceVariant : isSelected ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                    />
+                  </View>
+                )}
                 <View style={styles.participantInfo}>
                   <View style={[
-                    styles.participantAvatar, 
+                    styles.participantAvatar,
                     { backgroundColor: participant.participantType === 'friend' ? theme.colors.success : theme.colors.warning }
                   ]}>
-                    <MaterialCommunityIcons 
-                      name={participant.participantType === 'friend' ? 'heart' : 'clock'} 
-                      size={20} 
-                      color={participant.participantType === 'friend' ? theme.colors.onSuccess : theme.colors.onWarning} 
+                    <MaterialCommunityIcons
+                      name={participant.participantType === 'friend' ? 'heart' : 'clock'}
+                      size={20}
+                      color={participant.participantType === 'friend' ? theme.colors.onSuccess : theme.colors.onWarning}
                     />
                   </View>
                   <View style={styles.participantDetails}>
@@ -1915,26 +2027,40 @@ export default function EventDetailScreen() {
                       <Text style={styles.participantEmail}>📞 {participant.phone}</Text>
                     )}
                     <View style={{ flexDirection: 'column', gap: 2, marginTop: 3 }}>
-                      <Text style={{ fontSize: 11, color: '#388E3C' }}>💰 ${totalPaid.toFixed(2)}</Text>
+                      {totalPaid > 0 && (
+                        <Text style={{ fontSize: 13, color: '#388E3C', fontWeight: '500' }}>💰 ${totalPaid.toFixed(2)}</Text>
+                      )}
                       {/* Mostrar monto efectivo adeudado (descuenta condonación y absorción) */}
                       {effectiveOwed < totalOwed && totalOwed > 0 ? (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                          <Text style={{ fontSize: 11, color: theme.colors.onSurfaceVariant, textDecorationLine: 'line-through' }}>
+                          <Text style={{ fontSize: 13, color: theme.colors.onSurfaceVariant, textDecorationLine: 'line-through' }}>
                             💵 ${totalOwed.toFixed(2)}
                           </Text>
                           {effectiveOwed > 0 && (
-                            <Text style={{ fontSize: 11, color: theme.colors.error }}>
+                            <Text style={{ fontSize: 13, color: theme.colors.error, fontWeight: '500' }}>
                               → ${effectiveOwed.toFixed(2)}
                             </Text>
                           )}
                         </View>
                       ) : (
-                        <Text style={{ fontSize: 11, color: theme.colors.error }}>💵 ${effectiveOwed.toFixed(2)}</Text>
+                        <Text style={{ fontSize: 13, color: theme.colors.error, fontWeight: '500' }}>💵 ${effectiveOwed.toFixed(2)}</Text>
                       )}
                     </View>
                   </View>
                 </View>
                 <View style={styles.participantRightSection}>
+                  {event?.status === 'active' && !isParticipantSelectMode && (
+                    <View style={styles.participantActions}>
+                      {participant.participantType === 'temporary' && (
+                        <TouchableOpacity 
+                          style={styles.editParticipantButton}
+                          onPress={() => handleEditParticipant(participant)}
+                        >
+                          <MaterialCommunityIcons name="pencil" size={18} color={theme.colors.primary} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
                   <View style={styles.participantStats}>
                     <Text style={[
                       styles.participantBalance,
@@ -1948,24 +2074,6 @@ export default function EventDetailScreen() {
                        '$0.00'}
                     </Text>
                   </View>
-                  {event?.status === 'active' && (
-                    <View style={styles.participantActions}>
-                      {participant.participantType === 'temporary' && (
-                        <TouchableOpacity 
-                          style={styles.editParticipantButton}
-                          onPress={() => handleEditParticipant(participant)}
-                        >
-                          <MaterialCommunityIcons name="pencil" size={18} color={theme.colors.primary} />
-                        </TouchableOpacity>
-                      )}
-                      <TouchableOpacity 
-                        style={styles.removeParticipantButton}
-                        onPress={() => handleRemoveParticipant(participant)}
-                      >
-                        <MaterialCommunityIcons name="close" size={20} color={theme.colors.error} />
-                      </TouchableOpacity>
-                    </View>
-                  )}
                 </View>
               </TouchableOpacity>
             );

@@ -28,7 +28,7 @@ import SearchBar from '../SearchBar';
 interface AddParticipantModalProps {
   visible: boolean;
   onClose: () => void;
-  onAddParticipant: (participant: Participant) => void;
+  onAddParticipant: (participants: Participant | Participant[]) => void;
   currentParticipants: Participant[];
   hasExpenses?: boolean; // Nueva prop para saber si el evento tiene gastos
 }
@@ -230,12 +230,11 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       }
     }
 
-    selectedFriends.forEach(friendId => {
-      const friend = participants.find(p => p.id === friendId);
-      if (friend) {
-        onAddParticipant(friend);
-      }
-    });
+    const friendsToAdd = Array.from(selectedFriends)
+      .map(friendId => participants.find(p => p.id === friendId))
+      .filter((f): f is Participant => f !== undefined);
+
+    onAddParticipant(friendsToAdd);
 
     // Reset and close
     setSelectedFriends(new Set());
@@ -309,7 +308,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       }
 
       // Add to event (will be saved when event is created)
-      onAddParticipant(participant);
+      onAddParticipant([participant]);
       
       // Reset form and close
       setNewParticipant({ name: '', email: '', phone: '', alias_cbu: '' });
@@ -388,18 +387,8 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
         }));
       }
 
-      // Agregar todos los participantes
-      participantsToAdd.forEach(participant => {
-        onAddParticipant(participant);
-      });
-
-      Alert.alert(
-        t('addParticipant.alert.participantsAdded'),
-        t('addParticipant.alert.participantsAddedMessage', {
-          count: participantsToAdd.length,
-          plural: participantsToAdd.length !== 1 ? 's' : ''
-        })
-      );
+      // Agregar todos los participantes (el callback mostrará el mensaje consolidado)
+      onAddParticipant(participantsToAdd);
 
       // Reset y cerrar
       setBulkNames('');
