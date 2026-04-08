@@ -1810,64 +1810,75 @@ export default function EventDetailScreen() {
             onClear={() => setParticipantSearchQuery('')}
           />
         </View>
-        
-        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-          <Card style={{ marginHorizontal: 16, marginBottom: 16 }}>
-          <View style={styles.sectionHeader}>
-            {isParticipantSelectMode ? (
-              <>
-                <Text style={styles.sectionTitle}>
-                  {t('participants.selectedCount', {
-                    count: selectedParticipantIds.size,
-                    plural: selectedParticipantIds.size !== 1 ? 's' : ''
-                  })}
-                </Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  {selectedParticipantIds.size > 0 && (
-                    <TouchableOpacity
-                      style={{ backgroundColor: theme.colors.error, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
-                      onPress={handleRemoveSelectedParticipants}
-                    >
-                      <MaterialCommunityIcons name="delete" size={16} color="#fff" style={{ marginRight: 6 }} />
-                      <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>{t('common.delete')}</Text>
-                    </TouchableOpacity>
-                  )}
+
+        {/* Barra de acciones fija */}
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+          backgroundColor: theme.colors.surface,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.colors.outline + '30',
+        }}>
+          {isParticipantSelectMode ? (
+            <>
+              <Text style={styles.sectionTitle}>
+                {t('participants.selectedCount', {
+                  count: selectedParticipantIds.size,
+                  plural: selectedParticipantIds.size !== 1 ? 's' : ''
+                })}
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {selectedParticipantIds.size > 0 && (
                   <TouchableOpacity
-                    style={{ backgroundColor: theme.colors.outline + '30', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 }}
-                    onPress={() => { setIsParticipantSelectMode(false); setSelectedParticipantIds(new Set()); }}
+                    style={{ backgroundColor: theme.colors.error, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
+                    onPress={handleRemoveSelectedParticipants}
                   >
-                    <Text style={{ color: theme.colors.onSurface, fontWeight: '600', fontSize: 14 }}>{t('participants.cancelSelect')}</Text>
+                    <MaterialCommunityIcons name="delete" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>{t('common.delete')}</Text>
                   </TouchableOpacity>
-                </View>
-              </>
-            ) : (
-              <>
-                <Text style={styles.sectionTitle}>
-                  👥 {t('participants.title')} ({visibleParticipants.length}{visibleParticipants.length !== eventParticipants.length ? ` de ${eventParticipants.length}` : ''})
-                </Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  {event?.status === 'active' && (
-                    <TouchableOpacity
-                      style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
-                      onPress={() => setShowAddParticipantModal(true)}
-                    >
-                      <MaterialCommunityIcons name="plus" size={16} color={theme.colors.onPrimary} style={{ marginRight: 6 }} />
-                      <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 14 }}>{t('common.add')}</Text>
-                    </TouchableOpacity>
-                  )}
-                  {event?.status === 'active' && visibleParticipants.length > 1 && (
-                    <TouchableOpacity
-                      style={{ backgroundColor: theme.colors.error + '15', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 }}
-                      onPress={() => { setIsParticipantSelectMode(true); setSelectedParticipantIds(new Set()); }}
-                    >
-                      <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.error} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </>
-            )}
-          </View>
-          
+                )}
+                <TouchableOpacity
+                  style={{ backgroundColor: theme.colors.outline + '30', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 }}
+                  onPress={() => { setIsParticipantSelectMode(false); setSelectedParticipantIds(new Set()); }}
+                >
+                  <Text style={{ color: theme.colors.onSurface, fontWeight: '600', fontSize: 14 }}>{t('participants.cancelSelect')}</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={styles.sectionTitle}>
+                👥 {t('participants.title')} ({visibleParticipants.length}{visibleParticipants.length !== eventParticipants.length ? ` de ${eventParticipants.length}` : ''})
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {event?.status === 'active' && (
+                  <TouchableOpacity
+                    style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
+                    onPress={() => setShowAddParticipantModal(true)}
+                  >
+                    <MaterialCommunityIcons name="plus" size={16} color={theme.colors.onPrimary} style={{ marginRight: 6 }} />
+                    <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 14 }}>{t('common.add')}</Text>
+                  </TouchableOpacity>
+                )}
+                {event?.status === 'active' && visibleParticipants.length > 1 && (
+                  <TouchableOpacity
+                    style={{ backgroundColor: theme.colors.error + '15', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 }}
+                    onPress={() => { setIsParticipantSelectMode(true); setSelectedParticipantIds(new Set()); }}
+                  >
+                    <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.error} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </>
+          )}
+        </View>
+
+        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+          <Card style={{ marginHorizontal: 16, marginTop: 8, marginBottom: 16 }}>
+
           {visibleParticipants.length === 0 ? (
             <View style={styles.emptyState}>
               <MaterialCommunityIcons name="account-group" size={48} color={theme.colors.onSurfaceVariant} />
@@ -2085,151 +2096,154 @@ export default function EventDetailScreen() {
     );
   };
 
-  const renderResumenTab = () => (
-    <ScrollView style={styles.tabContent}>
-      {/* Header de Acciones Mejorado */}
+  const renderResumenTab = () => {
+    return (
+    <View style={styles.tabContent}>
+      {/* Header de Acciones */}
       <View style={{ 
         flexDirection: 'row', 
-        justifyContent: 'space-between', 
         alignItems: 'center', 
+        gap: 8,
         paddingHorizontal: 16, 
-        paddingVertical: 16,
+        paddingVertical: 12,
         backgroundColor: theme.colors.surface,
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.outline + '20'
       }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <TouchableOpacity 
-            style={{ 
-              backgroundColor: theme.colors.primary + '15',
-              paddingHorizontal: 10,
-              paddingVertical: 10,
-              borderRadius: 8
-            }} 
-            onPress={handleShareSummary}
-          >
-            <MaterialCommunityIcons name="clipboard-check" size={20} color={theme.colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={{ 
-              backgroundColor: theme.colors.primary + '15',
-              paddingHorizontal: 10,
-              paddingVertical: 10,
-              borderRadius: 8
-            }} 
-            onPress={handleShareEvent}
-          >
-            <MaterialCommunityIcons name="file-document" size={20} color={theme.colors.primary} />
-          </TouchableOpacity>
-        </View>
-        
+        <TouchableOpacity 
+          style={{ 
+            backgroundColor: theme.colors.primary + '15',
+            paddingHorizontal: 10,
+            paddingVertical: 10,
+            borderRadius: 8
+          }} 
+          onPress={handleShareSummary}
+        >
+          <MaterialCommunityIcons name="clipboard-check" size={20} color={theme.colors.primary} />
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={{ 
+            backgroundColor: theme.colors.primary + '15',
+            paddingHorizontal: 10,
+            paddingVertical: 10,
+            borderRadius: 8
+          }} 
+          onPress={handleShareEvent}
+        >
+          <MaterialCommunityIcons name="file-document" size={20} color={theme.colors.primary} />
+        </TouchableOpacity>
+
+        {/* Separador */}
+        <View style={{ width: 1, height: 28, backgroundColor: theme.colors.outline + '40', marginHorizontal: 4 }} />
+
         {/* Botones de Estado del Evento */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '60%' }}>
-          {event?.status === 'active' ? (
-            <>
-              <TouchableOpacity
-                onPress={handleCompleteEvent}
-                style={{ 
-                  backgroundColor: theme.colors.primary, 
-                  paddingHorizontal: 8, 
-                  paddingVertical: 6, 
-                  borderRadius: 6, 
-                  flexDirection: 'row', 
-                  alignItems: 'center'
-                }}
-              >
-                <MaterialCommunityIcons name="check-circle" size={14} color={theme.colors.onPrimary} style={{ marginRight: 4 }} />
-                <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 12 }}>{t('events.complete')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleArchiveEvent}
-                style={{ 
-                  backgroundColor: theme.colors.surface, 
-                  borderWidth: 1, 
-                  borderColor: theme.colors.outline, 
-                  paddingHorizontal: 8, 
-                  paddingVertical: 6, 
-                  borderRadius: 6, 
-                  flexDirection: 'row', 
-                  alignItems: 'center' 
-                }}
-              >
-                <MaterialCommunityIcons name="archive" size={14} color={theme.colors.onSurfaceVariant} style={{ marginRight: 4 }} />
-                <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 12 }}>{t('events.archive')}</Text>
-              </TouchableOpacity>
-            </>
-          ) : event?.status === 'completed' ? (
-            <>
-              <TouchableOpacity
-                onPress={() => handleReactivateEvent('active')}
-                style={{ 
-                  backgroundColor: theme.colors.surface, 
-                  borderWidth: 1, 
-                  borderColor: theme.colors.primary, 
-                  paddingHorizontal: 8, 
-                  paddingVertical: 6, 
-                  borderRadius: 6, 
-                  flexDirection: 'row', 
-                  alignItems: 'center' 
-                }}
-              >
-                <MaterialCommunityIcons name="lock-open" size={14} color={theme.colors.primary} style={{ marginRight: 4 }} />
-                <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 12 }}>{t('events.reactivate')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleArchiveEvent}
-                style={{ 
-                  backgroundColor: theme.colors.surface, 
-                  borderWidth: 1, 
-                  borderColor: theme.colors.outline, 
-                  paddingHorizontal: 8, 
-                  paddingVertical: 6, 
-                  borderRadius: 6, 
-                  flexDirection: 'row', 
-                  alignItems: 'center' 
-                }}
-              >
-                <MaterialCommunityIcons name="archive" size={14} color={theme.colors.onSurfaceVariant} style={{ marginRight: 4 }} />
-                <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 12 }}>{t('events.archive')}</Text>
-              </TouchableOpacity>
-            </>
-          ) : event?.status === 'archived' ? (
-            <>
-              <TouchableOpacity
-                onPress={() => handleReactivateEvent('active')}
-                style={{ 
-                  backgroundColor: theme.colors.primary, 
-                  paddingHorizontal: 8, 
-                  paddingVertical: 6, 
-                  borderRadius: 6, 
-                  flexDirection: 'row', 
-                  alignItems: 'center' 
-                }}
-              >
-                <MaterialCommunityIcons name="lock-open" size={14} color={theme.colors.onPrimary} style={{ marginRight: 4 }} />
-                <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 12 }}>{t('events.reactivate')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => handleReactivateEvent('completed')}
-                style={{ 
-                  backgroundColor: theme.colors.surface, 
-                  borderWidth: 1, 
-                  borderColor: theme.colors.warning, 
-                  paddingHorizontal: 8, 
-                  paddingVertical: 6, 
-                  borderRadius: 6, 
-                  flexDirection: 'row', 
-                  alignItems: 'center' 
-                }}
-              >
-                <MaterialCommunityIcons name="check-circle" size={14} color={theme.colors.warning} style={{ marginRight: 4 }} />
-                <Text style={{ color: theme.colors.warning, fontWeight: '600', fontSize: 12 }}>{t('events.complete')}</Text>
-              </TouchableOpacity>
-            </>
-          ) : null}
+        <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 6 }}>
+        {event?.status === 'active' ? (
+          <>
+            <TouchableOpacity
+              onPress={handleCompleteEvent}
+              style={{ 
+                backgroundColor: theme.colors.primary, 
+                paddingHorizontal: 8, 
+                paddingVertical: 6, 
+                borderRadius: 6, 
+                flexDirection: 'row', 
+                alignItems: 'center'
+              }}
+            >
+              <MaterialCommunityIcons name="check-circle" size={14} color={theme.colors.onPrimary} style={{ marginRight: 4 }} />
+              <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 12 }}>{t('events.complete')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleArchiveEvent}
+              style={{ 
+                backgroundColor: theme.colors.surface, 
+                borderWidth: 1, 
+                borderColor: theme.colors.outline, 
+                paddingHorizontal: 8, 
+                paddingVertical: 6, 
+                borderRadius: 6, 
+                flexDirection: 'row', 
+                alignItems: 'center' 
+              }}
+            >
+              <MaterialCommunityIcons name="archive" size={14} color={theme.colors.onSurfaceVariant} style={{ marginRight: 4 }} />
+              <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 12 }}>{t('events.archive')}</Text>
+            </TouchableOpacity>
+          </>
+        ) : event?.status === 'completed' ? (
+          <>
+            <TouchableOpacity
+              onPress={() => handleReactivateEvent('active')}
+              style={{ 
+                backgroundColor: theme.colors.surface, 
+                borderWidth: 1, 
+                borderColor: theme.colors.primary, 
+                paddingHorizontal: 8, 
+                paddingVertical: 6, 
+                borderRadius: 6, 
+                flexDirection: 'row', 
+                alignItems: 'center' 
+              }}
+            >
+              <MaterialCommunityIcons name="lock-open" size={14} color={theme.colors.primary} style={{ marginRight: 4 }} />
+              <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 12 }}>{t('events.reactivate')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleArchiveEvent}
+              style={{ 
+                backgroundColor: theme.colors.surface, 
+                borderWidth: 1, 
+                borderColor: theme.colors.outline, 
+                paddingHorizontal: 8, 
+                paddingVertical: 6, 
+                borderRadius: 6, 
+                flexDirection: 'row', 
+                alignItems: 'center' 
+              }}
+            >
+              <MaterialCommunityIcons name="archive" size={14} color={theme.colors.onSurfaceVariant} style={{ marginRight: 4 }} />
+              <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 12 }}>{t('events.archive')}</Text>
+            </TouchableOpacity>
+          </>
+        ) : event?.status === 'archived' ? (
+          <>
+            <TouchableOpacity
+              onPress={() => handleReactivateEvent('active')}
+              style={{ 
+                backgroundColor: theme.colors.primary, 
+                paddingHorizontal: 8, 
+                paddingVertical: 6, 
+                borderRadius: 6, 
+                flexDirection: 'row', 
+                alignItems: 'center' 
+              }}
+            >
+              <MaterialCommunityIcons name="lock-open" size={14} color={theme.colors.onPrimary} style={{ marginRight: 4 }} />
+              <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 12 }}>{t('events.reactivate')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => handleReactivateEvent('completed')}
+              style={{ 
+                backgroundColor: theme.colors.surface, 
+                borderWidth: 1, 
+                borderColor: theme.colors.warning, 
+                paddingHorizontal: 8, 
+                paddingVertical: 6, 
+                borderRadius: 6, 
+                flexDirection: 'row', 
+                alignItems: 'center' 
+              }}
+            >
+              <MaterialCommunityIcons name="check-circle" size={14} color={theme.colors.warning} style={{ marginRight: 4 }} />
+              <Text style={{ color: theme.colors.warning, fontWeight: '600', fontSize: 12 }}>{t('events.complete')}</Text>
+            </TouchableOpacity>
+          </>
+        ) : null}
         </View>
       </View>
 
+      <ScrollView style={{ flex: 1 }}>
       {/* Información del evento */}
       <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
@@ -2523,6 +2537,84 @@ export default function EventDetailScreen() {
           );
         })()}
       </Card>
+
+      {/* Liquidaciones Pagadas */}
+      {(() => {
+        if (event?.status === 'completed') return null;
+        const paidSettlements = dbSettlements.filter((s: any) => s.isPaid);
+        if (paidSettlements.length === 0) return null;
+        return (
+          <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <Text style={styles.sectionTitle}>✅ {t('summary.paidSettlements')}</Text>
+              <View style={{ backgroundColor: theme.colors.successContainer, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                <Text style={{ color: theme.colors.onSuccessContainer, fontSize: 12, fontWeight: '600' }}>
+                  {paidSettlements.length} {t('payments.paid')}
+                </Text>
+              </View>
+            </View>
+            {paidSettlements
+              .sort((a: any, b: any) => {
+                if (a.paidAt && b.paidAt) return new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime();
+                return 0;
+              })
+              .map((s: any, idx: number) => (
+                <View
+                  key={`paid_${s.id}_${idx}`}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    marginBottom: 6,
+                    backgroundColor: theme.colors.successContainer + '25',
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: theme.colors.success + '30',
+                  }}
+                >
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (s.receiptImage) {
+                        setSelectedImage(s.receiptImage);
+                        setShowImageModal(true);
+                      }
+                    }}
+                    disabled={!s.receiptImage}
+                    style={{ marginRight: 10 }}
+                  >
+                    <MaterialCommunityIcons
+                      name="file-image-outline"
+                      size={22}
+                      color={s.receiptImage ? theme.colors.primary : theme.colors.onSurfaceVariant + '50'}
+                    />
+                  </TouchableOpacity>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.onSurface }}>
+                        {s.fromParticipantName}
+                      </Text>
+                      <MaterialCommunityIcons name="arrow-right" size={14} color={theme.colors.onSurfaceVariant} />
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.onSurface }}>
+                        {s.toParticipantName}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: theme.colors.success }}>
+                        ${s.amount.toFixed(2)}
+                      </Text>
+                      {s.paidAt && (
+                        <Text style={{ fontSize: 11, color: theme.colors.onSurfaceVariant }}>
+                          {t('summary.paidOn')} {new Date(s.paidAt).toLocaleDateString()}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              ))}
+          </Card>
+        );
+      })()}
 
       {/* Consolidaciones Aplicadas - Solo mostrar cuando hay consolidaciones */}
       {consolidationAssignments.length > 0 && (
@@ -2887,8 +2979,10 @@ export default function EventDetailScreen() {
       )}
 
 
-    </ScrollView>
-  );
+      </ScrollView>
+    </View>
+    );
+  };
 
   const handleTogglePayment = async (paymentId: string, currentStatus: boolean) => {
     try {
