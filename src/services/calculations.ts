@@ -86,8 +86,16 @@ export class CalculationService {
 
     // Calculate total paid by each participant (from expenses)
     expenses.forEach(expense => {
-      if (balances[expense.payerId]) {
-        balances[expense.payerId].totalPaid += expense.amount;
+      if (expense.payers && expense.payers.length > 0) {
+        expense.payers.forEach(payer => {
+          if (balances[payer.participantId]) {
+            balances[payer.participantId].totalPaid += payer.amount;
+          }
+        });
+      } else {
+        if (balances[expense.payerId]) {
+          balances[expense.payerId].totalPaid += expense.amount;
+        }
       }
     });
 

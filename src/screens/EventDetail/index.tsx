@@ -1837,7 +1837,9 @@ export default function EventDetailScreen() {
                   {/* Segunda fila: Pagador | Fecha */}
                   <View style={styles.expenseSecondRow}>
                     <Text style={styles.expensePaidBy}>
-                      {t('expenses.paidBy')}: {eventParticipants.find(p => p.id === item.payerId)?.name || 'Usuario Demo'}
+                      {t('expenses.paidBy')}: {item.payers && item.payers.length > 1
+                        ? item.payers.map(payer => eventParticipants.find(p => p.id === payer.participantId)?.name || payer.participantName || '?').join(', ')
+                        : eventParticipants.find(p => p.id === item.payerId)?.name || 'Usuario Demo'}
                     </Text>
                     <Text style={styles.expenseDate}>
                       {new Date(item.date).toLocaleDateString()}
@@ -2000,9 +2002,13 @@ export default function EventDetailScreen() {
           ) : (
             visibleParticipants.map(participant => {
             // Calcular directamente desde eventExpenses y eventSplits para garantizar datos frescos
-            const totalPaid = eventExpenses
-              .filter(e => e.payerId === participant.id)
-              .reduce((sum, e) => sum + e.amount, 0);
+            const totalPaid = eventExpenses.reduce((sum, e) => {
+              if (e.payers && e.payers.length > 0) {
+                const mp = e.payers.find((p: any) => p.participantId === participant.id);
+                return sum + (mp ? mp.amount : 0);
+              }
+              return e.payerId === participant.id ? sum + e.amount : sum;
+            }, 0);
             const totalOwed = eventSplits
               .filter(s => s.participantId === participant.id)
               .reduce((sum, s) => sum + s.amount, 0);
@@ -3488,12 +3494,30 @@ export default function EventDetailScreen() {
                       <Text style={styles.expenseDetailLabel}>{t('expenses.category')}:</Text>
                       <Text style={styles.expenseDetailValue}>{selectedExpenseForDetail.expense.category || t('expenses.noCategory')}</Text>
                     </View>
-                    <View style={styles.expenseDetailRow}>
-                      <Text style={styles.expenseDetailLabel}>{t('expenses.paidBy')}:</Text>
-                      <Text style={styles.expenseDetailValue}>
-                        {eventParticipants.find(p => p.id === selectedExpenseForDetail.expense.payerId)?.name || 'Usuario Demo'}
-                      </Text>
-                    </View>
+                    {selectedExpenseForDetail.expense.payers && selectedExpenseForDetail.expense.payers.length > 1 ? (
+                      <View style={styles.expenseDetailRow}>
+                        <Text style={styles.expenseDetailLabel}>{t('expenses.paidBy')}:</Text>
+                        <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                          {selectedExpenseForDetail.expense.payers.map((payer: any) => (
+                            <View key={payer.participantId} style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginBottom: 2 }}>
+                              <Text style={[styles.expenseDetailValue, { marginBottom: 0 }]}>
+                                {eventParticipants.find(p => p.id === payer.participantId)?.name || payer.participantName || '?'}
+                              </Text>
+                              <Text style={[styles.expenseDetailValue, { fontWeight: '700', marginBottom: 0 }]}>
+                                ${payer.amount.toFixed(2)}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={styles.expenseDetailRow}>
+                        <Text style={styles.expenseDetailLabel}>{t('expenses.paidBy')}:</Text>
+                        <Text style={styles.expenseDetailValue}>
+                          {eventParticipants.find(p => p.id === selectedExpenseForDetail.expense.payerId)?.name || 'Usuario Demo'}
+                        </Text>
+                      </View>
+                    )}
                   </View>
 
                   {/* ⛔ Participantes Excluidos */}

@@ -51,6 +51,12 @@ export interface EventParticipant {
   joinedAt?: string;
 }
 
+export interface ExpensePayer {
+  participantId: string;
+  participantName?: string;
+  amount: number;
+}
+
 export interface Expense {
   id: string;
   eventId: string;
@@ -65,6 +71,7 @@ export interface Expense {
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
+  payers?: ExpensePayer[];
 }
 
 export interface Split {

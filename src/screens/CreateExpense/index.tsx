@@ -11,7 +11,9 @@ import {
   BackHandler,
   Image,
   Platform,
-  KeyboardAvoidingView
+  KeyboardAvoidingView,
+  Switch,
+  TextInput
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
@@ -37,7 +39,8 @@ import {
   CategoryKey,
   CategoryConfig,
   CATEGORY_CONFIGS,
-  CATEGORY_COLORS
+  CATEGORY_COLORS,
+  MultiPayer
 } from './types';
 import { createStyles } from './styles';
 import { createExpenseLanguage } from './language';
@@ -72,7 +75,9 @@ const CreateExpenseScreen: React.FC = () => {
     category: 'otros',
     payerId: '',
     splitType: 'equal',
-    splits: []
+    splits: [],
+    isMultiplePayers: false,
+    multiPayers: []
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
@@ -83,6 +88,10 @@ const CreateExpenseScreen: React.FC = () => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [payerSearchQuery, setPayerSearchQuery] = useState<string>('');
   const [submittedOnce, setSubmittedOnce] = useState(false);
+
+  // Multi-payer states
+  const [isMultiplePayers, setIsMultiplePayers] = useState(false);
+  const [multiPayers, setMultiPayers] = useState<MultiPayer[]>([]);
 
   // Cargar datos del evento y participantes cada vez que la pantalla se enfoca
   useFocusEffect(
@@ -113,6 +122,13 @@ const CreateExpenseScreen: React.FC = () => {
           peopleCountMap.set(p.id, (p as any).peopleCount || 1);
         });
         setParticipantsPeopleCount(peopleCountMap);
+
+        // Inicializar multiPayers con todos los participantes (no seleccionados)
+        setMultiPayers(participants.map(p => ({
+          participantId: p.id,
+          amount: '',
+          isSelected: false
+        })));
 
         // Inicializar con todos los participantes incluidos por defecto SOLO si NO estamos editando
         if (participants.length > 0 && !isEditing) {
@@ -169,6 +185,19 @@ const CreateExpenseScreen: React.FC = () => {
                 defaultPeopleCount
               };
             });
+
+            // Cargar datos de múltiples pagadores si existen
+            if (expense.payers && expense.payers.length > 1) {
+              setIsMultiplePayers(true);
+              setMultiPayers(eventParticipants.map(p => {
+                const payer = expense.payers!.find(mp => mp.participantId === p.id);
+                return {
+                  participantId: p.id,
+                  amount: payer ? payer.amount.toString() : '',
+                  isSelected: !!payer
+                };
+              }));
+            }
 
             const isEqualSplit = expenseSplits.length === eventParticipants.length;
 
@@ -343,8 +372,21 @@ const CreateExpenseScreen: React.FC = () => {
       newErrors.amount = 'El monto debe ser mayor a 0';
     }
 
-    if (!formData.payerId) {
+    if (!formData.payerId && !isMultiplePayers) {
       newErrors.payerId = 'Debe seleccionar quién pagó';
+    }
+
+    if (isMultiplePayers) {
+      const selectedPayers = multiPayers.filter(mp => mp.isSelected);
+      if (selectedPayers.length < 2) {
+        newErrors.payerId = t.multiplePayersCard.minPayersWarning;
+      } else if (!isMultiPayerSumValid()) {
+        const sum = getMultiPayersSum().toFixed(2);
+        const total = getAmount().toFixed(2);
+        newErrors.payerId = t.multiplePayersCard.sumMismatch
+          .replace('{sum}', sum)
+          .replace('{total}', total);
+      }
     }
 
     // Validar que hay participantes incluidos
@@ -524,6 +566,54 @@ const CreateExpenseScreen: React.FC = () => {
     return parseFloat(numericValue) || 0;
   };
 
+  // ===== MULTI-PAYER HELPERS =====
+
+  const redistributeAmongSelectedPayers = (payers: MultiPayer[]) => {
+    const selected = payers.filter(mp => mp.isSelected);
+    const totalAmount = getAmount();
+
+    if (selected.length === 0 || totalAmount <= 0) {
+      setMultiPayers(payers.map(mp => ({ ...mp, amount: mp.isSelected ? '' : '' })));
+      return;
+    }
+
+    const amountPerPayer = totalAmount / selected.length;
+    setMultiPayers(payers.map(mp => ({
+      ...mp,
+      amount: mp.isSelected ? amountPerPayer.toFixed(2) : ''
+    })));
+  };
+
+  const handleMultiPayerToggle = (participantId: string) => {
+    const updated = multiPayers.map(mp =>
+      mp.participantId === participantId ? { ...mp, isSelected: !mp.isSelected } : mp
+    );
+    redistributeAmongSelectedPayers(updated);
+  };
+
+  const handleMultiPayerAmountChange = (participantId: string, value: string) => {
+    setMultiPayers(prev => prev.map(mp =>
+      mp.participantId === participantId ? { ...mp, amount: value } : mp
+    ));
+  };
+
+  const getMultiPayersSum = (): number =>
+    multiPayers.filter(mp => mp.isSelected).reduce((sum, mp) => sum + (parseFloat(mp.amount) || 0), 0);
+
+  const isMultiPayerSumValid = (): boolean => {
+    const selectedCount = multiPayers.filter(mp => mp.isSelected).length;
+    if (!isMultiplePayers || selectedCount === 0) return true;
+    return Math.abs(getMultiPayersSum() - getAmount()) < 0.02;
+  };
+
+  const handleToggleMultiplePayers = (value: boolean) => {
+    setIsMultiplePayers(value);
+    if (!value) {
+      // Reset multi-payer state
+      setMultiPayers(prev => prev.map(mp => ({ ...mp, isSelected: false, amount: '' })));
+    }
+  };
+
   const handleCreateExpense = async () => {
     setSubmittedOnce(true);
     if (!validateForm()) {
@@ -534,13 +624,29 @@ const CreateExpenseScreen: React.FC = () => {
       if (isEditing && editingExpenseId) {
         // Actualizar gasto existente
         const numericAmount = getNumericValue(formData.amount);
+
+        // Build payers for multi-payer mode
+        const selectedMultiPayers = multiPayers.filter(mp => mp.isSelected);
+        const payersForUpdate = isMultiplePayers && selectedMultiPayers.length > 1
+          ? selectedMultiPayers.map(mp => ({
+              participantId: mp.participantId,
+              participantName: eventParticipants.find(p => p.id === mp.participantId)?.name,
+              amount: parseFloat(mp.amount) || 0
+            }))
+          : [];
+
+        const primaryPayerId = isMultiplePayers && selectedMultiPayers.length > 0
+          ? selectedMultiPayers[0].participantId
+          : formData.payerId;
+
         const expenseUpdates: Partial<Expense> = {
           description: formData.description.trim(),
           amount: parseFloat(numericAmount),
           currency: event?.currency || 'ARS',
           date: formData.date.toISOString(),
           category: formData.category,
-          payerId: formData.payerId,
+          payerId: primaryPayerId,
+          payers: payersForUpdate,
           receiptImage: receiptImage || null,
           updatedAt: new Date().toISOString()
         };
@@ -582,6 +688,21 @@ const CreateExpenseScreen: React.FC = () => {
         console.log('Receipt image URI:', receiptImage);
         
         const numericAmount = getNumericValue(formData.amount);
+
+        // Build payers for multi-payer mode
+        const selectedMultiPayers = multiPayers.filter(mp => mp.isSelected);
+        const payersForCreate = isMultiplePayers && selectedMultiPayers.length > 1
+          ? selectedMultiPayers.map(mp => ({
+              participantId: mp.participantId,
+              participantName: eventParticipants.find(p => p.id === mp.participantId)?.name,
+              amount: parseFloat(mp.amount) || 0
+            }))
+          : undefined;
+
+        const primaryPayerId = isMultiplePayers && selectedMultiPayers.length > 0
+          ? selectedMultiPayers[0].participantId
+          : formData.payerId;
+
         const expense: Expense = {
           id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           eventId,
@@ -590,7 +711,8 @@ const CreateExpenseScreen: React.FC = () => {
           currency: event?.currency || 'ARS',
           date: formData.date.toISOString(),
           category: formData.category,
-          payerId: formData.payerId,
+          payerId: primaryPayerId,
+          payers: payersForCreate,
           receiptImage: receiptImage || undefined,
           isActive: true,
           createdAt: new Date().toISOString(),
@@ -685,11 +807,16 @@ const CreateExpenseScreen: React.FC = () => {
 
   const isFormValid = (): boolean => {
     const numericAmount = getNumericValue(formData.amount);
-    return formData.description.trim().length > 0 && 
+    const baseValid = formData.description.trim().length > 0 && 
            formData.amount.trim().length > 0 && 
            !isNaN(parseFloat(numericAmount)) && 
-           parseFloat(numericAmount) > 0 &&
-           formData.payerId.length > 0;
+           parseFloat(numericAmount) > 0;
+
+    if (isMultiplePayers) {
+      const selectedPayers = multiPayers.filter(mp => mp.isSelected);
+      return baseValid && selectedPayers.length >= 2 && isMultiPayerSumValid();
+    }
+    return baseValid && formData.payerId.length > 0;
   };
 
   // Participantes ordenados alfabéticamente para el pagador con filtro
@@ -782,30 +909,105 @@ const CreateExpenseScreen: React.FC = () => {
         {/* Pagador */}
         <Card style={styles.card}>
           <Text style={styles.cardTitle}>{t.payerCard.title}</Text>
-          
-          <SearchBar
-            value={payerSearchQuery}
-            onChangeText={setPayerSearchQuery}
-            placeholder={t.payerCard.searchPlaceholder}
-          />
-          
-          {sortedParticipantsForPayer.map((participant) => (
-            <TouchableOpacity
-              key={participant.id}
-              style={[
-                styles.participantOption,
-                formData.payerId === participant.id && styles.participantOptionActive
-              ]}
-              onPress={() => handleInputChange('payerId', participant.id)}
-            >
-              <MaterialCommunityIcons
-                name={formData.payerId === participant.id ? 'radiobox-marked' : 'radiobox-blank'}
-                size={20}
-                color={theme.colors.primary}
+
+          {/* Toggle múltiples pagadores */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: theme.colors.outline, marginBottom: 12 }}>
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.onSurface }}>
+                {t.multiplePayersCard.toggleLabel}
+              </Text>
+              <Text style={{ fontSize: 12, color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
+                {t.multiplePayersCard.toggleSubtitle}
+              </Text>
+            </View>
+            <Switch
+              value={isMultiplePayers}
+              onValueChange={handleToggleMultiplePayers}
+              trackColor={{ false: theme.colors.surfaceVariant, true: theme.colors.primary + '66' }}
+              thumbColor={isMultiplePayers ? theme.colors.primary : theme.colors.onSurfaceVariant}
+            />
+          </View>
+
+          {!isMultiplePayers ? (
+            <>
+              <SearchBar
+                value={payerSearchQuery}
+                onChangeText={setPayerSearchQuery}
+                placeholder={t.payerCard.searchPlaceholder}
               />
-              <Text style={styles.payerParticipantName}>{participant.name}</Text>
-            </TouchableOpacity>
-          ))}
+              
+              {sortedParticipantsForPayer.map((participant) => (
+                <TouchableOpacity
+                  key={participant.id}
+                  style={[
+                    styles.participantOption,
+                    formData.payerId === participant.id && styles.participantOptionActive
+                  ]}
+                  onPress={() => handleInputChange('payerId', participant.id)}
+                >
+                  <MaterialCommunityIcons
+                    name={formData.payerId === participant.id ? 'radiobox-marked' : 'radiobox-blank'}
+                    size={20}
+                    color={theme.colors.primary}
+                  />
+                  <Text style={styles.payerParticipantName}>{participant.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </>
+          ) : (
+            <>
+              {/* Lista de participantes con checkbox + monto */}
+              {eventParticipants.map((participant) => {
+                const mp = multiPayers.find(x => x.participantId === participant.id);
+                if (!mp) return null;
+                return (
+                  <View key={participant.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: theme.colors.surfaceVariant }}>
+                    <TouchableOpacity
+                      style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                      onPress={() => handleMultiPayerToggle(participant.id)}
+                    >
+                      <MaterialCommunityIcons
+                        name={mp.isSelected ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                        size={22}
+                        color={mp.isSelected ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                      />
+                      <Text style={{ marginLeft: 10, fontSize: 14, color: mp.isSelected ? theme.colors.onSurface : theme.colors.onSurfaceVariant, fontWeight: mp.isSelected ? '600' : '400' }}>
+                        {participant.name}
+                      </Text>
+                    </TouchableOpacity>
+                    {mp.isSelected && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.surfaceVariant, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, minWidth: 90 }}>
+                        <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 13, marginRight: 4 }}>$</Text>
+                        <TextInput
+                          value={mp.amount}
+                          onChangeText={(val) => handleMultiPayerAmountChange(participant.id, val)}
+                          keyboardType="numeric"
+                          style={{ fontSize: 14, color: theme.colors.onSurface, minWidth: 60, padding: 0 }}
+                          placeholder="0.00"
+                          placeholderTextColor={theme.colors.onSurfaceVariant}
+                        />
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+
+              {/* Indicador de suma */}
+              {multiPayers.some(mp => mp.isSelected) && (
+                <View style={{ marginTop: 10, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: isMultiPayerSumValid() ? theme.colors.primary + '18' : theme.colors.error + '18' }}>
+                  <Text style={{ fontSize: 13, color: isMultiPayerSumValid() ? theme.colors.primary : theme.colors.error, fontWeight: '500' }}>
+                    {isMultiPayerSumValid()
+                      ? t.multiplePayersCard.sumOk
+                      : t.multiplePayersCard.sumMismatch
+                          .replace('{sum}', getMultiPayersSum().toFixed(2))
+                          .replace('{total}', getAmount().toFixed(2))
+                    }
+                  </Text>
+                </View>
+              )}
+            </>
+          )}
+
           {errors.payerId && (
             <Text style={styles.errorText}>{errors.payerId}</Text>
           )}

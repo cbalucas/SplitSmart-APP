@@ -1,5 +1,11 @@
 export type CategoryKey = 'comida' | 'transporte' | 'alojamiento' | 'entretenimiento' | 'compras' | 'salud' | 'educacion' | 'otros';
 
+export interface MultiPayer {
+  participantId: string;
+  amount: string; // text input value
+  isSelected: boolean;
+}
+
 export interface ExpenseFormData {
   description: string;
   amount: string;
@@ -8,6 +14,8 @@ export interface ExpenseFormData {
   payerId: string;
   splitType: 'equal';
   splits: ExpenseSplit[];
+  isMultiplePayers: boolean;
+  multiPayers: MultiPayer[];
 }
 
 export interface ExpenseSplit {

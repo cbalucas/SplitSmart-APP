@@ -336,6 +336,25 @@ class DatabaseService {
         console.error('❌ Error in event_status migration for settlements:', error);
       }
 
+      // Migration: Create expense_payers table if it doesn't exist
+      try {
+        await this.db.execAsync(`
+          CREATE TABLE IF NOT EXISTS expense_payers (
+            id TEXT PRIMARY KEY,
+            expense_id TEXT NOT NULL,
+            participant_id TEXT NOT NULL,
+            amount REAL NOT NULL,
+            created_at TEXT,
+            updated_at TEXT,
+            FOREIGN KEY (expense_id) REFERENCES expenses (id) ON DELETE CASCADE,
+            FOREIGN KEY (participant_id) REFERENCES participants (id) ON DELETE CASCADE
+          )
+        `);
+        console.log('✅ Migration: expense_payers table ensured');
+      } catch (error: any) {
+        console.error('❌ Error creating expense_payers table:', error);
+      }
+
       // Migration: Initialize app versions data
       try {
         await this.initializeVersionHistory();
@@ -595,6 +614,20 @@ class DatabaseService {
           percentage REAL,
           type TEXT CHECK(type IN ('equal', 'fixed', 'percentage', 'custom')) DEFAULT 'equal',
           is_paid INTEGER DEFAULT 0,
+          created_at TEXT,
+          updated_at TEXT,
+          FOREIGN KEY (expense_id) REFERENCES expenses (id) ON DELETE CASCADE,
+          FOREIGN KEY (participant_id) REFERENCES participants (id) ON DELETE CASCADE
+        )
+      `);
+
+      // Expense payers table (multi-payer support)
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS expense_payers (
+          id TEXT PRIMARY KEY,
+          expense_id TEXT NOT NULL,
+          participant_id TEXT NOT NULL,
+          amount REAL NOT NULL,
           created_at TEXT,
           updated_at TEXT,
           FOREIGN KEY (expense_id) REFERENCES expenses (id) ON DELETE CASCADE,
@@ -1023,6 +1056,22 @@ class DatabaseService {
       );
       
       console.log(`✅ Found ${result.length} expenses`);
+
+      if (result.length === 0) return [];
+
+      // Fetch all expense_payers and hydrate payers field
+      const payersResult = await this.db.getAllAsync(
+        `SELECT ep.expense_id, ep.participant_id, ep.amount, p.name as participant_name
+         FROM expense_payers ep
+         JOIN participants p ON ep.participant_id = p.id`
+      ) as any[];
+
+      const payersMap = new Map<string, { participantId: string; participantName: string; amount: number }[]>();
+      for (const row of payersResult) {
+        const list = payersMap.get(row.expense_id) || [];
+        list.push({ participantId: row.participant_id, participantName: row.participant_name, amount: row.amount });
+        payersMap.set(row.expense_id, list);
+      }
       
       return result.map((row: any) => ({
         id: row.id,
@@ -1036,7 +1085,8 @@ class DatabaseService {
         receiptImage: row.receipt_image,
         isActive: row.is_active === 1,
         createdAt: row.created_at,
-        updatedAt: row.updated_at
+        updatedAt: row.updated_at,
+        payers: payersMap.get(row.id) || undefined
       }));
     } catch (error) {
       console.error('❌ Error getting expenses:', error);
@@ -1279,6 +1329,18 @@ class DatabaseService {
         ]
       );
 
+      // Insert multi-payer rows if provided
+      if (expense.payers && expense.payers.length > 0) {
+        const now = new Date().toISOString();
+        for (const payer of expense.payers) {
+          const payerRowId = `ep_${expense.id}_${payer.participantId}`;
+          await this.db.runAsync(
+            'INSERT INTO expense_payers (id, expense_id, participant_id, amount, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+            [payerRowId, expense.id, payer.participantId, payer.amount, now, now]
+          );
+        }
+      }
+
       // NO recalcular automáticamente - se hará manualmente después de crear splits
       
     } catch (error) {
@@ -1301,6 +1363,23 @@ class DatabaseService {
       );
       
       console.log(`✅ Found ${result.length} expenses for event ${eventId}`);
+
+      // Fetch all expense_payers for this event in one query
+      const payersResult = await this.db.getAllAsync(
+        `SELECT ep.expense_id, ep.participant_id, ep.amount, p.name as participant_name
+         FROM expense_payers ep
+         JOIN participants p ON ep.participant_id = p.id
+         WHERE ep.expense_id IN (SELECT id FROM expenses WHERE event_id = ? AND is_active = 1)`,
+        [eventId]
+      ) as any[];
+
+      // Build a map: expenseId → payers[]
+      const payersMap = new Map<string, { participantId: string; participantName: string; amount: number }[]>();
+      for (const row of payersResult) {
+        const list = payersMap.get(row.expense_id) || [];
+        list.push({ participantId: row.participant_id, participantName: row.participant_name, amount: row.amount });
+        payersMap.set(row.expense_id, list);
+      }
       
       return result.map((row: any) => ({
         id: row.id,
@@ -1314,7 +1393,8 @@ class DatabaseService {
         receiptImage: row.receipt_image,
         isActive: row.is_active === 1,
         createdAt: row.created_at,
-        updatedAt: row.updated_at
+        updatedAt: row.updated_at,
+        payers: payersMap.get(row.id) || undefined
       }));
     } catch (error) {
       console.error('❌ Error getting expenses by event:', error);
@@ -1914,8 +1994,16 @@ class DatabaseService {
 
     // Calcular lo que pagó cada uno (créditos)
     expenses.forEach(expense => {
-      if (balances[expense.payerId]) {
-        balances[expense.payerId].totalPaid += expense.amount;
+      if (expense.payers && expense.payers.length > 0) {
+        expense.payers.forEach((payer: any) => {
+          if (balances[payer.participantId]) {
+            balances[payer.participantId].totalPaid += payer.amount;
+          }
+        });
+      } else {
+        if (balances[expense.payerId]) {
+          balances[expense.payerId].totalPaid += expense.amount;
+        }
       }
     });
 
@@ -2586,6 +2674,21 @@ class DatabaseService {
               split.updatedAt || new Date().toISOString()
             ]
           );
+        }
+      }
+
+      // Update expense_payers if payers field is provided (even empty array clears existing payers)
+      if (expense.payers !== undefined) {
+        await this.db.runAsync('DELETE FROM expense_payers WHERE expense_id = ?', [expenseId]);
+        if (expense.payers.length > 0) {
+          const now = new Date().toISOString();
+          for (const payer of expense.payers) {
+            const payerRowId = `ep_${expenseId}_${payer.participantId}`;
+            await this.db.runAsync(
+              'INSERT INTO expense_payers (id, expense_id, participant_id, amount, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+              [payerRowId, expenseId, payer.participantId, payer.amount, now, now]
+            );
+          }
         }
       }
 

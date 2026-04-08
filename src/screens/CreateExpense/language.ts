@@ -113,6 +113,15 @@ export const createExpenseLanguage = {
       participant: 'participante'
     },
     
+    // Multiple payers card
+    multiplePayersCard: {
+      toggleLabel: 'Múltiples pagadores',
+      toggleSubtitle: 'Dividir el pago entre varias personas',
+      sumOk: 'La suma coincide con el monto del gasto ✓',
+      sumMismatch: 'La suma ({sum}) no coincide con el monto ({total})',
+      minPayersWarning: 'Seleccioná al menos 2 pagadores'
+    },
+
     // Form Errors
     errors: {
       description: 'La descripción es requerida',
@@ -236,6 +245,15 @@ export const createExpenseLanguage = {
       participant: 'participant'
     },
 
+    // Multiple payers card
+    multiplePayersCard: {
+      toggleLabel: 'Multiple payers',
+      toggleSubtitle: 'Split the payment among several people',
+      sumOk: 'The sum matches the expense amount ✓',
+      sumMismatch: 'The sum ({sum}) does not match the amount ({total})',
+      minPayersWarning: 'Select at least 2 payers'
+    },
+
     // Form Errors
     errors: {
       description: 'Description is required',
@@ -357,6 +375,15 @@ export const createExpenseLanguage = {
       total: 'Total',
       participants: 'participantes',
       participant: 'participante'
+    },
+
+    // Multiple payers card
+    multiplePayersCard: {
+      toggleLabel: 'Múltiplos pagadores',
+      toggleSubtitle: 'Dividir o pagamento entre várias pessoas',
+      sumOk: 'A soma coincide com o valor da despesa ✓',
+      sumMismatch: 'A soma ({sum}) não coincide com o valor ({total})',
+      minPayersWarning: 'Selecione pelo menos 2 pagadores'
     },
 
     // Form Errors
