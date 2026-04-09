@@ -378,11 +378,169 @@ export const createStyles = (theme: Theme) => {
 
   currencySuffix: {
     position: 'absolute',
-    right: 16,
+    right: 48,
     top: 40,
     fontSize: 16,
     color: theme.colors.onSurfaceVariant,
     fontWeight: '500',
+  } as TextStyle,
+
+  calcButton: {
+    position: 'absolute',
+    right: 12,
+    top: 32,
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: theme.colors.primaryContainer,
+  } as ViewStyle,
+
+  // ── Calculadora Modal ──────────────────────────────────────
+  calcOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  } as ViewStyle,
+
+  calcModal: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: isDarkMode ? '#1E1E2E' : '#F5F5F5',
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
+  } as ViewStyle,
+
+  calcDisplay: {
+    backgroundColor: isDarkMode ? '#13131F' : '#E8E8F0',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 14,
+    alignItems: 'flex-end',
+  } as ViewStyle,
+
+  calcExpressionText: {
+    fontSize: 16,
+    color: isDarkMode ? '#9999BB' : '#666688',
+    marginBottom: 4,
+    minHeight: 22,
+  } as TextStyle,
+
+  calcResultText: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: isDarkMode ? '#EEEEFF' : '#111133',
+    letterSpacing: 1,
+  } as TextStyle,
+
+  calcResultError: {
+    color: '#FF5252',
+    fontSize: 28,
+  } as TextStyle,
+
+  calcRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    gap: 8,
+  } as ViewStyle,
+
+  calcKey: {
+    flex: 1,
+    aspectRatio: 1,
+    borderRadius: 12,
+    backgroundColor: isDarkMode ? '#2A2A3E' : '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  } as ViewStyle,
+
+  calcKeyWide: {
+    flex: 2,
+    aspectRatio: undefined,
+    paddingVertical: 14,
+  } as ViewStyle,
+
+  calcKeyEmpty: {
+    flex: 1,
+  } as ViewStyle,
+
+  calcKeyOperator: {
+    backgroundColor: isDarkMode ? theme.colors.primaryContainer : theme.colors.primaryContainer,
+  } as ViewStyle,
+
+  calcKeyClear: {
+    backgroundColor: isDarkMode ? '#3E1E1E' : '#FFE5E5',
+  } as ViewStyle,
+
+  calcKeyBackspace: {
+    backgroundColor: isDarkMode ? '#2E2A1E' : '#FFF3E0',
+  } as ViewStyle,
+
+  calcKeyText: {
+    fontSize: 22,
+    fontWeight: '500',
+    color: isDarkMode ? '#EEEEFF' : '#111133',
+  } as TextStyle,
+
+  calcKeyTextOperator: {
+    color: theme.colors.primary,
+    fontWeight: '700',
+  } as TextStyle,
+
+  calcKeyTextClear: {
+    color: '#FF5252',
+    fontWeight: '700',
+  } as TextStyle,
+
+  calcFooter: {
+    flexDirection: 'row',
+    margin: 12,
+    marginTop: 8,
+    gap: 8,
+    paddingBottom: 4,
+  } as ViewStyle,
+
+  calcFooterBtn: {
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+
+  calcFooterBtnBack: {
+    flex: 1,
+    backgroundColor: isDarkMode ? '#2A2A3E' : '#E0E0E8',
+  } as ViewStyle,
+
+  calcFooterBtnUse: {
+    flex: 2,
+    backgroundColor: theme.colors.primary,
+  } as ViewStyle,
+
+  calcFooterBtnDisabled: {
+    opacity: 0.45,
+  } as ViewStyle,
+
+  calcFooterBtnBackText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: isDarkMode ? '#CCCCEE' : '#444466',
+  } as TextStyle,
+
+  calcFooterBtnUseText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   } as TextStyle,
 });
 };

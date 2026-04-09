@@ -13,7 +13,8 @@ import {
   Platform,
   KeyboardAvoidingView,
   Switch,
-  TextInput
+  TextInput,
+  Modal
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
@@ -92,6 +93,159 @@ const CreateExpenseScreen: React.FC = () => {
   // Multi-payer states
   const [isMultiplePayers, setIsMultiplePayers] = useState(false);
   const [multiPayers, setMultiPayers] = useState<MultiPayer[]>([]);
+
+  // ── Calculadora ──────────────────────────────────────────────
+  const [showCalculator, setShowCalculator] = useState(false);
+  // calcCurrentInput: número que se está escribiendo (mostrado abajo, grande)
+  const [calcCurrentInput, setCalcCurrentInput] = useState('');
+  // calcExpression: expresión acumulada (mostrada arriba, pequeño)
+  const [calcExpression, setCalcExpression] = useState('');
+  const [calcJustEquals, setCalcJustEquals] = useState(false);
+  const [calcHasError, setCalcHasError] = useState(false);
+
+  const OPERATORS = ['+', '-', '×', '÷'];
+
+  const evalExpr = (expr: string): number | null => {
+    if (!expr) return null;
+    try {
+      const safe = expr.replace(/×/g, '*').replace(/÷/g, '/');
+      if (!/^[\d+\-*/().\s]+$/.test(safe)) return null;
+      // eslint-disable-next-line no-new-func
+      const result = Function('"use strict"; return (' + safe + ')')() as number;
+      if (!isFinite(result) || isNaN(result)) return null;
+      return parseFloat(result.toFixed(10));
+    } catch {
+      return null;
+    }
+  };
+
+  const formatCalcNumber = (n: number): string => {
+    const str = parseFloat(n.toFixed(8)).toString();
+    return str;
+  };
+
+  const calcInput = (key: string) => {
+    if (calcHasError && key !== 'C') return;
+
+    // ── C: reset total ──
+    if (key === 'C') {
+      setCalcCurrentInput('');
+      setCalcExpression('');
+      setCalcJustEquals(false);
+      setCalcHasError(false);
+      return;
+    }
+
+    // ── ⌫: borrar último dígito del input actual ──
+    if (key === '⌫') {
+      if (calcJustEquals) return; // no borrar resultado
+      setCalcCurrentInput(prev => prev.slice(0, -1));
+      return;
+    }
+
+    // ── Dígito o punto ──
+    if (/^[\d.]$/.test(key)) {
+      if (calcJustEquals) {
+        // Después de = se empieza número nuevo
+        setCalcExpression('');
+        setCalcCurrentInput(key);
+        setCalcJustEquals(false);
+      } else {
+        if (key === '.' && calcCurrentInput.includes('.')) return;
+        setCalcCurrentInput(prev => prev + key);
+      }
+      return;
+    }
+
+    // ── Operador (+, -, ×, ÷) ──
+    if (OPERATORS.includes(key)) {
+      if (calcJustEquals) {
+        // Usar el resultado actual como primer operando
+        setCalcExpression(calcCurrentInput + ' ' + key + ' ');
+        setCalcCurrentInput('');
+        setCalcJustEquals(false);
+      } else if (calcCurrentInput === '') {
+        // Reemplazar el último operador si no hay input nuevo
+        setCalcExpression(prev => {
+          const trimmed = prev.trimEnd();
+          const withoutLastOp = trimmed.slice(0, -1).trimEnd();
+          return withoutLastOp + ' ' + key + ' ';
+        });
+      } else {
+        // Agregar input a la expresión y continuar
+        setCalcExpression(prev => prev + calcCurrentInput + ' ' + key + ' ');
+        setCalcCurrentInput('');
+      }
+      return;
+    }
+
+    // ── = ──
+    if (key === '=') {
+      const fullExpr = calcExpression + calcCurrentInput;
+      const result = evalExpr(fullExpr);
+      if (result === null) {
+        setCalcCurrentInput('Error');
+        setCalcExpression(fullExpr + ' =');
+        setCalcHasError(true);
+        return;
+      }
+      setCalcExpression(fullExpr + ' =');
+      setCalcCurrentInput(formatCalcNumber(result));
+      setCalcJustEquals(true);
+      return;
+    }
+  };
+
+  const handleCalcUse = () => {
+    if (calcHasError || !calcCurrentInput || calcCurrentInput === 'Error') return;
+
+    // Si hay expresión pendiente (no se presionó =) → confirmar y evaluar
+    if (!calcJustEquals && calcExpression !== '') {
+      const fullExpr = calcExpression + calcCurrentInput;
+      const result = evalExpr(fullExpr);
+      if (result === null) {
+        showThemedAlert('Error', 'La expresión no es válida');
+        return;
+      }
+      const resultStr = formatCalcNumber(result);
+      showThemedAlert(
+        'Confirmar operación',
+        `Se evaluará:\n${fullExpr} = ${resultStr}\n\n¿Usar este valor como monto?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Usar',
+            onPress: () => {
+              handleInputChange('amount', resultStr);
+              setShowCalculator(false);
+              setCalcCurrentInput('');
+              setCalcExpression('');
+              setCalcJustEquals(false);
+              setCalcHasError(false);
+            }
+          }
+        ]
+      );
+      return;
+    }
+
+    // Pasar el valor directamente (formatCurrency maneja el punto decimal)
+    handleInputChange('amount', calcCurrentInput);
+    setShowCalculator(false);
+    setCalcCurrentInput('');
+    setCalcExpression('');
+    setCalcJustEquals(false);
+    setCalcHasError(false);
+  };
+
+  const handleCalcClose = () => {
+    setShowCalculator(false);
+    setCalcCurrentInput('');
+    setCalcExpression('');
+    setCalcJustEquals(false);
+    setCalcHasError(false);
+  };
+  // ─────────────────────────────────────────────────────────────
 
   // Cargar datos del evento y participantes cada vez que la pantalla se enfoca
   useFocusEffect(
@@ -883,6 +1037,13 @@ const CreateExpenseScreen: React.FC = () => {
               containerStyle={styles.input}
             />
             <Text style={styles.currencySuffix}>{event?.currency || 'ARS'}</Text>
+            <TouchableOpacity
+              style={styles.calcButton}
+              onPress={() => setShowCalculator(true)}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="calculator" size={20} color={theme.colors.primary} />
+            </TouchableOpacity>
           </View>
 
           <TouchableOpacity
@@ -1197,6 +1358,93 @@ const CreateExpenseScreen: React.FC = () => {
         />
       </View>
       
+      {/* Modal Calculadora */}
+      <Modal
+        visible={showCalculator}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCalcClose}
+      >
+        <View style={styles.calcOverlay}>
+          <View style={styles.calcModal}>
+            {/* Display */}
+            <View style={styles.calcDisplay}>
+              <Text style={styles.calcExpressionText} numberOfLines={1} ellipsizeMode="head">
+                {calcExpression || ' '}
+              </Text>
+              <Text style={[styles.calcResultText, calcHasError && styles.calcResultError]}>
+                {calcCurrentInput || '0'}
+              </Text>
+            </View>
+
+            {/* Teclado */}
+            {[
+              ['C', '⌫', '', '÷'],
+              ['7', '8', '9', '×'],
+              ['4', '5', '6', '-'],
+              ['1', '2', '3', '+'],
+              ['0', '.', '='],
+            ].map((row, rowIdx) => (
+              <View key={rowIdx} style={styles.calcRow}>
+                {row.map((key, colIdx) => {
+                  const isWide = rowIdx === 4 && key === '0';
+                  const isOperator = ['÷', '×', '-', '+', '='].includes(key);
+                  const isClear = key === 'C';
+                  const isBackspace = key === '⌫';
+                  const isEmpty = key === '';
+                  if (isEmpty) return <View key={colIdx} style={styles.calcKeyEmpty} />;
+                  return (
+                    <TouchableOpacity
+                      key={colIdx}
+                      style={[
+                        styles.calcKey,
+                        isWide && styles.calcKeyWide,
+                        isOperator && styles.calcKeyOperator,
+                        isClear && styles.calcKeyClear,
+                        isBackspace && styles.calcKeyBackspace,
+                      ]}
+                      onPress={() => calcInput(key)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        styles.calcKeyText,
+                        isOperator && styles.calcKeyTextOperator,
+                        isClear && styles.calcKeyTextClear,
+                      ]}>
+                        {key}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ))}
+
+            {/* Footer: Volver (1/3) + Usar (2/3) */}
+            <View style={styles.calcFooter}>
+              <TouchableOpacity
+                style={[styles.calcFooterBtn, styles.calcFooterBtnBack]}
+                onPress={handleCalcClose}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.calcFooterBtnBackText}>Volver</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.calcFooterBtn,
+                  styles.calcFooterBtnUse,
+                  (calcHasError || !calcCurrentInput || calcCurrentInput === 'Error') && styles.calcFooterBtnDisabled
+                ]}
+                onPress={handleCalcUse}
+                disabled={calcHasError || !calcCurrentInput || calcCurrentInput === 'Error'}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.calcFooterBtnUseText}>Usar  {calcCurrentInput && !calcHasError && calcCurrentInput !== 'Error' ? `(${calcCurrentInput})` : ''}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       </SafeAreaView>
       </KeyboardAvoidingView>
     </View>
