@@ -241,7 +241,7 @@ const ProfileScreen: React.FC = () => {
     }
   }, [user?.autoLogin]);
 
-  // FunciÛn para cerrar dropdown cuando se toca fuera
+  // Funci√≥n para cerrar dropdown cuando se toca fuera
   const closeAutoLogoutDropdown = () => {
     if (showAutoLogoutOptions) {
       setShowAutoLogoutOptions(false);
@@ -351,7 +351,7 @@ const ProfileScreen: React.FC = () => {
     if (emptyFields.length > 0) {
       Alert.alert(
         'Campos Requeridos', 
-        `Los siguientes campos son obligatorios:\n\n${emptyFields.map(f => `ï ${f.name}`).join('\n')}`,
+        `Los siguientes campos son obligatorios:\n\n${emptyFields.map(f => `‚Ä¢ ${f.name}`).join('\n')}`,
         [{ text: 'Entendido', style: 'default' }]
       );
       return;
@@ -364,7 +364,7 @@ const ProfileScreen: React.FC = () => {
       return;
     }
 
-    // Validar formato de telÈfono (si fue ingresado)
+    // Validar formato de tel√©fono (si fue ingresado)
     if (profileData.phone?.trim() && !/^\+?[\d\s\-()]+$/.test(profileData.phone.trim())) {
       Alert.alert(t('error'), t('profile.message.phoneInvalid'));
       return;
@@ -543,7 +543,7 @@ const ProfileScreen: React.FC = () => {
     try {
       console.log('?? Loading database statistics...');
       
-      // Ejecutar diagnÛstico para identificar problemas
+      // Ejecutar diagn√≥stico para identificar problemas
       await databaseService.diagnoseTables();
       
       const stats = await databaseService.getDatabaseStats();
@@ -553,7 +553,7 @@ const ProfileScreen: React.FC = () => {
       console.error('? Error loading database stats:', error);
       Alert.alert(
         t('error'),
-        'No se pudieron cargar las estadÌsticas de la base de datos'
+        'No se pudieron cargar las estad√≠sticas de la base de datos'
       );
     }
   };
@@ -597,7 +597,7 @@ const ProfileScreen: React.FC = () => {
                 if (success) {
                   Alert.alert(
                     `? ${t('success')}`, 
-                    `${t('profile.message.exportSuccess')}\n\n?? Registros exportados (${totalRecords} total):\nï ${recordCounts.users} Usuarios\nï ${recordCounts.events} Eventos\nï ${recordCounts.participants} Participantes\nï ${recordCounts.expenses} Gastos\nï ${recordCounts.settlements} Liquidaciones\nï ${recordCounts.consolidations} Consolidaciones\nï ${recordCounts.payments} Pagos (legacy)\nï ${recordCounts.eventParticipants} Relaciones evento-participante\nï ${recordCounts.splits} Divisiones\n\n?? El archivo se ha guardado correctamente.`
+                    `${t('profile.message.exportSuccess')}\n\nüìã Registros exportados (${totalRecords} total):\n‚Ä¢ ${recordCounts.users} Usuarios\n‚Ä¢ ${recordCounts.events} Eventos\n‚Ä¢ ${recordCounts.participants} Participantes\n‚Ä¢ ${recordCounts.expenses} Gastos\n‚Ä¢ ${recordCounts.settlements} Liquidaciones\n‚Ä¢ ${recordCounts.consolidations} Consolidaciones\n‚Ä¢ ${recordCounts.payments} Pagos (legacy)\n‚Ä¢ ${recordCounts.eventParticipants} Relaciones evento-participante\n‚Ä¢ ${recordCounts.splits} Divisiones\n\n‚úÖ El archivo se ha guardado correctamente.`
                   );
                 }
               } catch (error) {
@@ -671,7 +671,7 @@ const ProfileScreen: React.FC = () => {
         console.log('? Data keys:', importData.data ? Object.keys(importData.data) : 'No data');
         Alert.alert(
           t('error'),
-          `${t('profile.message.importInvalidFormat')}\n\nDetalles tÈcnicos:\nï Metadata: ${JSON.stringify(importData.metadata)}\nï Version: ${importData.version}\nï Estructura: ${importData.data ? 'OK' : 'Missing data'}`
+          `${t('profile.message.importInvalidFormat')}\n\nDetalles t√©cnicos:\n‚Ä¢ Metadata: ${JSON.stringify(importData.metadata)}\n‚Ä¢ Version: ${importData.version}\n‚Ä¢ Estructura: ${importData.data ? 'OK' : 'Missing data'}`
         );
         return;
       }
@@ -710,7 +710,7 @@ const ProfileScreen: React.FC = () => {
       // Show confirmation dialog with current vs import comparison
       Alert.alert(
         t('profile.message.importConfirmTitle'),
-        `COMPARACI”N DE DATOS:\n\n?? DATOS ACTUALES (${currentTotal} total):\nï ${currentCounts.users} Usuario${currentCounts.users !== 1 ? 's' : ''} ? ${importCounts.users} Usuario${importCounts.users !== 1 ? 's' : ''}\nï ${currentCounts.events} Evento${currentCounts.events !== 1 ? 's' : ''} ? ${importCounts.events} Evento${importCounts.events !== 1 ? 's' : ''}\nï ${currentCounts.participants} Participante${currentCounts.participants !== 1 ? 's' : ''} ? ${importCounts.participants} Participante${importCounts.participants !== 1 ? 's' : ''}\nï ${currentCounts.expenses} Gasto${currentCounts.expenses !== 1 ? 's' : ''} ? ${importCounts.expenses} Gasto${importCounts.expenses !== 1 ? 's' : ''}\nï ${currentCounts.payments} Pago${currentCounts.payments !== 1 ? 's' : ''} ? ${importCounts.payments} Pago${importCounts.payments !== 1 ? 's' : ''}\nï ${currentCounts.eventParticipants} RelaciÛn${currentCounts.eventParticipants !== 1 ? 'es' : ''} ? ${importCounts.eventParticipants} RelaciÛn${importCounts.eventParticipants !== 1 ? 'es' : ''}\nï ${currentCounts.splits} DivisiÛn${currentCounts.splits !== 1 ? 'es' : ''} ? ${importCounts.splits} DivisiÛn${importCounts.splits !== 1 ? 'es' : ''}\nï ${currentCounts.settlements} LiquidaciÛn${currentCounts.settlements !== 1 ? 'es' : ''} ? ${importCounts.settlements} LiquidaciÛn${importCounts.settlements !== 1 ? 'es' : ''}\n\n?? TOTAL A IMPORTAR: ${totalRecords} registros\n\n?? IMPORTANTE:\nï Se ELIMINAR¡ toda la informaciÛn (${currentTotal} registros)\nï Las contraseÒas NO se importan (acceso directo sin contraseÒa)\nï Las im·genes NO se importan (avatares y comprobantes)\n\nøDeseas REEMPLAZAR los datos actuales?`,
+        `COMPARACI√ìN DE DATOS:\n\nüìä DATOS ACTUALES (${currentTotal} total):\n‚Ä¢ ${currentCounts.users} Usuario${currentCounts.users !== 1 ? 's' : ''} ? ${importCounts.users} Usuario${importCounts.users !== 1 ? 's' : ''}\n‚Ä¢ ${currentCounts.events} Evento${currentCounts.events !== 1 ? 's' : ''} ? ${importCounts.events} Evento${importCounts.events !== 1 ? 's' : ''}\n‚Ä¢ ${currentCounts.participants} Participante${currentCounts.participants !== 1 ? 's' : ''} ? ${importCounts.participants} Participante${importCounts.participants !== 1 ? 's' : ''}\n‚Ä¢ ${currentCounts.expenses} Gasto${currentCounts.expenses !== 1 ? 's' : ''} ? ${importCounts.expenses} Gasto${importCounts.expenses !== 1 ? 's' : ''}\n‚Ä¢ ${currentCounts.payments} Pago${currentCounts.payments !== 1 ? 's' : ''} ? ${importCounts.payments} Pago${importCounts.payments !== 1 ? 's' : ''}\n‚Ä¢ ${currentCounts.eventParticipants} Relaci√≥n${currentCounts.eventParticipants !== 1 ? 'es' : ''} ? ${importCounts.eventParticipants} Relaci√≥n${importCounts.eventParticipants !== 1 ? 'es' : ''}\n‚Ä¢ ${currentCounts.splits} Divisi√≥n${currentCounts.splits !== 1 ? 'es' : ''} ? ${importCounts.splits} Divisi√≥n${importCounts.splits !== 1 ? 'es' : ''}\n‚Ä¢ ${currentCounts.settlements} Liquidaci√≥n${currentCounts.settlements !== 1 ? 'es' : ''} ? ${importCounts.settlements} Liquidaci√≥n${importCounts.settlements !== 1 ? 'es' : ''}\n\nüìä TOTAL A IMPORTAR: ${totalRecords} registros\n\n‚ö†Ô∏è IMPORTANTE:\n‚Ä¢ Se ELIMINAR√Å toda la informaci√≥n (${currentTotal} registros)\n‚Ä¢ Las contrase√±as NO se importan (acceso directo sin contrase√±a)\n‚Ä¢ Las im√°genes NO se importan (avatares y comprobantes)\n\n¬øDeseas REEMPLAZAR los datos actuales?`,
         [
           { text: t('cancel'), style: 'cancel' },
           {
@@ -742,14 +742,14 @@ const ProfileScreen: React.FC = () => {
       const success = await importData(importDataPayload);
       if (!success) throw new Error(t('profile.message.importErrorProcess'));
 
-      // 3. Reinicializar sesiÛn y UI de forma secuencial (sin setTimeout)
+      // 3. Reinicializar sesi√≥n y UI de forma secuencial (sin setTimeout)
       await initializeAuth();
       await refreshUser();
       await loadUserProfile();
 
       Alert.alert(
         `? ${t('success')}`,
-        `${t('profile.message.importCompleted')}\n\n?? ${totalRecords} registros importados:\nï ${importCounts.events} Eventos\nï ${importCounts.participants} Participantes\nï ${importCounts.expenses} Gastos\nï ${importCounts.settlements} Liquidaciones\nï ${importCounts.splits} Divisiones`
+        `${t('profile.message.importCompleted')}\n\n‚úÖ ${totalRecords} registros importados:\n‚Ä¢ ${importCounts.events} Eventos\n‚Ä¢ ${importCounts.participants} Participantes\n‚Ä¢ ${importCounts.expenses} Gastos\n‚Ä¢ ${importCounts.settlements} Liquidaciones\n‚Ä¢ ${importCounts.splits} Divisiones`
       );
     } catch (error) {
       console.error('? Import execution error:', error);
@@ -925,7 +925,7 @@ const ProfileScreen: React.FC = () => {
           </View>
         </Card>
 
-        {/* EstadÌsticas */}
+        {/* Estad√≠sticas */}
         {!isEditing && (
         <ProfileSection title={t('profile.stats')} icon="chart-line" onPress={closeAutoLogoutDropdown}>
           <View style={styles.statsContainer}>
@@ -953,7 +953,7 @@ const ProfileScreen: React.FC = () => {
         </ProfileSection>
         )}
 
-        {/* InformaciÛn Personal */}
+        {/* Informaci√≥n Personal */}
         {isEditing ? (
             <ProfileSection 
               title={t('profile.personalInfo')} 
@@ -998,7 +998,7 @@ const ProfileScreen: React.FC = () => {
                 containerStyle={styles.editInput}
               />
               
-              {/* Botones de acciÛn en el pie */}
+              {/* Botones de acci√≥n en el pie */}
               <View style={styles.editButtonsContainer}>
                 <Button
                   title={t('cancel')}
@@ -1193,7 +1193,7 @@ const ProfileScreen: React.FC = () => {
                     // Actualizar estado local inmediatamente
                     setAutoLogin(value);
                     
-                    // Refrescar datos del usuario para asegurar sincronizaciÛn
+                    // Refrescar datos del usuario para asegurar sincronizaci√≥n
                     await refreshUser();
                     
                     // Recargar el perfil para obtener el estado actualizado
@@ -1431,7 +1431,7 @@ const ProfileScreen: React.FC = () => {
         </ProfileSection>
         )}
 
-        {/* InformaciÛn de la App */}
+        {/* Informaci√≥n de la App */}
         {!isEditing && (
         <ProfileSection title={t('profile.information')} icon="information" onPress={closeAutoLogoutDropdown} collapsible>
           <TouchableOpacity
@@ -1477,7 +1477,7 @@ const ProfileScreen: React.FC = () => {
         </ProfileSection>
         )}
 
-        {/* Cerrar SesiÛn */}
+        {/* Cerrar Sesi√≥n */}
         {!isEditing && (
           <Card style={StyleSheet.flatten([styles.card, styles.logoutCard])}>
             <TouchableOpacity 
@@ -1497,7 +1497,7 @@ const ProfileScreen: React.FC = () => {
       </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Modal de Cambio de ContraseÒa */}
+      {/* Modal de Cambio de Contrase√±a */}
       <Modal
         visible={showPasswordModal}
         transparent={true}
@@ -1508,7 +1508,7 @@ const ProfileScreen: React.FC = () => {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{t('profile.changePassword')}</Text>
 
-            {/* ContraseÒa actual */}
+            {/* Contrase√±a actual */}
             <View style={styles.modalPasswordRow}>
               <TextInput
                 style={styles.modalPasswordInput}
@@ -1524,7 +1524,7 @@ const ProfileScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            {/* Nueva contraseÒa */}
+            {/* Nueva contrase√±a */}
             <View style={styles.modalPasswordRow}>
               <TextInput
                 style={styles.modalPasswordInput}
@@ -1552,7 +1552,7 @@ const ProfileScreen: React.FC = () => {
               );
             })()}
 
-            {/* Confirmar nueva contraseÒa */}
+            {/* Confirmar nueva contrase√±a */}
             <View style={styles.modalPasswordRow}>
               <TextInput
                 style={styles.modalPasswordInput}
@@ -1659,7 +1659,7 @@ const ProfileScreen: React.FC = () => {
               contentContainerStyle={{ flexGrow: 1 }}
               nestedScrollEnabled={true}
             >
-                                          {/* VersiÛn 1.5.0 - VersiÛn Actual */}
+              {/* Versi√≥n 1.5.0 - Versi√≥n Actual */}
               <TouchableOpacity 
                 style={[styles.versionBlock, styles.currentVersionBlock]} 
                 onPress={() => toggleVersionExpanded('1.5.0')}
@@ -1677,46 +1677,46 @@ const ProfileScreen: React.FC = () => {
                 {expandedVersions.has('1.5.0') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Novedades</Text>
-                      <Text style={styles.changelogItem}>ï ManageFriends: ValidaciÛn de nombre en tiempo real</Text>
-                      <Text style={styles.changelogItem}>ï AddParticipantModal: ValidaciÛn de nombre en tiempo real</Text>
-                      <Text style={styles.changelogItem}>ï EventDetail: DetecciÛn y resoluciÛn de amigo duplicado al convertir participante</Text>
-                      <Text style={styles.changelogItem}>ï EventDetail: EliminaciÛn m˙ltiple de participantes</Text>
-                      <Text style={styles.changelogItem}>ï AddParticipantModal: Mensaje de Èxito consolidado al agregar participantes</Text>
-                      <Text style={styles.changelogItem}>ï EventDetail: Tab Resumen</Text>
-                      <Text style={styles.changelogItem}>ï EventDetail: Tab Resumen</Text>
-                      <Text style={styles.changelogItem}>ï EventDetail: Tab Participantes</Text>
-                      <Text style={styles.changelogItem}>ï EventDetail: Tab Gastos</Text>
-                      <Text style={styles.changelogItem}>ï EventDetail: Tab Gastos</Text>
-                      <Text style={styles.changelogItem}>ï CreateExpense: Soporte para m˙ltiples pagadores</Text>
+                      <Text style={styles.sectionTitle}>üöÄ Novedades</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ ManageFriends: Validaci√≥n de nombre en tiempo real</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ AddParticipantModal: Validaci√≥n de nombre en tiempo real</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ EventDetail: Detecci√≥n y resoluci√≥n de amigo duplicado al convertir participante</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ EventDetail: Eliminaci√≥n m√∫ltiple de participantes</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ AddParticipantModal: Mensaje de √©xito consolidado al agregar participantes</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ EventDetail: Tab Resumen ‚Äî card Liquidaciones Pagadas</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ EventDetail: Tab Resumen ‚Äî barra de acciones fija</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ EventDetail: Tab Participantes ‚Äî barra de acciones fija</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ EventDetail: Tab Gastos ‚Äî eliminaci√≥n m√∫ltiple</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ EventDetail: Tab Gastos ‚Äî buscador y barra fijos</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ CreateExpense: Soporte para m√∫ltiples pagadores</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Correcciones</Text>
-                      <Text style={styles.changelogItem}>ï database.ts: no hidrataba el campo</Text>
-                      <Text style={styles.changelogItem}>ï EventDetail: Tab Participantes mostraba incorrecto en gastos multi-pagador</Text>
-                      <Text style={styles.changelogItem}>ï database.ts: eliminaba amigos permanentes de la app</Text>
-                      <Text style={styles.changelogItem}>ï AddParticipantModal: Re-renders y pantalla con comportamiento err·tico al tipear nombre</Text>
+                      <Text style={styles.sectionTitle}>üîß Correcciones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ database.ts: getExpenses() no hidrataba el campo payers</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ EventDetail: totalPaid incorrecto en gastos multi-pagador</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ database.ts: eliminaba amigos permanentes de la app</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ AddParticipantModal: Re-renders err√°tico al tipear nombre</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>? Mejoras</Text>
-                      <Text style={styles.changelogItem}>ï ManageFriends: Nuevas traducciones de validaciÛn de nombre () en ES, EN y PT, en archiv...</Text>
-                      <Text style={styles.changelogItem}>ï AddParticipantModal: Nuevas claves de traducciÛn () en ES, EN y PT dentro de .</Text>
-                      <Text style={styles.changelogItem}>ï LanguageContext: Nuevas claves para flujo de amigo duplicado en EventDetail (, , , , ) ...</Text>
-                      <Text style={styles.changelogItem}>ï LanguageContext: Nuevas claves para eliminaciÛn m˙ltiple de participantes (, , , , , , ...</Text>
-                      <Text style={styles.changelogItem}>ï EventDetail: Tab Participantes</Text>
-                      <Text style={styles.changelogItem}>ï EventDetail: Cards de participantes</Text>
-                      <Text style={styles.changelogItem}>ï EventDetail: Cards de participantes</Text>
-                      <Text style={styles.changelogItem}>ï EventDetail: Cards de participantes</Text>
-                      <Text style={styles.changelogItem}>ï LanguageContext: Nuevas claves para liquidaciones pagadas (, , ) en ES, EN y PT.</Text>
-                      <Text style={styles.changelogItem}>ï EventDetail: Tab Resumen</Text>
-                      <Text style={styles.changelogItem}>ï LanguageContext: Nuevas claves para eliminaciÛn m˙ltiple de gastos (, , , , , ) en ES (...</Text>
-                      <Text style={styles.changelogItem}>ï EventDetail: Tab Gastos</Text>
+                      <Text style={styles.sectionTitle}>‚ú® Mejoras</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ ManageFriends: Nuevas traducciones de validaci√≥n de nombre</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ AddParticipantModal: Nuevas claves de traducci√≥n</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ LanguageContext: Claves para flujo de amigo duplicado en EventDetail</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ LanguageContext: Claves para eliminaci√≥n m√∫ltiple de participantes</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ EventDetail: Modo selecci√≥n se resetea al cambiar de tab</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ EventDetail: Bot√≥n eliminar individual de participante removido</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ EventDetail: Layout del panel derecho de cards invertido</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ EventDetail: Montos de pagado/divisi√≥n m√°s grandes (fontSize 11‚Üí13)</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ LanguageContext: Claves para liquidaciones pagadas</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ EventDetail: Card Liquidaciones Pagadas oculta en eventos completados</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ LanguageContext: Claves para eliminaci√≥n m√∫ltiple de gastos</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ EventDetail: Tab Gastos ‚Äî modo selecci√≥n reset al cambiar tab</Text>
                     </View>
                   </View>
                 )}
               </TouchableOpacity>
 
-{/* VersiÛn 1.4.10 - VersiÛn Actual */}
+              {/* Versi√≥n 1.4.10 */}
               <TouchableOpacity 
                 style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.4.10')}
@@ -1734,20 +1734,20 @@ const ProfileScreen: React.FC = () => {
                 {expandedVersions.has('1.4.10') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Correcciones</Text>
-                      <Text style={styles.changelogItem}>ï LanguageSelector: Modal no aparecÌa al abrirlo desde el overflow del HeaderBar</Text>
-                      <Text style={styles.changelogItem}>ï ProfileScreen: Labels y se mostraban como clave sin traducir</Text>
-                      <Text style={styles.changelogItem}>ï ProfileScreen: Bloque v1.4.9 ausente en el historial modal</Text>
+                      <Text style={styles.sectionTitle}>üîß Correcciones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ LanguageSelector: Modal no aparec√≠a al abrirlo desde el overflow del HeaderBar</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ ProfileScreen: Labels profile.dataStats y profile.changelogTitle sin traducir</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ ProfileScreen: Bloque v1.4.9 ausente en el historial modal</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>? Mejoras</Text>
-                      <Text style={styles.changelogItem}>ï : B˙squeda del marcador de versiÛn con regex</Text>
+                      <Text style={styles.sectionTitle}>‚ú® Mejoras</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ versiones.ps1: B√∫squeda del marcador de versi√≥n con regex</Text>
                     </View>
                   </View>
                 )}
               </TouchableOpacity>
 
-{/* VersiÛn 1.4.9 - VersiÛn Actual */}
+              {/* Versi√≥n 1.4.9 */}
               <TouchableOpacity 
                 style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.4.9')}
@@ -1765,27 +1765,27 @@ const ProfileScreen: React.FC = () => {
                 {expandedVersions.has('1.4.9') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Novedades</Text>
-                      <Text style={styles.changelogItem}>ï Script build-all.ps1: genera APK/AAB en un solo comando</Text>
+                      <Text style={styles.sectionTitle}>üöÄ Novedades</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Script build-all.ps1: genera APK/AAB en un solo comando</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Correcciones</Text>
-                      <Text style={styles.changelogItem}>ï getSplitsByEvent consulta BD directamente</Text>
-                      <Text style={styles.changelogItem}>ï Balance de participantes recalculado con consolidaciones</Text>
-                      <Text style={styles.changelogItem}>ï Doble conteo en balance con settlement condonado pagado</Text>
+                      <Text style={styles.sectionTitle}>üîß Correcciones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ getSplitsByEvent consulta BD directamente</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Balance de participantes recalculado con consolidaciones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Doble conteo en balance con settlement condonado pagado</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>? Mejoras</Text>
-                      <Text style={styles.changelogItem}>ï Refresco autom·tico al cambiar de tab</Text>
-                      <Text style={styles.changelogItem}>ï Monto adeudado muestra valor real con original tachado</Text>
-                      <Text style={styles.changelogItem}>ï SecciÛn "Condonadas autom·ticamente" en liquidaciones</Text>
-                      <Text style={styles.changelogItem}>ï versiones.ps1: flujo Copilot integrado</Text>
+                      <Text style={styles.sectionTitle}>‚ú® Mejoras</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Refresco autom√°tico al cambiar de tab</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Monto adeudado muestra valor real con original tachado</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Secci√≥n "Condonadas autom√°ticamente" en liquidaciones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ versiones.ps1: nuevo flujo Copilot integrado</Text>
                     </View>
                   </View>
                 )}
               </TouchableOpacity>
 
-              {/* VersiÛn 1.4.8 - Condonaciones y mejoras cards de participantes */}
+              {/* Versi√≥n 1.4.8 - Condonaciones y mejoras cards de participantes */}
               <TouchableOpacity 
                 style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.4.8')}
@@ -1803,21 +1803,21 @@ const ProfileScreen: React.FC = () => {
                 {expandedVersions.has('1.4.8') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Correcciones</Text>
-                      <Text style={styles.changelogItem}>ï Home: contador liquidaciones ahora excluye condonaciones</Text>
-                      <Text style={styles.changelogItem}>ï Balance de participante se actualiza al confirmar liquidaciones</Text>
-                      <Text style={styles.changelogItem}>ï Balance corregido para participantes con deuda condonada</Text>
+                      <Text style={styles.sectionTitle}>üîß Correcciones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Home: contador liquidaciones ahora excluye condonaciones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Balance de participante se actualiza al confirmar liquidaciones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Balance corregido para participantes con deuda condonada</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>? Mejoras</Text>
-                      <Text style={styles.changelogItem}>ï Cards de participantes: desglose pagÛ/corresponde</Text>
-                      <Text style={styles.changelogItem}>ï Badge naranja cuando la deuda fue pagada por otro o condonada</Text>
+                      <Text style={styles.sectionTitle}>‚ú® Mejoras</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Cards de participantes: desglose pag√≥/corresponde</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Badge naranja cuando la deuda fue pagada por otro o condonada</Text>
                     </View>
                   </View>
                 )}
               </TouchableOpacity>
 
-              {/* VersiÛn 1.4.7 - ValidaciÛn inputs y secciones colapsables */}
+              {/* Versi√≥n 1.4.7 - Validaci√≥n inputs y secciones colapsables */}
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.4.7')}
@@ -1835,22 +1835,22 @@ const ProfileScreen: React.FC = () => {
                 {expandedVersions.has('1.4.7') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Correcciones</Text>
-                      <Text style={styles.changelogItem}>ï ValidaciÛn nombres duplicados en amigos y participantes</Text>
-                      <Text style={styles.changelogItem}>ï Modal contraseÒa: campo actual, fortaleza, ojos, disable</Text>
-                      <Text style={styles.changelogItem}>ï Filtrado y validaciÛn de telÈfono en toda la app</Text>
-                      <Text style={styles.changelogItem}>ï Filtrado y validaciÛn de email en toda la app</Text>
+                      <Text style={styles.sectionTitle}>üîß Correcciones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Validaci√≥n nombres duplicados en amigos y participantes</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Modal contrase√±a: campo actual, fortaleza, ojos, disable</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Filtrado y validaci√≥n de tel√©fono en toda la app</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Filtrado y validaci√≥n de email en toda la app</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>? Mejoras</Text>
-                      <Text style={styles.changelogItem}>ï Secciones colapsables en Perfil</Text>
-                      <Text style={styles.changelogItem}>ï SecciÛn Seguridad oculta en modo ediciÛn</Text>
+                      <Text style={styles.sectionTitle}>‚ú® Mejoras</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Secciones colapsables en Perfil</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Secci√≥n Seguridad oculta en modo edici√≥n</Text>
                     </View>
                   </View>
                 )}
               </TouchableOpacity>
 
-              {/* VersiÛn 1.4.6 - ValidaciÛn campos y unificaciÛn modales */}
+              {/* Versi√≥n 1.4.6 - Validaci√≥n campos y unificaci√≥n modales */}
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.4.6')}
@@ -1868,27 +1868,27 @@ const ProfileScreen: React.FC = () => {
                 {expandedVersions.has('1.4.6') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Nuevas Funcionalidades</Text>
-                      <Text style={styles.changelogItem}>ï Icono SplitSmart en HeaderBar en todas las pantallas</Text>
-                      <Text style={styles.changelogItem}>ï ValidaciÛn visual unificada en campos obligatorios (asterisco rojo)</Text>
+                      <Text style={styles.sectionTitle}>üöÄ Nuevas Funcionalidades</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Icono SplitSmart en HeaderBar en todas las pantallas</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Validaci√≥n visual unificada en campos obligatorios (asterisco rojo)</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Correcciones</Text>
-                      <Text style={styles.changelogItem}>ï Doble asterisco eliminado en modales y pantallas</Text>
-                      <Text style={styles.changelogItem}>ï Bug duplicaciÛn de texto en SignUpScreen corregido</Text>
-                      <Text style={styles.changelogItem}>ï Safe Area top en modales pageSheet corregida</Text>
+                      <Text style={styles.sectionTitle}>üîß Correcciones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Doble asterisco eliminado en modales y pantallas</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Bug duplicaci√≥n de texto en SignUpScreen corregido</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Safe Area top en modales pageSheet corregida</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>? Mejoras</Text>
-                      <Text style={styles.changelogItem}>ï BotÛn "Crear cuenta" fijo al pie en SignUpScreen</Text>
-                      <Text style={styles.changelogItem}>ï UnificaciÛn estÈtica de ConsolidationModal, ExpenseDetail y ParticipantInfo</Text>
-                      <Text style={styles.changelogItem}>ï BotÛn "Aplicar" en ConsolidationModal siempre visible</Text>
+                      <Text style={styles.sectionTitle}>‚ú® Mejoras</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Bot√≥n "Crear cuenta" fijo al pie en SignUpScreen</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Unificaci√≥n est√©tica de ConsolidationModal, ExpenseDetail y ParticipantInfo</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Bot√≥n "Aplicar" en ConsolidationModal siempre visible</Text>
                     </View>
                   </View>
                 )}
               </TouchableOpacity>
 
-              {/* VersiÛn 1.4.5 - Mejoras mensajes WhatsApp */}
+              {/* Versi√≥n 1.4.5 - Mejoras mensajes WhatsApp */}
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.4.5')}
@@ -1906,20 +1906,20 @@ const ProfileScreen: React.FC = () => {
                 {expandedVersions.has('1.4.5') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>? Mejoras</Text>
-                      <Text style={styles.changelogItem}>ï Mensajes de WhatsApp con divisoras y mejor formato</Text>
-                      <Text style={styles.changelogItem}>ï Saltos de lÌnea corregidos en Compartir Resumen y Evento</Text>
-                      <Text style={styles.changelogItem}>ï Leyenda "Realizado con SplitSmart" al final de cada envÌo</Text>
+                      <Text style={styles.sectionTitle}>‚ú® Mejoras</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Mensajes de WhatsApp con divisoras y mejor formato</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Saltos de l√≠nea corregidos en Compartir Resumen y Evento</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Leyenda "Realizado con SplitSmart" al final de cada env√≠o</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Correcciones</Text>
-                      <Text style={styles.changelogItem}>ï Ruta del Ìcono de la app corregida en app.json</Text>
+                      <Text style={styles.sectionTitle}>üîß Correcciones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Ruta del √≠cono de la app corregida en app.json</Text>
                     </View>
                   </View>
                 )}
               </TouchableOpacity>
 
-              {/* VersiÛn 1.4.4 - Fix teclado en todas las pantallas */}
+              {/* Versi√≥n 1.4.4 - Fix teclado en todas las pantallas */}
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.4.4')}
@@ -1937,16 +1937,16 @@ const ProfileScreen: React.FC = () => {
                 {expandedVersions.has('1.4.4') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Correcciones</Text>
-                      <Text style={styles.changelogItem}>ï Teclado virtual tapaba el contenido en todas las pantallas</Text>
-                      <Text style={styles.changelogItem}>ï Formulario de nuevo amigo ahora desplazable con teclado activo</Text>
-                      <Text style={styles.changelogItem}>ï Fix para Android 15+: deshabilitado edge-to-edge forzado</Text>
+                      <Text style={styles.sectionTitle}>üîß Correcciones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Teclado virtual tapaba el contenido en todas las pantallas</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Formulario de nuevo amigo ahora desplazable con teclado activo</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Fix para Android 15+: deshabilitado edge-to-edge forzado</Text>
                     </View>
                   </View>
                 )}
               </TouchableOpacity>
 
-              {/* VersiÛn 1.4.3 - Correcciones importaciÛn y traducciones */}
+              {/* Versi√≥n 1.4.3 - Correcciones importaci√≥n y traducciones */}
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.4.3')}
@@ -1964,17 +1964,17 @@ const ProfileScreen: React.FC = () => {
                 {expandedVersions.has('1.4.3') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Correcciones</Text>
-                      <Text style={styles.changelogItem}>ï ImportaciÛn de backup corregida (error en settlements)</Text>
-                      <Text style={styles.changelogItem}>ï Traducciones faltantes: secciÛn Privacidad y botÛn Archivar</Text>
-                      <Text style={styles.changelogItem}>ï Script APK ya no borra versiones anteriores generadas</Text>
-                      <Text style={styles.changelogItem}>ï Builds copian APK/AAB a carpeta centralizada autom·ticamente</Text>
+                      <Text style={styles.sectionTitle}>üîß Correcciones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Importaci√≥n de backup corregida (error en settlements)</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Traducciones faltantes: secci√≥n Privacidad y bot√≥n Archivar</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Script APK ya no borra versiones anteriores generadas</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Builds copian APK/AAB a carpeta centralizada autom√°ticamente</Text>
                     </View>
                   </View>
                 )}
               </TouchableOpacity>
 
-              {/* VersiÛn 1.4.2 - EliminaciÛn permisos obsoletos Android */}
+              {/* Versi√≥n 1.4.2 - Eliminaci√≥n permisos obsoletos Android */}
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.4.2')}
@@ -1992,15 +1992,15 @@ const ProfileScreen: React.FC = () => {
                 {expandedVersions.has('1.4.2') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Correcciones</Text>
-                      <Text style={styles.changelogItem}>ï Eliminados permisos obsoletos: READ_MEDIA_IMAGES, WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE</Text>
-                      <Text style={styles.changelogItem}>ï GalerÌa ahora usa Android Photo Picker nativo (sin solicitar permisos extra)</Text>
+                      <Text style={styles.sectionTitle}>üîß Correcciones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Eliminados permisos obsoletos: READ_MEDIA_IMAGES, WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Galer√≠a ahora usa Android Photo Picker nativo (sin solicitar permisos extra)</Text>
                     </View>
                   </View>
                 )}
               </TouchableOpacity>
 
-              {/* VersiÛn 1.4.1 - CorrecciÛn bug ediciÛn participante */}
+              {/* Versi√≥n 1.4.1 - Correcci√≥n bug edici√≥n participante */}
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.4.1')}
@@ -2018,15 +2018,15 @@ const ProfileScreen: React.FC = () => {
                 {expandedVersions.has('1.4.1') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Correcciones</Text>
-                      <Text style={styles.changelogItem}>ï Crash al editar participante temporal (faltaba useLanguage)</Text>
-                      <Text style={styles.changelogItem}>ï Campos vacÌos al abrir modal de ediciÛn (sync con useEffect)</Text>
+                      <Text style={styles.sectionTitle}>üîß Correcciones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Crash al editar participante temporal (faltaba useLanguage)</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Campos vac√≠os al abrir modal de edici√≥n (sync con useEffect)</Text>
                     </View>
                   </View>
                 )}
               </TouchableOpacity>
 
-              {/* VersiÛn 1.4.0 - i18n completo + documentaciÛn legal */}
+              {/* Versi√≥n 1.4.0 - i18n completo + documentaci√≥n legal */}
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.4.0')}
@@ -2044,26 +2044,26 @@ const ProfileScreen: React.FC = () => {
                 {expandedVersions.has('1.4.0') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? InternacionalizaciÛn</Text>
-                      <Text style={styles.changelogItem}>ï 30+ strings hardcodeados reemplazados en EventDetail</Text>
-                      <Text style={styles.changelogItem}>ï Logout traducido en Home (ES/EN/PT)</Text>
-                      <Text style={styles.changelogItem}>ï Errores de ManageFriends traducidos (ES/EN/PT)</Text>
-                      <Text style={styles.changelogItem}>ï 38 nuevas claves ◊ 3 idiomas en LanguageContext</Text>
-                      <Text style={styles.changelogItem}>ï EventDetail/language.ts eliminado (cÛdigo muerto)</Text>
+                      <Text style={styles.sectionTitle}>üåç Internacionalizaci√≥n</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ 30+ strings hardcodeados reemplazados en EventDetail</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Logout traducido en Home (ES/EN/PT)</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Errores de ManageFriends traducidos (ES/EN/PT)</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ 38 nuevas claves √ó 3 idiomas en LanguageContext</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ EventDetail/language.ts eliminado (c√≥digo muerto)</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? DocumentaciÛn Legal</Text>
-                      <Text style={styles.changelogItem}>ï Cumplimiento Ley N∞ 25.326 (Habeas Data Argentina)</Text>
-                      <Text style={styles.changelogItem}>ï Disclaimer financiero explÌcito en TÈrminos</Text>
-                      <Text style={styles.changelogItem}>ï JurisdicciÛn: CÛrdoba, Argentina</Text>
-                      <Text style={styles.changelogItem}>ï Privacidad: descripciÛn honesta de datos procesados</Text>
-                      <Text style={styles.changelogItem}>ï APK con nombre descriptivo: versiÛn + fecha + hora</Text>
+                      <Text style={styles.sectionTitle}>üìÑ Documentaci√≥n Legal</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Cumplimiento Ley N¬∞ 25.326 (Habeas Data Argentina)</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Disclaimer financiero expl√≠cito en T√©rminos</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Jurisdicci√≥n: C√≥rdoba, Argentina</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Privacidad: descripci√≥n honesta de datos procesados</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ APK con nombre descriptivo: versi√≥n + fecha + hora</Text>
                     </View>
                   </View>
                 )}
               </TouchableOpacity>
 
-              {/* VersiÛn 1.3.0 - Mejoras de Home y EventCard */}
+              {/* Versi√≥n 1.3.0 - Mejoras de Home y EventCard */}
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.3.0')}
@@ -2081,25 +2081,25 @@ const ProfileScreen: React.FC = () => {
                 {expandedVersions.has('1.3.0') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Nuevas Funcionalidades</Text>
-                      <Text style={styles.changelogItem}>ï BotÛn eliminar evento en card (solo si no tiene datos)</Text>
-                      <Text style={styles.changelogItem}>ï Contador de liquidaciones ?? (pagadas/total) en card</Text>
-                      <Text style={styles.changelogItem}>ï Õcono de liquidaciones en verde/naranja seg˙n estado</Text>
-                      <Text style={styles.changelogItem}>ï Filtro por estado en MetricsCard (toggle)</Text>
-                      <Text style={styles.changelogItem}>ï Ordenamiento de eventos: estado ? fecha ? tÌtulo</Text>
+                      <Text style={styles.sectionTitle}>üöÄ Nuevas Funcionalidades</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Bot√≥n eliminar evento en card (solo si no tiene datos)</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Contador de liquidaciones ‚öñÔ∏è (pagadas/total) en card</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ √çcono de liquidaciones en verde/naranja seg√∫n estado</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Filtro por estado en MetricsCard (toggle)</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Ordenamiento de eventos: estado ‚Üí fecha ‚Üí t√≠tulo</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Correcciones</Text>
-                      <Text style={styles.changelogItem}>ï Editar evento navega a Home (antes iba a EventDetail)</Text>
-                      <Text style={styles.changelogItem}>ï Crear evento reemplaza stack (back va a Home)</Text>
-                      <Text style={styles.changelogItem}>ï Cards del Home se actualizan al volver de EventDetail</Text>
-                      <Text style={styles.changelogItem}>ï CorrecciÛn campo isPaid en conteo de liquidaciones pagadas</Text>
+                      <Text style={styles.sectionTitle}>üîß Correcciones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Editar evento navega a Home (antes iba a EventDetail)</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Crear evento reemplaza stack (back va a Home)</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Cards del Home se actualizan al volver de EventDetail</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Correcci√≥n campo isPaid en conteo de liquidaciones pagadas</Text>
                     </View>
                   </View>
                 )}
               </TouchableOpacity>
 
-              {/* VersiÛn 1.2.0 - Auto-Login Avanzado */}
+              {/* Versi√≥n 1.2.0 - Auto-Login Avanzado */}
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.2.0')}
@@ -2117,67 +2117,67 @@ const ProfileScreen: React.FC = () => {
                 {expandedVersions.has('1.2.0') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Funcionalidades Principales Nuevas</Text>
-                      <Text style={styles.changelogItem}>ï Sistema de Auto-Login Inteligente y Robusto</Text>
-                      <Text style={styles.changelogItem}>ï IdentificaciÛn por ID ˙nico para usuarios</Text>
-                      <Text style={styles.changelogItem}>ï Seguimiento de ˙ltimo login por usuario</Text>
-                      <Text style={styles.changelogItem}>ï LÛgica de fallback al usuario DEMO</Text>
-                      <Text style={styles.changelogItem}>ï ConfiguraciÛn independiente skip-password y auto-login</Text>
-                      <Text style={styles.changelogItem}>ï PreservaciÛn de configuraciones entre sesiones</Text>
-                      <Text style={styles.changelogItem}>ï Validaciones de configuraciÛn en inicializaciÛn</Text>
-                      <Text style={styles.changelogItem}>ï Sistema completo de datos de ejemplo para DEMO</Text>
-                      <Text style={styles.changelogItem}>ï OpciÛn de regenerar datos de ejemplo</Text>
-                      <Text style={styles.changelogItem}>ï ProtecciÛn de datos DEMO en resets</Text>
+                      <Text style={styles.sectionTitle}>üöÄ Funcionalidades Principales Nuevas</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Sistema de Auto-Login Inteligente y Robusto</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Identificaci√≥n por ID √∫nico para usuarios</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Seguimiento de √∫ltimo login por usuario</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ L√≥gica de fallback al usuario DEMO</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Configuraci√≥n independiente skip-password y auto-login</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Preservaci√≥n de configuraciones entre sesiones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Validaciones de configuraci√≥n en inicializaci√≥n</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Sistema completo de datos de ejemplo para DEMO</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Opci√≥n de regenerar datos de ejemplo</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Protecci√≥n de datos DEMO en resets</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Mejoras de Base de Datos</Text>
-                      <Text style={styles.changelogItem}>ï Migraciones autom·ticas de esquema</Text>
-                      <Text style={styles.changelogItem}>ï Campo last_login para tracking de sesiones</Text>
-                      <Text style={styles.changelogItem}>ï Validaciones de integridad referencial</Text>
-                      <Text style={styles.changelogItem}>ï VerificaciÛn de esquema en inicializaciÛn</Text>
-                      <Text style={styles.changelogItem}>ï Sistema robusto de creaciÛn de tablas</Text>
-                      <Text style={styles.changelogItem}>ï Manejo mejorado de errores de BD</Text>
-                      <Text style={styles.changelogItem}>ï DiagnÛsticos de tablas implementados</Text>
-                      <Text style={styles.changelogItem}>ï EstadÌsticas detalladas de datos</Text>
+                      <Text style={styles.sectionTitle}>üíé Mejoras de Base de Datos</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Migraciones autom√°ticas de esquema</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Campo last_login para tracking de sesiones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Validaciones de integridad referencial</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Verificaci√≥n de esquema en inicializaci√≥n</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Sistema robusto de creaci√≥n de tablas</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Manejo mejorado de errores de BD</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Diagn√≥sticos de tablas implementados</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Estad√≠sticas detalladas de datos</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Mejoras de Interfaz y UX</Text>
-                      <Text style={styles.changelogItem}>ï Modal de estadÌsticas de base de datos</Text>
-                      <Text style={styles.changelogItem}>ï InformaciÛn tÈcnica expandible</Text>
-                      <Text style={styles.changelogItem}>ï Historial de versiones m·s detallado</Text>
-                      <Text style={styles.changelogItem}>ï Validaciones mejoradas en formularios</Text>
-                      <Text style={styles.changelogItem}>ï Feedback visual de configuraciones</Text>
-                      <Text style={styles.changelogItem}>ï Logging detallado para debugging</Text>
-                      <Text style={styles.changelogItem}>ï Mensajes de confirmaciÛn mejorados</Text>
-                      <Text style={styles.changelogItem}>ï Interfaz de configuraciÛn m·s intuitiva</Text>
+                      <Text style={styles.sectionTitle}>üé® Mejoras de Interfaz y UX</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Modal de estad√≠sticas de base de datos</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Informaci√≥n t√©cnica expandible</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Historial de versiones m√°s detallado</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Validaciones mejoradas en formularios</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Feedback visual de configuraciones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Logging detallado para debugging</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Mensajes de confirmaci√≥n mejorados</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Interfaz de configuraci√≥n m√°s intuitiva</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Mejoras TÈcnicas y Estabilidad</Text>
-                      <Text style={styles.changelogItem}>ï CorrecciÛn completa de errores de TypeScript</Text>
-                      <Text style={styles.changelogItem}>ï Tipos mejorados para todas las funciones</Text>
-                      <Text style={styles.changelogItem}>ï Sistema de build optimizado</Text>
-                      <Text style={styles.changelogItem}>ï ConfiguraciÛn EAS Build mejorada</Text>
-                      <Text style={styles.changelogItem}>ï Manejo robusto de errores de red</Text>
-                      <Text style={styles.changelogItem}>ï Validaciones de entrada mejoradas</Text>
-                      <Text style={styles.changelogItem}>ï Arquitectura m·s limpia y modular</Text>
-                      <Text style={styles.changelogItem}>ï Performance optimizada en consultas BD</Text>
+                      <Text style={styles.sectionTitle}>üîß Mejoras T√©cnicas y Estabilidad</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Correcci√≥n completa de errores de TypeScript</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Tipos mejorados para todas las funciones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Sistema de build optimizado</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Configuraci√≥n EAS Build mejorada</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Manejo robusto de errores de red</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Validaciones de entrada mejoradas</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Arquitectura m√°s limpia y modular</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Performance optimizada en consultas BD</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Nuevas Funcionalidades de Datos</Text>
-                      <Text style={styles.changelogItem}>ï 3 eventos de ejemplo completos (activo, completado, archivado)</Text>
-                      <Text style={styles.changelogItem}>ï 4 participantes diversos (amigos y temporales)</Text>
-                      <Text style={styles.changelogItem}>ï 10 gastos realistas con diferentes divisiones</Text>
-                      <Text style={styles.changelogItem}>ï 5 liquidaciones en estados variados</Text>
-                      <Text style={styles.changelogItem}>ï Datos coherentes con fechas realistas</Text>
-                      <Text style={styles.changelogItem}>ï Montos en pesos argentinos contextualizados</Text>
-                      <Text style={styles.changelogItem}>ï Relaciones completas entre todas las tablas</Text>
-                      <Text style={styles.changelogItem}>ï IDs ˙nicos con sistema de prefijos</Text>
+                      <Text style={styles.sectionTitle}>üìä Nuevas Funcionalidades de Datos</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ 3 eventos de ejemplo completos (activo, completado, archivado)</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ 4 participantes diversos (amigos y temporales)</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ 10 gastos realistas con diferentes divisiones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ 5 liquidaciones en estados variados</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Datos coherentes con fechas realistas</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Montos en pesos argentinos contextualizados</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Relaciones completas entre todas las tablas</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ IDs √∫nicos con sistema de prefijos</Text>
                     </View>
                   </View>
                 )}
               </TouchableOpacity>
 
-              {/* VersiÛn 1.1.0 - Funcionalidades Base Mejoradas */}
+              {/* Versi√≥n 1.1.0 - Funcionalidades Base Mejoradas */}
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.1.0')}
@@ -2195,46 +2195,46 @@ const ProfileScreen: React.FC = () => {
                 {expandedVersions.has('1.1.0') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>? Nuevas Funcionalidades Avanzadas</Text>
-                      <Text style={styles.changelogItem}>ï GestiÛn avanzada de eventos y participantes</Text>
-                      <Text style={styles.changelogItem}>ï Sistema completo de exportaciÛn/importaciÛn</Text>
-                      <Text style={styles.changelogItem}>ï Notificaciones WhatsApp integradas</Text>
-                      <Text style={styles.changelogItem}>ï Temas claro/oscuro</Text>
-                      <Text style={styles.changelogItem}>ï Soporte para m˙ltiples monedas</Text>
-                      <Text style={styles.changelogItem}>ï Auto-logout configurable</Text>
-                      <Text style={styles.changelogItem}>ï Sistema de privacidad y notificaciones</Text>
-                      <Text style={styles.changelogItem}>ï GestiÛn completa de liquidaciones</Text>
-                      <Text style={styles.changelogItem}>ï Avatar editable con c·mara/galerÌa</Text>
-                      <Text style={styles.changelogItem}>ï Modal de historial de versiones</Text>
+                      <Text style={styles.sectionTitle}>‚ú® Nuevas Funcionalidades Avanzadas</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Gesti√≥n avanzada de eventos y participantes</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Sistema completo de exportaci√≥n/importaci√≥n</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Notificaciones WhatsApp integradas</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Temas claro/oscuro</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Soporte para m√∫ltiples monedas</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Auto-logout configurable</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Sistema de privacidad y notificaciones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Gesti√≥n completa de liquidaciones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Avatar editable con c√°mara/galer√≠a</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Modal de historial de versiones</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Mejoras de Interfaz</Text>
-                      <Text style={styles.changelogItem}>ï Perfil de usuario completamente renovado</Text>
-                      <Text style={styles.changelogItem}>ï Validaciones mejoradas en formularios</Text>
-                      <Text style={styles.changelogItem}>ï Botones de ediciÛn m·s intuitivos</Text>
-                      <Text style={styles.changelogItem}>ï Avatar editable directamente</Text>
-                      <Text style={styles.changelogItem}>ï Interfaz de liquidaciones mejorada</Text>
-                      <Text style={styles.changelogItem}>ï C·lculos de gastos optimizados</Text>
-                      <Text style={styles.changelogItem}>ï Rendimiento general mejorado</Text>
-                      <Text style={styles.changelogItem}>ï Interfaz de usuario refinada</Text>
+                      <Text style={styles.sectionTitle}>üé® Mejoras de Interfaz</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Perfil de usuario completamente renovado</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Validaciones mejoradas en formularios</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Botones de edici√≥n m√°s intuitivos</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Avatar editable directamente</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Interfaz de liquidaciones mejorada</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ C√°lculos de gastos optimizados</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Rendimiento general mejorado</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Interfaz de usuario refinada</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Correcciones y Estabilidad</Text>
-                      <Text style={styles.changelogItem}>ï AlineaciÛn de botones en modo ediciÛn</Text>
-                      <Text style={styles.changelogItem}>ï Visibilidad mejorada en modo oscuro</Text>
-                      <Text style={styles.changelogItem}>ï Errores de validaciÛn de campos corregidos</Text>
-                      <Text style={styles.changelogItem}>ï Problemas de base de datos solucionados</Text>
-                      <Text style={styles.changelogItem}>ï Migraciones de esquema implementadas</Text>
-                      <Text style={styles.changelogItem}>ï Duplicaciones de liquidaciones solucionadas</Text>
-                      <Text style={styles.changelogItem}>ï Persistencia de notificaciones corregida</Text>
-                      <Text style={styles.changelogItem}>ï Iconos alineados correctamente</Text>
-                      <Text style={styles.changelogItem}>ï Estabilidad general mejorada</Text>
+                      <Text style={styles.sectionTitle}>üîß Correcciones y Estabilidad</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Alineaci√≥n de botones en modo edici√≥n</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Visibilidad mejorada en modo oscuro</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Errores de validaci√≥n de campos corregidos</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Problemas de base de datos solucionados</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Migraciones de esquema implementadas</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Duplicaciones de liquidaciones solucionadas</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Persistencia de notificaciones corregida</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Iconos alineados correctamente</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Estabilidad general mejorada</Text>
                     </View>
                   </View>
                 )}
               </TouchableOpacity>
 
-              {/* VersiÛn 1.0.0 - Origen */}
+              {/* Versi√≥n 1.0.0 - Origen */}
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.0.0')}
@@ -2252,18 +2252,18 @@ const ProfileScreen: React.FC = () => {
                 {expandedVersions.has('1.0.0') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? Lanzamiento Inicial - La Base de Todo</Text>
-                      <Text style={styles.changelogItem}>ï GestiÛn de gastos compartidos</Text>
-                      <Text style={styles.changelogItem}>ï CreaciÛn y administraciÛn de eventos</Text>
-                      <Text style={styles.changelogItem}>ï C·lculos autom·ticos de liquidaciones</Text>
-                      <Text style={styles.changelogItem}>ï Sistema de usuarios y perfiles b·sico</Text>
+                      <Text style={styles.sectionTitle}>üöÄ Lanzamiento Inicial - La Base de Todo</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Gesti√≥n de gastos compartidos</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Creaci√≥n y administraci√≥n de eventos</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ C√°lculos autom√°ticos de liquidaciones</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Sistema de usuarios y perfiles b√°sico</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>?? El Origen</Text>
-                      <Text style={styles.changelogItem}>ï Primera versiÛn funcional de SplitSmart</Text>
-                      <Text style={styles.changelogItem}>ï Base arquitectÛnica de la aplicaciÛn</Text>
-                      <Text style={styles.changelogItem}>ï Fundamentos del sistema de gastos compartidos</Text>
-                      <Text style={styles.changelogItem}>ï Punto de partida para la evoluciÛn hacia v1.1.0</Text>
+                      <Text style={styles.sectionTitle}>üí° El Origen</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Primera versi√≥n funcional de SplitSmart</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Base arquitect√≥nica de la aplicaci√≥n</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Fundamentos del sistema de gastos compartidos</Text>
+                      <Text style={styles.changelogItem}>‚Ä¢ Punto de partida para la evoluci√≥n hacia v1.1.0</Text>
                     </View>
                   </View>
                 )}
@@ -2297,7 +2297,7 @@ const ProfileScreen: React.FC = () => {
               showsVerticalScrollIndicator={true}
               contentContainerStyle={{ padding: 16 }}
             >
-              {/* IntroducciÛn Principal */}
+              {/* Introducci√≥n Principal */}
               <View style={styles.aboutSection}>
                 <MaterialCommunityIcons 
                   name="account-group" 
@@ -2311,7 +2311,7 @@ const ProfileScreen: React.FC = () => {
                 </Text>
               </View>
               
-              {/* CaracterÌsticas Principales */}
+              {/* Caracter√≠sticas Principales */}
               <View style={styles.aboutSection}>
                 <Text style={styles.aboutSectionTitle}>{t('profile.about.keyFeatures')}</Text>
                 
@@ -2346,7 +2346,7 @@ const ProfileScreen: React.FC = () => {
                 </View>
               </View>
 
-              {/* InformaciÛn TÈcnica */}
+              {/* Informaci√≥n T√©cnica */}
               <View style={[styles.aboutSection, { backgroundColor: theme.colors.surfaceVariant, padding: 16, borderRadius: 12 }]}>
                 <Text style={styles.aboutSectionTitle}>{t('profile.about.techSpecs')}</Text>
                 <Text style={styles.aboutDescription}>
@@ -2361,14 +2361,14 @@ const ProfileScreen: React.FC = () => {
               <View style={styles.aboutSection}>
                 <Text style={styles.aboutSectionTitle}>{t('profile.about.privacyCommitment')}</Text>
                 <Text style={styles.aboutDescription}>
-                  ï <Text style={{ fontWeight: 'bold' }}>{t('profile.about.privacyItem1Title')}</Text> {t('profile.about.privacyItem1Desc')}{'\n'}
-                  ï <Text style={{ fontWeight: 'bold' }}>{t('profile.about.privacyItem2Title')}</Text> {t('profile.about.privacyItem2Desc')}{'\n'}
-                  ï <Text style={{ fontWeight: 'bold' }}>{t('profile.about.privacyItem3Title')}</Text> {t('profile.about.privacyItem3Desc')}{'\n'}
-                  ï <Text style={{ fontWeight: 'bold' }}>{t('profile.about.privacyItem4Title')}</Text> {t('profile.about.privacyItem4Desc')}
+                  ‚Ä¢ <Text style={{ fontWeight: 'bold' }}>{t('profile.about.privacyItem1Title')}</Text> {t('profile.about.privacyItem1Desc')}{'\n'}
+                  ‚Ä¢ <Text style={{ fontWeight: 'bold' }}>{t('profile.about.privacyItem2Title')}</Text> {t('profile.about.privacyItem2Desc')}{'\n'}
+                  ‚Ä¢ <Text style={{ fontWeight: 'bold' }}>{t('profile.about.privacyItem3Title')}</Text> {t('profile.about.privacyItem3Desc')}{'\n'}
+                  ‚Ä¢ <Text style={{ fontWeight: 'bold' }}>{t('profile.about.privacyItem4Title')}</Text> {t('profile.about.privacyItem4Desc')}
                 </Text>
               </View>
 
-              {/* EstadÌsticas */}
+              {/* Estad√≠sticas */}
               <View style={styles.aboutSection}>
                 <Text style={styles.aboutSectionTitle}>{t('profile.about.statistics')}</Text>
                 <Text style={styles.aboutDescription}>
@@ -2408,7 +2408,7 @@ const ProfileScreen: React.FC = () => {
         </View>
       </Modal>
 
-      {/* Modal EstadÌsticas de la Base de Datos */}
+      {/* Modal Estad√≠sticas de la Base de Datos */}
       <Modal
         visible={showDatabaseStatsModal}
         animationType="slide"
@@ -2418,7 +2418,7 @@ const ProfileScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.databaseStatsModalContent}>
             <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: theme.colors.onSurface }}>?? EstadÌsticas Datos</Text>
+              <Text style={{ fontSize: 18, fontWeight: 'bold', color: theme.colors.onSurface }}>üìä Estad√≠sticas Datos</Text>
               <TouchableOpacity
                 onPress={() => setShowDatabaseStatsModal(false)}
               >
@@ -2442,7 +2442,7 @@ const ProfileScreen: React.FC = () => {
                     </View>
                     <View style={{ height: 1, backgroundColor: theme.colors.outline, marginVertical: 8, opacity: 0.3 }} />
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}>
-                      <Text style={{ color: theme.colors.onSurface, fontSize: 14 }}>TamaÒo de base de datos:</Text>
+                      <Text style={{ color: theme.colors.onSurface, fontSize: 14 }}>Tama√±o de base de datos:</Text>
                       <Text style={{ color: theme.colors.primary, fontSize: 16, fontWeight: 'bold' }}>{databaseStats.databaseSize}</Text>
                     </View>
                   </View>
@@ -2460,7 +2460,7 @@ const ProfileScreen: React.FC = () => {
                       marginBottom: 8
                     }}
                   >
-                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 14, fontWeight: '500' }}>?? Tablas Principales</Text>
+                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 14, fontWeight: '500' }}>üìã Tablas Principales</Text>
                     <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 16 }}>{showMainTables ? '?' : '?'}</Text>
                   </TouchableOpacity>
                   
@@ -2485,7 +2485,7 @@ const ProfileScreen: React.FC = () => {
                             'sqlite_sequence': 'Secuencias SQLite'
                           };
                           
-                          const displayName = friendlyNames[tableName] || `?? ${tableName} (Desconocida)`;
+                          const displayName = friendlyNames[tableName] || `üóÇÔ∏è ${tableName} (Desconocida)`;
                           const percentage = databaseStats.totalRecords > 0 
                             ? ((count / databaseStats.totalRecords) * 100).toFixed(1)
                             : '0.0';
@@ -2509,7 +2509,7 @@ const ProfileScreen: React.FC = () => {
                     </View>
                   )}
 
-                  {/* Tablas de RelaciÛn */}
+                  {/* Tablas de Relaci√≥n */}
                   <TouchableOpacity 
                     onPress={() => setShowRelationTables(!showRelationTables)}
                     style={{ 
@@ -2522,8 +2522,8 @@ const ProfileScreen: React.FC = () => {
                       marginBottom: 8
                     }}
                   >
-                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 14, fontWeight: '500' }}>?? Tablas de RelaciÛn</Text>
-                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 16 }}>{showRelationTables ? '?' : '?'}</Text>
+                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 14, fontWeight: '500' }}>üîó Tablas de Relaci√≥n</Text>
+                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 16 }}>{showRelationTables ? '‚ñ≤' : '‚ñº'}</Text>
                   </TouchableOpacity>
                   
                   {showRelationTables && (
@@ -2537,11 +2537,11 @@ const ProfileScreen: React.FC = () => {
                         .sort((a, b) => b[1] - a[1])
                         .map(([tableName, count], index, array) => {
                           const friendlyNames: { [key: string]: string } = {
-                            'user_settings': 'ConfiguraciÛn de Usuario',
+                            'user_settings': 'Configuraci√≥n de Usuario',
                             'user_preferences': 'Preferencias de Usuario'
                           };
                           
-                          const displayName = friendlyNames[tableName] || `?? ${tableName} (Relacional)`;
+                          const displayName = friendlyNames[tableName] || `üîó ${tableName} (Relacional)`;
                           const percentage = databaseStats.totalRecords > 0 
                             ? ((count / databaseStats.totalRecords) * 100).toFixed(1)
                             : '0.0';
@@ -2565,7 +2565,7 @@ const ProfileScreen: React.FC = () => {
                     </View>
                   )}
 
-                  {/* InformaciÛn TÈcnica */}
+                  {/* Informaci√≥n T√©cnica */}
                   <TouchableOpacity 
                     onPress={() => setShowTechInfo(!showTechInfo)}
                     style={{ 
@@ -2577,17 +2577,17 @@ const ProfileScreen: React.FC = () => {
                       alignItems: 'center'
                     }}
                   >
-                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 14 }}>?? InformaciÛn tÈcnica</Text>
-                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 16 }}>{showTechInfo ? '?' : '?'}</Text>
+                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 14 }}>‚ÑπÔ∏è Informaci√≥n t√©cnica</Text>
+                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 16 }}>{showTechInfo ? '‚ñ≤' : '‚ñº'}</Text>
                   </TouchableOpacity>
                   
                   {showTechInfo && (
                     <View style={{ backgroundColor: theme.colors.surface, borderRadius: 8, padding: 12, marginTop: 8 }}>
                       <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 12, lineHeight: 16 }}>
-                        ï Datos del estado actual local{"\n"}
-                        ï Tablas "Legacy" del sistema anterior{"\n"}
-                        ï "Transacciones" unifica el nuevo sistema{"\n"}
-                        ï Porcentajes calculados sobre el total
+                        ‚Ä¢ Datos del estado actual local{"\n"}
+                        ‚Ä¢ Tablas "Legacy" del sistema anterior{"\n"}
+                        ‚Ä¢ "Transacciones" unifica el nuevo sistema{"\n"}
+                        ‚Ä¢ Porcentajes calculados sobre el total
                       </Text>
                     </View>
                   )}
@@ -2596,7 +2596,7 @@ const ProfileScreen: React.FC = () => {
                 <View style={[styles.aboutSection, { alignItems: 'center', paddingVertical: 40 }]}>
                   <MaterialCommunityIcons name="loading" size={48} color={theme.colors.primary} />
                   <Text style={[styles.aboutDescription, { marginTop: 16, textAlign: 'center' }]}>
-                    Cargando estadÌsticas...
+                    Cargando estad√≠sticas...
                   </Text>
                 </View>
               )}
@@ -2605,7 +2605,7 @@ const ProfileScreen: React.FC = () => {
         </View>
       </Modal>
 
-      {/* Modal TÈrminos de Servicio */}
+      {/* Modal T√©rminos de Servicio */}
       <Modal
         visible={showTermsModal}
         animationType="slide"
@@ -2682,7 +2682,7 @@ const ProfileScreen: React.FC = () => {
         </View>
       </Modal>
 
-      {/* Modal PolÌtica de Privacidad */}
+      {/* Modal Pol√≠tica de Privacidad */}
       <Modal
         visible={showPrivacyModal}
         animationType="slide"

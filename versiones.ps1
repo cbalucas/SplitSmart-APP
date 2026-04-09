@@ -275,7 +275,7 @@ Write-Host "  ✅ CHANGELOG.md: seccion v$newVer insertada" -ForegroundColor Gre
 
 # ─── 5. ProfileScreen/index.tsx ──────────────────────────────────────────────
 Write-Host "⚙️  Actualizando ProfileScreen..." -ForegroundColor Yellow
-$profileContent = Get-Content $profilePath -Raw
+$profileContent = Get-Content $profilePath -Raw -Encoding UTF8
 
 # — Items limpios para el bloque de versión en ProfileScreen —
 $pfFeatures = @($clFeatures | ForEach-Object { Convert-ToProfileText $_ } | Where-Object { $_ -ne '' })
@@ -365,7 +365,7 @@ $profileContent = $profileContent -replace "SplitSmart v$([regex]::Escape($curVe
 # — e) Version spec: ...version')}:</Text> X.X.X —
 $profileContent = $profileContent -replace "(profile\.about\.version'\)}:</Text> )$([regex]::Escape($curVer))", "`${1}$newVer"
 
-Set-Content $profilePath $profileContent -NoNewline
+Set-Content $profilePath $profileContent -NoNewline -Encoding UTF8
 Write-Host "  ✅ ProfileScreen actualizado (badge, modal, about title, version spec)" -ForegroundColor Green
 
 # ─── 6. Reset PENDING_CHANGES.md ─────────────────────────────────────────────
