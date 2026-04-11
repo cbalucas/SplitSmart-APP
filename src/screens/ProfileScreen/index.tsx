@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -1441,7 +1441,7 @@ const ProfileScreen: React.FC = () => {
             </View>
             <View style={styles.settingAction}>
               <View style={styles.versionBadge}>
-                <Text style={styles.versionBadgeText}>v1.5.0</Text>
+                <Text style={styles.versionBadgeText}>v1.6.0</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -1654,15 +1654,56 @@ const ProfileScreen: React.FC = () => {
               contentContainerStyle={{ flexGrow: 1 }}
               nestedScrollEnabled={true}
             >
-              {/* Versión 1.5.0 - Versión Actual */}
+                            {/* Versión 1.6.0 - Versión Actual */}
               <TouchableOpacity 
                 style={[styles.versionBlock, styles.currentVersionBlock]} 
+                onPress={() => toggleVersionExpanded('1.6.0')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.versionHeader}>
+                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.6.0 (Actual)</Text>
+                  <Text style={[styles.versionDate, styles.currentVersionDate]}>10 Abr 2026</Text>
+                  <MaterialCommunityIcons 
+                    name={expandedVersions.has('1.6.0') ? 'chevron-up' : 'chevron-down'} 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
+                </View>
+                {expandedVersions.has('1.6.0') && (
+                  <View style={styles.versionContent}>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🚀 Novedades</Text>
+                      <Text style={styles.changelogItem}>• CreateExpense: Calculadora integrada</Text>
+                      <Text style={styles.changelogItem}>• CreateExpense: Calculadora</Text>
+                      <Text style={styles.changelogItem}>• CreateExpense: Calculadora</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
+                      <Text style={styles.changelogItem}>• ProfileScreen: Modal "Acerca de"</Text>
+                      <Text style={styles.changelogItem}>• ProfileScreen: historial de versiones corrompido</Text>
+                      <Text style={styles.changelogItem}>• ProfileScreen: caracteres acentuados</Text>
+                      <Text style={styles.changelogItem}>• ProfileScreen: contaminación</Text>
+                      <Text style={styles.changelogItem}>• ProfileScreen: sintaxis JSX</Text>
+                      <Text style={styles.changelogItem}>• versiones.ps1: corrupción UTF-8</Text>
+                      <Text style={styles.changelogItem}>• CreateExpense: Calculadora</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>✨ Mejoras</Text>
+                      <Text style={styles.changelogItem}>• versiones.ps1</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+{/* Versión 1.5.0 - Versión Actual */}
+              <TouchableOpacity 
+                style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.5.0')}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
-                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.5.0 (Actual)</Text>
-                  <Text style={[styles.versionDate, styles.currentVersionDate]}>8 Abr 2026</Text>
+                  <Text style={[styles.versionNumber]}>v1.5.0</Text>
+                  <Text style={[styles.versionDate]}>8 Abr 2026</Text>
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.5.0') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
@@ -2300,7 +2341,7 @@ const ProfileScreen: React.FC = () => {
                   color={theme.colors.primary} 
                   style={{ alignSelf: 'center', marginBottom: 16 }}
                 />
-                <Text style={styles.aboutTitle}>SplitSmart v1.5.0</Text>
+                <Text style={styles.aboutTitle}>SplitSmart v1.6.0</Text>
                 <Text style={styles.aboutDescription}>
                   {t('profile.about.appDescription')}
                 </Text>
@@ -2345,21 +2386,10 @@ const ProfileScreen: React.FC = () => {
               <View style={[styles.aboutSection, { backgroundColor: theme.colors.surfaceVariant, padding: 16, borderRadius: 12 }]}>
                 <Text style={styles.aboutSectionTitle}>{t('profile.about.techSpecs')}</Text>
                 <Text style={styles.aboutDescription}>
-                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.version')}:</Text> 1.5.0{'\n'}
+                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.version')}:</Text> 1.6.0{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.platform')}</Text>{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.database')}</Text>{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.languages')}</Text>
-                </Text>
-              </View>
-
-              {/* Seguridad y Privacidad */}
-              <View style={styles.aboutSection}>
-                <Text style={styles.aboutSectionTitle}>{t('profile.about.privacyCommitment')}</Text>
-                <Text style={styles.aboutDescription}>
-                  • <Text style={{ fontWeight: 'bold' }}>{t('profile.about.privacyItem1Title')}</Text> {t('profile.about.privacyItem1Desc')}{'\n'}
-                  • <Text style={{ fontWeight: 'bold' }}>{t('profile.about.privacyItem2Title')}</Text> {t('profile.about.privacyItem2Desc')}{'\n'}
-                  • <Text style={{ fontWeight: 'bold' }}>{t('profile.about.privacyItem3Title')}</Text> {t('profile.about.privacyItem3Desc')}{'\n'}
-                  • <Text style={{ fontWeight: 'bold' }}>{t('profile.about.privacyItem4Title')}</Text> {t('profile.about.privacyItem4Desc')}
                 </Text>
               </View>
 
@@ -2370,14 +2400,6 @@ const ProfileScreen: React.FC = () => {
                   {t('profile.about.users')}{'\n'}
                   {t('profile.about.events')}{'\n'}
                   {t('profile.about.calculations')}
-                </Text>
-              </View>
-
-              {/* Desarrollo */}
-              <View style={styles.aboutSection}>
-                <Text style={styles.aboutSectionTitle}>{t('profile.about.devTeam')}</Text>
-                <Text style={styles.aboutDescription}>
-                  {t('profile.about.devTeamDesc')}
                 </Text>
               </View>
 

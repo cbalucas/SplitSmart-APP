@@ -1,5 +1,31 @@
 ﻿# Changelog - SplitSmart
 
+## [1.6.0] - 2026-04-10
+
+### 🚀 Nuevas Funcionalidades
+- **CreateExpense — Calculadora integrada**: nuevo botón 🧮 al lado del campo Monto que abre un modal de calculadora con operaciones `+`, `-`, `×`, `÷`. Display estilo calculadora tradicional: número en edición abajo (grande) y expresión acumulada arriba (pequeño). Botones "Volver" (1/3) y "Usar (resultado)" (2/3) en el footer
+- **CreateExpense — Calculadora: comportamiento post-`=`**: al presionar un operador después de `=`, el resultado se convierte en el primer operando de la nueva expresión
+- **CreateExpense — Calculadora: confirmación sin `=`**: si el usuario presiona "Usar" con una expresión pendiente (sin haber presionado `=`), se muestra un popup de confirmación que evalúa y muestra el resultado antes de aplicarlo al monto
+
+### 🔧 Correcciones de Bugs
+- **ProfileScreen — Modal "Acerca de": claves i18n faltantes**: eliminadas las secciones "Seguridad y Privacidad" y "Desarrollo" del modal que referenciaban claves inexistentes (`profile.about.privacyCommitment`, `privacyItem1-4Title/Desc`, `devTeam`, `devTeamDesc`), lo que causaba que se mostraran los nombres de variable crudos en pantalla en lugar de texto real
+- **ProfileScreen — historial de versiones corrompido**: restaurados todos los emojis e íconos del historial v1.0.0–v1.5.0 que aparecían como `?` y `??` tras ejecutar `versiones.ps1`
+- **ProfileScreen — caracteres acentuados**: corregidos todos los `\uFFFD` en comentarios JSX, sección "Seguridad y Privacidad", modal de estadísticas e información técnica
+- **ProfileScreen — contaminación `${f.name}`**: eliminados prefijos espurios `${f.name}` en bullet points de la sección de privacidad, detalles de error de importación y sección de info técnica de BD que causaban `ReferenceError: Property 'f' doesn't exist` al abrir el perfil
+- **ProfileScreen — sintaxis JSX**: corregido cierre `>` faltante en `<ScrollView>` del modal de historial que generaba `SyntaxError: Unexpected token, expected "..."` (línea 1661)
+- **versiones.ps1 — corrupción UTF-8**: agregado `-Encoding UTF8` en `Get-Content` y `Set-Content` del archivo `ProfileScreen/index.tsx` para evitar que futuros incrementos de versión corrompan emojis y caracteres acentuados
+- **CreateExpense — Calculadora: decimales perdidos**: corregido bug donde valores decimales (ej: `15.75`) llegaban al campo Monto sin la parte decimal debido a un `replace('.', ',')` incorrecto previo al formateo
+
+### ✨ Mejoras
+- **versiones.ps1**: lectura y escritura de `ProfileScreen/index.tsx` ahora siempre en UTF-8, previene regresión permanente del problema de encoding
+
+### 🔢 Versiones
+- **versionCode**: 18 → 19
+- **versionName**: "1.5.0" → "1.6.0"
+
+---
+
+
 ## [1.5.0] - 2026-04-08
 
 ### 🚀 Nuevas Funcionalidades
@@ -30,6 +56,32 @@
 - **EventDetail — Cards de participantes: botón eliminar individual eliminado**: la eliminación individual por ✕ fue removida. La única vía de eliminación es el modo selección múltiple con el tacho de basura.
 - **EventDetail — Cards de participantes: layout del panel derecho invertido**: el lápiz de editar queda arriba y el balance abajo (`flexDirection: 'column'`).
 - **EventDetail — Cards de participantes: montos de pagado/división más grandes**: `fontSize` subido de `11` a `13` con `fontWeight: '500'`. El 💰 (pagado) solo se muestra si el monto es mayor a # Changelog - SplitSmart
+
+## [1.6.0] - 2026-04-10
+
+### 🚀 Nuevas Funcionalidades
+- **CreateExpense — Calculadora integrada**: nuevo botón 🧮 al lado del campo Monto que abre un modal de calculadora con operaciones `+`, `-`, `×`, `÷`. Display estilo calculadora tradicional: número en edición abajo (grande) y expresión acumulada arriba (pequeño). Botones "Volver" (1/3) y "Usar (resultado)" (2/3) en el footer
+- **CreateExpense — Calculadora: comportamiento post-`=`**: al presionar un operador después de `=`, el resultado se convierte en el primer operando de la nueva expresión
+- **CreateExpense — Calculadora: confirmación sin `=`**: si el usuario presiona "Usar" con una expresión pendiente (sin haber presionado `=`), se muestra un popup de confirmación que evalúa y muestra el resultado antes de aplicarlo al monto
+
+### 🔧 Correcciones de Bugs
+- **ProfileScreen — Modal "Acerca de": claves i18n faltantes**: eliminadas las secciones "Seguridad y Privacidad" y "Desarrollo" del modal que referenciaban claves inexistentes (`profile.about.privacyCommitment`, `privacyItem1-4Title/Desc`, `devTeam`, `devTeamDesc`), lo que causaba que se mostraran los nombres de variable crudos en pantalla en lugar de texto real
+- **ProfileScreen — historial de versiones corrompido**: restaurados todos los emojis e íconos del historial v1.0.0–v1.5.0 que aparecían como `?` y `??` tras ejecutar `versiones.ps1`
+- **ProfileScreen — caracteres acentuados**: corregidos todos los `\uFFFD` en comentarios JSX, sección "Seguridad y Privacidad", modal de estadísticas e información técnica
+- **ProfileScreen — contaminación `${f.name}`**: eliminados prefijos espurios `${f.name}` en bullet points de la sección de privacidad, detalles de error de importación y sección de info técnica de BD que causaban `ReferenceError: Property 'f' doesn't exist` al abrir el perfil
+- **ProfileScreen — sintaxis JSX**: corregido cierre `>` faltante en `<ScrollView>` del modal de historial que generaba `SyntaxError: Unexpected token, expected "..."` (línea 1661)
+- **versiones.ps1 — corrupción UTF-8**: agregado `-Encoding UTF8` en `Get-Content` y `Set-Content` del archivo `ProfileScreen/index.tsx` para evitar que futuros incrementos de versión corrompan emojis y caracteres acentuados
+- **CreateExpense — Calculadora: decimales perdidos**: corregido bug donde valores decimales (ej: `15.75`) llegaban al campo Monto sin la parte decimal debido a un `replace('.', ',')` incorrecto previo al formateo
+
+### ✨ Mejoras
+- **versiones.ps1**: lectura y escritura de `ProfileScreen/index.tsx` ahora siempre en UTF-8, previene regresión permanente del problema de encoding
+
+### 🔢 Versiones
+- **versionCode**: 18 → 19
+- **versionName**: "1.5.0" → "1.6.0"
+
+---
+
 .
 - **LanguageContext — Nuevas claves para liquidaciones pagadas** (`summary.paidSettlements`, `summary.paidSettlementsEmpty`, `summary.paidOn`) en ES, EN y PT.
 - **EventDetail — Tab Resumen: card "Liquidaciones Pagadas" oculta en eventos completados**: si el evento tiene `status === 'completed'`, la card no se renderiza ya que no es necesaria en ese estado.
@@ -78,6 +130,32 @@ _(ninguna)_
 - **EventDetail — Layout de importes del participante**: cambiado de `flexDirection: 'row'` a `flexDirection: 'column'` en la fila de montos (💰 pagado / 💵 debe), mejorando la legibilidad en nombres largos.
 - **EventDetail — Visualización de monto efectivo adeudado**: cuando hay condonación o absorción activa, el monto `💵 debe` ahora muestra el original tachado y el monto real que queda pendiente (ej. ~~$50.00~~ → # Changelog - SplitSmart
 
+## [1.6.0] - 2026-04-10
+
+### 🚀 Nuevas Funcionalidades
+- **CreateExpense — Calculadora integrada**: nuevo botón 🧮 al lado del campo Monto que abre un modal de calculadora con operaciones `+`, `-`, `×`, `÷`. Display estilo calculadora tradicional: número en edición abajo (grande) y expresión acumulada arriba (pequeño). Botones "Volver" (1/3) y "Usar (resultado)" (2/3) en el footer
+- **CreateExpense — Calculadora: comportamiento post-`=`**: al presionar un operador después de `=`, el resultado se convierte en el primer operando de la nueva expresión
+- **CreateExpense — Calculadora: confirmación sin `=`**: si el usuario presiona "Usar" con una expresión pendiente (sin haber presionado `=`), se muestra un popup de confirmación que evalúa y muestra el resultado antes de aplicarlo al monto
+
+### 🔧 Correcciones de Bugs
+- **ProfileScreen — Modal "Acerca de": claves i18n faltantes**: eliminadas las secciones "Seguridad y Privacidad" y "Desarrollo" del modal que referenciaban claves inexistentes (`profile.about.privacyCommitment`, `privacyItem1-4Title/Desc`, `devTeam`, `devTeamDesc`), lo que causaba que se mostraran los nombres de variable crudos en pantalla en lugar de texto real
+- **ProfileScreen — historial de versiones corrompido**: restaurados todos los emojis e íconos del historial v1.0.0–v1.5.0 que aparecían como `?` y `??` tras ejecutar `versiones.ps1`
+- **ProfileScreen — caracteres acentuados**: corregidos todos los `\uFFFD` en comentarios JSX, sección "Seguridad y Privacidad", modal de estadísticas e información técnica
+- **ProfileScreen — contaminación `${f.name}`**: eliminados prefijos espurios `${f.name}` en bullet points de la sección de privacidad, detalles de error de importación y sección de info técnica de BD que causaban `ReferenceError: Property 'f' doesn't exist` al abrir el perfil
+- **ProfileScreen — sintaxis JSX**: corregido cierre `>` faltante en `<ScrollView>` del modal de historial que generaba `SyntaxError: Unexpected token, expected "..."` (línea 1661)
+- **versiones.ps1 — corrupción UTF-8**: agregado `-Encoding UTF8` en `Get-Content` y `Set-Content` del archivo `ProfileScreen/index.tsx` para evitar que futuros incrementos de versión corrompan emojis y caracteres acentuados
+- **CreateExpense — Calculadora: decimales perdidos**: corregido bug donde valores decimales (ej: `15.75`) llegaban al campo Monto sin la parte decimal debido a un `replace('.', ',')` incorrecto previo al formateo
+
+### ✨ Mejoras
+- **versiones.ps1**: lectura y escritura de `ProfileScreen/index.tsx` ahora siempre en UTF-8, previene regresión permanente del problema de encoding
+
+### 🔢 Versiones
+- **versionCode**: 18 → 19
+- **versionName**: "1.5.0" → "1.6.0"
+
+---
+
+
 ## [1.5.0] - 2026-04-08
 
 ### 🚀 Nuevas Funcionalidades
@@ -108,6 +186,32 @@ _(ninguna)_
 - **EventDetail — Cards de participantes: botón eliminar individual eliminado**: la eliminación individual por ✕ fue removida. La única vía de eliminación es el modo selección múltiple con el tacho de basura.
 - **EventDetail — Cards de participantes: layout del panel derecho invertido**: el lápiz de editar queda arriba y el balance abajo (`flexDirection: 'column'`).
 - **EventDetail — Cards de participantes: montos de pagado/división más grandes**: `fontSize` subido de `11` a `13` con `fontWeight: '500'`. El 💰 (pagado) solo se muestra si el monto es mayor a # Changelog - SplitSmart
+
+## [1.6.0] - 2026-04-10
+
+### 🚀 Nuevas Funcionalidades
+- **CreateExpense — Calculadora integrada**: nuevo botón 🧮 al lado del campo Monto que abre un modal de calculadora con operaciones `+`, `-`, `×`, `÷`. Display estilo calculadora tradicional: número en edición abajo (grande) y expresión acumulada arriba (pequeño). Botones "Volver" (1/3) y "Usar (resultado)" (2/3) en el footer
+- **CreateExpense — Calculadora: comportamiento post-`=`**: al presionar un operador después de `=`, el resultado se convierte en el primer operando de la nueva expresión
+- **CreateExpense — Calculadora: confirmación sin `=`**: si el usuario presiona "Usar" con una expresión pendiente (sin haber presionado `=`), se muestra un popup de confirmación que evalúa y muestra el resultado antes de aplicarlo al monto
+
+### 🔧 Correcciones de Bugs
+- **ProfileScreen — Modal "Acerca de": claves i18n faltantes**: eliminadas las secciones "Seguridad y Privacidad" y "Desarrollo" del modal que referenciaban claves inexistentes (`profile.about.privacyCommitment`, `privacyItem1-4Title/Desc`, `devTeam`, `devTeamDesc`), lo que causaba que se mostraran los nombres de variable crudos en pantalla en lugar de texto real
+- **ProfileScreen — historial de versiones corrompido**: restaurados todos los emojis e íconos del historial v1.0.0–v1.5.0 que aparecían como `?` y `??` tras ejecutar `versiones.ps1`
+- **ProfileScreen — caracteres acentuados**: corregidos todos los `\uFFFD` en comentarios JSX, sección "Seguridad y Privacidad", modal de estadísticas e información técnica
+- **ProfileScreen — contaminación `${f.name}`**: eliminados prefijos espurios `${f.name}` en bullet points de la sección de privacidad, detalles de error de importación y sección de info técnica de BD que causaban `ReferenceError: Property 'f' doesn't exist` al abrir el perfil
+- **ProfileScreen — sintaxis JSX**: corregido cierre `>` faltante en `<ScrollView>` del modal de historial que generaba `SyntaxError: Unexpected token, expected "..."` (línea 1661)
+- **versiones.ps1 — corrupción UTF-8**: agregado `-Encoding UTF8` en `Get-Content` y `Set-Content` del archivo `ProfileScreen/index.tsx` para evitar que futuros incrementos de versión corrompan emojis y caracteres acentuados
+- **CreateExpense — Calculadora: decimales perdidos**: corregido bug donde valores decimales (ej: `15.75`) llegaban al campo Monto sin la parte decimal debido a un `replace('.', ',')` incorrecto previo al formateo
+
+### ✨ Mejoras
+- **versiones.ps1**: lectura y escritura de `ProfileScreen/index.tsx` ahora siempre en UTF-8, previene regresión permanente del problema de encoding
+
+### 🔢 Versiones
+- **versionCode**: 18 → 19
+- **versionName**: "1.5.0" → "1.6.0"
+
+---
+
 .
 - **LanguageContext — Nuevas claves para liquidaciones pagadas** (`summary.paidSettlements`, `summary.paidSettlementsEmpty`, `summary.paidOn`) en ES, EN y PT.
 - **EventDetail — Tab Resumen: card "Liquidaciones Pagadas" oculta en eventos completados**: si el evento tiene `status === 'completed'`, la card no se renderiza ya que no es necesaria en ese estado.
