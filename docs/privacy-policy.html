@@ -96,12 +96,15 @@
   <section>
     <h2>3. Permisos utilizados</h2>
 
-    <p><span class="badge">CAMERA</span><span class="badge">READ_MEDIA_IMAGES</span></p>
-    <p>Acceso a cámara y galería de fotos, utilizado exclusivamente para adjuntar fotos de comprobantes a los gastos. Las imágenes se almacenan localmente y nunca se envían a servidores externos.</p>
+    <p><span class="badge">CAMERA</span></p>
+    <p>Acceso a cámara, utilizado exclusivamente para tomar fotos de comprobantes y adjuntarlas a los gastos. Las imágenes se almacenan localmente y nunca se envían a servidores externos. El permiso se solicita solo al momento de usar la función.</p>
 
     <br>
-    <p><span class="badge">WRITE_EXTERNAL_STORAGE</span><span class="badge">READ_EXTERNAL_STORAGE</span></p>
-    <p>Utilizado únicamente para exportar datos de la app a pedido explícito del usuario. Los archivos exportados se guardan en el propio dispositivo.</p>
+    <p><span class="badge">USE_BIOMETRIC</span><span class="badge">USE_FINGERPRINT</span></p>
+    <p>Autenticación biométrica local (huella digital / Face ID) para proteger el acceso a la app. Los datos biométricos son procesados por el sistema operativo del dispositivo y nunca son accedidos ni almacenados por la aplicación.</p>
+
+    <br>
+    <p>SplitSmart utiliza el <strong>selector de fotos nativo de Android (Photo Picker)</strong> para seleccionar imágenes de la galería, lo que no requiere permisos de acceso al almacenamiento (<code>READ_MEDIA_IMAGES</code>, <code>READ_EXTERNAL_STORAGE</code> ni similares).</p>
   </section>
 
   <section>

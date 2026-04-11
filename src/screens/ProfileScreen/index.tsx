@@ -402,13 +402,8 @@ const ProfileScreen: React.FC = () => {
 
   const pickImageFromGallery = async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (status !== 'granted') {
-        Alert.alert(t('profile.message.permissionRequired'), t('profile.message.galleryPermission'));
-        return;
-      }
-
+      // Android Photo Picker (API 33+) no requiere permisos READ_MEDIA_IMAGES
+      // expo-image-picker v17 lo usa automáticamente sin necesidad de solicitarlos
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,

@@ -40,7 +40,8 @@
         "expo-image-picker",
         {
           "photosPermission": "Esta aplicación necesita acceso a tus fotos para agregar comprobantes a los gastos.",
-          "cameraPermission": "Esta aplicación necesita acceso a la cámara para tomar fotos de comprobantes."
+          "cameraPermission": "Esta aplicación necesita acceso a la cámara para tomar fotos de comprobantes.",
+          "microphonePermission": false
         }
       ]
     ],
