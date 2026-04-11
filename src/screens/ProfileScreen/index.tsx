@@ -1139,20 +1139,6 @@ const ProfileScreen: React.FC = () => {
             </View>
           </View>
 
-          <View style={styles.settingItem}>
-            <View style={styles.settingIcon}>
-              <MaterialCommunityIcons name="fingerprint" size={20} color={theme.colors.onSurfaceVariant} />
-            </View>
-            <View style={styles.settingContent}>
-              <Text style={styles.settingTitle}>{t('profile.biometricLogin')}</Text>
-              <Text style={styles.settingSubtitle}>{t('profile.biometricLoginDesc')}</Text>
-            </View>
-            <View style={styles.settingAction}>
-              <View style={styles.comingSoonBadge}>
-                <Text style={styles.comingSoonText}>{t('profile.comingSoon')}</Text>
-              </View>
-            </View>
-          </View>
         </ProfileSection>
         )}
 
@@ -1358,39 +1344,9 @@ const ProfileScreen: React.FC = () => {
         </ProfileSection>
         )}
 
-        {/* Notificaciones */}
-        {!isEditing && (
-        <ProfileSection title={t('profile.notifications')} icon="bell" onPress={closeAutoLogoutDropdown} collapsible>
-          <SettingItem
-            title={t('notifications.paymentReceived')}
-            subtitle={t('notifications.paymentReceivedDesc')}
-            icon="cash-check"
-            type="switch"
-            value={profileData.notifications.paymentReceived}
-            onValueChange={(value) => updateNotificationSetting('paymentReceived', value)}
-          />
-        </ProfileSection>
-        )}
 
-        {/* Privacidad */}
-        {!isEditing && (
-        <ProfileSection title={t('profile.privacySection')} icon="shield-account" onPress={closeAutoLogoutDropdown} collapsible>
-          <View style={styles.settingItem}>
-            <View style={styles.settingIcon}>
-              <MaterialCommunityIcons name="share" size={20} color={theme.colors.onSurfaceVariant} />
-            </View>
-            <View style={styles.settingContent}>
-              <Text style={styles.settingTitle}>{t('profile.shareEvent')}</Text>
-              <Text style={styles.settingSubtitle}>{t('profile.shareEventDesc')}</Text>
-            </View>
-            <View style={styles.settingAction}>
-              <View style={styles.comingSoonBadge}>
-                <Text style={styles.comingSoonText}>{t('profile.comingSoon')}</Text>
-              </View>
-            </View>
-          </View>
-        </ProfileSection>
-        )}
+
+
 
         {/* Datos y Respaldo */}
         {!isEditing && (
@@ -1469,6 +1425,54 @@ const ProfileScreen: React.FC = () => {
             type="navigation"
             onPress={() => setShowSupportModal(true)}
           />
+        </ProfileSection>
+        )}
+
+        {/* Próximamente */}
+        {!isEditing && (
+        <ProfileSection title={t('profile.comingSoon')} icon="rocket-launch" onPress={closeAutoLogoutDropdown} collapsible>
+          <View style={styles.settingItem}>
+            <View style={styles.settingIcon}>
+              <MaterialCommunityIcons name="cash-check" size={20} color={theme.colors.onSurfaceVariant} />
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={styles.settingTitle}>{t('notifications.paymentReceived')}</Text>
+              <Text style={styles.settingSubtitle}>{t('notifications.paymentReceivedDesc')}</Text>
+            </View>
+            <View style={styles.settingAction}>
+              <View style={styles.comingSoonBadge}>
+                <Text style={styles.comingSoonText}>{t('profile.comingSoon')}</Text>
+              </View>
+            </View>
+          </View>
+          <View style={styles.settingItem}>
+            <View style={styles.settingIcon}>
+              <MaterialCommunityIcons name="fingerprint" size={20} color={theme.colors.onSurfaceVariant} />
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={styles.settingTitle}>{t('profile.biometricLogin')}</Text>
+              <Text style={styles.settingSubtitle}>{t('profile.biometricLoginDesc')}</Text>
+            </View>
+            <View style={styles.settingAction}>
+              <View style={styles.comingSoonBadge}>
+                <Text style={styles.comingSoonText}>{t('profile.comingSoon')}</Text>
+              </View>
+            </View>
+          </View>
+          <View style={styles.settingItem}>
+            <View style={styles.settingIcon}>
+              <MaterialCommunityIcons name="share" size={20} color={theme.colors.onSurfaceVariant} />
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={styles.settingTitle}>{t('profile.shareEvent')}</Text>
+              <Text style={styles.settingSubtitle}>{t('profile.shareEventDesc')}</Text>
+            </View>
+            <View style={styles.settingAction}>
+              <View style={styles.comingSoonBadge}>
+                <Text style={styles.comingSoonText}>{t('profile.comingSoon')}</Text>
+              </View>
+            </View>
+          </View>
         </ProfileSection>
         )}
 
@@ -1673,23 +1677,13 @@ const ProfileScreen: React.FC = () => {
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
                       <Text style={styles.sectionTitle}>🚀 Novedades</Text>
-                      <Text style={styles.changelogItem}>• CreateExpense: Calculadora integrada</Text>
-                      <Text style={styles.changelogItem}>• CreateExpense: Calculadora</Text>
-                      <Text style={styles.changelogItem}>• CreateExpense: Calculadora</Text>
+                      <Text style={styles.changelogItem}>• Calculadora integrada al crear gastos: sumá, restá, multiplicá y dividí antes de ingresar el monto</Text>
+                      <Text style={styles.changelogItem}>• Al usar la calculadora con una operación pendiente, la app te muestra el resultado antes de aplicarlo</Text>
                     </View>
                     <View style={styles.changelogSection}>
                       <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
-                      <Text style={styles.changelogItem}>• ProfileScreen: Modal "Acerca de"</Text>
-                      <Text style={styles.changelogItem}>• ProfileScreen: historial de versiones corrompido</Text>
-                      <Text style={styles.changelogItem}>• ProfileScreen: caracteres acentuados</Text>
-                      <Text style={styles.changelogItem}>• ProfileScreen: contaminación</Text>
-                      <Text style={styles.changelogItem}>• ProfileScreen: sintaxis JSX</Text>
-                      <Text style={styles.changelogItem}>• versiones.ps1: corrupción UTF-8</Text>
-                      <Text style={styles.changelogItem}>• CreateExpense: Calculadora</Text>
-                    </View>
-                    <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>✨ Mejoras</Text>
-                      <Text style={styles.changelogItem}>• versiones.ps1</Text>
+                      <Text style={styles.changelogItem}>• Correcciones visuales en el perfil: texto con caracteres especiales que no se mostraban bien</Text>
+                      <Text style={styles.changelogItem}>• Secciones del modal "Acerca de" que mostraban texto interno en lugar del contenido real</Text>
                     </View>
                   </View>
                 )}
@@ -1714,39 +1708,17 @@ const ProfileScreen: React.FC = () => {
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
                       <Text style={styles.sectionTitle}>🚀 Novedades</Text>
-                      <Text style={styles.changelogItem}>• ManageFriends: Validación de nombre en tiempo real</Text>
-                      <Text style={styles.changelogItem}>• AddParticipantModal: Validación de nombre en tiempo real</Text>
-                      <Text style={styles.changelogItem}>• EventDetail: Detección y resolución de amigo duplicado al convertir participante</Text>
-                      <Text style={styles.changelogItem}>• EventDetail: Eliminación múltiple de participantes</Text>
-                      <Text style={styles.changelogItem}>• AddParticipantModal: Mensaje de éxito consolidado al agregar participantes</Text>
-                      <Text style={styles.changelogItem}>• EventDetail: Tab Resumen — card Liquidaciones Pagadas</Text>
-                      <Text style={styles.changelogItem}>• EventDetail: Tab Resumen — barra de acciones fija</Text>
-                      <Text style={styles.changelogItem}>• EventDetail: Tab Participantes — barra de acciones fija</Text>
-                      <Text style={styles.changelogItem}>• EventDetail: Tab Gastos — eliminación múltiple</Text>
-                      <Text style={styles.changelogItem}>• EventDetail: Tab Gastos — buscador y barra fijos</Text>
-                      <Text style={styles.changelogItem}>• CreateExpense: Soporte para múltiples pagadores</Text>
+                      <Text style={styles.changelogItem}>• Un gasto puede ser pagado entre varias personas, con montos personalizados para cada una</Text>
+                      <Text style={styles.changelogItem}>• La app avisa en tiempo real si ya existe un amigo o participante con el nombre que estás escribiendo</Text>
+                      <Text style={styles.changelogItem}>• Podés seleccionar y eliminar varios participantes o gastos a la vez</Text>
+                      <Text style={styles.changelogItem}>• La barra de acciones queda fija al hacer scroll en todas las secciones del evento</Text>
+                      <Text style={styles.changelogItem}>• Nueva sección en el resumen del evento que muestra las liquidaciones ya pagadas</Text>
                     </View>
                     <View style={styles.changelogSection}>
                       <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
-                      <Text style={styles.changelogItem}>• database.ts: getExpenses() no hidrataba el campo payers</Text>
-                      <Text style={styles.changelogItem}>• EventDetail: totalPaid incorrecto en gastos multi-pagador</Text>
-                      <Text style={styles.changelogItem}>• database.ts: eliminaba amigos permanentes de la app</Text>
-                      <Text style={styles.changelogItem}>• AddParticipantModal: Re-renders errático al tipear nombre</Text>
-                    </View>
-                    <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>✨ Mejoras</Text>
-                      <Text style={styles.changelogItem}>• ManageFriends: Nuevas traducciones de validación de nombre</Text>
-                      <Text style={styles.changelogItem}>• AddParticipantModal: Nuevas claves de traducción</Text>
-                      <Text style={styles.changelogItem}>• LanguageContext: Claves para flujo de amigo duplicado en EventDetail</Text>
-                      <Text style={styles.changelogItem}>• LanguageContext: Claves para eliminación múltiple de participantes</Text>
-                      <Text style={styles.changelogItem}>• EventDetail: Modo selección se resetea al cambiar de tab</Text>
-                      <Text style={styles.changelogItem}>• EventDetail: Botón eliminar individual de participante removido</Text>
-                      <Text style={styles.changelogItem}>• EventDetail: Layout del panel derecho de cards invertido</Text>
-                      <Text style={styles.changelogItem}>• EventDetail: Montos de pagado/división más grandes (fontSize 11→13)</Text>
-                      <Text style={styles.changelogItem}>• LanguageContext: Claves para liquidaciones pagadas</Text>
-                      <Text style={styles.changelogItem}>• EventDetail: Card Liquidaciones Pagadas oculta en eventos completados</Text>
-                      <Text style={styles.changelogItem}>• LanguageContext: Claves para eliminación múltiple de gastos</Text>
-                      <Text style={styles.changelogItem}>• EventDetail: Tab Gastos — modo selección reset al cambiar tab</Text>
+                      <Text style={styles.changelogItem}>• Los balances ahora se calculan correctamente cuando un gasto tiene múltiples pagadores</Text>
+                      <Text style={styles.changelogItem}>• Quitar un amigo de un evento ya no lo borra de tus contactos permanentes</Text>
+                      <Text style={styles.changelogItem}>• Corrección de comportamiento errático al escribir nombres de participantes</Text>
                     </View>
                   </View>
                 )}
@@ -1771,13 +1743,9 @@ const ProfileScreen: React.FC = () => {
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
                       <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
-                      <Text style={styles.changelogItem}>• LanguageSelector: Modal no aparecía al abrirlo desde el overflow del HeaderBar</Text>
-                      <Text style={styles.changelogItem}>• ProfileScreen: Labels profile.dataStats y profile.changelogTitle sin traducir</Text>
-                      <Text style={styles.changelogItem}>• ProfileScreen: Bloque v1.4.9 ausente en el historial modal</Text>
-                    </View>
-                    <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>✨ Mejoras</Text>
-                      <Text style={styles.changelogItem}>• versiones.ps1: Búsqueda del marcador de versión con regex</Text>
+                      <Text style={styles.changelogItem}>• El selector de idioma desde el menú superior ya funciona correctamente</Text>
+                      <Text style={styles.changelogItem}>• Textos sin traducir en la pantalla de Perfil corregidos</Text>
+                      <Text style={styles.changelogItem}>• El historial de versiones mostraba una entrada faltante</Text>
                     </View>
                   </View>
                 )}
@@ -1801,21 +1769,15 @@ const ProfileScreen: React.FC = () => {
                 {expandedVersions.has('1.4.9') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>🚀 Novedades</Text>
-                      <Text style={styles.changelogItem}>• Script build-all.ps1: genera APK/AAB en un solo comando</Text>
-                    </View>
-                    <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
-                      <Text style={styles.changelogItem}>• getSplitsByEvent consulta BD directamente</Text>
-                      <Text style={styles.changelogItem}>• Balance de participantes recalculado con consolidaciones</Text>
-                      <Text style={styles.changelogItem}>• Doble conteo en balance con settlement condonado pagado</Text>
+                      <Text style={styles.sectionTitle}>� Correcciones</Text>
+                      <Text style={styles.changelogItem}>• Los balances se calculan correctamente cuando hay deudas condonadas</Text>
+                      <Text style={styles.changelogItem}>• Corregido el doble conteo de montos en liquidaciones condonadas y pagadas</Text>
                     </View>
                     <View style={styles.changelogSection}>
                       <Text style={styles.sectionTitle}>✨ Mejoras</Text>
-                      <Text style={styles.changelogItem}>• Refresco automático al cambiar de tab</Text>
-                      <Text style={styles.changelogItem}>• Monto adeudado muestra valor real con original tachado</Text>
-                      <Text style={styles.changelogItem}>• Sección "Condonadas automáticamente" en liquidaciones</Text>
-                      <Text style={styles.changelogItem}>• versiones.ps1: nuevo flujo Copilot integrado</Text>
+                      <Text style={styles.changelogItem}>• El monto adeudado muestra el valor real con el monto original tachado</Text>
+                      <Text style={styles.changelogItem}>• Nueva sección que agrupa las deudas condonadas automáticamente</Text>
+                      <Text style={styles.changelogItem}>• Las secciones del evento se actualizan automáticamente al cambiar de pestaña</Text>
                     </View>
                   </View>
                 )}
@@ -1840,14 +1802,13 @@ const ProfileScreen: React.FC = () => {
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
                       <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
-                      <Text style={styles.changelogItem}>• Home: contador liquidaciones ahora excluye condonaciones</Text>
-                      <Text style={styles.changelogItem}>• Balance de participante se actualiza al confirmar liquidaciones</Text>
-                      <Text style={styles.changelogItem}>• Balance corregido para participantes con deuda condonada</Text>
+                      <Text style={styles.changelogItem}>• El contador de liquidaciones pendientes en la pantalla principal ya es correcto</Text>
+                      <Text style={styles.changelogItem}>• El balance de cada participante se actualiza al confirmar el pago de una liquidación</Text>
                     </View>
                     <View style={styles.changelogSection}>
                       <Text style={styles.sectionTitle}>✨ Mejoras</Text>
-                      <Text style={styles.changelogItem}>• Cards de participantes: desglose pagó/corresponde</Text>
-                      <Text style={styles.changelogItem}>• Badge naranja cuando la deuda fue pagada por otro o condonada</Text>
+                      <Text style={styles.changelogItem}>• Las tarjetas de participantes ahora muestran cuánto pagó cada uno y cuánto le corresponde</Text>
+                      <Text style={styles.changelogItem}>• Indicador naranja cuando una deuda fue pagada por otro integrante o condonada</Text>
                     </View>
                   </View>
                 )}
@@ -1872,15 +1833,13 @@ const ProfileScreen: React.FC = () => {
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
                       <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
-                      <Text style={styles.changelogItem}>• Validación nombres duplicados en amigos y participantes</Text>
-                      <Text style={styles.changelogItem}>• Modal contraseña: campo actual, fortaleza, ojos, disable</Text>
-                      <Text style={styles.changelogItem}>• Filtrado y validación de teléfono en toda la app</Text>
-                      <Text style={styles.changelogItem}>• Filtrado y validación de email en toda la app</Text>
+                      <Text style={styles.changelogItem}>• La app ahora avisa si intentás ingresar un nombre de amigo o participante que ya existe</Text>
+                      <Text style={styles.changelogItem}>• El modal de cambio de contraseña ahora incluye indicador de fortaleza y verificación de la actual</Text>
+                      <Text style={styles.changelogItem}>• Validación mejorada de campos de teléfono y email en toda la app</Text>
                     </View>
                     <View style={styles.changelogSection}>
                       <Text style={styles.sectionTitle}>✨ Mejoras</Text>
-                      <Text style={styles.changelogItem}>• Secciones colapsables en Perfil</Text>
-                      <Text style={styles.changelogItem}>• Sección Seguridad oculta en modo edición</Text>
+                      <Text style={styles.changelogItem}>• Las secciones del Perfil se pueden colapsar para mantener la vista ordenada</Text>
                     </View>
                   </View>
                 )}
@@ -1904,21 +1863,18 @@ const ProfileScreen: React.FC = () => {
                 {expandedVersions.has('1.4.6') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>🚀 Nuevas Funcionalidades</Text>
-                      <Text style={styles.changelogItem}>• Icono SplitSmart en HeaderBar en todas las pantallas</Text>
-                      <Text style={styles.changelogItem}>• Validación visual unificada en campos obligatorios (asterisco rojo)</Text>
+                      <Text style={styles.sectionTitle}>🚀 Novedades</Text>
+                      <Text style={styles.changelogItem}>• El ícono de SplitSmart aparece en todas las pantallas de la app</Text>
+                      <Text style={styles.changelogItem}>• Los campos obligatorios están claramente marcados con un asterisco rojo</Text>
                     </View>
                     <View style={styles.changelogSection}>
                       <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
-                      <Text style={styles.changelogItem}>• Doble asterisco eliminado en modales y pantallas</Text>
-                      <Text style={styles.changelogItem}>• Bug duplicación de texto en SignUpScreen corregido</Text>
-                      <Text style={styles.changelogItem}>• Safe Area top en modales pageSheet corregida</Text>
+                      <Text style={styles.changelogItem}>• Texto duplicado en la pantalla de registro corregido</Text>
+                      <Text style={styles.changelogItem}>• Diseño de los modales (consolidación, detalle de gasto) unificado y mejorado</Text>
                     </View>
                     <View style={styles.changelogSection}>
                       <Text style={styles.sectionTitle}>✨ Mejoras</Text>
-                      <Text style={styles.changelogItem}>• Botón "Crear cuenta" fijo al pie en SignUpScreen</Text>
-                      <Text style={styles.changelogItem}>• Unificación estética de ConsolidationModal, ExpenseDetail y ParticipantInfo</Text>
-                      <Text style={styles.changelogItem}>• Botón "Aplicar" en ConsolidationModal siempre visible</Text>
+                      <Text style={styles.changelogItem}>• El botón de crear cuenta siempre visible al registrarse, sin necesidad de hacer scroll</Text>
                     </View>
                   </View>
                 )}
@@ -1936,20 +1892,15 @@ const ProfileScreen: React.FC = () => {
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.4.5') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
-                    color={theme.colors.onSurfaceVariant} 
+                    color={theme.colors.primary} 
                   />
                 </View>
                 {expandedVersions.has('1.4.5') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
                       <Text style={styles.sectionTitle}>✨ Mejoras</Text>
-                      <Text style={styles.changelogItem}>• Mensajes de WhatsApp con divisoras y mejor formato</Text>
-                      <Text style={styles.changelogItem}>• Saltos de línea corregidos en Compartir Resumen y Evento</Text>
-                      <Text style={styles.changelogItem}>• Leyenda "Realizado con SplitSmart" al final de cada envío</Text>
-                    </View>
-                    <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
-                      <Text style={styles.changelogItem}>• Ruta del ícono de la app corregida en app.json</Text>
+                      <Text style={styles.changelogItem}>• Los mensajes de WhatsApp ahora tienen mejor formato, con separadores y saltos de línea correctos</Text>
+                      <Text style={styles.changelogItem}>• Se agrega automáticamente la firma "Realizado con SplitSmart" al final de cada mensaje</Text>
                     </View>
                   </View>
                 )}
@@ -1967,16 +1918,15 @@ const ProfileScreen: React.FC = () => {
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.4.4') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
-                    color={theme.colors.onSurfaceVariant} 
+                    color={theme.colors.primary} 
                   />
                 </View>
                 {expandedVersions.has('1.4.4') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
                       <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
-                      <Text style={styles.changelogItem}>• Teclado virtual tapaba el contenido en todas las pantallas</Text>
-                      <Text style={styles.changelogItem}>• Formulario de nuevo amigo ahora desplazable con teclado activo</Text>
-                      <Text style={styles.changelogItem}>• Fix para Android 15+: deshabilitado edge-to-edge forzado</Text>
+                      <Text style={styles.changelogItem}>• El teclado ya no tapa el contenido al escribir en ninguna pantalla</Text>
+                      <Text style={styles.changelogItem}>• Compatibilidad mejorada con dispositivos Android 15</Text>
                     </View>
                   </View>
                 )}
@@ -1994,17 +1944,15 @@ const ProfileScreen: React.FC = () => {
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.4.3') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
-                    color={theme.colors.onSurfaceVariant} 
+                    color={theme.colors.primary} 
                   />
                 </View>
                 {expandedVersions.has('1.4.3') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
                       <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
-                      <Text style={styles.changelogItem}>• Importación de backup corregida (error en settlements)</Text>
-                      <Text style={styles.changelogItem}>• Traducciones faltantes: sección Privacidad y botón Archivar</Text>
-                      <Text style={styles.changelogItem}>• Script APK ya no borra versiones anteriores generadas</Text>
-                      <Text style={styles.changelogItem}>• Builds copian APK/AAB a carpeta centralizada automáticamente</Text>
+                      <Text style={styles.changelogItem}>• La importación de respaldo de datos ya funciona correctamente</Text>
+                      <Text style={styles.changelogItem}>• Traducciones faltantes completadas (sección Privacidad y botón Archivar)</Text>
                     </View>
                   </View>
                 )}
@@ -2022,15 +1970,15 @@ const ProfileScreen: React.FC = () => {
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.4.2') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
-                    color={theme.colors.onSurfaceVariant} 
+                    color={theme.colors.primary} 
                   />
                 </View>
                 {expandedVersions.has('1.4.2') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
                       <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
-                      <Text style={styles.changelogItem}>• Eliminados permisos obsoletos: READ_MEDIA_IMAGES, WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE</Text>
-                      <Text style={styles.changelogItem}>• Galería ahora usa Android Photo Picker nativo (sin solicitar permisos extra)</Text>
+                      <Text style={styles.changelogItem}>• La app ya no solicita permisos de almacenamiento innecesarios</Text>
+                      <Text style={styles.changelogItem}>• La galería de fotos usa el selector nativo de Android: más privado, sin permisos extra</Text>
                     </View>
                   </View>
                 )}
@@ -2048,15 +1996,15 @@ const ProfileScreen: React.FC = () => {
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.4.1') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
-                    color={theme.colors.onSurfaceVariant} 
+                    color={theme.colors.primary} 
                   />
                 </View>
                 {expandedVersions.has('1.4.1') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
                       <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
-                      <Text style={styles.changelogItem}>• Crash al editar participante temporal (faltaba useLanguage)</Text>
-                      <Text style={styles.changelogItem}>• Campos vacíos al abrir modal de edición (sync con useEffect)</Text>
+                      <Text style={styles.changelogItem}>• Corregido un cierre inesperado al intentar editar un participante</Text>
+                      <Text style={styles.changelogItem}>• Los campos del formulario de edición ahora se cargan correctamente al abrirlo</Text>
                     </View>
                   </View>
                 )}
@@ -2074,26 +2022,20 @@ const ProfileScreen: React.FC = () => {
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.4.0') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
-                    color={theme.colors.onSurfaceVariant} 
+                    color={theme.colors.primary} 
                   />
                 </View>
                 {expandedVersions.has('1.4.0') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>🌍 Internacionalización</Text>
-                      <Text style={styles.changelogItem}>• 30+ strings hardcodeados reemplazados en EventDetail</Text>
-                      <Text style={styles.changelogItem}>• Logout traducido en Home (ES/EN/PT)</Text>
-                      <Text style={styles.changelogItem}>• Errores de ManageFriends traducidos (ES/EN/PT)</Text>
-                      <Text style={styles.changelogItem}>• 38 nuevas claves × 3 idiomas en LanguageContext</Text>
-                      <Text style={styles.changelogItem}>• EventDetail/language.ts eliminado (código muerto)</Text>
+                      <Text style={styles.sectionTitle}>🌍 Multiidioma</Text>
+                      <Text style={styles.changelogItem}>• La app está disponible en Español, Inglés y Portugués</Text>
+                      <Text style={styles.changelogItem}>• Todos los textos de la app traducidos a los tres idiomas</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>📄 Documentación Legal</Text>
-                      <Text style={styles.changelogItem}>• Cumplimiento Ley N° 25.326 (Habeas Data Argentina)</Text>
-                      <Text style={styles.changelogItem}>• Disclaimer financiero explícito en Términos</Text>
-                      <Text style={styles.changelogItem}>• Jurisdicción: Córdoba, Argentina</Text>
-                      <Text style={styles.changelogItem}>• Privacidad: descripción honesta de datos procesados</Text>
-                      <Text style={styles.changelogItem}>• APK con nombre descriptivo: versión + fecha + hora</Text>
+                      <Text style={styles.sectionTitle}>📄 Legal</Text>
+                      <Text style={styles.changelogItem}>• Se incorporaron los Términos de servicio y la Política de privacidad</Text>
+                      <Text style={styles.changelogItem}>• Cumplimiento con la legislación de protección de datos de Argentina</Text>
                     </View>
                   </View>
                 )}
@@ -2111,25 +2053,21 @@ const ProfileScreen: React.FC = () => {
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.3.0') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
-                    color={theme.colors.onSurfaceVariant} 
+                    color={theme.colors.primary} 
                   />
                 </View>
                 {expandedVersions.has('1.3.0') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>🚀 Nuevas Funcionalidades</Text>
-                      <Text style={styles.changelogItem}>• Botón eliminar evento en card (solo si no tiene datos)</Text>
-                      <Text style={styles.changelogItem}>• Contador de liquidaciones ⚖️ (pagadas/total) en card</Text>
-                      <Text style={styles.changelogItem}>• Ícono de liquidaciones en verde/naranja según estado</Text>
-                      <Text style={styles.changelogItem}>• Filtro por estado en MetricsCard (toggle)</Text>
-                      <Text style={styles.changelogItem}>• Ordenamiento de eventos: estado → fecha → título</Text>
+                      <Text style={styles.sectionTitle}>🚀 Novedades</Text>
+                      <Text style={styles.changelogItem}>• Podés eliminar un evento vacío directamente desde la pantalla principal</Text>
+                      <Text style={styles.changelogItem}>• Cada evento muestra cuántas liquidaciones están pagas del total (ej: 2/3)</Text>
+                      <Text style={styles.changelogItem}>• Filtros por estado y orden inteligente (activos primero, luego por fecha)</Text>
                     </View>
                     <View style={styles.changelogSection}>
                       <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
-                      <Text style={styles.changelogItem}>• Editar evento navega a Home (antes iba a EventDetail)</Text>
-                      <Text style={styles.changelogItem}>• Crear evento reemplaza stack (back va a Home)</Text>
-                      <Text style={styles.changelogItem}>• Cards del Home se actualizan al volver de EventDetail</Text>
-                      <Text style={styles.changelogItem}>• Corrección campo isPaid en conteo de liquidaciones pagadas</Text>
+                      <Text style={styles.changelogItem}>• La pantalla principal se actualiza correctamente al volver de un evento</Text>
+                      <Text style={styles.changelogItem}>• El conteo de liquidaciones pagadas ya es preciso</Text>
                     </View>
                   </View>
                 )}
@@ -2153,61 +2091,15 @@ const ProfileScreen: React.FC = () => {
                 {expandedVersions.has('1.2.0') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>🚀 Funcionalidades Principales Nuevas</Text>
-                      <Text style={styles.changelogItem}>• Sistema de Auto-Login Inteligente y Robusto</Text>
-                      <Text style={styles.changelogItem}>• Identificación por ID único para usuarios</Text>
-                      <Text style={styles.changelogItem}>• Seguimiento de último login por usuario</Text>
-                      <Text style={styles.changelogItem}>• Lógica de fallback al usuario DEMO</Text>
-                      <Text style={styles.changelogItem}>• Configuración independiente skip-password y auto-login</Text>
-                      <Text style={styles.changelogItem}>• Preservación de configuraciones entre sesiones</Text>
-                      <Text style={styles.changelogItem}>• Validaciones de configuración en inicialización</Text>
-                      <Text style={styles.changelogItem}>• Sistema completo de datos de ejemplo para DEMO</Text>
-                      <Text style={styles.changelogItem}>• Opción de regenerar datos de ejemplo</Text>
-                      <Text style={styles.changelogItem}>• Protección de datos DEMO en resets</Text>
+                      <Text style={styles.sectionTitle}>🚀 Novedades</Text>
+                      <Text style={styles.changelogItem}>• La app recuerda quién ingresó y entra automáticamente sin pedir contraseña</Text>
+                      <Text style={styles.changelogItem}>• Usuario DEMO con datos de ejemplo listos para explorar todas las funciones</Text>
+                      <Text style={styles.changelogItem}>• Estadísticas de uso disponibles en el Perfil</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>💎 Mejoras de Base de Datos</Text>
-                      <Text style={styles.changelogItem}>• Migraciones automáticas de esquema</Text>
-                      <Text style={styles.changelogItem}>• Campo last_login para tracking de sesiones</Text>
-                      <Text style={styles.changelogItem}>• Validaciones de integridad referencial</Text>
-                      <Text style={styles.changelogItem}>• Verificación de esquema en inicialización</Text>
-                      <Text style={styles.changelogItem}>• Sistema robusto de creación de tablas</Text>
-                      <Text style={styles.changelogItem}>• Manejo mejorado de errores de BD</Text>
-                      <Text style={styles.changelogItem}>• Diagnósticos de tablas implementados</Text>
-                      <Text style={styles.changelogItem}>• Estadísticas detalladas de datos</Text>
-                    </View>
-                    <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>🎨 Mejoras de Interfaz y UX</Text>
-                      <Text style={styles.changelogItem}>• Modal de estadísticas de base de datos</Text>
-                      <Text style={styles.changelogItem}>• Información técnica expandible</Text>
-                      <Text style={styles.changelogItem}>• Historial de versiones más detallado</Text>
-                      <Text style={styles.changelogItem}>• Validaciones mejoradas en formularios</Text>
-                      <Text style={styles.changelogItem}>• Feedback visual de configuraciones</Text>
-                      <Text style={styles.changelogItem}>• Logging detallado para debugging</Text>
-                      <Text style={styles.changelogItem}>• Mensajes de confirmación mejorados</Text>
-                      <Text style={styles.changelogItem}>• Interfaz de configuración más intuitiva</Text>
-                    </View>
-                    <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>🔧 Mejoras Técnicas y Estabilidad</Text>
-                      <Text style={styles.changelogItem}>• Corrección completa de errores de TypeScript</Text>
-                      <Text style={styles.changelogItem}>• Tipos mejorados para todas las funciones</Text>
-                      <Text style={styles.changelogItem}>• Sistema de build optimizado</Text>
-                      <Text style={styles.changelogItem}>• Configuración EAS Build mejorada</Text>
-                      <Text style={styles.changelogItem}>• Manejo robusto de errores de red</Text>
-                      <Text style={styles.changelogItem}>• Validaciones de entrada mejoradas</Text>
-                      <Text style={styles.changelogItem}>• Arquitectura más limpia y modular</Text>
-                      <Text style={styles.changelogItem}>• Performance optimizada en consultas BD</Text>
-                    </View>
-                    <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>📊 Nuevas Funcionalidades de Datos</Text>
-                      <Text style={styles.changelogItem}>• 3 eventos de ejemplo completos (activo, completado, archivado)</Text>
-                      <Text style={styles.changelogItem}>• 4 participantes diversos (amigos y temporales)</Text>
-                      <Text style={styles.changelogItem}>• 10 gastos realistas con diferentes divisiones</Text>
-                      <Text style={styles.changelogItem}>• 5 liquidaciones en estados variados</Text>
-                      <Text style={styles.changelogItem}>• Datos coherentes con fechas realistas</Text>
-                      <Text style={styles.changelogItem}>• Montos en pesos argentinos contextualizados</Text>
-                      <Text style={styles.changelogItem}>• Relaciones completas entre todas las tablas</Text>
-                      <Text style={styles.changelogItem}>• IDs únicos con sistema de prefijos</Text>
+                      <Text style={styles.sectionTitle}>✨ Mejoras</Text>
+                      <Text style={styles.changelogItem}>• Mayor estabilidad general de la app</Text>
+                      <Text style={styles.changelogItem}>• Mensajes de confirmación más claros al realizar acciones importantes</Text>
                     </View>
                   </View>
                 )}
@@ -2231,40 +2123,18 @@ const ProfileScreen: React.FC = () => {
                 {expandedVersions.has('1.1.0') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>✨ Nuevas Funcionalidades Avanzadas</Text>
-                      <Text style={styles.changelogItem}>• Gestión avanzada de eventos y participantes</Text>
-                      <Text style={styles.changelogItem}>• Sistema completo de exportación/importación</Text>
-                      <Text style={styles.changelogItem}>• Notificaciones WhatsApp integradas</Text>
-                      <Text style={styles.changelogItem}>• Temas claro/oscuro</Text>
-                      <Text style={styles.changelogItem}>• Soporte para múltiples monedas</Text>
-                      <Text style={styles.changelogItem}>• Auto-logout configurable</Text>
-                      <Text style={styles.changelogItem}>• Sistema de privacidad y notificaciones</Text>
-                      <Text style={styles.changelogItem}>• Gestión completa de liquidaciones</Text>
-                      <Text style={styles.changelogItem}>• Avatar editable con cámara/galería</Text>
-                      <Text style={styles.changelogItem}>• Modal de historial de versiones</Text>
+                      <Text style={styles.sectionTitle}>🚀 Novedades</Text>
+                      <Text style={styles.changelogItem}>• Exportá e importá un respaldo completo de tus datos</Text>
+                      <Text style={styles.changelogItem}>• Compartí resúmenes del evento por WhatsApp</Text>
+                      <Text style={styles.changelogItem}>• Temas claro y oscuro</Text>
+                      <Text style={styles.changelogItem}>• Soporte para múltiples monedas (ARS, USD, EUR, BRL)</Text>
+                      <Text style={styles.changelogItem}>• Cierre de sesión automático configurable</Text>
+                      <Text style={styles.changelogItem}>• Foto de perfil editable con cámara o galería</Text>
                     </View>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>🎨 Mejoras de Interfaz</Text>
-                      <Text style={styles.changelogItem}>• Perfil de usuario completamente renovado</Text>
-                      <Text style={styles.changelogItem}>• Validaciones mejoradas en formularios</Text>
-                      <Text style={styles.changelogItem}>• Botones de edición más intuitivos</Text>
-                      <Text style={styles.changelogItem}>• Avatar editable directamente</Text>
-                      <Text style={styles.changelogItem}>• Interfaz de liquidaciones mejorada</Text>
-                      <Text style={styles.changelogItem}>• Cálculos de gastos optimizados</Text>
-                      <Text style={styles.changelogItem}>• Rendimiento general mejorado</Text>
-                      <Text style={styles.changelogItem}>• Interfaz de usuario refinada</Text>
-                    </View>
-                    <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>🔧 Correcciones y Estabilidad</Text>
-                      <Text style={styles.changelogItem}>• Alineación de botones en modo edición</Text>
-                      <Text style={styles.changelogItem}>• Visibilidad mejorada en modo oscuro</Text>
-                      <Text style={styles.changelogItem}>• Errores de validación de campos corregidos</Text>
-                      <Text style={styles.changelogItem}>• Problemas de base de datos solucionados</Text>
-                      <Text style={styles.changelogItem}>• Migraciones de esquema implementadas</Text>
-                      <Text style={styles.changelogItem}>• Duplicaciones de liquidaciones solucionadas</Text>
-                      <Text style={styles.changelogItem}>• Persistencia de notificaciones corregida</Text>
-                      <Text style={styles.changelogItem}>• Iconos alineados correctamente</Text>
-                      <Text style={styles.changelogItem}>• Estabilidad general mejorada</Text>
+                      <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
+                      <Text style={styles.changelogItem}>• Liquidaciones duplicadas corregidas</Text>
+                      <Text style={styles.changelogItem}>• Mejoras de estabilidad y rendimiento general</Text>
                     </View>
                   </View>
                 )}
