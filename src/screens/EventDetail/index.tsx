@@ -106,6 +106,10 @@ export default function EventDetailScreen() {
   // Estado para manejar qué listas de pagadores están expandidas (inicia contraído por defecto)
   const [expandedPayerLists, setExpandedPayerLists] = useState<Set<string>>(new Set());
 
+  // Orden congelado de liquidaciones: se recalcula solo cuando cambia la composición de la lista
+  // (no cuando cambia isPaid), así los ítems no saltan al marcarse como pagados
+  const [frozenSettlementOrder, setFrozenSettlementOrder] = useState<string[]>([]);
+
   // Estados para consolidación
   const [showConsolidationModal, setShowConsolidationModal] = useState(false);
   const [consolidationAssignments, setConsolidationAssignments] = useState<any[]>([]);
@@ -463,6 +467,32 @@ export default function EventDetailScreen() {
       lastGlobalDataRef.current = globalDataSignature;
     }
   }, [expenses, participants, eventId, loadEventData]);
+
+  // Congela el orden de las liquidaciones en pantalla.
+  // Se recalcula SOLO cuando cambia la cantidad/composición (o la vista activa),
+  // pero NO cuando cambia isPaid → el ítem no salta al marcarse como pagado.
+  useEffect(() => {
+    const base = (consolidationAssignments.length > 0 && !showOriginalView)
+      ? consolidatedSettlements
+      : dbSettlements.map(s => ({
+          ...s,
+          fromParticipantName: s.fromParticipantName || 'Unknown',
+          toParticipantName:   s.toParticipantName   || 'Unknown',
+        }));
+    if (base.length === 0) return;
+    const sorted = [...base].sort((a: any, b: any) => {
+      const aIsPaid = a.isPaid || false;
+      const bIsPaid = b.isPaid || false;
+      if (aIsPaid !== bIsPaid) return aIsPaid ? 1 : -1;
+      const d = (a.fromParticipantName || '').localeCompare(b.fromParticipantName || '');
+      if (d !== 0) return d;
+      const m = (b.amount || 0) - (a.amount || 0);
+      if (m !== 0) return m;
+      return (a.toParticipantName || '').localeCompare(b.toParticipantName || '');
+    });
+    setFrozenSettlementOrder(sorted.map((s: any) => s.id));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbSettlements.length, consolidatedSettlements.length, showOriginalView, consolidationAssignments.length]);
 
   // Refrescar datos cuando regresamos a la pantalla (ej: después de crear/editar gastos)
   useFocusEffect(
@@ -2594,27 +2624,26 @@ export default function EventDetailScreen() {
           <View>
             {getDisplaySettlements()
               .sort((a, b) => {
-                // Ordenamiento: Estado > Deudor > Monto > Acreedor
-                // Los pagados van al final
+                if (frozenSettlementOrder.length > 0) {
+                  // Orden congelado: los ítems no saltan al marcarse como pagados
+                  const ai = frozenSettlementOrder.indexOf(a.id);
+                  const bi = frozenSettlementOrder.indexOf(b.id);
+                  return (ai === -1 ? 9999 : ai) - (bi === -1 ? 9999 : bi);
+                }
+                // Fallback (primer render antes de que corra el efecto)
                 const aIsPaid = a.isPaid || false;
                 const bIsPaid = b.isPaid || false;
                 if (aIsPaid !== bIsPaid) {
                   return aIsPaid ? 1 : -1; // no pagados primero
                 }
-
-                // Por deudor (fromParticipantName)
                 const deudorComparison = a.fromParticipantName.localeCompare(b.fromParticipantName);
                 if (deudorComparison !== 0) {
                   return deudorComparison;
                 }
-
-                // Por monto (descendente - mayor a menor)
                 const montoComparison = b.amount - a.amount;
                 if (montoComparison !== 0) {
                   return montoComparison;
                 }
-
-                // Por acreedor (toParticipantName)
                 return a.toParticipantName.localeCompare(b.toParticipantName);
               })
               .map((settlement: Settlement, index: number) => {
