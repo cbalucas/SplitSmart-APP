@@ -52,8 +52,39 @@ export const useCalculations = (
 
     switch (eventStatus) {
       case 'active':
+        // Consolidar balances de participantes secundarios en su primario
+        // antes de calcular las liquidaciones (los secundarios no aparecen como from/to)
+        const secondaryMap: Record<string, string> = {};
+        participants.forEach(p => {
+          if ((p as any).parentParticipantId) {
+            secondaryMap[p.id] = (p as any).parentParticipantId;
+          }
+        });
+
+        let consolidatedBalances: typeof balances;
+        if (Object.keys(secondaryMap).length > 0) {
+          // Copia mutable de los balances de primarios
+          consolidatedBalances = balances
+            .filter(b => !secondaryMap[b.participantId])
+            .map(b => ({ ...b }));
+          // Acumular balances de secundarios en su primario
+          balances.forEach(b => {
+            const primaryId = secondaryMap[b.participantId];
+            if (primaryId) {
+              const primary = consolidatedBalances.find(cb => cb.participantId === primaryId);
+              if (primary) {
+                (primary as any).totalPaid  = ((primary as any).totalPaid  || 0) + ((b as any).totalPaid  || 0);
+                (primary as any).totalOwed  = ((primary as any).totalOwed  || 0) + ((b as any).totalOwed  || 0);
+                primary.balance             = (primary.balance             || 0) + (b.balance             || 0);
+              }
+            }
+          });
+        } else {
+          consolidatedBalances = balances;
+        }
+
         // En estado activo: calcular settlements dinámicamente
-        const calculated = CalculationService.calculateOptimalSettlements(balances);
+        const calculated = CalculationService.calculateOptimalSettlements(consolidatedBalances);
         console.log('🔍 useCalculations - calculated settlements:', calculated.length);
         return calculated;
       

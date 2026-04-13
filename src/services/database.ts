@@ -363,6 +363,18 @@ class DatabaseService {
         console.error('❌ Error initializing version history:', error);
       }
 
+      // Migration: Add parent_participant_id column to event_participants table
+      try {
+        await this.db.execAsync('ALTER TABLE event_participants ADD COLUMN parent_participant_id TEXT');
+        console.log('✅ Migration: Added parent_participant_id column to event_participants table');
+      } catch (error: any) {
+        if (error.message?.includes('duplicate column name')) {
+          console.log('⚠️ Column parent_participant_id already exists in event_participants table');
+        } else {
+          console.error('❌ Error adding parent_participant_id column:', error);
+        }
+      }
+
     } catch (error) {
       console.error('❌ Error running migrations:', error);
     }
@@ -578,6 +590,7 @@ class DatabaseService {
           role TEXT CHECK(role IN ('owner', 'admin', 'member', 'viewer')) DEFAULT 'member',
           balance REAL DEFAULT 0,
           joined_at TEXT,
+          parent_participant_id TEXT,
           FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
           FOREIGN KEY (participant_id) REFERENCES participants (id) ON DELETE CASCADE,
           UNIQUE(event_id, participant_id)
@@ -1214,15 +1227,16 @@ class DatabaseService {
 
     try {
       await this.db.runAsync(
-        `INSERT INTO event_participants (id, event_id, participant_id, role, balance, joined_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO event_participants (id, event_id, participant_id, role, balance, joined_at, parent_participant_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           eventParticipant.id,
           eventParticipant.eventId,
           eventParticipant.participantId,
           eventParticipant.role,
           eventParticipant.balance || 0,
-          eventParticipant.joinedAt || new Date().toISOString()
+          eventParticipant.joinedAt || new Date().toISOString(),
+          eventParticipant.parentParticipantId || null
         ]
       );
     } catch (error) {
@@ -1240,7 +1254,7 @@ class DatabaseService {
     try {
       console.log(`📥 Getting participants for event: ${eventId}`);
       const result = await this.db.getAllAsync(
-        `SELECT p.*, ep.role, ep.balance, ep.joined_at
+        `SELECT p.*, ep.role, ep.balance, ep.joined_at, ep.parent_participant_id
          FROM participants p
          JOIN event_participants ep ON p.id = ep.participant_id
          WHERE ep.event_id = ? AND p.is_active = 1`,
@@ -1262,7 +1276,8 @@ class DatabaseService {
         updatedAt: row.updated_at,
         role: row.role,
         balance: row.balance,
-        joinedAt: row.joined_at
+        joinedAt: row.joined_at,
+        parentParticipantId: row.parent_participant_id || undefined
       }));
     } catch (error) {
       console.error('❌ Error getting event participants:', error);
@@ -1938,17 +1953,39 @@ class DatabaseService {
 
       // 2. Calcular balances usando la lógica centralizada
       const balances = this.calculateBalancesFromData(expenses, splits, participants);
-      
-      // 3. Generar liquidaciones optimizadas
-      const newSettlements = this.calculateOptimalSettlements(balances);
 
-      // 4. Eliminar liquidaciones NO PAGADAS (mantener las pagadas)
+      // 3. Consolidar balances de participantes secundarios en su primario
+      //    Los secundarios no figuran como from/to en liquidaciones; su saldo lo asume el primario.
+      const secondaryMap: Record<string, string> = {}; // secondaryId -> primaryId
+      participants.forEach((p: any) => {
+        if (p.parentParticipantId) {
+          secondaryMap[p.id] = p.parentParticipantId;
+        }
+      });
+
+      const consolidatedBalances = balances.filter((b: any) => !secondaryMap[b.participantId]);
+      balances.forEach((b: any) => {
+        const primaryId = secondaryMap[b.participantId];
+        if (primaryId) {
+          const primary = consolidatedBalances.find((cb: any) => cb.participantId === primaryId);
+          if (primary) {
+            primary.totalPaid += b.totalPaid;
+            primary.totalOwed += b.totalOwed;
+            primary.balance += b.balance;
+          }
+        }
+      });
+      
+      // 4. Generar liquidaciones optimizadas (solo participantes primarios)
+      const newSettlements = this.calculateOptimalSettlements(consolidatedBalances);
+
+      // 5. Eliminar liquidaciones NO PAGADAS (mantener las pagadas)
       await this.db.runAsync(
         'DELETE FROM settlements WHERE event_id = ? AND is_paid = 0',
         [eventId]
       );
 
-      // 5. Crear nuevas liquidaciones
+      // 6. Crear nuevas liquidaciones
       const currentTime = new Date().toISOString();
       for (const settlement of newSettlements) {
         if (settlement.amount > 0.01) { // Solo crear si hay monto significativo
@@ -2885,7 +2922,73 @@ class DatabaseService {
     }
   }
 
-  // User Profile Functions
+  /**
+   * Crea un participante secundario (representado por primaryParticipantId) en un evento.
+   * El secundario se agrega a la tabla participants como 'temporary' y a event_participants
+   * con parent_participant_id apuntando al primario. También se suma a todos los gastos.
+   */
+  async addSecondaryParticipant(eventId: string, primaryParticipantId: string, name: string): Promise<string> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const secondaryId = `sec_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const now = new Date().toISOString();
+
+    try {
+      // Verificar que no exista otro participante con el mismo nombre en este evento
+      const duplicate = await this.db.getFirstAsync(
+        `SELECT ep.id FROM event_participants ep
+         JOIN participants p ON ep.participant_id = p.id
+         WHERE ep.event_id = ? AND LOWER(p.name) = LOWER(?)`,
+        [eventId, name]
+      );
+      if (duplicate) {
+        throw new Error(`Ya existe un participante llamado "${name}" en este evento`);
+      }
+
+      // Crear en tabla participants
+      await this.db.runAsync(
+        `INSERT INTO participants (id, name, email, phone, alias_cbu, avatar, is_active, participant_type, created_at, updated_at)
+         VALUES (?, ?, NULL, NULL, NULL, NULL, 1, 'temporary', ?, ?)`,
+        [secondaryId, name, now, now]
+      );
+
+      // Vincular al evento con referencia al primario
+      const epId = `ep_${secondaryId}`;
+      await this.db.runAsync(
+        `INSERT INTO event_participants (id, event_id, participant_id, role, balance, joined_at, parent_participant_id)
+         VALUES (?, ?, ?, 'member', 0, ?, ?)`,
+        [epId, eventId, secondaryId, now, primaryParticipantId]
+      );
+
+      // Agregar a todos los gastos del evento (igual que un participante normal)
+      await this.addParticipantToAllExpenses(eventId, secondaryId);
+
+      console.log(`✅ Secondary participant created: ${name} (${secondaryId}) under ${primaryParticipantId}`);
+      return secondaryId;
+    } catch (error) {
+      console.error('❌ Error adding secondary participant:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Elimina un participante secundario de un evento.
+   * Elimina sus splits (redistribuye), lo quita del event_participants y borra el registro de participants.
+   */
+  async removeSecondaryParticipant(eventId: string, secondaryParticipantId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      // Reutilizar la lógica de removeParticipantFromEvent (que ya maneja splits y redistribución)
+      await this.removeParticipantFromEvent(eventId, secondaryParticipantId);
+      console.log(`✅ Secondary participant removed: ${secondaryParticipantId}`);
+    } catch (error) {
+      console.error('❌ Error removing secondary participant:', error);
+      throw error;
+    }
+  }
+
+
   async getUserProfile(userId: string): Promise<any | null> {
     if (!this.db) throw new Error('Database not initialized');
     

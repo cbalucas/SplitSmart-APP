@@ -59,6 +59,8 @@ export default function EventDetailScreen() {
     addParticipantToEvent, 
     addExistingParticipantToEvent,
     removeParticipantFromEvent,
+    addSecondaryParticipant,
+    removeSecondaryParticipant,
     updateParticipant,
     participants,
     getPaymentsByEvent,
@@ -86,6 +88,18 @@ export default function EventDetailScreen() {
   // Estados para selección múltiple de participantes
   const [isParticipantSelectMode, setIsParticipantSelectMode] = useState(false);
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<Set<string>>(new Set());
+
+  // Estados para agregar participante secundario
+  const [addSecondaryForPrimary, setAddSecondaryForPrimary] = useState<Participant | null>(null);
+  const [secondaryNameInput, setSecondaryNameInput] = useState('');
+  const [isAddingSecondary, setIsAddingSecondary] = useState(false);
+
+  // Estado para colapsar/expandir lista de secundarios por primario
+  const [expandedSecondaries, setExpandedSecondaries] = useState<Set<string>>(new Set());
+
+  // Estados para editar nombre de participante secundario
+  const [editingSecondaryId, setEditingSecondaryId] = useState<string | null>(null);
+  const [editingSecondaryName, setEditingSecondaryName] = useState('');
 
   // Estados para selección múltiple de gastos
   const [isExpenseSelectMode, setIsExpenseSelectMode] = useState(false);
@@ -701,8 +715,55 @@ export default function EventDetailScreen() {
     );
   };
 
+  const handleAddSecondaryParticipant = async (primaryParticipant: Participant, name: string) => {
+    if (!eventId) return;
+    try {
+      await addSecondaryParticipant(eventId, primaryParticipant.id, name);
+      await loadEventData();
+    } catch (error: any) {
+      Alert.alert(t('common.error'), error.message || t('message.participantDeletedError'));
+    }
+  };
+
+  const handleSaveSecondaryName = async (secondary: Participant) => {
+    const newName = editingSecondaryName.trim();
+    if (!newName || newName === secondary.name) {
+      setEditingSecondaryId(null);
+      return;
+    }
+    try {
+      await updateParticipant(secondary.id, { name: newName });
+      await loadEventData();
+    } catch (error: any) {
+      Alert.alert(t('common.error'), error.message || t('message.participantDeletedError'));
+    } finally {
+      setEditingSecondaryId(null);
+    }
+  };
+
+  const handleRemoveSecondaryParticipant = (secondary: Participant) => {
+    Alert.alert(
+      t('participants.removeSecondary'),
+      t('participants.confirmRemoveSecondary', { name: secondary.name }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await removeSecondaryParticipant(eventId, secondary.id);
+              await loadEventData();
+            } catch (error: any) {
+              Alert.alert(t('common.error'), error.message || t('message.participantDeletedError'));
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const handleRemoveSelectedExpenses = () => {
-    if (selectedExpenseIds.size === 0) return;
     const count = selectedExpenseIds.size;
     Alert.alert(
       t('message.deleteExpenseTitle'),
@@ -1022,7 +1083,8 @@ export default function EventDetailScreen() {
     if (!event) return;
 
     const totalAmount = calculateTotalExpenses();
-    const participantCount = eventParticipants.length;
+    const primaryParticipants = eventParticipants.filter((p: any) => !p.parentParticipantId);
+    const participantCount = primaryParticipants.length;
     
     // Usar los settlements que se están mostrando actualmente (originales o consolidados)
     const currentSettlements = getDisplaySettlements();
@@ -1039,6 +1101,20 @@ export default function EventDetailScreen() {
     message += `💰 *Total gastado:* ${event.currency} $${totalAmount.toFixed(2)}\n`;
     message += `👥 *${t('eventDetail.shareParticipantsLabel')}:* ${participantCount}\n`;
     message += `━━━━━━━\n`;
+
+    // Representados: antes de las liquidaciones, formato resumido (nombre => cantidad)
+    const secondaries = eventParticipants.filter((p: any) => p.parentParticipantId);
+    if (secondaries.length > 0) {
+      message += `👨‍👦 *Representados*\n`;
+      primaryParticipants.forEach(primary => {
+        const mySecondaries = secondaries.filter((s: any) => s.parentParticipantId === primary.id);
+        if (mySecondaries.length > 0) {
+          message += `  _${primary.name}_ => ${mySecondaries.length}\n`;
+        }
+      });
+      message += `━━━━━━━\n`;
+    }
+
     message += `💸 ${t('eventDetail.shareSettlementsLabel')}\n\n`;
     if (currentSettlements.length > 0) {
       // Agrupar liquidaciones por destinatario (quien recibe el dinero)
@@ -1058,14 +1134,14 @@ export default function EventDetailScreen() {
         const cbuAlias = recipient?.alias_cbu || t('eventDetail.shareNoCbu');
         
         message += `_${recipientName}_\n`;
-        message += `💳Alias =>  *${cbuAlias}*\n`;
+        message += `💳 Alias => *${cbuAlias}*\n`;
         (settlementsForRecipient as Settlement[]).forEach((settlement: Settlement) => {
           const paymentStatus = settlement.isPaid ? ' ✅' : ' ⏳';
           const receiptIcon = settlement.receiptImage ? ' 📎' : '';
           message += `  • ${settlement.fromParticipantName}: $${formatCurrency(settlement.amount)}${paymentStatus}${receiptIcon}\n`;
         });
         if (index < recipientEntries.length - 1) {
-          message += `\n`; // línea en blanco solo entre grupos, no después del último
+          message += `\n`;
         }
       });
       message += `━━━━━━━\n`;
@@ -1139,11 +1215,29 @@ export default function EventDetailScreen() {
     message += `💵 $${formatCurrency(totalAmount)} ${event.currency}\n`;
     message += `📊 ${t('eventDetail.shareStatusLabel')} ${event.status === 'active' ? t('events.active') : event.status === 'completed' ? t('events.completed') : t('events.archived')}\n`;
     message += `━━━━━━━\n`;
-    message += `👥 ${t('eventDetail.shareParticipantsLabel')} (${eventParticipants.length}):\n`;
-    eventParticipants.forEach((p) => {
+    const primaryParticipantsFull = eventParticipants.filter((p: any) => !p.parentParticipantId);
+    message += `👥 ${t('eventDetail.shareParticipantsLabel')} (${primaryParticipantsFull.length}):\n`;
+    primaryParticipantsFull.forEach((p) => {
       message += `* ${p.name}\n`;
     });
     message += `━━━━━━━\n`;
+
+    // Representados: después de participantes, formato lista con viñetas
+    const secondariesFull = eventParticipants.filter((p: any) => p.parentParticipantId);
+    if (secondariesFull.length > 0) {
+      message += `👨‍👦 *Representados*\n`;
+      primaryParticipantsFull.forEach(primary => {
+        const mySecondariesFull = secondariesFull.filter((s: any) => s.parentParticipantId === primary.id);
+        if (mySecondariesFull.length > 0) {
+          message += `  _${primary.name}_:\n`;
+          mySecondariesFull.forEach((s: any) => {
+            message += `    * ${s.name}\n`;
+          });
+        }
+      });
+      message += `━━━━━━━\n`;
+    }
+
     message += `💸 ${t('eventDetail.shareSettlementLabel')}\n\n`;
     
     if (currentSettlements.length > 0) {
@@ -1164,14 +1258,14 @@ export default function EventDetailScreen() {
         const cbuAlias = recipient?.alias_cbu || t('eventDetail.shareNoCbu');
         
         message += `_${recipientName}_\n`;
-        message += `💳 *${cbuAlias}*\n`;
+        message += `💳 Alias => *${cbuAlias}*\n`;
         (settlementsForRecipient as Settlement[]).forEach((settlement: Settlement) => {
           const paymentStatus = settlement.isPaid ? ' ✅' : ' ⏳';
           const receiptIcon = settlement.receiptImage ? ' 📎' : '';
           message += `  • ${settlement.fromParticipantName}: $${formatCurrency(settlement.amount)}${paymentStatus}${receiptIcon}\n`;
         });
         if (index < recipientEntries2.length - 1) {
-          message += `\n`; // línea en blanco solo entre grupos
+          message += `\n`;
         }
       });
       message += `━━━━━━━\n`;
@@ -1179,7 +1273,7 @@ export default function EventDetailScreen() {
       message += `${t('eventDetail.shareSettled')}\n`;
       message += `━━━━━━━\n`;
     }
-    
+
     // Mostrar información de consolidación después de las liquidaciones
     if (consolidationAssignments.length > 0 && !showOriginalView) {
       message += `🔄 ${t('eventDetail.shareConsolidatedView')}\n\n`;
@@ -1971,18 +2065,21 @@ export default function EventDetailScreen() {
   };
 
   const renderParticipantesTab = () => {
-    // Filtrar solo participantes amigos o temporarios de este evento
-    let visibleParticipants = eventParticipants.filter(p => 
-      p.participantType === 'friend' || 
-      (p.participantType === 'temporary' && p.isActive)
+    // Separar primarios y secundarios
+    const primaryParticipants = eventParticipants.filter(p =>
+      !p.parentParticipantId &&
+      (p.participantType === 'friend' || (p.participantType === 'temporary' && p.isActive))
     );
+    const secondaryParticipants = eventParticipants.filter(p => !!p.parentParticipantId);
 
-    // Filtrar por búsqueda de participantes
+    // Filtrar primarios por búsqueda
+    let visiblePrimaries = primaryParticipants;
     if (participantSearchQuery.trim()) {
-      visibleParticipants = visibleParticipants.filter(participant =>
-        participant.name.toLowerCase().includes(participantSearchQuery.toLowerCase()) ||
-        (participant.email && participant.email.toLowerCase().includes(participantSearchQuery.toLowerCase())) ||
-        (participant.alias_cbu && participant.alias_cbu.toLowerCase().includes(participantSearchQuery.toLowerCase()))
+      const q = participantSearchQuery.toLowerCase();
+      visiblePrimaries = primaryParticipants.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        (p.email && p.email.toLowerCase().includes(q)) ||
+        (p.alias_cbu && p.alias_cbu.toLowerCase().includes(q))
       );
     }
 
@@ -1992,10 +2089,69 @@ export default function EventDetailScreen() {
       assignmentMap[a.debtorId] = a.payerId;
     });
 
+    // Función que calcula el balance de un participante (primario o secundario)
+    const calcBalance = (participant: Participant) => {
+      const totalPaid = eventExpenses.reduce((sum, e) => {
+        if (e.payers && e.payers.length > 0) {
+          const mp = e.payers.find((p: any) => p.participantId === participant.id);
+          return sum + (mp ? mp.amount : 0);
+        }
+        return e.payerId === participant.id ? sum + e.amount : sum;
+      }, 0);
+      const totalOwed = eventSplits
+        .filter(s => s.participantId === participant.id)
+        .reduce((sum, s) => sum + s.amount, 0);
+      const paidByParticipant = dbSettlements
+        .filter((s: any) => s.fromParticipantId === participant.id && s.isPaid)
+        .reduce((sum: number, s: any) => sum + s.amount, 0);
+      const receivedByParticipant = dbSettlements
+        .filter((s: any) => s.toParticipantId === participant.id && s.isPaid)
+        .reduce((sum: number, s: any) => sum + s.amount, 0);
+      const forgivenAmount = dbSettlements
+        .filter((s: any) => {
+          if (s.isPaid) return false;
+          const actualPayer = assignmentMap[s.fromParticipantId] || s.fromParticipantId;
+          return s.fromParticipantId === participant.id && actualPayer === s.toParticipantId;
+        })
+        .reduce((sum: number, s: any) => sum + s.amount, 0);
+      const absorbedByThirdParty = dbSettlements
+        .filter((s: any) => {
+          if (s.isPaid) return false;
+          if (s.fromParticipantId !== participant.id) return false;
+          const actualPayer = assignmentMap[s.fromParticipantId];
+          return actualPayer !== undefined && actualPayer !== s.toParticipantId;
+        })
+        .reduce((sum: number, s: any) => sum + s.amount, 0);
+      const forgivenToOthers = dbSettlements
+        .filter((s: any) => {
+          if (s.isPaid) return false;
+          const actualPayer = assignmentMap[s.fromParticipantId];
+          return s.toParticipantId === participant.id &&
+                 actualPayer === participant.id &&
+                 s.fromParticipantId !== participant.id;
+        })
+        .reduce((sum: number, s: any) => sum + s.amount, 0);
+      const absorbedFromOthers = dbSettlements
+        .filter((s: any) => {
+          if (s.isPaid) return false;
+          const actualPayer = assignmentMap[s.fromParticipantId];
+          return actualPayer === participant.id &&
+                 s.fromParticipantId !== participant.id &&
+                 s.toParticipantId !== participant.id;
+        })
+        .reduce((sum: number, s: any) => sum + s.amount, 0);
+      return (totalPaid - totalOwed)
+        + paidByParticipant
+        - receivedByParticipant
+        + forgivenAmount
+        + absorbedByThirdParty
+        - forgivenToOthers
+        - absorbedFromOthers;
+    };
+
     return (
       <View style={styles.tabContent}>
         <View style={{ paddingHorizontal: 16 }}>
-          {/* Barra de búsqueda de participantes */}
           <SearchBar
             value={participantSearchQuery}
             onChangeText={setParticipantSearchQuery}
@@ -2045,7 +2201,7 @@ export default function EventDetailScreen() {
           ) : (
             <>
               <Text style={styles.sectionTitle}>
-                👥 {t('participants.title')} ({visibleParticipants.length}{visibleParticipants.length !== eventParticipants.length ? ` de ${eventParticipants.length}` : ''})
+                👥 {t('participants.title')} ({visiblePrimaries.length}{visiblePrimaries.length !== primaryParticipants.length ? ` de ${primaryParticipants.length}` : ''})
               </Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 {event?.status === 'active' && (
@@ -2057,7 +2213,7 @@ export default function EventDetailScreen() {
                     <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 14 }}>{t('common.add')}</Text>
                   </TouchableOpacity>
                 )}
-                {event?.status === 'active' && visibleParticipants.length > 1 && (
+                {event?.status === 'active' && visiblePrimaries.length > 1 && (
                   <TouchableOpacity
                     style={{ backgroundColor: theme.colors.error + '15', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 }}
                     onPress={() => { setIsParticipantSelectMode(true); setSelectedParticipantIds(new Set()); }}
@@ -2073,221 +2229,356 @@ export default function EventDetailScreen() {
         <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
           <Card style={{ marginHorizontal: 16, marginTop: 8, marginBottom: 16 }}>
 
-          {visibleParticipants.length === 0 ? (
+          {visiblePrimaries.length === 0 ? (
             <View style={styles.emptyState}>
               <MaterialCommunityIcons name="account-group" size={48} color={theme.colors.onSurfaceVariant} />
               <Text style={styles.emptyText}>{t('participants.noParticipants')}</Text>
               <Text style={styles.emptySubtext}>{t('participants.noParticipantsDesc')}</Text>
             </View>
           ) : (
-            visibleParticipants.map(participant => {
-            // Calcular directamente desde eventExpenses y eventSplits para garantizar datos frescos
-            const totalPaid = eventExpenses.reduce((sum, e) => {
-              if (e.payers && e.payers.length > 0) {
-                const mp = e.payers.find((p: any) => p.participantId === participant.id);
-                return sum + (mp ? mp.amount : 0);
-              }
-              return e.payerId === participant.id ? sum + e.amount : sum;
-            }, 0);
-            const totalOwed = eventSplits
-              .filter(s => s.participantId === participant.id)
-              .reduce((sum, s) => sum + s.amount, 0);
-            // Ajustar por settlements pagados
-            const paidByParticipant = dbSettlements
-              .filter((s: any) => s.fromParticipantId === participant.id && s.isPaid)
-              .reduce((sum: number, s: any) => sum + s.amount, 0);
-            const receivedByParticipant = dbSettlements
-              .filter((s: any) => s.toParticipantId === participant.id && s.isPaid)
-              .reduce((sum: number, s: any) => sum + s.amount, 0);
-            // Monto condonado (auto-cancelación, solo no pagados para evitar doble conteo con paidByParticipant)
-            const forgivenAmount = dbSettlements
-              .filter((s: any) => {
-                if (s.isPaid) return false; // evitar doble conteo con paidByParticipant
-                const actualPayer = assignmentMap[s.fromParticipantId] || s.fromParticipantId;
-                return s.fromParticipantId === participant.id && actualPayer === s.toParticipantId;
-              })
-              .reduce((sum: number, s: any) => sum + s.amount, 0);
-            // Monto absorbido por tercero C: "Pagado por otro" — también reduce el balance del deudor A
-            const absorbedByThirdParty = dbSettlements
-              .filter((s: any) => {
-                if (s.isPaid) return false; // evitar doble conteo con paidByParticipant
-                if (s.fromParticipantId !== participant.id) return false;
-                const actualPayer = assignmentMap[s.fromParticipantId];
-                return actualPayer !== undefined && actualPayer !== s.toParticipantId;
-              })
-              .reduce((sum: number, s: any) => sum + s.amount, 0);
-            // Monto que este participante perdonó siendo acreedor (solo no pagados)
-            const forgivenToOthers = dbSettlements
-              .filter((s: any) => {
-                if (s.isPaid) return false; // evitar doble conteo con receivedByParticipant
-                const actualPayer = assignmentMap[s.fromParticipantId];
-                return s.toParticipantId === participant.id &&
-                       actualPayer === participant.id &&
-                       s.fromParticipantId !== participant.id;
-              })
-              .reduce((sum: number, s: any) => sum + s.amount, 0);
-            // Monto que este participante absorbió de otros (solo no pagados)
-            const absorbedFromOthers = dbSettlements
-              .filter((s: any) => {
-                if (s.isPaid) return false; // evitar doble conteo con paidByParticipant
-                const actualPayer = assignmentMap[s.fromParticipantId];
-                return actualPayer === participant.id &&
-                       s.fromParticipantId !== participant.id &&
-                       s.toParticipantId !== participant.id;
-              })
-              .reduce((sum: number, s: any) => sum + s.amount, 0);
+            visiblePrimaries.map(participant => {
+              // Secundarios de este primario
+              const mySecondaries = secondaryParticipants.filter(s => s.parentParticipantId === participant.id);
 
-            // Monto efectivamente adeudado (visible al usuario, descuenta lo condonado/absorbido)
-            const effectiveOwed = Math.max(0, totalOwed - forgivenAmount - absorbedByThirdParty);
+              // Balance del primario + suma de balances de sus secundarios (consolidado)
+              const balance = calcBalance(participant)
+                + mySecondaries.reduce((sum, sec) => sum + calcBalance(sec), 0);
 
-            // balance positivo = le deben (verde), negativo = debe (rojo)
-            const balance = (totalPaid - totalOwed)
-              + paidByParticipant       // settlements que ya pagó → reduce deuda
-              - receivedByParticipant   // settlements que ya recibió → reduce crédito
-              + forgivenAmount          // deuda perdonada por el acreedor → reduce deuda del deudor
-              + absorbedByThirdParty    // deuda asumida por un tercero → reduce deuda del deudor
-              - forgivenToOthers        // crédito que perdonó siendo acreedor → reduce su crédito
-              - absorbedFromOthers;     // deuda extra asumida de otros → aumenta su deuda
+              const totalOwed = eventSplits
+                .filter(s => s.participantId === participant.id)
+                .reduce((sum, s) => sum + s.amount, 0);
+              const totalPaid = eventExpenses.reduce((sum, e) => {
+                if (e.payers && e.payers.length > 0) {
+                  const mp = e.payers.find((p: any) => p.participantId === participant.id);
+                  return sum + (mp ? mp.amount : 0);
+                }
+                return e.payerId === participant.id ? sum + e.amount : sum;
+              }, 0);
+              const forgivenAmount = dbSettlements
+                .filter((s: any) => {
+                  if (s.isPaid) return false;
+                  const actualPayer = assignmentMap[s.fromParticipantId] || s.fromParticipantId;
+                  return s.fromParticipantId === participant.id && actualPayer === s.toParticipantId;
+                })
+                .reduce((sum: number, s: any) => sum + s.amount, 0);
+              const absorbedByThirdParty = dbSettlements
+                .filter((s: any) => {
+                  if (s.isPaid) return false;
+                  if (s.fromParticipantId !== participant.id) return false;
+                  const actualPayer = assignmentMap[s.fromParticipantId];
+                  return actualPayer !== undefined && actualPayer !== s.toParticipantId;
+                })
+                .reduce((sum: number, s: any) => sum + s.amount, 0);
+              const effectiveOwed = Math.max(0, totalOwed - forgivenAmount - absorbedByThirdParty);
 
-            // Debug log para diagnosticar problemas de balance
-            if (consolidationAssignments.length > 0) {
-              console.log(`👤 Balance [${participant.name}]:`, {
-                totalPaid, totalOwed, effectiveOwed,
-                paidByParticipant, receivedByParticipant,
-                forgivenAmount, absorbedByThirdParty,
-                forgivenToOthers, absorbedFromOthers,
-                balance
-              });
-            }
-            
-            const isSelected = selectedParticipantIds.has(participant.id);
-            const hasExpenses = totalPaid > 0;
+              const isSelected = selectedParticipantIds.has(participant.id);
+              const hasExpenses = totalPaid > 0;
 
-            return (
-              <TouchableOpacity
-                key={participant.id}
-                style={[
-                  styles.participantItem,
-                  isParticipantSelectMode && isSelected && { backgroundColor: theme.colors.primary + '18' },
-                  isParticipantSelectMode && hasExpenses && { opacity: 0.45 }
-                ]}
-                onPress={() => {
-                  if (isParticipantSelectMode) {
-                    if (hasExpenses) {
-                      Alert.alert(
-                        t('common.error'),
-                        t('participants.cannotDeleteHasExpenses', { name: participant.name })
-                      );
-                      return;
-                    }
-                    const next = new Set(selectedParticipantIds);
-                    if (next.has(participant.id)) next.delete(participant.id);
-                    else next.add(participant.id);
-                    setSelectedParticipantIds(next);
-                  } else {
-                    setSelectedParticipantForInfo(participant);
-                    setParticipantInfoModalVisible(true);
-                  }
-                }}
-                activeOpacity={0.7}
-              >
-                {isParticipantSelectMode && (
-                  <View style={{ marginRight: 10, justifyContent: 'center' }}>
-                    <MaterialCommunityIcons
-                      name={hasExpenses ? 'lock-outline' : isSelected ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'}
-                      size={24}
-                      color={hasExpenses ? theme.colors.onSurfaceVariant : isSelected ? theme.colors.primary : theme.colors.onSurfaceVariant}
-                    />
-                  </View>
-                )}
-                <View style={styles.participantInfo}>
-                  <View style={[
-                    styles.participantAvatar,
-                    { backgroundColor: participant.participantType === 'friend' ? theme.colors.success : theme.colors.warning }
-                  ]}>
-                    <MaterialCommunityIcons
-                      name={participant.participantType === 'friend' ? 'heart' : 'clock'}
-                      size={20}
-                      color={participant.participantType === 'friend' ? theme.colors.onSuccess : theme.colors.onWarning}
-                    />
-                  </View>
-                  <View style={styles.participantDetails}>
-                    <View style={styles.participantNameContainer}>
-                      <Text style={styles.participantName}>{participant.name}</Text>
-                    </View>
-                    {consolidationAssignments.some((a: any) => a.debtorId === participant.id) && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, marginBottom: 1 }}>
+              return (
+                <View key={participant.id}>
+                  {/* ── FILA PARTICIPANTE PRIMARIO ── */}
+                  <TouchableOpacity
+                    style={[
+                      styles.participantItem,
+                      isParticipantSelectMode && isSelected && { backgroundColor: theme.colors.primary + '18' },
+                      isParticipantSelectMode && hasExpenses && { opacity: 0.45 }
+                    ]}
+                    onPress={() => {
+                      if (isParticipantSelectMode) {
+                        if (hasExpenses) {
+                          Alert.alert(
+                            t('common.error'),
+                            t('participants.cannotDeleteHasExpenses', { name: participant.name })
+                          );
+                          return;
+                        }
+                        const next = new Set(selectedParticipantIds);
+                        if (next.has(participant.id)) next.delete(participant.id);
+                        else next.add(participant.id);
+                        setSelectedParticipantIds(next);
+                      } else {
+                        setSelectedParticipantForInfo(participant);
+                        setParticipantInfoModalVisible(true);
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    {isParticipantSelectMode && (
+                      <View style={{ marginRight: 10, justifyContent: 'center' }}>
                         <MaterialCommunityIcons
-                          name={forgivenAmount > 0 ? 'cancel' : 'account-arrow-right'}
-                          size={11}
-                          color="#FF9800"
+                          name={hasExpenses ? 'lock-outline' : isSelected ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'}
+                          size={24}
+                          color={hasExpenses ? theme.colors.onSurfaceVariant : isSelected ? theme.colors.primary : theme.colors.onSurfaceVariant}
                         />
-                        <Text style={{ fontSize: 10, color: '#FF9800', marginLeft: 3, fontWeight: '600' }}>
-                          {forgivenAmount > 0
-                            ? `Deuda condonada ($${forgivenAmount.toFixed(2)})`
-                            : 'Pagado por otro'}
-                        </Text>
                       </View>
                     )}
-                    {participant.alias_cbu && (
-                      <Text style={styles.participantEmail}>💳 {participant.alias_cbu}</Text>
-                    )}
-                    {participant.phone && (
-                      <Text style={styles.participantEmail}>📞 {participant.phone}</Text>
-                    )}
-                    <View style={{ flexDirection: 'column', gap: 2, marginTop: 3 }}>
-                      {totalPaid > 0 && (
-                        <Text style={{ fontSize: 13, color: '#388E3C', fontWeight: '500' }}>💰 ${totalPaid.toFixed(2)}</Text>
-                      )}
-                      {/* Mostrar monto efectivo adeudado (descuenta condonación y absorción) */}
-                      {effectiveOwed < totalOwed && totalOwed > 0 ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                          <Text style={{ fontSize: 13, color: theme.colors.onSurfaceVariant, textDecorationLine: 'line-through' }}>
-                            💵 ${totalOwed.toFixed(2)}
-                          </Text>
-                          {effectiveOwed > 0 && (
-                            <Text style={{ fontSize: 13, color: theme.colors.error, fontWeight: '500' }}>
-                              → ${effectiveOwed.toFixed(2)}
+                    <View style={styles.participantInfo}>
+                      <View style={[
+                        styles.participantAvatar,
+                        { backgroundColor: participant.participantType === 'friend' ? theme.colors.success : theme.colors.warning }
+                      ]}>
+                        <MaterialCommunityIcons
+                          name={participant.participantType === 'friend' ? 'heart' : 'clock'}
+                          size={20}
+                          color={participant.participantType === 'friend' ? theme.colors.onSuccess : theme.colors.onWarning}
+                        />
+                      </View>
+                      <View style={styles.participantDetails}>
+                        <View style={styles.participantNameContainer}>
+                          <Text style={styles.participantName}>{participant.name}</Text>
+                        </View>
+                        {consolidationAssignments.some((a: any) => a.debtorId === participant.id) && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, marginBottom: 1 }}>
+                            <MaterialCommunityIcons
+                              name={forgivenAmount > 0 ? 'cancel' : 'account-arrow-right'}
+                              size={11}
+                              color="#FF9800"
+                            />
+                            <Text style={{ fontSize: 10, color: '#FF9800', marginLeft: 3, fontWeight: '600' }}>
+                              {forgivenAmount > 0
+                                ? `Deuda condonada ($${forgivenAmount.toFixed(2)})`
+                                : 'Pagado por otro'}
                             </Text>
+                          </View>
+                        )}
+                        {participant.alias_cbu && (
+                          <Text style={styles.participantEmail}>💳 {participant.alias_cbu}</Text>
+                        )}
+                        {participant.phone && (
+                          <Text style={styles.participantEmail}>📞 {participant.phone}</Text>
+                        )}
+                        <View style={{ flexDirection: 'column', gap: 2, marginTop: 3 }}>
+                          {totalPaid > 0 && (
+                            <Text style={{ fontSize: 13, color: '#388E3C', fontWeight: '500' }}>💰 ${totalPaid.toFixed(2)}</Text>
+                          )}
+                          {effectiveOwed < totalOwed && totalOwed > 0 ? (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                              <Text style={{ fontSize: 13, color: theme.colors.onSurfaceVariant, textDecorationLine: 'line-through' }}>
+                                💵 ${totalOwed.toFixed(2)}
+                              </Text>
+                              {effectiveOwed > 0 && (
+                                <Text style={{ fontSize: 13, color: theme.colors.error, fontWeight: '500' }}>
+                                  → ${effectiveOwed.toFixed(2)}
+                                </Text>
+                              )}
+                            </View>
+                          ) : (
+                            <Text style={{ fontSize: 13, color: theme.colors.error, fontWeight: '500' }}>💵 ${effectiveOwed.toFixed(2)}</Text>
                           )}
                         </View>
-                      ) : (
-                        <Text style={{ fontSize: 13, color: theme.colors.error, fontWeight: '500' }}>💵 ${effectiveOwed.toFixed(2)}</Text>
-                      )}
+                      </View>
                     </View>
-                  </View>
-                </View>
-                <View style={styles.participantRightSection}>
-                  {event?.status === 'active' && !isParticipantSelectMode && (
-                    <View style={styles.participantActions}>
-                      {participant.participantType === 'temporary' && (
-                        <TouchableOpacity 
-                          style={styles.editParticipantButton}
-                          onPress={() => handleEditParticipant(participant)}
-                        >
-                          <MaterialCommunityIcons name="pencil" size={18} color={theme.colors.primary} />
-                        </TouchableOpacity>
+                    <View style={styles.participantRightSection}>
+                      {event?.status === 'active' && !isParticipantSelectMode && (
+                        <View style={styles.participantActions}>
+                          {participant.participantType === 'temporary' && (
+                            <TouchableOpacity
+                              style={styles.editParticipantButton}
+                              onPress={() => handleEditParticipant(participant)}
+                            >
+                              <MaterialCommunityIcons name="pencil" size={18} color={theme.colors.primary} />
+                            </TouchableOpacity>
+                          )}
+                          {/* Botón + para agregar representado */}
+                          <TouchableOpacity
+                            style={[styles.editParticipantButton, { marginLeft: 4 }]}
+                            onPress={() => {
+                              // Buscar el próximo número libre (evita colisiones si se borró uno intermedio)
+                              const existingNames = new Set(
+                                eventParticipants
+                                  .filter(p => p.parentParticipantId === participant.id)
+                                  .map(p => p.name.toLowerCase())
+                              );
+                              let n = 1;
+                              while (existingNames.has(`${participant.name.toLowerCase()} - nro ${n}`)) {
+                                n++;
+                              }
+                              const defaultName = `${participant.name} - Nro ${n}`;
+                              handleAddSecondaryParticipant(participant, defaultName);
+                            }}
+                          >
+                            <MaterialCommunityIcons name="account-plus-outline" size={18} color={theme.colors.primary} />
+                          </TouchableOpacity>
+                        </View>
                       )}
+                      <View style={styles.participantStats}>
+                        <Text style={[
+                          styles.participantBalance,
+                          {
+                            color: balance > 0.01 ? theme.colors.success :
+                                   balance < -0.01 ? theme.colors.error : theme.colors.onSurfaceVariant
+                          }
+                        ]}>
+                          {balance > 0.01 ? `+$${balance.toFixed(2)}` :
+                           balance < -0.01 ? `-$${Math.abs(balance).toFixed(2)}` :
+                           '$0.00'}
+                        </Text>
+                      </View>
                     </View>
-                  )}
-                  <View style={styles.participantStats}>
-                    <Text style={[
-                      styles.participantBalance,
-                      {
-                        color: balance > 0.01 ? theme.colors.success : 
-                               balance < -0.01 ? theme.colors.error : theme.colors.onSurfaceVariant
-                      }
-                    ]}>
-                      {balance > 0.01 ? `+$${balance.toFixed(2)}` :
-                       balance < -0.01 ? `-$${Math.abs(balance).toFixed(2)}` :
-                       '$0.00'}
-                    </Text>
-                  </View>
+                  </TouchableOpacity>
+
+                  {/* ── FILAS DE PARTICIPANTES SECUNDARIOS ── */}
+                  {mySecondaries.length > 0 && (() => {
+                    const isExpanded = mySecondaries.length === 1 || expandedSecondaries.has(participant.id) || isParticipantSelectMode;
+                    const toggleExpanded = () => {
+                      if (mySecondaries.length <= 1) return;
+                      const next = new Set(expandedSecondaries);
+                      if (next.has(participant.id)) next.delete(participant.id);
+                      else next.add(participant.id);
+                      setExpandedSecondaries(next);
+                    };
+                    return (
+                      <>
+                        {/* Header colapsable solo si hay más de 1 secundario */}
+                        {mySecondaries.length > 1 && (
+                          <TouchableOpacity
+                            onPress={toggleExpanded}
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              paddingVertical: 6,
+                              paddingLeft: 36,
+                              paddingRight: 12,
+                              backgroundColor: theme.colors.surfaceVariant + '60',
+                              borderBottomWidth: 1,
+                              borderBottomColor: theme.colors.outline + '20',
+                            }}
+                          >
+                            <MaterialCommunityIcons
+                              name={isExpanded ? 'chevron-down' : 'chevron-right'}
+                              size={16}
+                              color={theme.colors.onSurfaceVariant}
+                              style={{ marginRight: 4 }}
+                            />
+                            <Text style={{ flex: 1, fontSize: 12, color: theme.colors.onSurfaceVariant, fontWeight: '600' }}>
+                              Part. Secundarios ({mySecondaries.length})
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+
+                        {/* Filas de secundarios */}
+                        {isExpanded && mySecondaries.map(secondary => {
+                          const secBalance = calcBalance(secondary);
+                          const isEditingThis = editingSecondaryId === secondary.id;
+                          const isSecSelected = selectedParticipantIds.has(secondary.id);
+                          return (
+                            <TouchableOpacity
+                              key={secondary.id}
+                              activeOpacity={isParticipantSelectMode ? 0.6 : 1}
+                              onPress={() => {
+                                if (isParticipantSelectMode) {
+                                  const next = new Set(selectedParticipantIds);
+                                  if (next.has(secondary.id)) next.delete(secondary.id);
+                                  else next.add(secondary.id);
+                                  setSelectedParticipantIds(next);
+                                }
+                              }}
+                              style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                paddingVertical: 8,
+                                paddingLeft: 36,
+                                paddingRight: 12,
+                                borderBottomWidth: 1,
+                                borderBottomColor: theme.colors.outline + '20',
+                                backgroundColor: isParticipantSelectMode && isSecSelected
+                                  ? theme.colors.primary + '18'
+                                  : theme.colors.surfaceVariant + '40',
+                                gap: 6,
+                              }}
+                            >
+                              {/* Checkbox en modo selección */}
+                              {isParticipantSelectMode && (
+                                <MaterialCommunityIcons
+                                  name={isSecSelected ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'}
+                                  size={20}
+                                  color={isSecSelected ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                                  style={{ marginRight: 2 }}
+                                />
+                              )}
+
+                              {/* Icono */}
+                              {!isParticipantSelectMode && (
+                                <MaterialCommunityIcons name="account-child-outline" size={18} color={theme.colors.onSurfaceVariant} />
+                              )}
+
+                              {/* Nombre (editable o texto) */}
+                              {isEditingThis && !isParticipantSelectMode ? (
+                                <TextInput
+                                  style={{
+                                    flex: 1,
+                                    fontSize: 13,
+                                    color: theme.colors.onSurface,
+                                    borderBottomWidth: 1,
+                                    borderBottomColor: theme.colors.primary,
+                                    paddingVertical: 2,
+                                  }}
+                                  value={editingSecondaryName}
+                                  onChangeText={setEditingSecondaryName}
+                                  autoFocus
+                                  returnKeyType="done"
+                                  onSubmitEditing={() => handleSaveSecondaryName(secondary)}
+                                  onBlur={() => handleSaveSecondaryName(secondary)}
+                                />
+                              ) : (
+                                <Text style={{ flex: 1, fontSize: 13, color: theme.colors.onSurface, fontWeight: '500' }} numberOfLines={1}>
+                                  {secondary.name}
+                                </Text>
+                              )}
+
+                              {/* Lápiz editar */}
+                              {event?.status === 'active' && !isParticipantSelectMode && (
+                                isEditingThis ? (
+                                  <TouchableOpacity
+                                    onPress={() => handleSaveSecondaryName(secondary)}
+                                    style={{ padding: 4 }}
+                                  >
+                                    <MaterialCommunityIcons name="check" size={16} color={theme.colors.primary} />
+                                  </TouchableOpacity>
+                                ) : (
+                                  <TouchableOpacity
+                                    style={{ padding: 4 }}
+                                    onPress={() => {
+                                      setEditingSecondaryId(secondary.id);
+                                      setEditingSecondaryName(secondary.name);
+                                    }}
+                                  >
+                                    <MaterialCommunityIcons name="pencil-outline" size={16} color={theme.colors.primary} />
+                                  </TouchableOpacity>
+                                )
+                              )}
+
+                              {/* Monto */}
+                              <Text style={{
+                                fontSize: 13,
+                                fontWeight: '600',
+                                color: secBalance > 0.01 ? theme.colors.success :
+                                       secBalance < -0.01 ? theme.colors.error : theme.colors.onSurfaceVariant,
+                                minWidth: 56,
+                                textAlign: 'right',
+                              }}>
+                                {secBalance > 0.01 ? `+$${secBalance.toFixed(2)}` :
+                                 secBalance < -0.01 ? `-$${Math.abs(secBalance).toFixed(2)}` :
+                                 '$0.00'}
+                              </Text>
+
+                              {/* Eliminar */}
+                              {event?.status === 'active' && !isParticipantSelectMode && (
+                                <TouchableOpacity onPress={() => handleRemoveSecondaryParticipant(secondary)} style={{ padding: 4 }}>
+                                  <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.error} />
+                                </TouchableOpacity>
+                              )}
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </>
+                    );
+                  })()}
+
                 </View>
-              </TouchableOpacity>
-            );
-          })
-        )}
+              );
+            })
+          )}
           </Card>
         </ScrollView>
       </View>
@@ -3612,19 +3903,46 @@ export default function EventDetailScreen() {
                   {/* 📊 División del Gasto */}
                   <View style={styles.expenseDetailSection}>
                     <Text style={styles.expenseDetailTitle}>
-                      📊 {t('expenses.expenseDivision')} ({selectedExpenseForDetail.splits.length} {t('expenses.participants')})
+                      📊 {t('expenses.expenseDivision')} ({selectedExpenseForDetail.splits.filter((s: any) => !eventParticipants.find(p => p.id === s.participantId && (p as any).parentParticipantId)).length} {t('expenses.participants')})
                     </Text>
-                    {selectedExpenseForDetail.splits.map((split: any) => {
+                    {(() => {
+                      const primaries = eventParticipants
+                        .filter(p => !((p as any).parentParticipantId))
+                        .sort((a, b) => a.name.localeCompare(b.name));
+                      const sortedSplits: any[] = [];
+                      primaries.forEach(primary => {
+                        const ps = selectedExpenseForDetail.splits.find((s: any) => s.participantId === primary.id);
+                        if (ps) sortedSplits.push(ps);
+                        const secSplits = selectedExpenseForDetail.splits
+                          .filter((s: any) => {
+                            const p = eventParticipants.find(ep => ep.id === s.participantId);
+                            return (p as any)?.parentParticipantId === primary.id;
+                          })
+                          .sort((a: any, b: any) => {
+                            const pa = eventParticipants.find(ep => ep.id === a.participantId);
+                            const pb = eventParticipants.find(ep => ep.id === b.participantId);
+                            return (pa?.name || '').localeCompare(pb?.name || '');
+                          });
+                        sortedSplits.push(...secSplits);
+                      });
+                      return sortedSplits.map((split: any) => {
                       const participant = eventParticipants.find(p => p.id === split.participantId);
+                      const isSecondary = !!(participant as any)?.parentParticipantId;
                       return (
                         <React.Fragment key={split.id}>
-                          <View style={styles.expenseDetailRow}>
-                            <Text style={styles.expenseDetailLabel}>• {participant?.name}:</Text>
-                            <Text style={styles.expenseDetailValue}>${split.amount.toFixed(2)}</Text>
+                          <View style={[styles.expenseDetailRow, isSecondary && { paddingLeft: 28 }]}>
+                            <Text style={[styles.expenseDetailLabel, isSecondary && { color: theme.colors.secondary, fontSize: 13 }]}>
+                              {isSecondary ? '↳' : '•'} {participant?.name}:
+                            </Text>
+                            <Text style={[styles.expenseDetailValue, isSecondary && { color: theme.colors.secondary, fontSize: 13 }]}>
+                              ${split.amount.toFixed(2)}
+                            </Text>
                           </View>
                         </React.Fragment>
                       );
-                    })}
+                    });
+                    })()
+                    }
                   </View>
 
                   {/* 📷 Comprobante */}

@@ -40,6 +40,7 @@ export interface Participant {
   eventIds?: string[];
   createdAt?: string;
   updatedAt?: string;
+  parentParticipantId?: string; // sólo presente cuando se carga como parte de un evento
 }
 
 export interface EventParticipant {
@@ -49,6 +50,7 @@ export interface EventParticipant {
   role: 'owner' | 'admin' | 'member' | 'viewer';
   balance?: number;
   joinedAt?: string;
+  parentParticipantId?: string; // si está definido, es un participante secundario
 }
 
 export interface ExpensePayer {

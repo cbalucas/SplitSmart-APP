@@ -35,6 +35,8 @@ interface DataContextValue {
   getPaymentsByEvent: (eventId: string) => Promise<Payment[]>;
   // Participant management
   removeParticipantFromEvent: (eventId: string, participantId: string) => Promise<void>;
+  addSecondaryParticipant: (eventId: string, primaryParticipantId: string, name: string) => Promise<string>;
+  removeSecondaryParticipant: (eventId: string, secondaryParticipantId: string) => Promise<void>;
   // User Profile methods
   getUserProfile: (userId: string) => Promise<any | null>;
   getUserByCredential: (credential: string) => Promise<any | null>;
@@ -86,6 +88,8 @@ const DataContext = createContext<DataContextValue>({
   createPayment: async () => {},
   updatePayment: async () => {},
   getPaymentsByEvent: async () => [],
+  addSecondaryParticipant: async () => '',
+  removeSecondaryParticipant: async () => {},
   removeParticipantFromEvent: async () => {},
   refreshData: async () => {},
   clearAllData: async () => {},
@@ -1136,6 +1140,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshData]);
 
+  const addSecondaryParticipant = useCallback(async (eventId: string, primaryParticipantId: string, name: string): Promise<string> => {
+    try {
+      const secondaryId = await databaseService.addSecondaryParticipant(eventId, primaryParticipantId, name);
+      await databaseService.recalculateSettlementsForEvent(eventId);
+      await refreshData();
+      console.log('✅ Secondary participant added:', name);
+      return secondaryId;
+    } catch (error) {
+      console.error('❌ Error adding secondary participant:', error);
+      throw error;
+    }
+  }, [refreshData]);
+
+  const removeSecondaryParticipant = useCallback(async (eventId: string, secondaryParticipantId: string): Promise<void> => {
+    try {
+      await databaseService.removeSecondaryParticipant(eventId, secondaryParticipantId);
+      await databaseService.recalculateSettlementsForEvent(eventId);
+      await refreshData();
+      console.log('✅ Secondary participant removed');
+    } catch (error) {
+      console.error('❌ Error removing secondary participant:', error);
+      throw error;
+    }
+  }, [refreshData]);
+
   return (
     <DataContext.Provider value={{
       events,
@@ -1171,6 +1200,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updatePayment,
       getPaymentsByEvent,
       removeParticipantFromEvent,
+      addSecondaryParticipant,
+      removeSecondaryParticipant,
       refreshData,
       clearAllData,
       resetDatabase,

@@ -277,8 +277,8 @@ const CreateExpenseScreen: React.FC = () => {
         });
         setParticipantsPeopleCount(peopleCountMap);
 
-        // Inicializar multiPayers con todos los participantes (no seleccionados)
-        setMultiPayers(participants.map(p => ({
+        // Inicializar multiPayers solo con participantes primarios (sin secundarios)
+        setMultiPayers(participants.filter(p => !p.parentParticipantId).map(p => ({
           participantId: p.id,
           amount: '',
           isSelected: false
@@ -343,7 +343,7 @@ const CreateExpenseScreen: React.FC = () => {
             // Cargar datos de múltiples pagadores si existen
             if (expense.payers && expense.payers.length > 1) {
               setIsMultiplePayers(true);
-              setMultiPayers(eventParticipants.map(p => {
+              setMultiPayers(eventParticipants.filter(p => !p.parentParticipantId).map(p => {
                 const payer = expense.payers!.find(mp => mp.participantId === p.id);
                 return {
                   participantId: p.id,
@@ -974,15 +974,27 @@ const CreateExpenseScreen: React.FC = () => {
   };
 
   // Participantes ordenados alfabéticamente para el pagador con filtro
+  // Los participantes secundarios (parentParticipantId definido) no pueden ser pagadores
   const sortedParticipantsForPayer = useMemo(() => {
     return eventParticipants
-      .filter(p => p.name.toLowerCase().includes(payerSearchQuery.toLowerCase()))
+      .filter(p => !p.parentParticipantId && p.name.toLowerCase().includes(payerSearchQuery.toLowerCase()))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [eventParticipants, payerSearchQuery]);
 
-  // Participantes ordenados alfabéticamente para la división
+  // Participantes ordenados para la división: primarios alfabéticamente, secundarios debajo de su primario
   const sortedParticipantsForSplit = useMemo(() => {
-    return eventParticipants.sort((a, b) => a.name.localeCompare(b.name));
+    const primaries = eventParticipants
+      .filter(p => !p.parentParticipantId)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const result: typeof eventParticipants = [];
+    primaries.forEach(primary => {
+      result.push(primary);
+      const secondaries = eventParticipants
+        .filter(p => p.parentParticipantId === primary.id)
+        .sort((a, b) => a.name.localeCompare(b.name));
+      result.push(...secondaries);
+    });
+    return result;
   }, [eventParticipants]);
 
   return (
@@ -1185,12 +1197,13 @@ const CreateExpenseScreen: React.FC = () => {
               const split = formData.splits.find(s => s.participantId === participant.id);
               const isIncluded = !!split;
               const amount = split?.amount || 0;
-              const percentage = split?.percentage || 0;
+              const isSecondary = !!(participant as any).parentParticipantId;
               
               return (
                 <View key={participant.id} style={[
                   styles.unifiedParticipantRow,
-                  !isIncluded && styles.unifiedParticipantRowExcluded
+                  !isIncluded && styles.unifiedParticipantRowExcluded,
+                  isSecondary && { paddingLeft: 28, backgroundColor: theme.colors.surfaceVariant + '30' }
                 ]}>
                   <TouchableOpacity
                     style={styles.participantToggle}
@@ -1199,12 +1212,14 @@ const CreateExpenseScreen: React.FC = () => {
                     <MaterialCommunityIcons
                       name={isIncluded ? 'checkbox-marked' : 'checkbox-blank-outline'}
                       size={20}
-                      color={isIncluded ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                      color={isIncluded ? (isSecondary ? theme.colors.secondary : theme.colors.primary) : theme.colors.onSurfaceVariant}
                     />
                     <Text style={[
                       styles.participantName,
                       isIncluded && styles.participantNameActive,
-                      !isIncluded && styles.participantNameExcluded
+                      !isIncluded && styles.participantNameExcluded,
+                      isSecondary && isIncluded && { color: theme.colors.secondary, fontSize: 13 },
+                      isSecondary && !isIncluded && { fontSize: 13 },
                     ]}>
                       {participant.name}
                     </Text>
@@ -1212,7 +1227,7 @@ const CreateExpenseScreen: React.FC = () => {
 
                   {isIncluded && (
                     <View style={styles.participantAmount}>
-                      <Text style={styles.amountText}>
+                      <Text style={[styles.amountText, isSecondary && { color: theme.colors.secondary }]}>
                         ${amount.toFixed(2)}
                       </Text>
                     </View>
