@@ -1,5 +1,35 @@
 ﻿# Changelog - SplitSmart
 
+## [1.7.0] - 2026-04-13
+
+### 🚀 Nuevas Funcionalidades
+- **Participantes Secundarios (representados)**: sistema completo de participantes secundarios como entidades reales en la BD. Un participante primario puede tener N representados; cada secundario se crea con el botón `+` y recibe nombre automático `{Primario} - Nro N` (próximo número libre sin colisión). Incluye: renombrar con ícono lápiz, eliminar con confirmación, selección en modo multi-delete, y validación de nombre único a nivel de UI y BD.
+- **Lista de secundarios colapsable**: si un primario tiene más de 1 secundario, la lista empieza colapsada con encabezado "Part. Secundarios (N)" expandible. Con 1 secundario siempre visible. El modo selección fuerza expansión de todas las listas.
+- **EventDetail — Tab Gastos: lista expandible de pagadores múltiples**: en la card de cada gasto, cuando hay más de un pagador, la segunda fila muestra `"Pagado por: X Personas"` con un chevron ▼/▲ tocable. Al expandir, se listan todos los pagadores con su nombre y monto individual en filas separadas. Gastos de pagador único mantienen el comportamiento anterior.
+
+### 🔧 Correcciones de Bugs
+- **Liquidaciones no consolidaban secundarios**: `useCalculations` generaba liquidaciones independientes para cada secundario. Corregido: se consolida el balance de cada secundario en su primario antes de calcular liquidaciones óptimas. Mismo fix aplicado en `database.ts → recalculateSettlementsForEvent`.
+- **Balance del primario no reflejaba secundarios**: la card de balance del participante primario ahora suma automáticamente el balance de todos sus secundarios.
+- **Nombres duplicados en creación de secundarios**: al eliminar y recrear un secundario, el contador podía generar el mismo nombre. Corregido con bucle de próximo número libre. Validación duplicada también en BD (`addSecondaryParticipant`).
+
+### ✨ Mejoras
+- **Diferenciación visual de secundarios en CreateExpense**: en la lista de división del gasto, los participantes secundarios se muestran indentados (`paddingLeft: 28`), con fondo tintado (`surfaceVariant`), color secundario y fuente reducida (`fontSize: 13`).
+- **Diferenciación visual de secundarios en detalle del gasto**: en el modal de detalle, la sección "División del Gasto" muestra secundarios con indentación, prefijo `↳`, color secundario y fuente reducida. El contador del título excluye secundarios.
+- **Orden de secundarios debajo de su primario**: tanto en `CreateExpense` (lista de división) como en el modal de detalle del gasto, los participantes secundarios aparecen inmediatamente debajo de su primario correspondiente, ordenados alfabéticamente dentro de cada grupo.
+- **Mensajes WhatsApp — sección Representados**: `handleShareSummary` y `handleShareEvent` excluyen secundarios del conteo/listado de participantes e incluyen sección `👨‍👦 *Representados*`. Formato compacto en resumen (`_Nombre_ => N`) y lista en compartir completo. Línea de alias cambiada a `💳 Alias => *alias*`.
+- **EventDetail — Mensajes de compartir (WhatsApp y portapapeles)**: acortadas las líneas divisoras `━━━━━━━━━━━━━━━━━━` → `━━━━━━━`. Añadido espacio en blanco extra entre grupos de gastos. Corregida posición del separador en el bloque de advertencia del evento activo.
+- **NotificationService — Notificación de pago recibido vía WhatsApp**: reorganizado el orden de los campos. Insertadas líneas divisoras entre encabezado, datos y pie.
+- **LanguageContext — i18n completo para participantes secundarios**: claves `participants.addSecondary`, `secondary`, `secondaryOf`, `removeSecondary`, `confirmRemoveSecondary`, `secondaryAdded`, `secondaryNamePlaceholder`, `secondaryNameLabel` presentes en ES, EN y PT.
+- **LanguageContext — i18n modo selección de participantes en EN y PT**: corregidas 6 claves faltantes (`participants.selectMode`, `cancelSelect`, `selectedCount`, `deleteSelected`, `confirmDeleteSelected`, `deletedSelected`) que mostraban texto en español en inglés y portugués.
+- **LanguageContext — Nuevas claves i18n** `expenses.paidByPersons` / `expenses.paidByPerson` en ES, EN y PT.
+
+### 🔢 Versiones
+- **versionCode**: 19 → 20
+- **versionName**: "1.6.0" → "1.7.0"
+
+---
+
+
 ## [1.6.0] - 2026-04-10
 
 ### 🚀 Nuevas Funcionalidades
@@ -56,6 +86,36 @@
 - **EventDetail — Cards de participantes: botón eliminar individual eliminado**: la eliminación individual por ✕ fue removida. La única vía de eliminación es el modo selección múltiple con el tacho de basura.
 - **EventDetail — Cards de participantes: layout del panel derecho invertido**: el lápiz de editar queda arriba y el balance abajo (`flexDirection: 'column'`).
 - **EventDetail — Cards de participantes: montos de pagado/división más grandes**: `fontSize` subido de `11` a `13` con `fontWeight: '500'`. El 💰 (pagado) solo se muestra si el monto es mayor a # Changelog - SplitSmart
+
+## [1.7.0] - 2026-04-13
+
+### 🚀 Nuevas Funcionalidades
+- **Participantes Secundarios (representados)**: sistema completo de participantes secundarios como entidades reales en la BD. Un participante primario puede tener N representados; cada secundario se crea con el botón `+` y recibe nombre automático `{Primario} - Nro N` (próximo número libre sin colisión). Incluye: renombrar con ícono lápiz, eliminar con confirmación, selección en modo multi-delete, y validación de nombre único a nivel de UI y BD.
+- **Lista de secundarios colapsable**: si un primario tiene más de 1 secundario, la lista empieza colapsada con encabezado "Part. Secundarios (N)" expandible. Con 1 secundario siempre visible. El modo selección fuerza expansión de todas las listas.
+- **EventDetail — Tab Gastos: lista expandible de pagadores múltiples**: en la card de cada gasto, cuando hay más de un pagador, la segunda fila muestra `"Pagado por: X Personas"` con un chevron ▼/▲ tocable. Al expandir, se listan todos los pagadores con su nombre y monto individual en filas separadas. Gastos de pagador único mantienen el comportamiento anterior.
+
+### 🔧 Correcciones de Bugs
+- **Liquidaciones no consolidaban secundarios**: `useCalculations` generaba liquidaciones independientes para cada secundario. Corregido: se consolida el balance de cada secundario en su primario antes de calcular liquidaciones óptimas. Mismo fix aplicado en `database.ts → recalculateSettlementsForEvent`.
+- **Balance del primario no reflejaba secundarios**: la card de balance del participante primario ahora suma automáticamente el balance de todos sus secundarios.
+- **Nombres duplicados en creación de secundarios**: al eliminar y recrear un secundario, el contador podía generar el mismo nombre. Corregido con bucle de próximo número libre. Validación duplicada también en BD (`addSecondaryParticipant`).
+
+### ✨ Mejoras
+- **Diferenciación visual de secundarios en CreateExpense**: en la lista de división del gasto, los participantes secundarios se muestran indentados (`paddingLeft: 28`), con fondo tintado (`surfaceVariant`), color secundario y fuente reducida (`fontSize: 13`).
+- **Diferenciación visual de secundarios en detalle del gasto**: en el modal de detalle, la sección "División del Gasto" muestra secundarios con indentación, prefijo `↳`, color secundario y fuente reducida. El contador del título excluye secundarios.
+- **Orden de secundarios debajo de su primario**: tanto en `CreateExpense` (lista de división) como en el modal de detalle del gasto, los participantes secundarios aparecen inmediatamente debajo de su primario correspondiente, ordenados alfabéticamente dentro de cada grupo.
+- **Mensajes WhatsApp — sección Representados**: `handleShareSummary` y `handleShareEvent` excluyen secundarios del conteo/listado de participantes e incluyen sección `👨‍👦 *Representados*`. Formato compacto en resumen (`_Nombre_ => N`) y lista en compartir completo. Línea de alias cambiada a `💳 Alias => *alias*`.
+- **EventDetail — Mensajes de compartir (WhatsApp y portapapeles)**: acortadas las líneas divisoras `━━━━━━━━━━━━━━━━━━` → `━━━━━━━`. Añadido espacio en blanco extra entre grupos de gastos. Corregida posición del separador en el bloque de advertencia del evento activo.
+- **NotificationService — Notificación de pago recibido vía WhatsApp**: reorganizado el orden de los campos. Insertadas líneas divisoras entre encabezado, datos y pie.
+- **LanguageContext — i18n completo para participantes secundarios**: claves `participants.addSecondary`, `secondary`, `secondaryOf`, `removeSecondary`, `confirmRemoveSecondary`, `secondaryAdded`, `secondaryNamePlaceholder`, `secondaryNameLabel` presentes en ES, EN y PT.
+- **LanguageContext — i18n modo selección de participantes en EN y PT**: corregidas 6 claves faltantes (`participants.selectMode`, `cancelSelect`, `selectedCount`, `deleteSelected`, `confirmDeleteSelected`, `deletedSelected`) que mostraban texto en español en inglés y portugués.
+- **LanguageContext — Nuevas claves i18n** `expenses.paidByPersons` / `expenses.paidByPerson` en ES, EN y PT.
+
+### 🔢 Versiones
+- **versionCode**: 19 → 20
+- **versionName**: "1.6.0" → "1.7.0"
+
+---
+
 
 ## [1.6.0] - 2026-04-10
 
@@ -130,6 +190,36 @@ _(ninguna)_
 - **EventDetail — Layout de importes del participante**: cambiado de `flexDirection: 'row'` a `flexDirection: 'column'` en la fila de montos (💰 pagado / 💵 debe), mejorando la legibilidad en nombres largos.
 - **EventDetail — Visualización de monto efectivo adeudado**: cuando hay condonación o absorción activa, el monto `💵 debe` ahora muestra el original tachado y el monto real que queda pendiente (ej. ~~$50.00~~ → # Changelog - SplitSmart
 
+## [1.7.0] - 2026-04-13
+
+### 🚀 Nuevas Funcionalidades
+- **Participantes Secundarios (representados)**: sistema completo de participantes secundarios como entidades reales en la BD. Un participante primario puede tener N representados; cada secundario se crea con el botón `+` y recibe nombre automático `{Primario} - Nro N` (próximo número libre sin colisión). Incluye: renombrar con ícono lápiz, eliminar con confirmación, selección en modo multi-delete, y validación de nombre único a nivel de UI y BD.
+- **Lista de secundarios colapsable**: si un primario tiene más de 1 secundario, la lista empieza colapsada con encabezado "Part. Secundarios (N)" expandible. Con 1 secundario siempre visible. El modo selección fuerza expansión de todas las listas.
+- **EventDetail — Tab Gastos: lista expandible de pagadores múltiples**: en la card de cada gasto, cuando hay más de un pagador, la segunda fila muestra `"Pagado por: X Personas"` con un chevron ▼/▲ tocable. Al expandir, se listan todos los pagadores con su nombre y monto individual en filas separadas. Gastos de pagador único mantienen el comportamiento anterior.
+
+### 🔧 Correcciones de Bugs
+- **Liquidaciones no consolidaban secundarios**: `useCalculations` generaba liquidaciones independientes para cada secundario. Corregido: se consolida el balance de cada secundario en su primario antes de calcular liquidaciones óptimas. Mismo fix aplicado en `database.ts → recalculateSettlementsForEvent`.
+- **Balance del primario no reflejaba secundarios**: la card de balance del participante primario ahora suma automáticamente el balance de todos sus secundarios.
+- **Nombres duplicados en creación de secundarios**: al eliminar y recrear un secundario, el contador podía generar el mismo nombre. Corregido con bucle de próximo número libre. Validación duplicada también en BD (`addSecondaryParticipant`).
+
+### ✨ Mejoras
+- **Diferenciación visual de secundarios en CreateExpense**: en la lista de división del gasto, los participantes secundarios se muestran indentados (`paddingLeft: 28`), con fondo tintado (`surfaceVariant`), color secundario y fuente reducida (`fontSize: 13`).
+- **Diferenciación visual de secundarios en detalle del gasto**: en el modal de detalle, la sección "División del Gasto" muestra secundarios con indentación, prefijo `↳`, color secundario y fuente reducida. El contador del título excluye secundarios.
+- **Orden de secundarios debajo de su primario**: tanto en `CreateExpense` (lista de división) como en el modal de detalle del gasto, los participantes secundarios aparecen inmediatamente debajo de su primario correspondiente, ordenados alfabéticamente dentro de cada grupo.
+- **Mensajes WhatsApp — sección Representados**: `handleShareSummary` y `handleShareEvent` excluyen secundarios del conteo/listado de participantes e incluyen sección `👨‍👦 *Representados*`. Formato compacto en resumen (`_Nombre_ => N`) y lista en compartir completo. Línea de alias cambiada a `💳 Alias => *alias*`.
+- **EventDetail — Mensajes de compartir (WhatsApp y portapapeles)**: acortadas las líneas divisoras `━━━━━━━━━━━━━━━━━━` → `━━━━━━━`. Añadido espacio en blanco extra entre grupos de gastos. Corregida posición del separador en el bloque de advertencia del evento activo.
+- **NotificationService — Notificación de pago recibido vía WhatsApp**: reorganizado el orden de los campos. Insertadas líneas divisoras entre encabezado, datos y pie.
+- **LanguageContext — i18n completo para participantes secundarios**: claves `participants.addSecondary`, `secondary`, `secondaryOf`, `removeSecondary`, `confirmRemoveSecondary`, `secondaryAdded`, `secondaryNamePlaceholder`, `secondaryNameLabel` presentes en ES, EN y PT.
+- **LanguageContext — i18n modo selección de participantes en EN y PT**: corregidas 6 claves faltantes (`participants.selectMode`, `cancelSelect`, `selectedCount`, `deleteSelected`, `confirmDeleteSelected`, `deletedSelected`) que mostraban texto en español en inglés y portugués.
+- **LanguageContext — Nuevas claves i18n** `expenses.paidByPersons` / `expenses.paidByPerson` en ES, EN y PT.
+
+### 🔢 Versiones
+- **versionCode**: 19 → 20
+- **versionName**: "1.6.0" → "1.7.0"
+
+---
+
+
 ## [1.6.0] - 2026-04-10
 
 ### 🚀 Nuevas Funcionalidades
@@ -186,6 +276,36 @@ _(ninguna)_
 - **EventDetail — Cards de participantes: botón eliminar individual eliminado**: la eliminación individual por ✕ fue removida. La única vía de eliminación es el modo selección múltiple con el tacho de basura.
 - **EventDetail — Cards de participantes: layout del panel derecho invertido**: el lápiz de editar queda arriba y el balance abajo (`flexDirection: 'column'`).
 - **EventDetail — Cards de participantes: montos de pagado/división más grandes**: `fontSize` subido de `11` a `13` con `fontWeight: '500'`. El 💰 (pagado) solo se muestra si el monto es mayor a # Changelog - SplitSmart
+
+## [1.7.0] - 2026-04-13
+
+### 🚀 Nuevas Funcionalidades
+- **Participantes Secundarios (representados)**: sistema completo de participantes secundarios como entidades reales en la BD. Un participante primario puede tener N representados; cada secundario se crea con el botón `+` y recibe nombre automático `{Primario} - Nro N` (próximo número libre sin colisión). Incluye: renombrar con ícono lápiz, eliminar con confirmación, selección en modo multi-delete, y validación de nombre único a nivel de UI y BD.
+- **Lista de secundarios colapsable**: si un primario tiene más de 1 secundario, la lista empieza colapsada con encabezado "Part. Secundarios (N)" expandible. Con 1 secundario siempre visible. El modo selección fuerza expansión de todas las listas.
+- **EventDetail — Tab Gastos: lista expandible de pagadores múltiples**: en la card de cada gasto, cuando hay más de un pagador, la segunda fila muestra `"Pagado por: X Personas"` con un chevron ▼/▲ tocable. Al expandir, se listan todos los pagadores con su nombre y monto individual en filas separadas. Gastos de pagador único mantienen el comportamiento anterior.
+
+### 🔧 Correcciones de Bugs
+- **Liquidaciones no consolidaban secundarios**: `useCalculations` generaba liquidaciones independientes para cada secundario. Corregido: se consolida el balance de cada secundario en su primario antes de calcular liquidaciones óptimas. Mismo fix aplicado en `database.ts → recalculateSettlementsForEvent`.
+- **Balance del primario no reflejaba secundarios**: la card de balance del participante primario ahora suma automáticamente el balance de todos sus secundarios.
+- **Nombres duplicados en creación de secundarios**: al eliminar y recrear un secundario, el contador podía generar el mismo nombre. Corregido con bucle de próximo número libre. Validación duplicada también en BD (`addSecondaryParticipant`).
+
+### ✨ Mejoras
+- **Diferenciación visual de secundarios en CreateExpense**: en la lista de división del gasto, los participantes secundarios se muestran indentados (`paddingLeft: 28`), con fondo tintado (`surfaceVariant`), color secundario y fuente reducida (`fontSize: 13`).
+- **Diferenciación visual de secundarios en detalle del gasto**: en el modal de detalle, la sección "División del Gasto" muestra secundarios con indentación, prefijo `↳`, color secundario y fuente reducida. El contador del título excluye secundarios.
+- **Orden de secundarios debajo de su primario**: tanto en `CreateExpense` (lista de división) como en el modal de detalle del gasto, los participantes secundarios aparecen inmediatamente debajo de su primario correspondiente, ordenados alfabéticamente dentro de cada grupo.
+- **Mensajes WhatsApp — sección Representados**: `handleShareSummary` y `handleShareEvent` excluyen secundarios del conteo/listado de participantes e incluyen sección `👨‍👦 *Representados*`. Formato compacto en resumen (`_Nombre_ => N`) y lista en compartir completo. Línea de alias cambiada a `💳 Alias => *alias*`.
+- **EventDetail — Mensajes de compartir (WhatsApp y portapapeles)**: acortadas las líneas divisoras `━━━━━━━━━━━━━━━━━━` → `━━━━━━━`. Añadido espacio en blanco extra entre grupos de gastos. Corregida posición del separador en el bloque de advertencia del evento activo.
+- **NotificationService — Notificación de pago recibido vía WhatsApp**: reorganizado el orden de los campos. Insertadas líneas divisoras entre encabezado, datos y pie.
+- **LanguageContext — i18n completo para participantes secundarios**: claves `participants.addSecondary`, `secondary`, `secondaryOf`, `removeSecondary`, `confirmRemoveSecondary`, `secondaryAdded`, `secondaryNamePlaceholder`, `secondaryNameLabel` presentes en ES, EN y PT.
+- **LanguageContext — i18n modo selección de participantes en EN y PT**: corregidas 6 claves faltantes (`participants.selectMode`, `cancelSelect`, `selectedCount`, `deleteSelected`, `confirmDeleteSelected`, `deletedSelected`) que mostraban texto en español en inglés y portugués.
+- **LanguageContext — Nuevas claves i18n** `expenses.paidByPersons` / `expenses.paidByPerson` en ES, EN y PT.
+
+### 🔢 Versiones
+- **versionCode**: 19 → 20
+- **versionName**: "1.6.0" → "1.7.0"
+
+---
+
 
 ## [1.6.0] - 2026-04-10
 
