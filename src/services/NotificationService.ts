@@ -53,14 +53,14 @@ class NotificationService {
       }
 
       // Construir mensaje con el nuevo diseño
-      let whatsappMessage = `💰 *SplitSmart - Has recibido un pago:* 💰\n\n💸 *De:* ${data.payerName}\n💵 *Monto:* $${data.amount}\n🎊 *Evento:* ${data.eventName}`;
+      let whatsappMessage = `💰 *SplitSmart - Has recibido un pago:* 💰\n🎊 *Evento:* ${data.eventName}\n━━━━━━━\n💵 *Monto:* $${data.amount}\n💸 *De:* ${data.payerName}`;
       
       // Agregar línea de comprobante solo si existe
       if (data.receiptImage) {
         whatsappMessage += `\n🧾 *Comprobante:* Enviado`;
       }
       
-      whatsappMessage += `\n\n*Realizado con SplitSmart.*\n_Descarga tu app_`;
+      whatsappMessage += `\n━━━━━━━\n\n*Realizado con SplitSmart.*\n_Descarga tu app_`;
       
       // Abrir WhatsApp directamente (Opción 1)
       this.openWhatsApp(data.recipientPhone, whatsappMessage);

@@ -998,17 +998,17 @@ export default function EventDetailScreen() {
     const currentSettlements = getDisplaySettlements();
     
     let message = `📊 *${t('eventDetail.shareSummaryLabel')} - ${event.name}*\n`;
-    message += `━━━━━━━━━━━━━━━━━━\n`;
+    message += `━━━━━━━\n`;
     
     // Agregar advertencia si el evento está activo
     if (event.status === 'active') {
       message += `${t('eventDetail.shareWarning')}\n`;
-      message += `━━━━━━━━━━━━━━━━━━\n`;
+      message += `━━━━━━━\n`;
     }
     
     message += `💰 *Total gastado:* ${event.currency} $${totalAmount.toFixed(2)}\n`;
     message += `👥 *${t('eventDetail.shareParticipantsLabel')}:* ${participantCount}\n`;
-    message += `━━━━━━━━━━━━━━━━━━\n`;
+    message += `━━━━━━━\n`;
     message += `💸 ${t('eventDetail.shareSettlementsLabel')}\n\n`;
     if (currentSettlements.length > 0) {
       // Agrupar liquidaciones por destinatario (quien recibe el dinero)
@@ -1028,7 +1028,7 @@ export default function EventDetailScreen() {
         const cbuAlias = recipient?.alias_cbu || t('eventDetail.shareNoCbu');
         
         message += `_${recipientName}_\n`;
-        message += `💳 *${cbuAlias}*\n`;
+        message += `💳Alias =>  *${cbuAlias}*\n`;
         (settlementsForRecipient as Settlement[]).forEach((settlement: Settlement) => {
           const paymentStatus = settlement.isPaid ? ' ✅' : ' ⏳';
           const receiptIcon = settlement.receiptImage ? ' 📎' : '';
@@ -1038,10 +1038,10 @@ export default function EventDetailScreen() {
           message += `\n`; // línea en blanco solo entre grupos, no después del último
         }
       });
-      message += `━━━━━━━━━━━━━━━━━━\n`;
+      message += `━━━━━━━\n`;
     } else {
       message += `${t('eventDetail.shareSettled')}\n`;
-      message += `━━━━━━━━━━━━━━━━━━\n`;
+      message += `━━━━━━━\n`;
     }
 
     // Mostrar información de consolidación después de las liquidaciones
@@ -1053,7 +1053,7 @@ export default function EventDetailScreen() {
       consolidationAssignments.forEach(assignment => {
         message += `• ${assignment.payerName} ${t('eventDetail.sharePaysWith')} ${assignment.debtorName}\n`;
       });
-      message += `━━━━━━━━━━━━━━━━━━\n`;
+      message += `━━━━━━━\n`;
     }
 
     message += `\n*Realizado con SplitSmart.*\n_Descarga tu app_`;
@@ -1097,22 +1097,23 @@ export default function EventDetailScreen() {
     const currentSettlements = getDisplaySettlements();
     
     let message = `🎉 ${t('eventDetail.shareSummaryLabel')} - ${event.name.toUpperCase()}\n`;
-    message += `━━━━━━━━━━━━━━━━━━\n`;
+    message += `━━━━━━━\n`;
     
     // Agregar advertencia si el evento está activo
     if (event.status === 'active') {
-      message += `${t('eventDetail.shareWarning')}\n\n`;
+      message += `${t('eventDetail.shareWarning')}\n`;
+      message += `━━━━━━━\n`;
     }
     
     message += `📅 ${new Date(event.startDate).toLocaleDateString('es-AR')}\n`;
     message += `💵 $${formatCurrency(totalAmount)} ${event.currency}\n`;
     message += `📊 ${t('eventDetail.shareStatusLabel')} ${event.status === 'active' ? t('events.active') : event.status === 'completed' ? t('events.completed') : t('events.archived')}\n`;
-    message += `━━━━━━━━━━━━━━━━━━\n`;
+    message += `━━━━━━━\n`;
     message += `👥 ${t('eventDetail.shareParticipantsLabel')} (${eventParticipants.length}):\n`;
     eventParticipants.forEach((p) => {
       message += `* ${p.name}\n`;
     });
-    message += `━━━━━━━━━━━━━━━━━━\n`;
+    message += `━━━━━━━\n`;
     message += `💸 ${t('eventDetail.shareSettlementLabel')}\n\n`;
     
     if (currentSettlements.length > 0) {
@@ -1143,10 +1144,10 @@ export default function EventDetailScreen() {
           message += `\n`; // línea en blanco solo entre grupos
         }
       });
-      message += `━━━━━━━━━━━━━━━━━━\n`;
+      message += `━━━━━━━\n`;
     } else {
       message += `${t('eventDetail.shareSettled')}\n`;
-      message += `━━━━━━━━━━━━━━━━━━\n`;
+      message += `━━━━━━━\n`;
     }
     
     // Mostrar información de consolidación después de las liquidaciones
@@ -1158,10 +1159,10 @@ export default function EventDetailScreen() {
       consolidationAssignments.forEach(assignment => {
         message += `• ${assignment.payerName} ${t('eventDetail.sharePaysWith')} ${assignment.debtorName}\n`;
       });
-      message += `━━━━━━━━━━━━━━━━━━\n`;
+      message += `━━━━━━━\n`;
     }
     
-    message += `📝 ${t('eventDetail.shareExpensesLabel')} (${eventExpenses.length}):\n`;
+    message += `📝 ${t('eventDetail.shareExpensesLabel')} (${eventExpenses.length}):\n\n`;
     
     if (eventExpenses.length > 0) {
       // Agrupar gastos por pagador
@@ -1200,10 +1201,11 @@ export default function EventDetailScreen() {
           
           message += `${expenseLine}\n`;
         });
+        message += `\n`;
       });
       
       message += `💵 ${t('eventDetail.shareTotal')} $${formatCurrency(totalAmount)}\n`;
-      message += `━━━━━━━━━━━━━━━━━━\n`;
+      message += `━━━━━━━\n`;
     } else {
       message += `${t('eventDetail.shareNoExpenses')}\n`;
     }
@@ -1835,16 +1837,64 @@ export default function EventDetailScreen() {
                   </View>
                   
                   {/* Segunda fila: Pagador | Fecha */}
-                  <View style={styles.expenseSecondRow}>
-                    <Text style={styles.expensePaidBy}>
-                      {t('expenses.paidBy')}: {item.payers && item.payers.length > 1
-                        ? item.payers.map(payer => eventParticipants.find(p => p.id === payer.participantId)?.name || payer.participantName || '?').join(', ')
-                        : eventParticipants.find(p => p.id === item.payerId)?.name || 'Usuario Demo'}
-                    </Text>
-                    <Text style={styles.expenseDate}>
-                      {new Date(item.date).toLocaleDateString()}
-                    </Text>
-                  </View>
+                  {item.payers && item.payers.length > 1 ? (
+                    <View>
+                      {/* Fila resumen: "👥 X pagadores" + chevron + fecha */}
+                      <View style={styles.expenseSecondRow}>
+                        <TouchableOpacity
+                          style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            const next = new Set(expandedPayerLists);
+                            if (next.has(item.id)) next.delete(item.id);
+                            else next.add(item.id);
+                            setExpandedPayerLists(next);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.expensePaidBy}>
+                            {t('expenses.paidBy')}: {item.payers.length} {item.payers.length === 1 ? t('expenses.paidByPerson') : t('expenses.paidByPersons')}
+                          </Text>
+                          <MaterialCommunityIcons
+                            name={expandedPayerLists.has(item.id) ? 'chevron-up' : 'chevron-down'}
+                            size={16}
+                            color={theme.colors.onSurfaceVariant}
+                            style={{ marginLeft: 2 }}
+                          />
+                        </TouchableOpacity>
+                        <Text style={styles.expenseDate}>
+                          {new Date(item.date).toLocaleDateString()}
+                        </Text>
+                      </View>
+                      {/* Lista expandida de pagadores con montos */}
+                      {expandedPayerLists.has(item.id) && (
+                        <View style={{ marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: theme.colors.outline + '40' }}>
+                          {item.payers.map((payer) => (
+                            <View
+                              key={payer.participantId}
+                              style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 2 }}
+                            >
+                              <Text style={[styles.expensePaidBy, { fontSize: 12, color: theme.colors.onSurfaceVariant }]}>
+                                • {eventParticipants.find(p => p.id === payer.participantId)?.name || payer.participantName || '?'}
+                              </Text>
+                              <Text style={[styles.expensePaidBy, { fontSize: 12, fontWeight: '600', color: theme.colors.onSurface }]}>
+                                ${payer.amount.toFixed(2)}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    <View style={styles.expenseSecondRow}>
+                      <Text style={styles.expensePaidBy}>
+                        {t('expenses.paidBy')}: {eventParticipants.find(p => p.id === item.payerId)?.name || 'Usuario Demo'}
+                      </Text>
+                      <Text style={styles.expenseDate}>
+                        {new Date(item.date).toLocaleDateString()}
+                      </Text>
+                    </View>
+                  )}
                   
                   {/* Tercera fila: División | Acciones (ocultas en modo selección) */}
                   <View style={styles.expenseThirdRow}>
