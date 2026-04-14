@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Alert,
   FlatList,
-  Dimensions,
   Linking,
   Clipboard,
   Modal,
@@ -36,8 +35,6 @@ import { databaseService } from '../../services/database';
 import { ConsolidationService } from '../../services/ConsolidationService';
 import * as ImagePicker from 'expo-image-picker';
 import { createStyles } from './styles';
-
-const { width } = Dimensions.get('window');
 
 export default function EventDetailScreen() {
   const navigation = useNavigation();
@@ -2521,7 +2518,7 @@ export default function EventDetailScreen() {
                                   onBlur={() => handleSaveSecondaryName(secondary)}
                                 />
                               ) : (
-                                <Text style={{ flex: 1, fontSize: 13, color: theme.colors.onSurface, fontWeight: '500' }} numberOfLines={1}>
+                                <Text style={{ flex: 1, fontSize: 13, color: theme.colors.onSurface, fontWeight: '500' }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
                                   {secondary.name}
                                 </Text>
                               )}

@@ -13,6 +13,7 @@ import {
   TextStyle,
   ImageStyle
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -78,6 +79,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
 }) => {
   const { theme, isDarkMode, toggleTheme } = useTheme();
   const { language } = useLanguage();
+  const insets = useSafeAreaInsets();
   const [overflowVisible, setOverflowVisible] = useState(false);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
 
@@ -90,7 +92,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
     ? '#FFFFFF'
     : titleColor || theme.colors.onSurface;
     
-  const styles = createStyles(theme, titleAlignment, dynamicBackgroundColor, isModal);
+  const styles = createStyles(theme, titleAlignment, dynamicBackgroundColor, isModal, insets.top);
 
   // Contar cuántos elementos van a la derecha
   const rightCount = [
@@ -428,7 +430,8 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
               <Text
                 style={[styles.title, { color: dynamicTitleColor }]}
                 numberOfLines={1}
-                ellipsizeMode="tail"
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
               >
                 {title}
               </Text>
@@ -436,7 +439,8 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
                 <Text
                   style={[styles.subtitle, { color: dynamicTitleColor + '80' }]}
                   numberOfLines={1}
-                  ellipsizeMode="tail"
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
                 >
                   {subtitle}
                 </Text>
@@ -459,7 +463,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   );
 };
 
-const createStyles = (theme: Theme, titleAlignment: 'left' | 'center' = 'center', backgroundColor?: string, isModal: boolean = false) => {
+const createStyles = (theme: Theme, titleAlignment: 'left' | 'center' = 'center', backgroundColor?: string, isModal: boolean = false, topInset: number = 0) => {
   const isDynamic = backgroundColor && (backgroundColor === '#007AFF' || backgroundColor === '#00B359');
   const borderColor = isDynamic 
     ? (backgroundColor === '#007AFF' ? '#0056CC' : '#008A44')
@@ -467,7 +471,7 @@ const createStyles = (theme: Theme, titleAlignment: 'left' | 'center' = 'center'
 
   return StyleSheet.create({
     container: {
-      paddingTop: isModal ? 0 : 30, // Account for status bar - 0 in modals (pageSheet)
+      paddingTop: isModal ? 0 : topInset, // Safe area real del dispositivo
       borderBottomWidth: 1,
       borderBottomColor: borderColor,
       shadowColor: theme.colors.shadow,

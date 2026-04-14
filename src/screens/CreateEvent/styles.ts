@@ -63,8 +63,7 @@ export const createStyles = (theme: Theme, insets: EdgeInsets) => StyleSheet.cre
   } as ViewStyle,
 
   inputLabel: {
-    fontSize: 14,
-    fontWeight: '500',
+    ...theme.typography.labelLarge,
     color: theme.colors.onSurfaceVariant,
     marginBottom: 4,
   } as TextStyle,
@@ -79,7 +78,7 @@ export const createStyles = (theme: Theme, insets: EdgeInsets) => StyleSheet.cre
   } as TextStyle,
 
   inputValue: {
-    fontSize: 16,
+    ...theme.typography.bodyLarge,
     color: theme.colors.onSurface,
   } as TextStyle,
 
@@ -88,7 +87,7 @@ export const createStyles = (theme: Theme, insets: EdgeInsets) => StyleSheet.cre
   } as TextStyle,
 
   errorText: {
-    fontSize: 12,
+    ...theme.typography.bodySmall,
     color: theme.colors.error,
     marginTop: 4,
   } as TextStyle,
@@ -131,8 +130,7 @@ export const createStyles = (theme: Theme, insets: EdgeInsets) => StyleSheet.cre
   } as TextStyle,
 
   currencyText: {
-    fontSize: 14,
-    fontWeight: '500',
+    ...theme.typography.labelLarge,
     color: theme.colors.onSurfaceVariant,
   } as TextStyle,
 
@@ -167,14 +165,14 @@ export const createStyles = (theme: Theme, insets: EdgeInsets) => StyleSheet.cre
   } as ViewStyle,
 
   radioText: {
-    fontSize: 16,
+    ...theme.typography.bodyLarge,
     fontWeight: '600',
     color: theme.colors.onSurface,
     marginLeft: 12,
   } as TextStyle,
 
   radioDescription: {
-    fontSize: 14,
+    ...theme.typography.bodyMedium,
     color: theme.colors.onSurfaceVariant,
     marginLeft: 28,
     marginTop: 4,
@@ -209,7 +207,7 @@ export const createStyles = (theme: Theme, insets: EdgeInsets) => StyleSheet.cre
   } as ViewStyle,
 
   categoryButtonText: {
-    fontSize: 12,
+    ...theme.typography.bodySmall,
     color: theme.colors.onSurfaceVariant,
     marginLeft: 4,
   } as TextStyle,
@@ -257,7 +255,7 @@ export const createStyles = (theme: Theme, insets: EdgeInsets) => StyleSheet.cre
   } as ViewStyle,
 
   radioTitle: {
-    fontSize: 16,
+    ...theme.typography.bodyLarge,
     fontWeight: '500',
     color: theme.colors.onSurface,
     marginBottom: 4,

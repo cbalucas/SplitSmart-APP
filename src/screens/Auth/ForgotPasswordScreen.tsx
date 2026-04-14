@@ -93,10 +93,9 @@ export default function ForgotPasswordScreen() {
       marginBottom: 14,
     },
     warningText: {
-      fontSize: 13,
+      ...theme.typography.bodyMedium,
       fontWeight: '600',
       textAlign: 'center',
-      lineHeight: 19,
       color: '#E65100',
     },
     hint: {

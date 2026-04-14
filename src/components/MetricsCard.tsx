@@ -56,10 +56,10 @@ const MetricsCard: React.FC<MetricsCardProps> = ({
             color={metric.color}
             style={styles.icon}
           />
-          <Text style={[styles.value, isSelected && { color: metric.color }]} numberOfLines={1}>
+          <Text style={[styles.value, isSelected && { color: metric.color }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
             {metric.value}
           </Text>
-          <Text style={styles.label} numberOfLines={1}>
+          <Text style={styles.label} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
             {metric.label}
           </Text>
         </View>

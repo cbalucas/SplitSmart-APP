@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -34,7 +34,8 @@ const HomeScreen: React.FC = () => {
   const { language } = useLanguage();
   const { user, logout } = useAuth();
   const { events: dbEvents, loading: dbLoading, refreshData, getEventParticipants, getExpensesByEvent, updateEvent, deleteEvent } = useData();
-  const styles = createStyles(theme);
+  const insets = useSafeAreaInsets();
+  const styles = createStyles(theme, insets.bottom);
   
   // Get translations
   const t = homeLanguage[language] || homeLanguage.es;

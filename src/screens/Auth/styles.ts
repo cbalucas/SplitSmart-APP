@@ -194,7 +194,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     marginBottom: 16
   },
   modalTitle: {
-    fontSize: 20,
+    ...theme.typography.titleLarge,
     fontWeight: '600',
     color: theme.colors.onSurface
   },
@@ -274,7 +274,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center'
   },
   validationText: {
-    fontSize: 12,
+    ...theme.typography.bodySmall,
     marginTop: 4,
     marginLeft: 4
   },
@@ -332,16 +332,15 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     shadowRadius: 16
   },
   successModalTitle: {
-    fontSize: 22,
+    ...theme.typography.titleLarge,
     fontWeight: '700',
     textAlign: 'center',
     marginBottom: 8
   },
   successModalSubtitle: {
-    fontSize: 14,
+    ...theme.typography.bodyMedium,
     textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 20
+    marginBottom: 20
   },
   passwordDisplayBox: {
     borderRadius: 12,
@@ -371,10 +370,9 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     marginBottom: 14
   },
   warningText: {
-    fontSize: 13,
+    ...theme.typography.bodyMedium,
     fontWeight: '600',
-    textAlign: 'center',
-    lineHeight: 19
+    textAlign: 'center'
   },
   successModalHint: {
     fontSize: 12,

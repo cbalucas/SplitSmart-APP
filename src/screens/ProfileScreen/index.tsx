@@ -2370,13 +2370,13 @@ const ProfileScreen: React.FC = () => {
                   {/* Resumen */}
                   <View style={{ backgroundColor: theme.colors.surface, borderRadius: 8, padding: 12, marginBottom: 16 }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}>
-                      <Text style={{ color: theme.colors.onSurface, fontSize: 14 }}>Total de registros:</Text>
-                      <Text style={{ color: theme.colors.primary, fontSize: 16, fontWeight: 'bold' }}>{databaseStats.totalRecords.toLocaleString()}</Text>
+                      <Text style={{ color: theme.colors.onSurface, ...theme.typography.bodyMedium }}>Total de registros:</Text>
+                      <Text style={{ color: theme.colors.primary, ...theme.typography.bodyLarge, fontWeight: 'bold' }}>{databaseStats.totalRecords.toLocaleString()}</Text>
                     </View>
                     <View style={{ height: 1, backgroundColor: theme.colors.outline, marginVertical: 8, opacity: 0.3 }} />
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}>
-                      <Text style={{ color: theme.colors.onSurface, fontSize: 14 }}>Tamaño de base de datos:</Text>
-                      <Text style={{ color: theme.colors.primary, fontSize: 16, fontWeight: 'bold' }}>{databaseStats.databaseSize}</Text>
+                      <Text style={{ color: theme.colors.onSurface, ...theme.typography.bodyMedium }}>Tamaño de base de datos:</Text>
+                      <Text style={{ color: theme.colors.primary, ...theme.typography.bodyLarge, fontWeight: 'bold' }}>{databaseStats.databaseSize}</Text>
                     </View>
                   </View>
 
@@ -2393,7 +2393,7 @@ const ProfileScreen: React.FC = () => {
                       marginBottom: 8
                     }}
                   >
-                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 14, fontWeight: '500' }}>📋 Tablas Principales</Text>
+                    <Text style={{ color: theme.colors.onSurfaceVariant, ...theme.typography.labelLarge, fontWeight: '500' }}>📋 Tablas Principales</Text>
                     <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 16 }}>{showMainTables ? '?' : '?'}</Text>
                   </TouchableOpacity>
                   
@@ -2426,10 +2426,10 @@ const ProfileScreen: React.FC = () => {
                           return (
                             <View key={tableName}>
                               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 }}>
-                                <Text style={{ color: theme.colors.onSurface, fontSize: 14, flex: 1 }}>{displayName}</Text>
+                                <Text style={{ color: theme.colors.onSurface, ...theme.typography.bodyMedium, flex: 1 }}>{displayName}</Text>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                  <Text style={{ color: theme.colors.primary, fontSize: 14, fontWeight: 'bold' }}>{count.toLocaleString()}</Text>
-                                  <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 12, minWidth: 40, textAlign: 'right' }}>({percentage}%)</Text>
+                                  <Text style={{ color: theme.colors.primary, ...theme.typography.bodyMedium, fontWeight: 'bold' }}>{count.toLocaleString()}</Text>
+                                  <Text style={{ color: theme.colors.onSurfaceVariant, ...theme.typography.bodySmall, minWidth: 40, textAlign: 'right' }}>({percentage}%)</Text>
                                 </View>
                               </View>
                               {index < array.length - 1 && (
@@ -2442,7 +2442,7 @@ const ProfileScreen: React.FC = () => {
                     </View>
                   )}
 
-                  {/* Tablas de Relación */}
+                  {/* Tablas de Relación */}}
                   <TouchableOpacity 
                     onPress={() => setShowRelationTables(!showRelationTables)}
                     style={{ 
@@ -2455,7 +2455,7 @@ const ProfileScreen: React.FC = () => {
                       marginBottom: 8
                     }}
                   >
-                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 14, fontWeight: '500' }}>🔗 Tablas de Relación</Text>
+                    <Text style={{ color: theme.colors.onSurfaceVariant, ...theme.typography.labelLarge, fontWeight: '500' }}>🔗 Tablas de Relación</Text>
                     <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 16 }}>{showRelationTables ? '▲' : '▼'}</Text>
                   </TouchableOpacity>
                   
@@ -2482,10 +2482,10 @@ const ProfileScreen: React.FC = () => {
                           return (
                             <View key={tableName}>
                               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 }}>
-                                <Text style={{ color: theme.colors.onSurface, fontSize: 14, flex: 1 }}>{displayName}</Text>
+                                <Text style={{ color: theme.colors.onSurface, ...theme.typography.bodyMedium, flex: 1 }}>{displayName}</Text>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                  <Text style={{ color: theme.colors.primary, fontSize: 14, fontWeight: 'bold' }}>{count.toLocaleString()}</Text>
-                                  <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 12, minWidth: 40, textAlign: 'right' }}>({percentage}%)</Text>
+                                  <Text style={{ color: theme.colors.primary, ...theme.typography.bodyMedium, fontWeight: 'bold' }}>{count.toLocaleString()}</Text>
+                                  <Text style={{ color: theme.colors.onSurfaceVariant, ...theme.typography.bodySmall, minWidth: 40, textAlign: 'right' }}>({percentage}%)</Text>
                                 </View>
                               </View>
                               {index < array.length - 1 && (
@@ -2510,7 +2510,7 @@ const ProfileScreen: React.FC = () => {
                       alignItems: 'center'
                     }}
                   >
-                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 14 }}>ℹ️ Información técnica</Text>
+                    <Text style={{ color: theme.colors.onSurfaceVariant, ...theme.typography.labelLarge }}>ℹ️ Información técnica</Text>
                     <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 16 }}>{showTechInfo ? '▲' : '▼'}</Text>
                   </TouchableOpacity>
                   

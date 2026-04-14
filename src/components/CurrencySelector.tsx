@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TouchableOpacity, StyleSheet, Modal, View, Text, Pressable } from 'react-native';
+import { TouchableOpacity, StyleSheet, Modal, View, Text, Pressable, Dimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 24,
     width: '85%',
-    maxWidth: 380,
+    maxWidth: Math.min(380, Dimensions.get('window').width * 0.9),
     maxHeight: '80%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -123,7 +123,8 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 20,

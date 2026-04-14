@@ -154,7 +154,8 @@ const ListItem: React.FC<ListItemProps> = ({
             titleStyle
           ]}
           numberOfLines={1}
-          ellipsizeMode="tail"
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
         >
           {title}
         </Text>
@@ -167,7 +168,8 @@ const ListItem: React.FC<ListItemProps> = ({
               subtitleStyle
             ]}
             numberOfLines={1}
-            ellipsizeMode="tail"
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
           >
             {subtitle}
           </Text>
@@ -181,7 +183,8 @@ const ListItem: React.FC<ListItemProps> = ({
               descriptionStyle
             ]}
             numberOfLines={2}
-            ellipsizeMode="tail"
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
           >
             {description}
           </Text>

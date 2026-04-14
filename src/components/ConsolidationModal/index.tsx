@@ -388,6 +388,7 @@ const styles = StyleSheet.create({
   },
   applyButtonText: {
     fontSize: 16,
+    lineHeight: 24,
     fontWeight: '700',
   },
   content: {
@@ -407,6 +408,7 @@ const styles = StyleSheet.create({
   },
   instructionsTitle: {
     fontSize: 14,
+    lineHeight: 20,
     fontWeight: '600',
     flex: 1,
     marginLeft: 8,
@@ -432,6 +434,7 @@ const styles = StyleSheet.create({
   },
   assignedIndicator: {
     fontSize: 12,
+    lineHeight: 16,
     fontWeight: '500',
     marginTop: 4,
   },
@@ -440,11 +443,13 @@ const styles = StyleSheet.create({
   },
   debtorName: {
     fontSize: 16,
+    lineHeight: 24,
     fontWeight: '600',
     marginBottom: 4,
   },
   debtorAmount: {
     fontSize: 14,
+    lineHeight: 20,
     fontWeight: '500',
   },
   assignedBadge: {
@@ -454,6 +459,7 @@ const styles = StyleSheet.create({
   },
   assignedText: {
     fontSize: 12,
+    lineHeight: 16,
     fontWeight: '500',
   },
   payerSelector: {
@@ -462,6 +468,7 @@ const styles = StyleSheet.create({
   },
   selectorLabel: {
     fontSize: 14,
+    lineHeight: 20,
     marginBottom: 8,
   },
   payerButtons: {
@@ -478,6 +485,7 @@ const styles = StyleSheet.create({
   },
   payerButtonText: {
     fontSize: 12,
+    lineHeight: 16,
     fontWeight: '500',
   },
   settlementDetails: {
@@ -488,11 +496,13 @@ const styles = StyleSheet.create({
   },
   detailsTitle: {
     fontSize: 12,
+    lineHeight: 16,
     fontWeight: '600',
     marginBottom: 4,
   },
   settlementDetail: {
     fontSize: 11,
+    lineHeight: 16,
     marginLeft: 8,
   },
   separator: {

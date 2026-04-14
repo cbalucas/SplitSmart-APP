@@ -1,7 +1,7 @@
 import { StyleSheet, ViewStyle, TextStyle } from 'react-native';
 import { Theme } from '../../constants/theme';
 
-export const createStyles = (theme: Theme) => {
+export const createStyles = (theme: Theme, bottomInset: number = 0) => {
   return StyleSheet.create({
     // Container principal
     container: {
@@ -63,10 +63,9 @@ export const createStyles = (theme: Theme) => {
     } as TextStyle,
 
     emptySubtitle: {
-      fontSize: 14,
+      ...theme.typography.bodyMedium,
       color: theme.colors.onSurfaceVariant,
       textAlign: 'center',
-      lineHeight: 20,
       marginBottom: 24,
     } as TextStyle,
 
@@ -78,7 +77,7 @@ export const createStyles = (theme: Theme) => {
     } as ViewStyle,
 
     emptyButtonText: {
-      fontSize: 16,
+      ...theme.typography.bodyLarge,
       fontWeight: '600',
       color: theme.colors.onPrimary,
     } as TextStyle,
@@ -86,7 +85,7 @@ export const createStyles = (theme: Theme) => {
     // Floating Action Button
     fabContainer: {
       position: 'absolute',
-      bottom: 60, // Más separación de los controles Android
+      bottom: bottomInset + 16,
       right: 20,
       zIndex: 1000,
     } as ViewStyle,

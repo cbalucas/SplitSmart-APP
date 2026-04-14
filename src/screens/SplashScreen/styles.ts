@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-export const createStyles = () => StyleSheet.create({
+export const createStyles = (logoSize: number) => StyleSheet.create({
   splashContainer: {
     flex: 1,
     backgroundColor: '#000000',
@@ -12,8 +12,8 @@ export const createStyles = () => StyleSheet.create({
     paddingTop: 120,
   },
   splashLogo: {
-    width: 360,
-    height: 360,
+    width: logoSize,
+    height: logoSize,
     marginBottom: 8,
   },
   splashVersion: {

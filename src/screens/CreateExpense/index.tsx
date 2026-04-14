@@ -1086,10 +1086,10 @@ const CreateExpenseScreen: React.FC = () => {
           {/* Toggle múltiples pagadores */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: theme.colors.outline, marginBottom: 12 }}>
             <View style={{ flex: 1, marginRight: 12 }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.onSurface }}>
+              <Text style={{ ...theme.typography.labelLarge, fontWeight: '600', color: theme.colors.onSurface }}>
                 {t.multiplePayersCard.toggleLabel}
               </Text>
-              <Text style={{ fontSize: 12, color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
+              <Text style={{ ...theme.typography.bodySmall, color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
                 {t.multiplePayersCard.toggleSubtitle}
               </Text>
             </View>
@@ -1144,7 +1144,7 @@ const CreateExpenseScreen: React.FC = () => {
                         size={22}
                         color={mp.isSelected ? theme.colors.primary : theme.colors.onSurfaceVariant}
                       />
-                      <Text style={{ marginLeft: 10, fontSize: 14, color: mp.isSelected ? theme.colors.onSurface : theme.colors.onSurfaceVariant, fontWeight: mp.isSelected ? '600' : '400' }}>
+                      <Text style={{ marginLeft: 10, ...theme.typography.bodyMedium, color: mp.isSelected ? theme.colors.onSurface : theme.colors.onSurfaceVariant, fontWeight: mp.isSelected ? '600' : '400' }}>
                         {participant.name}
                       </Text>
                     </TouchableOpacity>
@@ -1155,7 +1155,7 @@ const CreateExpenseScreen: React.FC = () => {
                           value={mp.amount}
                           onChangeText={(val) => handleMultiPayerAmountChange(participant.id, val)}
                           keyboardType="numeric"
-                          style={{ fontSize: 14, color: theme.colors.onSurface, minWidth: 60, padding: 0 }}
+                        style={{ ...theme.typography.bodyMedium, color: theme.colors.onSurface, minWidth: 60, padding: 0 }}
                           placeholder="0.00"
                           placeholderTextColor={theme.colors.onSurfaceVariant}
                         />
@@ -1276,7 +1276,7 @@ const CreateExpenseScreen: React.FC = () => {
                   onPress={selectImageSource}
                 >
                   <MaterialCommunityIcons name="image-edit" size={20} color={theme.colors.primary} />
-                  <Text style={{ marginLeft: 8, fontSize: 14, color: theme.colors.primary, fontWeight: '500' }}>
+                  <Text style={{ ...theme.typography.labelLarge, color: theme.colors.primary, fontWeight: '500' }}>
                     {t.receiptCard.changeButton}
                   </Text>
                 </TouchableOpacity>
@@ -1285,7 +1285,7 @@ const CreateExpenseScreen: React.FC = () => {
                   onPress={removeImage}
                 >
                   <MaterialCommunityIcons name="delete" size={20} color={theme.colors.error} />
-                  <Text style={{ marginLeft: 8, fontSize: 14, color: theme.colors.error, fontWeight: '500' }}>
+                  <Text style={{ ...theme.typography.labelLarge, color: theme.colors.error, fontWeight: '500' }}>
                     {t.receiptCard.deleteButton}
                   </Text>
                 </TouchableOpacity>
@@ -1297,7 +1297,7 @@ const CreateExpenseScreen: React.FC = () => {
               onPress={selectImageSource}
             >
               <MaterialCommunityIcons name="camera-plus" size={24} color={theme.colors.onSurfaceVariant} />
-              <Text style={{ marginLeft: 8, fontSize: 14, color: theme.colors.onSurfaceVariant, fontWeight: '500' }}>
+              <Text style={{ marginLeft: 8, ...theme.typography.labelLarge, color: theme.colors.onSurfaceVariant, fontWeight: '500' }}>
                 {t.receiptCard.attachButton}
               </Text>
             </TouchableOpacity>
@@ -1385,7 +1385,7 @@ const CreateExpenseScreen: React.FC = () => {
           <View style={styles.calcModal}>
             {/* Display */}
             <View style={styles.calcDisplay}>
-              <Text style={styles.calcExpressionText} numberOfLines={1} ellipsizeMode="head">
+              <Text style={styles.calcExpressionText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
                 {calcExpression || ' '}
               </Text>
               <Text style={[styles.calcResultText, calcHasError && styles.calcResultError]}>

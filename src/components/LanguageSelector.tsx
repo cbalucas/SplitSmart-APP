@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TouchableOpacity, StyleSheet, Modal, View, Text, Pressable } from 'react-native';
+import { TouchableOpacity, StyleSheet, Modal, View, Text, Pressable, Dimensions } from 'react-native';
 import { useLanguage } from '../context/LanguageContext';
 
 interface LanguageSelectorProps {
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 24,
     width: '80%',
-    maxWidth: 340,
+    maxWidth: Math.min(340, Dimensions.get('window').width * 0.9),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -128,7 +128,8 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 20,

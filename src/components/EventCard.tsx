@@ -113,7 +113,7 @@ const EventCard: React.FC<EventCardProps> = ({
           {/* Primera fila: Título, Lápiz, Basura (si aplica) e Icono de Privacidad */}
           <View style={styles.titleRow}>
             <View style={styles.titleContainer}>
-              <Text style={styles.eventName} numberOfLines={1}>
+              <Text style={styles.eventName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
                 {event.name}
               </Text>
             </View>
@@ -212,7 +212,7 @@ const EventCard: React.FC<EventCardProps> = ({
                 size={16}
                 color="#F44336"
               />
-              <Text style={styles.infoText} numberOfLines={1}>
+              <Text style={styles.infoText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
                 {event.location}
               </Text>
             </View>
@@ -226,7 +226,7 @@ const EventCard: React.FC<EventCardProps> = ({
                 size={16}
                 color="#9E9E9E"
               />
-              <Text style={styles.infoText} numberOfLines={2}>
+              <Text style={styles.infoText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>
                 {event.description}
               </Text>
             </View>
@@ -304,13 +304,13 @@ const createStyles = (theme: Theme) =>
     } as ViewStyle,
 
     dateText: {
-      fontSize: 14,
+      ...theme.typography.bodyMedium,
       color: theme.colors.onSurfaceVariant,
       marginLeft: 6,
     } as TextStyle,
 
     totalAmount: {
-      fontSize: 16,
+      ...theme.typography.bodyLarge,
       fontWeight: 'bold',
       color: '#2ECC71',
     } as TextStyle,
@@ -346,7 +346,7 @@ const createStyles = (theme: Theme) =>
     } as ViewStyle,
 
     statText: {
-      fontSize: 14,
+      ...theme.typography.bodyMedium,
       color: theme.colors.onSurfaceVariant,
       marginLeft: 6,
     } as TextStyle,
@@ -358,7 +358,7 @@ const createStyles = (theme: Theme) =>
     } as ViewStyle,
 
     infoText: {
-      fontSize: 14,
+      ...theme.typography.bodyMedium,
       color: theme.colors.onSurfaceVariant,
       marginLeft: 6,
       flex: 1,

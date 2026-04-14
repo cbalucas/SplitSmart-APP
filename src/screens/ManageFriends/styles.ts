@@ -49,19 +49,19 @@ export const createStyles = (theme: Theme) => {
     } as ViewStyle,
 
     tabText: {
-      fontSize: 14,
+      ...theme.typography.labelLarge,
       fontWeight: '600',
     } as TextStyle,
 
     activeTabText: {
+      ...theme.typography.labelLarge,
       color: appColors.primary,
-      fontSize: 14,
       fontWeight: '600',
     } as TextStyle,
 
     inactiveTabText: {
+      ...theme.typography.labelLarge,
       color: appColors.textSecondary,
-      fontSize: 14,
       fontWeight: '600',
     } as TextStyle,
 
@@ -107,8 +107,7 @@ export const createStyles = (theme: Theme) => {
     } as ViewStyle,
 
     inputLabel: {
-      fontSize: 14,
-      fontWeight: '500',
+      ...theme.typography.labelLarge,
       color: appColors.textPrimary,
       marginBottom: 6,
     } as TextStyle,
@@ -119,7 +118,7 @@ export const createStyles = (theme: Theme) => {
 
     errorText: {
       color: '#FF5252',
-      fontSize: 12,
+      ...theme.typography.bodySmall,
       marginTop: 4,
     } as TextStyle,
 
@@ -145,7 +144,7 @@ export const createStyles = (theme: Theme) => {
     } as ViewStyle,
 
     validationText: {
-      fontSize: 12,
+      ...theme.typography.bodySmall,
       marginTop: 4,
       marginLeft: 2,
     } as TextStyle,
@@ -251,7 +250,7 @@ export const createStyles = (theme: Theme) => {
     } as ViewStyle,
 
     friendName: {
-      fontSize: 16,
+      ...theme.typography.titleMedium,
       fontWeight: '600',
       color: appColors.textPrimary,
     } as TextStyle,
@@ -263,7 +262,7 @@ export const createStyles = (theme: Theme) => {
     } as TextStyle,
 
     friendAlias: {
-      fontSize: 14,
+      ...theme.typography.labelLarge,
       color: appColors.primary,
       marginTop: 2,
       fontWeight: '500',
@@ -300,11 +299,10 @@ export const createStyles = (theme: Theme) => {
     } as TextStyle,
 
     emptySubtitle: {
-      fontSize: 16,
+      ...theme.typography.bodyLarge,
       color: appColors.textSecondary,
       marginTop: 8,
       textAlign: 'center',
-      lineHeight: 22,
     } as TextStyle,
 
     emptyButton: {

@@ -1,7 +1,5 @@
-import { StyleSheet, Dimensions } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Theme } from '../../constants/theme';
-
-const { width } = Dimensions.get('window');
 
 export const createStyles = (theme: Theme) => StyleSheet.create({
   container: {
@@ -61,7 +59,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     borderBottomColor: theme.colors.primary
   },
   tabText: {
-    fontSize: 12,
+    ...theme.typography.labelMedium,
     color: theme.colors.onSurfaceVariant,
     marginLeft: 4,
     fontWeight: '500'
@@ -116,13 +114,13 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     marginBottom: 16
   },
   emptyText: {
-    fontSize: 16,
+    ...theme.typography.bodyLarge,
     color: theme.colors.onSurfaceVariant,
     marginTop: 12,
     fontWeight: '500'
   },
   emptySubtext: {
-    fontSize: 14,
+    ...theme.typography.bodyMedium,
     color: theme.colors.onSurfaceVariant,
     marginTop: 4,
     textAlign: 'center'
@@ -155,28 +153,28 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center'
   },
   expenseDescription: {
-    fontSize: 16,
+    ...theme.typography.titleMedium,
     fontWeight: '500',
     color: theme.colors.onSurface,
     flex: 1,
     marginRight: 8
   },
   expenseDate: {
-    fontSize: 12,
+    ...theme.typography.bodySmall,
     color: theme.colors.onSurfaceVariant
   },
   expenseAmount: {
-    fontSize: 16,
+    ...theme.typography.titleMedium,
     fontWeight: '600',
     color: theme.colors.success
   },
   expensePaidBy: {
-    fontSize: 12,
+    ...theme.typography.bodySmall,
     color: theme.colors.onSurfaceVariant,
     flex: 1
   },
   expenseDivisionSummary: {
-    fontSize: 12,
+    ...theme.typography.bodySmall,
     color: theme.colors.onSurfaceVariant,
     flex: 1
   },
@@ -272,7 +270,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     marginBottom: 2
   },
   participantName: {
-    fontSize: 16,
+    ...theme.typography.titleMedium,
     fontWeight: '500',
     color: theme.colors.onSurface
   },
@@ -307,12 +305,12 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center'
   },
   participantRole: {
-    fontSize: 12,
+    ...theme.typography.bodySmall,
     color: theme.colors.onSurfaceVariant,
     marginBottom: 2
   },
   participantEmail: {
-    fontSize: 12,
+    ...theme.typography.bodySmall,
     color: theme.colors.onSurfaceVariant
   },
   participantBreakdown: {
@@ -329,7 +327,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'flex-end'
   },
   participantBalance: {
-    fontSize: 16,
+    ...theme.typography.titleMedium,
     fontWeight: '600',
     marginBottom: 2
   },
@@ -737,7 +735,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     padding: 32
   },
   errorText: {
-    fontSize: 18,
+    ...theme.typography.bodyLarge,
     color: theme.colors.error,
     marginTop: 16,
     marginBottom: 24,

@@ -52,7 +52,7 @@ export const createStyles = (theme: Theme) => {
   } as TextStyle,
 
   cardSubtitle: {
-    fontSize: 14,
+    ...theme.typography.bodyMedium,
     color: theme.colors.onSurfaceVariant,
     marginBottom: 16,
     fontStyle: 'italic',
@@ -88,18 +88,18 @@ export const createStyles = (theme: Theme) => {
   } as ViewStyle,
 
   inputLabel: {
-    fontSize: 12,
+    ...theme.typography.bodySmall,
     color: theme.colors.onSurfaceVariant,
     marginBottom: 2,
   } as TextStyle,
 
   inputValue: {
-    fontSize: 16,
+    ...theme.typography.bodyLarge,
     color: theme.colors.onSurface,
   } as TextStyle,
 
   sectionLabel: {
-    fontSize: 14,
+    ...theme.typography.labelLarge,
     fontWeight: '500',
     color: theme.colors.onSurface,
     marginBottom: 12,
@@ -129,7 +129,7 @@ export const createStyles = (theme: Theme) => {
   } as ViewStyle,
 
   categoryButtonText: {
-    fontSize: 12,
+    ...theme.typography.bodySmall,
     color: theme.colors.onSurfaceVariant,
     marginLeft: 6,
   } as TextStyle,
@@ -152,7 +152,7 @@ export const createStyles = (theme: Theme) => {
   } as ViewStyle,
 
   payerParticipantName: {
-    fontSize: 16,
+    ...theme.typography.bodyLarge,
     color: theme.colors.onSurface,
     marginLeft: 12,
   } as TextStyle,
@@ -165,7 +165,7 @@ export const createStyles = (theme: Theme) => {
   } as ViewStyle,
 
   splitPreviewTitle: {
-    fontSize: 14,
+    ...theme.typography.labelLarge,
     fontWeight: '500',
     color: theme.colors.onSurfaceVariant,
     marginBottom: 8,
@@ -179,7 +179,7 @@ export const createStyles = (theme: Theme) => {
   } as ViewStyle,
 
   splitParticipant: {
-    fontSize: 14,
+    ...theme.typography.bodyMedium,
     color: theme.colors.onSurface,
   } as TextStyle,
 
@@ -259,7 +259,7 @@ export const createStyles = (theme: Theme) => {
   } as ViewStyle,
 
   participantName: {
-    fontSize: 14,
+    ...theme.typography.bodyMedium,
     color: theme.colors.onSurfaceVariant,
     marginLeft: 12,
     flex: 1,
@@ -282,7 +282,7 @@ export const createStyles = (theme: Theme) => {
   } as ViewStyle,
 
   amountText: {
-    fontSize: 14,
+    ...theme.typography.bodyMedium,
     fontWeight: '600',
     color: theme.colors.primary,
   } as TextStyle,
@@ -300,7 +300,7 @@ export const createStyles = (theme: Theme) => {
   } as TextStyle,
 
   warningText: {
-    fontSize: 14,
+    ...theme.typography.bodyMedium,
     color: theme.colors.error,
     textAlign: 'center',
     fontStyle: 'italic',
@@ -325,7 +325,7 @@ export const createStyles = (theme: Theme) => {
   } as ViewStyle,
 
   totalSummaryText: {
-    fontSize: 16,
+    ...theme.typography.bodyLarge,
     fontWeight: '700',
     color: theme.colors.onPrimaryContainer,
     textAlign: 'center',
@@ -339,13 +339,13 @@ export const createStyles = (theme: Theme) => {
   } as ViewStyle,
 
   splitSummaryText: {
-    fontSize: 12,
+    ...theme.typography.bodySmall,
     color: theme.colors.onSurfaceVariant,
     textAlign: 'center',
   } as TextStyle,
 
   errorText: {
-    fontSize: 12,
+    ...theme.typography.bodySmall,
     color: theme.colors.error,
     marginTop: 4,
   } as TextStyle,

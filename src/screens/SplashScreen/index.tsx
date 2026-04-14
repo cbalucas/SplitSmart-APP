@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Image, Text } from 'react-native';
+import { View, Image, Text, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { version } from '../../../package.json';
 import { splashLanguage } from './language';
@@ -13,7 +13,9 @@ interface SplashScreenProps {
 
 const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
   const [currentLanguage, setCurrentLanguage] = useState<Language>('es');
-  const styles = createStyles();
+  const { width } = useWindowDimensions();
+  const logoSize = Math.min(width * 0.75, 360);
+  const styles = createStyles(logoSize);
 
   useEffect(() => {
     // Secuencia de idiomas cada 2 segundos

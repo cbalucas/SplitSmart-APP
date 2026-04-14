@@ -213,7 +213,8 @@ const Chip: React.FC<ChipProps> = ({
           textStyle
         ]}
         numberOfLines={1}
-        ellipsizeMode="tail"
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
       >
         {label}
       </Text>

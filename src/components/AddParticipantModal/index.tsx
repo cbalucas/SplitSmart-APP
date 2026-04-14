@@ -1024,7 +1024,7 @@ const createStyles = (theme: Theme) =>
     } as ViewStyle,
 
     modalTitle: {
-      fontSize: 18,
+      ...theme.typography.titleLarge,
       fontWeight: '600',
       color: theme.colors.onSurface,
       flex: 1,
@@ -1067,8 +1067,7 @@ const createStyles = (theme: Theme) =>
     } as ViewStyle,
 
     tabText: {
-      fontSize: 14,
-      fontWeight: '500',
+      ...theme.typography.labelLarge,
       color: theme.colors.onSurfaceVariant,
     } as TextStyle,
 
@@ -1096,7 +1095,7 @@ const createStyles = (theme: Theme) =>
     } as ViewStyle,
 
     tabBadgeText: {
-      fontSize: 12,
+      ...theme.typography.labelMedium,
       fontWeight: 'bold',
       color: theme.colors.onSecondary,
     } as TextStyle,
@@ -1152,9 +1151,8 @@ const createStyles = (theme: Theme) =>
 
     hintText: {
       flex: 1,
-      fontSize: 14,
+      ...theme.typography.bodyMedium,
       color: theme.colors.onPrimaryContainer,
-      lineHeight: 20,
     } as TextStyle,
 
     content: {
@@ -1208,13 +1206,12 @@ const createStyles = (theme: Theme) =>
     } as ViewStyle,
 
     friendSelectName: {
-      fontSize: 16,
-      fontWeight: '500',
+      ...theme.typography.titleMedium,
       color: theme.colors.onSurface,
     } as TextStyle,
 
     friendSelectEmail: {
-      fontSize: 14,
+      ...theme.typography.bodyMedium,
       color: theme.colors.onSurfaceVariant,
       marginTop: 2,
     } as TextStyle,
@@ -1343,7 +1340,7 @@ const createStyles = (theme: Theme) =>
     } as ViewStyle,
 
     inputHint: {
-      fontSize: 12,
+      ...theme.typography.bodySmall,
       color: theme.colors.onSurfaceVariant,
       marginTop: 4,
     } as TextStyle,
@@ -1353,8 +1350,7 @@ const createStyles = (theme: Theme) =>
     } as ViewStyle,
 
     inputLabel: {
-      fontSize: 14,
-      fontWeight: '500',
+      ...theme.typography.labelLarge,
       color: theme.colors.onSurface,
       marginBottom: 6,
     } as TextStyle,
@@ -1431,11 +1427,10 @@ const createStyles = (theme: Theme) =>
     } as TextStyle,
 
     emptySubtitle: {
-      fontSize: 14,
+      ...theme.typography.bodyMedium,
       color: theme.colors.onSurfaceVariant,
       marginTop: 8,
       textAlign: 'center',
-      lineHeight: 20,
     } as TextStyle,
 
     emptyButton: {
@@ -1466,8 +1461,7 @@ const createStyles = (theme: Theme) =>
     } as ViewStyle,
 
     toggleTitle: {
-      fontSize: 16,
-      fontWeight: '500',
+      ...theme.typography.titleMedium,
       color: theme.colors.onSurfaceVariant,
     } as TextStyle,
 
@@ -1476,7 +1470,7 @@ const createStyles = (theme: Theme) =>
     } as TextStyle,
 
     toggleSubtitle: {
-      fontSize: 12,
+      ...theme.typography.bodySmall,
       color: theme.colors.onSurfaceVariant,
       marginTop: 2,
     } as TextStyle,
@@ -1546,8 +1540,7 @@ const createStyles = (theme: Theme) =>
     } as TextStyle,
 
     restrictionMessage: {
-      fontSize: 14,
-      lineHeight: 20,
+      ...theme.typography.bodyMedium,
       color: theme.colors.onSurfaceVariant,
       textAlign: 'center',
       marginBottom: 16,
@@ -1582,7 +1575,7 @@ const createStyles = (theme: Theme) =>
     } as ViewStyle,
 
     validationText: {
-      fontSize: 12,
+      ...theme.typography.bodySmall,
       marginTop: 4,
       marginLeft: 2,
     } as TextStyle,

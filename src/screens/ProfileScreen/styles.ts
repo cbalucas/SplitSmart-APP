@@ -302,14 +302,14 @@ export const createStyles = (theme: Theme) =>
     } as ViewStyle,
 
     modalTitle: {
-      fontSize: 20,
+      ...theme.typography.titleLarge,
       fontWeight: '600',
       color: theme.colors.onSurface,
       marginBottom: 8,
     } as TextStyle,
 
     modalSubtitle: {
-      fontSize: 14,
+      ...theme.typography.bodyMedium,
       color: theme.colors.onSurfaceVariant,
       marginBottom: 20,
     } as TextStyle,
