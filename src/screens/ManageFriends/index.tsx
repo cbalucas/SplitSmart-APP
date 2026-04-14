@@ -258,7 +258,7 @@ const ManageFriendsScreen: React.FC = () => {
     }
 
     // Validar formato de teléfono (si fue ingresado)
-    if (newFriend.phone.trim() && !/^\+?[\d\s\-()]+$/.test(newFriend.phone.trim())) {
+    if (newFriend.phone.trim() && !/^\+?\d{1,16}$/.test(newFriend.phone.trim())) {
       Alert.alert(t.alerts.error.general, t.alerts.error.phoneInvalid);
       return;
     }
@@ -436,8 +436,9 @@ const ManageFriendsScreen: React.FC = () => {
             value={newFriend.phone}
             onChangeText={(text) => {
               const startsWithPlus = text.startsWith('+');
-              let filtered = text.replace(/[^\d\s\-()+]/g, '').replace(/\+/g, '');
-              if (startsWithPlus) filtered = '+' + filtered;
+              let digits = text.replace(/\D/g, '');
+              if (digits.length > 16) digits = digits.slice(0, 16);
+              const filtered = startsWithPlus ? '+' + digits : digits;
               setNewFriend(prev => ({ ...prev, phone: filtered }));
             }}
             keyboardType="phone-pad"

@@ -278,7 +278,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
     }
 
     // Validar formato de teléfono (si fue ingresado)
-    if (newParticipant.phone.trim() && !/^\+?[\d\s\-()]+$/.test(newParticipant.phone.trim())) {
+    if (newParticipant.phone.trim() && !/^\+?\d{1,16}$/.test(newParticipant.phone.trim())) {
       Alert.alert(t('common.error'), t('addParticipant.error.phoneInvalid'));
       return;
     }
@@ -923,8 +923,9 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
               value={newParticipant.phone}
               onChangeText={(text) => {
                 const startsWithPlus = text.startsWith('+');
-                let filtered = text.replace(/[^\d\s\-()+]/g, '').replace(/\+/g, '');
-                if (startsWithPlus) filtered = '+' + filtered;
+                let digits = text.replace(/\D/g, '');
+                if (digits.length > 16) digits = digits.slice(0, 16);
+                const filtered = startsWithPlus ? '+' + digits : digits;
                 setNewParticipant(prev => ({ ...prev, phone: filtered }));
               }}
               keyboardType="phone-pad"

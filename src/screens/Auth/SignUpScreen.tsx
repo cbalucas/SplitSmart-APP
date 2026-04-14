@@ -159,7 +159,7 @@ export default function SignUpScreen() {
     if (!formData.phone.trim()) {
       return { isValid: false, error: t.errors.phoneRequired };
     }
-    if (!/^\+?[\d\s-()]+$/.test(formData.phone)) {
+    if (!/^\+?\d{1,16}$/.test(formData.phone)) {
       return { isValid: false, error: t.errors.phoneInvalid };
     }
 
@@ -519,8 +519,9 @@ export default function SignUpScreen() {
               value={formData.phone}
               onChangeText={(text) => {
                 const startsWithPlus = text.startsWith('+');
-                let filtered = text.replace(/[^\d\s\-()+]/g, '').replace(/\+/g, '');
-                if (startsWithPlus) filtered = '+' + filtered;
+                let digits = text.replace(/\D/g, '');
+                if (digits.length > 16) digits = digits.slice(0, 16);
+                const filtered = startsWithPlus ? '+' + digits : digits;
                 updateFormData('phone', filtered);
               }}
               placeholder={t.form.phonePlaceholder}

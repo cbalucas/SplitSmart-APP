@@ -599,6 +599,7 @@ const CreateEventScreen: React.FC = () => {
             value={formData.startDate || new Date()}
             mode="date"
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            minimumDate={new Date(new Date().setMonth(new Date().getMonth() - 6))}
             onChange={onDateChange}
           />
         )}

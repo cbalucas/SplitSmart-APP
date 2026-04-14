@@ -4276,8 +4276,9 @@ const EditParticipantModalContent: React.FC<{
               value={phone}
               onChangeText={(text) => {
                 const startsWithPlus = text.startsWith('+');
-                let filtered = text.replace(/[^\d\s\-()+]/g, '').replace(/\+/g, '');
-                if (startsWithPlus) filtered = '+' + filtered;
+                let digits = text.replace(/\D/g, '');
+                if (digits.length > 16) digits = digits.slice(0, 16);
+                const filtered = startsWithPlus ? '+' + digits : digits;
                 setPhone(filtered);
               }}
               keyboardType="phone-pad"

@@ -365,7 +365,7 @@ const ProfileScreen: React.FC = () => {
     }
 
     // Validar formato de teléfono (si fue ingresado)
-    if (profileData.phone?.trim() && !/^\+?[\d\s\-()]+$/.test(profileData.phone.trim())) {
+    if (profileData.phone?.trim() && !/^\+?\d{1,16}$/.test(profileData.phone.trim())) {
       Alert.alert(t('error'), t('profile.message.phoneInvalid'));
       return;
     }
@@ -985,8 +985,9 @@ const ProfileScreen: React.FC = () => {
                 value={profileData.phone}
                 onChangeText={(value) => {
                   const startsWithPlus = value.startsWith('+');
-                  let filtered = value.replace(/[^\d\s\-()+]/g, '').replace(/\+/g, '');
-                  if (startsWithPlus) filtered = '+' + filtered;
+                  let digits = value.replace(/\D/g, '');
+                  if (digits.length > 16) digits = digits.slice(0, 16);
+                  const filtered = startsWithPlus ? '+' + digits : digits;
                   setProfileData(prev => ({ ...prev, phone: filtered }));
                 }}
                 keyboardType="phone-pad"

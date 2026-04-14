@@ -1345,6 +1345,7 @@ const CreateExpenseScreen: React.FC = () => {
           value={formData.date}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          minimumDate={new Date(new Date().setMonth(new Date().getMonth() - 6))}
           accentColor={theme.colors.surface === '#FFFFFF' ? '#007AFF' : theme.colors.primaryContainer}
           themeVariant={theme.colors.surface === '#FFFFFF' ? 'light' : 'dark'}
           onChange={(event, selectedDate) => {
