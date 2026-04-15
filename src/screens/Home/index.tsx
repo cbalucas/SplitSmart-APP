@@ -6,9 +6,9 @@ import {
   RefreshControl,
   TouchableOpacity,
   TextInput,
-  StyleSheet,
-  Alert
+  StyleSheet
 } from 'react-native';
+import { showAlert } from '../../services/alertService';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -229,11 +229,6 @@ const HomeScreen: React.FC = () => {
     setMetrics(newMetrics);
   }, [eventsWithAmounts, searchQuery, statusFilter, t.metrics]);
 
-  // Helper para mostrar alerts con traducciones
-  const showAlert = (title: string, message: string, buttons?: any[]) => {
-    Alert.alert(title, message, buttons);
-  };
-
   // Refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -243,7 +238,7 @@ const HomeScreen: React.FC = () => {
       await calculateEventTotals();
     } catch (error) {
       console.error('Error refreshing events:', error);
-      showAlert(t.actions.error, t.alerts.refreshError);
+      showAlert({ type: 'error', title: t.actions.error, message: t.alerts.refreshError });
     }
     setRefreshing(false);
   }, [refreshData, loadEventCounts, calculateEventTotals, t.actions.error, t.alerts.refreshError]);
@@ -260,10 +255,11 @@ const HomeScreen: React.FC = () => {
   const handleEventArchive = async (event: HomeEventData) => {
     const message = t.alerts.archiveMessage.replace('{{eventName}}', event.name);
     
-    showAlert(
-      t.alerts.archiveTitle,
+    showAlert({
+      type: 'warning',
+      title: t.alerts.archiveTitle,
       message,
-      [
+      buttons: [
         { text: t.actions.cancel, style: 'cancel' },
         {
           text: t.actions.archive,
@@ -272,24 +268,25 @@ const HomeScreen: React.FC = () => {
             try {
               await updateEvent(event.id, { status: 'archived' });
               await onRefresh();
-              showAlert(t.actions.success, t.alerts.archiveSuccess);
+              showAlert({ type: 'success', title: t.actions.success, message: t.alerts.archiveSuccess });
             } catch (error) {
               console.error('Error archiving event:', error);
-              showAlert(t.actions.error, t.alerts.archiveError);
+              showAlert({ type: 'error', title: t.actions.error, message: t.alerts.archiveError });
             }
           }
         }
       ]
-    );
+    });
   };
 
   const handleEventDelete = async (event: HomeEventData) => {
     const message = t.alerts.deleteMessage.replace('{{eventName}}', event.name);
     
-    showAlert(
-      t.alerts.deleteTitle,
+    showAlert({
+      type: 'destructive',
+      title: t.alerts.deleteTitle,
       message,
-      [
+      buttons: [
         { text: t.actions.cancel, style: 'cancel' },
         {
           text: t.actions.delete,
@@ -298,15 +295,15 @@ const HomeScreen: React.FC = () => {
             try {
               await deleteEvent(event.id);
               await onRefresh();
-              showAlert(t.actions.success, t.alerts.deleteSuccess);
+              showAlert({ type: 'success', title: t.actions.success, message: t.alerts.deleteSuccess });
             } catch (error) {
               console.error('Error deleting event:', error);
-              showAlert(t.actions.error, t.alerts.deleteError);
+              showAlert({ type: 'error', title: t.actions.error, message: t.alerts.deleteError });
             }
           }
         }
       ]
-    );
+    });
   };
 
   const handleCreateEvent = () => {

@@ -9,7 +9,8 @@
     "error": "Error",
     "add": "Agregar",
     "search": "Buscar",
-    "test": "JSON funcionando"
+    "test": "JSON funcionando",
+    "processing": "Procesando…"
   },
   "auth": {
     "login": "Iniciar Sesión"

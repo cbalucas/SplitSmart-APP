@@ -9,7 +9,8 @@
     "error": "Error",
     "add": "Add",
     "search": "Search",
-    "test": "JSON working"
+    "test": "JSON working",
+    "processing": "Processing…"
   },
   "auth": {
     "login": "Login"

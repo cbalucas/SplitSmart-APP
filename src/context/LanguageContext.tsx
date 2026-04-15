@@ -413,6 +413,7 @@ const additionalEsTranslations = {
   'message.eventNotFound': 'Evento no encontrado',
   'common.back': 'Volver',
   'common.archive': 'Archivar',
+  'common.processing': 'Procesando…',
   // EventDetail - JSX display strings (tab Pagos y modal editar participante)
   'eventDetail.paymentsTitle': '💰 Estado de Pagos',
   'eventDetail.paymentsPending': 'Pendiente',
@@ -1107,6 +1108,7 @@ const translations = {
     'message.archiveEventDesc': 'The archived event will only be visible in history. You can reactivate it whenever you want.',
     'common.success': 'Success',
     'common.archive': 'Archive',
+    'common.processing': 'Processing…',
     'message.paymentsCreated': 'payment created successfully',
     'message.paymentsCreatedPlural': 'payments created successfully',
     'message.eventDeleted': 'Event deleted successfully',
@@ -1782,6 +1784,7 @@ const translations = {
     'message.archiveEventDesc': 'O evento arquivado só será visível no histórico. Você pode reativá-lo quando quiser.',
     'common.success': 'Sucesso',
     'common.archive': 'Arquivar',
+    'common.processing': 'Processando…',
     'message.paymentsCreated': 'pagamento criado com sucesso',
     'message.paymentsCreatedPlural': 'pagamentos criados com sucesso',
     'message.eventDeleted': 'Evento excluído com sucesso',

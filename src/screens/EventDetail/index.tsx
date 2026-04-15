@@ -12,7 +12,8 @@ import {
   TextInput,
   Image,
   Switch,
-  BackHandler
+  BackHandler,
+  ActivityIndicator
 } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -32,7 +33,7 @@ import { LanguageSelector, ThemeToggle, SettlementItem, ConsolidationModal } fro
 import { useCalculations } from '../../hooks/useCalculations';
 import { databaseService } from '../../services/database';
 import { ConsolidationService } from '../../services/ConsolidationService';
-import { showAlert } from '../../services/alertService';
+import { showAlert, dismissAlert } from '../../services/alertService';
 import * as ImagePicker from 'expo-image-picker';
 import { createStyles } from './styles';
 
@@ -69,6 +70,7 @@ export default function EventDetailScreen() {
   
   const eventId = (route.params as any)?.eventId as string;
   const [event, setEvent] = useState<Event | null>(null);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [eventExpenses, setEventExpenses] = useState<Expense[]>([]);
   const [eventParticipants, setEventParticipants] = useState<(Participant & { role: EventParticipant['role']; balance: number; joinedAt: string })[]>([]);
   const [eventSplits, setEventSplits] = useState<Split[]>([]);
@@ -223,6 +225,8 @@ export default function EventDetailScreen() {
       setDbSettlements([]);
       setConsolidationAssignments([]);
       setConsolidatedSettlements([]);
+    } finally {
+      setIsInitialLoading(false);
     }
   }, [eventId, getExpensesByEvent, getEventParticipants, getSplitsByEvent, getPaymentsByEvent]);
 
@@ -682,6 +686,7 @@ export default function EventDetailScreen() {
           text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
+            showAlert({ type: 'warning', isLoading: true, title: t('common.processing') });
             try {
               for (const participantId of selectedParticipantIds) {
                 await removeParticipantFromEvent(event?.id || '', participantId);
@@ -690,9 +695,11 @@ export default function EventDetailScreen() {
               setIsParticipantSelectMode(false);
               setSelectedParticipantIds(new Set());
               setParticipantSearchQuery('');
+              dismissAlert();
               showAlert({ type: 'success', title: t('common.success'), message: t('participants.deletedSelected', { count, plural: count !== 1 ? 's' : '' }) });
             } catch (error: any) {
               console.error('Error removing participants:', error);
+              dismissAlert();
               showAlert({ type: 'error', title: t('common.error'), message: error.message || t('message.participantDeletedError') });
             }
           },
@@ -752,6 +759,7 @@ export default function EventDetailScreen() {
           text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
+            showAlert({ type: 'warning', isLoading: true, title: t('common.processing') });
             try {
               for (const expenseId of selectedExpenseIds) {
                 await deleteExpense(expenseId);
@@ -760,9 +768,11 @@ export default function EventDetailScreen() {
               setIsExpenseSelectMode(false);
               setSelectedExpenseIds(new Set());
               setSearchQuery('');
+              dismissAlert();
               showAlert({ type: 'success', title: t('common.success'), message: t('expenses.deletedSelected', { count, plural: count !== 1 ? 's' : '' }) });
             } catch (error: any) {
               console.error('Error removing expenses:', error);
+              dismissAlert();
               showAlert({ type: 'error', title: t('common.error'), message: error.message || t('message.expenseDeletedError') });
             }
           },
@@ -1520,6 +1530,7 @@ export default function EventDetailScreen() {
 
   const handleAddParticipant = async (input: Participant | Participant[]) => {
     const list = Array.isArray(input) ? input : [input];
+    if (list.length > 1) showAlert({ type: 'warning', isLoading: true, title: t('common.processing') });
 
     try {
       for (const participant of list) {
@@ -1536,6 +1547,7 @@ export default function EventDetailScreen() {
       if (list.length === 1) {
         showAlert({ type: 'success', title: `✅ ${t('message.participantAdded')}`, message: `${list[0].name} ${t('message.participantAddedDesc')}` });
       } else {
+        dismissAlert();
         showAlert({ type: 'success', title: `✅ ${t('message.participantAdded')}`, message: t('addParticipant.alert.participantsAddedMessage', {
             count: list.length,
             plural: list.length !== 1 ? 's' : ''
@@ -1543,6 +1555,7 @@ export default function EventDetailScreen() {
       }
     } catch (error: any) {
       console.error('Error adding participant(s):', error);
+      if (list.length > 1) dismissAlert();
       showAlert({ type: 'error', title: t('error'), message: error.message || t('message.participantAddedError') });
     }
   };
@@ -3594,6 +3607,14 @@ export default function EventDetailScreen() {
         }
       ] });
   };
+
+  if (!event && isInitialLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
 
   if (!event) {
     return (

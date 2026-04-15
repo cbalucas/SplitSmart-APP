@@ -6,9 +6,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { registerAlertHandler, AlertOptions, AlertButton, AlertType } from '../../services/alertService';
+import { registerAlertHandler, registerDismissHandler, AlertOptions, AlertButton, AlertType } from '../../services/alertService';
 
 const ACCENT: Record<AlertType, string> = {
   error:       '#D32F2F',
@@ -39,11 +40,12 @@ export default function CustomAlertContainer() {
     setState({ ...options, visible: true, type: options.type ?? 'info' });
   }, []);
 
+  const dismiss = () => setState(DEFAULT_STATE);
+
   useEffect(() => {
     registerAlertHandler(show);
+    registerDismissHandler(dismiss);
   }, [show]);
-
-  const dismiss = () => setState(DEFAULT_STATE);
 
   const handleButton = (btn: AlertButton) => {
     dismiss();
@@ -65,12 +67,12 @@ export default function CustomAlertContainer() {
       transparent
       animationType="fade"
       statusBarTranslucent
-      onRequestClose={dismiss}
+      onRequestClose={state.isLoading ? undefined : dismiss}
     >
       <TouchableOpacity
         style={styles.overlay}
         activeOpacity={1}
-        onPress={cancelBtn ? () => handleButton(cancelBtn) : dismiss}
+        onPress={state.isLoading ? undefined : (cancelBtn ? () => handleButton(cancelBtn) : dismiss)}
       >
         <TouchableOpacity activeOpacity={1}>
           <View
@@ -83,41 +85,54 @@ export default function CustomAlertContainer() {
               },
             ]}
           >
-            {/* Título */}
-            <Text style={[styles.title, { color: theme.colors.onSurface }]}>
-              {state.title}
-            </Text>
-
-            {/* Mensaje */}
-            {!!state.message && (
-              <Text style={[styles.message, { color: theme.colors.onSurfaceVariant }]}>
-                {state.message}
-              </Text>
+            {/* Spinner (modo loading) */}
+            {state.isLoading && (
+              <View style={styles.loadingContent}>
+                <ActivityIndicator size="large" color={accentColor} />
+                <Text style={[styles.loadingText, { color: theme.colors.onSurface }]}>
+                  {state.title}
+                </Text>
+              </View>
             )}
 
-            {/* Separador */}
-            <View style={[styles.divider, { backgroundColor: theme.colors.outline }]} />
+            {/* Contenido normal (modo alerta) */}
+            {!state.isLoading && (
+              <>
+                {/* Título */}
+                <Text style={[styles.title, { color: theme.colors.onSurface }]}>
+                  {state.title}
+                </Text>
 
-            {/* Botones */}
-            <View style={[styles.buttonsRow, buttons.length > 2 && styles.buttonsColumn]}>
-              {cancelBtn && (
-                <TouchableOpacity
-                  style={[styles.btn, styles.btnCancel, { borderColor: theme.colors.outline }]}
-                  onPress={() => handleButton(cancelBtn)}
-                >
-                  <Text style={[styles.btnText, { color: theme.colors.onSurfaceVariant }]}>
-                    {cancelBtn.text}
+                {/* Mensaje */}
+                {!!state.message && (
+                  <Text style={[styles.message, { color: theme.colors.onSurfaceVariant }]}>
+                    {state.message}
                   </Text>
-                </TouchableOpacity>
-              )}
-              {actionBtns.map((btn, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={[
-                    styles.btn,
-                    styles.btnAction,
-                    { borderColor: accentColor },
-                  ]}
+                )}
+
+                {/* Separador */}
+                <View style={[styles.divider, { backgroundColor: theme.colors.outline }]} />
+
+                {/* Botones */}
+                <View style={[styles.buttonsRow, buttons.length > 2 && styles.buttonsColumn]}>
+                  {cancelBtn && (
+                    <TouchableOpacity
+                      style={[styles.btn, styles.btnCancel, { borderColor: theme.colors.outline }]}
+                      onPress={() => handleButton(cancelBtn)}
+                    >
+                      <Text style={[styles.btnText, { color: theme.colors.onSurfaceVariant }]}>
+                        {cancelBtn.text}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  {actionBtns.map((btn, i) => (
+                    <TouchableOpacity
+                      key={i}
+                      style={[
+                        styles.btn,
+                        styles.btnAction,
+                        { borderColor: accentColor },
+                      ]}
                   onPress={() => handleButton(btn)}
                 >
                   <Text style={[styles.btnText, styles.btnActionText, { color: accentColor }]}>
@@ -126,6 +141,8 @@ export default function CustomAlertContainer() {
                 </TouchableOpacity>
               ))}
             </View>
+              </>
+            )}
           </View>
         </TouchableOpacity>
       </TouchableOpacity>
@@ -197,5 +214,15 @@ const styles = StyleSheet.create({
   },
   btnActionText: {
     fontWeight: '700',
+  },
+  loadingContent: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  loadingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 14,
+    textAlign: 'center',
   },
 });
