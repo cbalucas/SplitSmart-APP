@@ -1391,7 +1391,7 @@ const ProfileScreen: React.FC = () => {
             </View>
             <View style={styles.settingAction}>
               <View style={styles.versionBadge}>
-                <Text style={styles.versionBadgeText}>v1.7.0</Text>
+                <Text style={styles.versionBadgeText}>v1.8.0</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -1712,15 +1712,69 @@ const ProfileScreen: React.FC = () => {
               contentContainerStyle={{ flexGrow: 1 }}
               nestedScrollEnabled={true}
             >
-                                          {/* Versión 1.7.0 - Versión Actual */}
+                                                        {/* Versión 1.8.0 - Versión Actual */}
               <TouchableOpacity 
                 style={[styles.versionBlock, styles.currentVersionBlock]} 
+                onPress={() => toggleVersionExpanded('1.8.0')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.versionHeader}>
+                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.8.0 (Actual)</Text>
+                  <Text style={[styles.versionDate, styles.currentVersionDate]}>15 Abr 2026</Text>
+                  <MaterialCommunityIcons 
+                    name={expandedVersions.has('1.8.0') ? 'chevron-up' : 'chevron-down'} 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
+                </View>
+                {expandedVersions.has('1.8.0') && (
+                  <View style={styles.versionContent}>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🚀 Novedades</Text>
+                      <Text style={styles.changelogItem}>• Cerrar sesión en todos los menús de HeaderBar</Text>
+                      <Text style={styles.changelogItem}>• Selección múltiple con "Todos"</Text>
+                      <Text style={styles.changelogItem}>• Sistema de 3 estados de eventos</Text>
+                      <Text style={styles.changelogItem}>• : todo editable (gastos, participantes, pagos)</Text>
+                      <Text style={styles.changelogItem}>• : solo se pueden registrar/deshacer pagos; gastos y participantes de solo lectura</Text>
+                      <Text style={styles.changelogItem}>• : lectura total, sin ninguna modificación posible</Text>
+                      <Text style={styles.changelogItem}>• Migración automática de DB</Text>
+                      <Text style={styles.changelogItem}>• Nueva columna en tabla</Text>
+                      <Text style={styles.changelogItem}>• Botones en EventDetail</Text>
+                      <Text style={styles.changelogItem}>• Badge de estado con colores</Text>
+                      <Text style={styles.changelogItem}>• Barra naranja en EventCard para eventos bloqueados</Text>
+                      <Text style={styles.changelogItem}>• Métricas y filtros en Home actualizados para los 3 estados</Text>
+                      <Text style={styles.changelogItem}>• Deshacer pagos con selección múltiple</Text>
+                      <Text style={styles.changelogItem}>• Alertas personalizadas en CreateEvent</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
+                      <Text style={styles.changelogItem}>• Estado vacío de gastos</Text>
+                      <Text style={styles.changelogItem}>• Deshacer pagos en bulk no funcionaba</Text>
+                      <Text style={styles.changelogItem}>• Bloquear evento seguía permitiendo agregar gastos/participantes</Text>
+                      <Text style={styles.changelogItem}>• Badge de estado mostraba clave cruda</Text>
+                      <Text style={styles.changelogItem}>• Status "Archivado" en badge y share</Text>
+                      <Text style={styles.changelogItem}>• Filtro "Bloqueados" en Home no traía eventos</Text>
+                      <Text style={styles.changelogItem}>• Alertas en Home sin borde de color</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>✨ Mejoras</Text>
+                      <Text style={styles.changelogItem}>• UX barra de selección</Text>
+                      <Text style={styles.changelogItem}>• Texto uniforme</Text>
+                      <Text style={styles.changelogItem}>• Ícono de deshacer pagos reducido</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+{/* Versión 1.7.0 - Versión Actual */}
+              <TouchableOpacity 
+                style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.7.0')}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
-                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.7.0 (Actual)</Text>
-                  <Text style={[styles.versionDate, styles.currentVersionDate]}>13 Abr 2026</Text>
+                  <Text style={[styles.versionNumber]}>v1.7.0</Text>
+                  <Text style={[styles.versionDate]}>13 Abr 2026</Text>
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.7.0') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
@@ -2310,7 +2364,7 @@ const ProfileScreen: React.FC = () => {
                   color={theme.colors.primary} 
                   style={{ alignSelf: 'center', marginBottom: 16 }}
                 />
-                <Text style={styles.aboutTitle}>SplitSmart v1.7.0</Text>
+                <Text style={styles.aboutTitle}>SplitSmart v1.8.0</Text>
                 <Text style={styles.aboutDescription}>
                   {t('profile.about.appDescription')}
                 </Text>
@@ -2355,7 +2409,7 @@ const ProfileScreen: React.FC = () => {
               <View style={[styles.aboutSection, { backgroundColor: theme.colors.surfaceVariant, padding: 16, borderRadius: 12 }]}>
                 <Text style={styles.aboutSectionTitle}>{t('profile.about.techSpecs')}</Text>
                 <Text style={styles.aboutDescription}>
-                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.version')}:</Text> 1.7.0{'\n'}
+                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.version')}:</Text> 1.8.0{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.platform')}</Text>{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.database')}</Text>{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.languages')}</Text>

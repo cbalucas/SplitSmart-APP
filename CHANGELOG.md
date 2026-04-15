@@ -1,5 +1,45 @@
 ﻿# Changelog - SplitSmart
 
+## [1.8.0] - 2026-04-15
+
+### 🚀 Nuevas Funcionalidades
+- **Cerrar sesión en todos los menús de HeaderBar**: nueva prop `showLogout` en `HeaderBar`. Al activarla aparece la opción "Cerrar sesión" (en rojo, con separador) al final del menú desplegable. La confirmación usa idioma activo (es/en/pt). Se eliminó la lógica de logout dispersa en cada pantalla.
+- **Selección múltiple con "Todos"**: en el modo selección de gastos y participantes se puede tildar/destildar todos de un toque. La barra muestra checkbox circular a la izquierda (vacío / parcial / completo) con el texto "Todos" y los botones de acción (🗑 / ✕) como íconos circulares a la derecha.
+- **Sistema de 3 estados de eventos** (`Activo → Bloqueado → Cerrado`):
+- `Activo` — todo editable (gastos, participantes, pagos)
+- `Bloqueado` — solo se pueden registrar/deshacer pagos; gastos y participantes de solo lectura
+- `Cerrado` — lectura total, sin ninguna modificación posible
+- Migración automática de DB: eventos `completed` → `active + is_locked=1`
+- Nueva columna `is_locked INTEGER` en tabla `events`
+- Botones en EventDetail: Bloquear / Desbloquear / Cerrar / Reactivar según estado
+- Badge de estado con colores: 🟢 Activo (verde) / 🔒 Bloqueado (naranja) / 📁 Cerrado (gris)
+- Barra naranja en EventCard para eventos bloqueados
+- Métricas y filtros en Home actualizados para los 3 estados
+- **Deshacer pagos con selección múltiple**: nueva sección "Liquidaciones Pagadas" con botón de activar modo selección (ícono circular pequeño), checkbox-all, contador de seleccionados y botón rojo de deshacer. Mismo patrón visual que gastos/participantes.
+- **Alertas personalizadas en CreateEvent**: todos los `Alert.alert` nativos migrados a `showAlert` (con borde de color por tipo).
+
+### 🔧 Correcciones de Bugs
+- **Estado vacío de gastos**: el link "Agregar participantes primero →" fue reemplazado por "Se deben Agregar Participantes" con el mismo estilo de link y navegación a la pestaña de participantes.
+- **Deshacer pagos en bulk no funcionaba**: el segundo `showAlert` de confirmación reemplazaba al primero, dejando un pago sin deshacer. Corregido con parámetro `skipConfirmation` en `handleToggleSettlementPaid` para el bulk undo.
+- **Bloquear evento seguía permitiendo agregar gastos/participantes**: los botones del UI usaban `event?.status === 'active'` en lugar de `isEditable`. Corregidas 6 ocurrencias en las pestañas de Gastos y Participantes.
+- **Badge de estado mostraba clave cruda `metrics.locked`**: clave inexistente; reemplazada por `events.locked` con valor `"Bloqueado"`.
+- **Status "Archivado" en badge y share**: `events.archived` ahora devuelve `"Cerrado"` / `"Closed"` / `"Fechado"` en los 3 idiomas.
+- **Filtro "Bloqueados" en Home no traía eventos**: el `useMemo` de `eventsWithAmounts` no propagaba el campo `isLocked` del evento original; siempre era `undefined` y el filtro nunca matcheaba.
+- **Alertas en Home sin borde de color**: variable local `showAlert` sobreescribía el import; se corrigió migrando los 7 `Alert.alert` nativos.
+
+### ✨ Mejoras
+- **UX barra de selección**: diseño rediseñado (gastos y participantes) con patrón checkbox-izquierda + acciones-derecha, acorde a apps modernas. Sin filas de botones de texto saturadas.
+- **Texto uniforme**: ambos modos de selección muestran "Todos" cuando no hay nada seleccionado (antes decían "Seleccionar Todos" vs "Todos" de forma inconsistente).
+- `HeaderBar`: `useAuth` y `showAlert` importados internamente — las pantallas ya no necesitan manejar logout propio.
+- **Ícono de deshacer pagos reducido**: botón de activar modo deshacer pasó de `36×36` con ícono `18px` a `28×28` con ícono `14px` para no competir visualmente con el badge de cuenta.
+
+### 🔢 Versiones
+- **versionCode**: 20 → 21
+- **versionName**: "1.7.0" → "1.8.0"
+
+---
+
+
 ## [1.7.0] - 2026-04-13
 
 ### 🚀 Nuevas Funcionalidades
@@ -86,6 +126,46 @@
 - **EventDetail — Cards de participantes: botón eliminar individual eliminado**: la eliminación individual por ✕ fue removida. La única vía de eliminación es el modo selección múltiple con el tacho de basura.
 - **EventDetail — Cards de participantes: layout del panel derecho invertido**: el lápiz de editar queda arriba y el balance abajo (`flexDirection: 'column'`).
 - **EventDetail — Cards de participantes: montos de pagado/división más grandes**: `fontSize` subido de `11` a `13` con `fontWeight: '500'`. El 💰 (pagado) solo se muestra si el monto es mayor a # Changelog - SplitSmart
+
+## [1.8.0] - 2026-04-15
+
+### 🚀 Nuevas Funcionalidades
+- **Cerrar sesión en todos los menús de HeaderBar**: nueva prop `showLogout` en `HeaderBar`. Al activarla aparece la opción "Cerrar sesión" (en rojo, con separador) al final del menú desplegable. La confirmación usa idioma activo (es/en/pt). Se eliminó la lógica de logout dispersa en cada pantalla.
+- **Selección múltiple con "Todos"**: en el modo selección de gastos y participantes se puede tildar/destildar todos de un toque. La barra muestra checkbox circular a la izquierda (vacío / parcial / completo) con el texto "Todos" y los botones de acción (🗑 / ✕) como íconos circulares a la derecha.
+- **Sistema de 3 estados de eventos** (`Activo → Bloqueado → Cerrado`):
+- `Activo` — todo editable (gastos, participantes, pagos)
+- `Bloqueado` — solo se pueden registrar/deshacer pagos; gastos y participantes de solo lectura
+- `Cerrado` — lectura total, sin ninguna modificación posible
+- Migración automática de DB: eventos `completed` → `active + is_locked=1`
+- Nueva columna `is_locked INTEGER` en tabla `events`
+- Botones en EventDetail: Bloquear / Desbloquear / Cerrar / Reactivar según estado
+- Badge de estado con colores: 🟢 Activo (verde) / 🔒 Bloqueado (naranja) / 📁 Cerrado (gris)
+- Barra naranja en EventCard para eventos bloqueados
+- Métricas y filtros en Home actualizados para los 3 estados
+- **Deshacer pagos con selección múltiple**: nueva sección "Liquidaciones Pagadas" con botón de activar modo selección (ícono circular pequeño), checkbox-all, contador de seleccionados y botón rojo de deshacer. Mismo patrón visual que gastos/participantes.
+- **Alertas personalizadas en CreateEvent**: todos los `Alert.alert` nativos migrados a `showAlert` (con borde de color por tipo).
+
+### 🔧 Correcciones de Bugs
+- **Estado vacío de gastos**: el link "Agregar participantes primero →" fue reemplazado por "Se deben Agregar Participantes" con el mismo estilo de link y navegación a la pestaña de participantes.
+- **Deshacer pagos en bulk no funcionaba**: el segundo `showAlert` de confirmación reemplazaba al primero, dejando un pago sin deshacer. Corregido con parámetro `skipConfirmation` en `handleToggleSettlementPaid` para el bulk undo.
+- **Bloquear evento seguía permitiendo agregar gastos/participantes**: los botones del UI usaban `event?.status === 'active'` en lugar de `isEditable`. Corregidas 6 ocurrencias en las pestañas de Gastos y Participantes.
+- **Badge de estado mostraba clave cruda `metrics.locked`**: clave inexistente; reemplazada por `events.locked` con valor `"Bloqueado"`.
+- **Status "Archivado" en badge y share**: `events.archived` ahora devuelve `"Cerrado"` / `"Closed"` / `"Fechado"` en los 3 idiomas.
+- **Filtro "Bloqueados" en Home no traía eventos**: el `useMemo` de `eventsWithAmounts` no propagaba el campo `isLocked` del evento original; siempre era `undefined` y el filtro nunca matcheaba.
+- **Alertas en Home sin borde de color**: variable local `showAlert` sobreescribía el import; se corrigió migrando los 7 `Alert.alert` nativos.
+
+### ✨ Mejoras
+- **UX barra de selección**: diseño rediseñado (gastos y participantes) con patrón checkbox-izquierda + acciones-derecha, acorde a apps modernas. Sin filas de botones de texto saturadas.
+- **Texto uniforme**: ambos modos de selección muestran "Todos" cuando no hay nada seleccionado (antes decían "Seleccionar Todos" vs "Todos" de forma inconsistente).
+- `HeaderBar`: `useAuth` y `showAlert` importados internamente — las pantallas ya no necesitan manejar logout propio.
+- **Ícono de deshacer pagos reducido**: botón de activar modo deshacer pasó de `36×36` con ícono `18px` a `28×28` con ícono `14px` para no competir visualmente con el badge de cuenta.
+
+### 🔢 Versiones
+- **versionCode**: 20 → 21
+- **versionName**: "1.7.0" → "1.8.0"
+
+---
+
 
 ## [1.7.0] - 2026-04-13
 
@@ -190,6 +270,46 @@ _(ninguna)_
 - **EventDetail — Layout de importes del participante**: cambiado de `flexDirection: 'row'` a `flexDirection: 'column'` en la fila de montos (💰 pagado / 💵 debe), mejorando la legibilidad en nombres largos.
 - **EventDetail — Visualización de monto efectivo adeudado**: cuando hay condonación o absorción activa, el monto `💵 debe` ahora muestra el original tachado y el monto real que queda pendiente (ej. ~~$50.00~~ → # Changelog - SplitSmart
 
+## [1.8.0] - 2026-04-15
+
+### 🚀 Nuevas Funcionalidades
+- **Cerrar sesión en todos los menús de HeaderBar**: nueva prop `showLogout` en `HeaderBar`. Al activarla aparece la opción "Cerrar sesión" (en rojo, con separador) al final del menú desplegable. La confirmación usa idioma activo (es/en/pt). Se eliminó la lógica de logout dispersa en cada pantalla.
+- **Selección múltiple con "Todos"**: en el modo selección de gastos y participantes se puede tildar/destildar todos de un toque. La barra muestra checkbox circular a la izquierda (vacío / parcial / completo) con el texto "Todos" y los botones de acción (🗑 / ✕) como íconos circulares a la derecha.
+- **Sistema de 3 estados de eventos** (`Activo → Bloqueado → Cerrado`):
+- `Activo` — todo editable (gastos, participantes, pagos)
+- `Bloqueado` — solo se pueden registrar/deshacer pagos; gastos y participantes de solo lectura
+- `Cerrado` — lectura total, sin ninguna modificación posible
+- Migración automática de DB: eventos `completed` → `active + is_locked=1`
+- Nueva columna `is_locked INTEGER` en tabla `events`
+- Botones en EventDetail: Bloquear / Desbloquear / Cerrar / Reactivar según estado
+- Badge de estado con colores: 🟢 Activo (verde) / 🔒 Bloqueado (naranja) / 📁 Cerrado (gris)
+- Barra naranja en EventCard para eventos bloqueados
+- Métricas y filtros en Home actualizados para los 3 estados
+- **Deshacer pagos con selección múltiple**: nueva sección "Liquidaciones Pagadas" con botón de activar modo selección (ícono circular pequeño), checkbox-all, contador de seleccionados y botón rojo de deshacer. Mismo patrón visual que gastos/participantes.
+- **Alertas personalizadas en CreateEvent**: todos los `Alert.alert` nativos migrados a `showAlert` (con borde de color por tipo).
+
+### 🔧 Correcciones de Bugs
+- **Estado vacío de gastos**: el link "Agregar participantes primero →" fue reemplazado por "Se deben Agregar Participantes" con el mismo estilo de link y navegación a la pestaña de participantes.
+- **Deshacer pagos en bulk no funcionaba**: el segundo `showAlert` de confirmación reemplazaba al primero, dejando un pago sin deshacer. Corregido con parámetro `skipConfirmation` en `handleToggleSettlementPaid` para el bulk undo.
+- **Bloquear evento seguía permitiendo agregar gastos/participantes**: los botones del UI usaban `event?.status === 'active'` en lugar de `isEditable`. Corregidas 6 ocurrencias en las pestañas de Gastos y Participantes.
+- **Badge de estado mostraba clave cruda `metrics.locked`**: clave inexistente; reemplazada por `events.locked` con valor `"Bloqueado"`.
+- **Status "Archivado" en badge y share**: `events.archived` ahora devuelve `"Cerrado"` / `"Closed"` / `"Fechado"` en los 3 idiomas.
+- **Filtro "Bloqueados" en Home no traía eventos**: el `useMemo` de `eventsWithAmounts` no propagaba el campo `isLocked` del evento original; siempre era `undefined` y el filtro nunca matcheaba.
+- **Alertas en Home sin borde de color**: variable local `showAlert` sobreescribía el import; se corrigió migrando los 7 `Alert.alert` nativos.
+
+### ✨ Mejoras
+- **UX barra de selección**: diseño rediseñado (gastos y participantes) con patrón checkbox-izquierda + acciones-derecha, acorde a apps modernas. Sin filas de botones de texto saturadas.
+- **Texto uniforme**: ambos modos de selección muestran "Todos" cuando no hay nada seleccionado (antes decían "Seleccionar Todos" vs "Todos" de forma inconsistente).
+- `HeaderBar`: `useAuth` y `showAlert` importados internamente — las pantallas ya no necesitan manejar logout propio.
+- **Ícono de deshacer pagos reducido**: botón de activar modo deshacer pasó de `36×36` con ícono `18px` a `28×28` con ícono `14px` para no competir visualmente con el badge de cuenta.
+
+### 🔢 Versiones
+- **versionCode**: 20 → 21
+- **versionName**: "1.7.0" → "1.8.0"
+
+---
+
+
 ## [1.7.0] - 2026-04-13
 
 ### 🚀 Nuevas Funcionalidades
@@ -276,6 +396,46 @@ _(ninguna)_
 - **EventDetail — Cards de participantes: botón eliminar individual eliminado**: la eliminación individual por ✕ fue removida. La única vía de eliminación es el modo selección múltiple con el tacho de basura.
 - **EventDetail — Cards de participantes: layout del panel derecho invertido**: el lápiz de editar queda arriba y el balance abajo (`flexDirection: 'column'`).
 - **EventDetail — Cards de participantes: montos de pagado/división más grandes**: `fontSize` subido de `11` a `13` con `fontWeight: '500'`. El 💰 (pagado) solo se muestra si el monto es mayor a # Changelog - SplitSmart
+
+## [1.8.0] - 2026-04-15
+
+### 🚀 Nuevas Funcionalidades
+- **Cerrar sesión en todos los menús de HeaderBar**: nueva prop `showLogout` en `HeaderBar`. Al activarla aparece la opción "Cerrar sesión" (en rojo, con separador) al final del menú desplegable. La confirmación usa idioma activo (es/en/pt). Se eliminó la lógica de logout dispersa en cada pantalla.
+- **Selección múltiple con "Todos"**: en el modo selección de gastos y participantes se puede tildar/destildar todos de un toque. La barra muestra checkbox circular a la izquierda (vacío / parcial / completo) con el texto "Todos" y los botones de acción (🗑 / ✕) como íconos circulares a la derecha.
+- **Sistema de 3 estados de eventos** (`Activo → Bloqueado → Cerrado`):
+- `Activo` — todo editable (gastos, participantes, pagos)
+- `Bloqueado` — solo se pueden registrar/deshacer pagos; gastos y participantes de solo lectura
+- `Cerrado` — lectura total, sin ninguna modificación posible
+- Migración automática de DB: eventos `completed` → `active + is_locked=1`
+- Nueva columna `is_locked INTEGER` en tabla `events`
+- Botones en EventDetail: Bloquear / Desbloquear / Cerrar / Reactivar según estado
+- Badge de estado con colores: 🟢 Activo (verde) / 🔒 Bloqueado (naranja) / 📁 Cerrado (gris)
+- Barra naranja en EventCard para eventos bloqueados
+- Métricas y filtros en Home actualizados para los 3 estados
+- **Deshacer pagos con selección múltiple**: nueva sección "Liquidaciones Pagadas" con botón de activar modo selección (ícono circular pequeño), checkbox-all, contador de seleccionados y botón rojo de deshacer. Mismo patrón visual que gastos/participantes.
+- **Alertas personalizadas en CreateEvent**: todos los `Alert.alert` nativos migrados a `showAlert` (con borde de color por tipo).
+
+### 🔧 Correcciones de Bugs
+- **Estado vacío de gastos**: el link "Agregar participantes primero →" fue reemplazado por "Se deben Agregar Participantes" con el mismo estilo de link y navegación a la pestaña de participantes.
+- **Deshacer pagos en bulk no funcionaba**: el segundo `showAlert` de confirmación reemplazaba al primero, dejando un pago sin deshacer. Corregido con parámetro `skipConfirmation` en `handleToggleSettlementPaid` para el bulk undo.
+- **Bloquear evento seguía permitiendo agregar gastos/participantes**: los botones del UI usaban `event?.status === 'active'` en lugar de `isEditable`. Corregidas 6 ocurrencias en las pestañas de Gastos y Participantes.
+- **Badge de estado mostraba clave cruda `metrics.locked`**: clave inexistente; reemplazada por `events.locked` con valor `"Bloqueado"`.
+- **Status "Archivado" en badge y share**: `events.archived` ahora devuelve `"Cerrado"` / `"Closed"` / `"Fechado"` en los 3 idiomas.
+- **Filtro "Bloqueados" en Home no traía eventos**: el `useMemo` de `eventsWithAmounts` no propagaba el campo `isLocked` del evento original; siempre era `undefined` y el filtro nunca matcheaba.
+- **Alertas en Home sin borde de color**: variable local `showAlert` sobreescribía el import; se corrigió migrando los 7 `Alert.alert` nativos.
+
+### ✨ Mejoras
+- **UX barra de selección**: diseño rediseñado (gastos y participantes) con patrón checkbox-izquierda + acciones-derecha, acorde a apps modernas. Sin filas de botones de texto saturadas.
+- **Texto uniforme**: ambos modos de selección muestran "Todos" cuando no hay nada seleccionado (antes decían "Seleccionar Todos" vs "Todos" de forma inconsistente).
+- `HeaderBar`: `useAuth` y `showAlert` importados internamente — las pantallas ya no necesitan manejar logout propio.
+- **Ícono de deshacer pagos reducido**: botón de activar modo deshacer pasó de `36×36` con ícono `18px` a `28×28` con ícono `14px` para no competir visualmente con el badge de cuenta.
+
+### 🔢 Versiones
+- **versionCode**: 20 → 21
+- **versionName**: "1.7.0" → "1.8.0"
+
+---
+
 
 ## [1.7.0] - 2026-04-13
 
