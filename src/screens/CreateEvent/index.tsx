@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Alert,
   StyleSheet,
   ViewStyle,
   TextStyle,
@@ -20,6 +19,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import { showAlert } from '../../services/alertService';
 import { 
   Input,
   Button,
@@ -154,11 +154,11 @@ const CreateEventScreen: React.FC = () => {
         console.log('Form data loaded successfully');
       } else {
         console.error('Event not found in events list');
-        Alert.alert(t.actions.error, t.validation.eventNotFound);
+        showAlert({ type: 'error', title: t.actions.error, message: t.validation.eventNotFound });
       }
     } catch (error) {
       console.error('Error loading event data:', error);
-      Alert.alert(t.actions.error, t.validation.loadEventDataError);
+      showAlert({ type: 'error', title: t.actions.error, message: t.validation.loadEventDataError });
     }
     setLoading(false);
   };
@@ -173,14 +173,10 @@ const CreateEventScreen: React.FC = () => {
                         formData.startDate !== null;
 
       if (hasChanges) {
-        Alert.alert(
-          t.actions.discardChanges,
-          t.actions.discardMessage,
-          [
-            { text: t.actions.cancel, style: 'cancel' },
-            { text: t.actions.exit, onPress: () => (navigation as any).goBack(), style: 'destructive' }
-          ]
-        );
+        showAlert({ type: 'destructive', title: t.actions.discardChanges, message: t.actions.discardMessage, buttons: [
+          { text: t.actions.cancel, style: 'cancel' },
+          { text: t.actions.exit, style: 'destructive', onPress: () => (navigation as any).goBack() }
+        ] });
       } else {
         (navigation as any).goBack();
       }
@@ -240,14 +236,10 @@ const CreateEventScreen: React.FC = () => {
                       formData.startDate !== null;
 
     if (hasChanges) {
-      Alert.alert(
-        t.actions.discardChanges,
-        t.actions.discardMessage,
-        [
-          { text: t.actions.cancel, style: 'cancel' },
-          { text: t.actions.exit, onPress: () => (navigation as any).goBack(), style: 'destructive' }
-        ]
-      );
+      showAlert({ type: 'destructive', title: t.actions.discardChanges, message: t.actions.discardMessage, buttons: [
+        { text: t.actions.cancel, style: 'cancel' },
+        { text: t.actions.exit, style: 'destructive', onPress: () => (navigation as any).goBack() }
+      ] });
     } else {
       (navigation as any).goBack();
     }
@@ -298,29 +290,22 @@ const CreateEventScreen: React.FC = () => {
         await addEvent(eventData);
       }
       
-      Alert.alert(
-        isEditing ? t.actions.eventUpdated : t.actions.eventCreated,
-        isEditing ? t.actions.eventUpdatedSuccess : t.actions.eventCreatedSuccess,
-        [
+      showAlert({ type: 'success', title: isEditing ? t.actions.eventUpdated : t.actions.eventCreated, message: isEditing ? t.actions.eventUpdatedSuccess : t.actions.eventCreatedSuccess, buttons: [
           { 
             text: t.actions.ok, 
             onPress: () => {
               if (isEditing) {
-                // Si estamos editando, volver a Home
                 (navigation as any).navigate('Home');
               } else {
-                // Si estamos creando, ir al detalle del nuevo evento
-                // Usamos replace para que el back desde EventDetail vaya a Home y no a CreateEvent
                 resetFormToDefaults();
                 (navigation as any).replace('EventDetail', { eventId: newEventId });
               }
             }
           }
-        ]
-      );
+        ] });
     } catch (error) {
       console.error('Error creating event:', error);
-      Alert.alert(t.actions.error, t.validation.createEventError);
+      showAlert({ type: 'error', title: t.actions.error, message: t.validation.createEventError });
     }
   };
 

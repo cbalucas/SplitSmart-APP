@@ -375,6 +375,21 @@ class DatabaseService {
         }
       }
 
+      // Migration: Add is_locked column to events table and migrate completed → active+locked
+      try {
+        const eventsInfo = await this.db.getAllAsync(`PRAGMA table_info(events)`);
+        const hasIsLocked = eventsInfo.some((col: any) => col.name === 'is_locked');
+        if (!hasIsLocked) {
+          await this.db.execAsync('ALTER TABLE events ADD COLUMN is_locked INTEGER NOT NULL DEFAULT 0');
+          await this.db.execAsync(`UPDATE events SET status = 'active', is_locked = 1 WHERE status = 'completed'`);
+          console.log('✅ Migration: Added is_locked column, migrated completed → active+locked');
+        } else {
+          console.log('⚠️ Column is_locked already exists in events table');
+        }
+      } catch (error: any) {
+        console.error('❌ Error in is_locked migration:', error);
+      }
+
     } catch (error) {
       console.error('❌ Error running migrations:', error);
     }
@@ -560,6 +575,7 @@ class DatabaseService {
           creator_id TEXT,
           closed_at TEXT,
           completed_at TEXT,
+          is_locked INTEGER NOT NULL DEFAULT 0,
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL
         )
@@ -864,6 +880,10 @@ class DatabaseService {
         fields.push('completed_at = ?');
         values.push(updates.completedAt);
       }
+      if (updates.isLocked !== undefined) {
+        fields.push('is_locked = ?');
+        values.push(updates.isLocked ? 1 : 0);
+      }
       
       // Siempre actualizar updated_at
       fields.push('updated_at = ?');
@@ -920,6 +940,7 @@ class DatabaseService {
         creatorId: row.creator_id,
         closedAt: row.closed_at,
         completedAt: row.completed_at,
+        isLocked: row.is_locked === 1 || row.is_locked === true,
         createdAt: row.created_at,
         updatedAt: row.updated_at
       }));
@@ -961,6 +982,7 @@ class DatabaseService {
         creatorId: result.creator_id,
         closedAt: result.closed_at,
         completedAt: result.completed_at,
+        isLocked: result.is_locked === 1 || result.is_locked === true,
         createdAt: result.created_at,
         updatedAt: result.updated_at
       };

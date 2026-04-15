@@ -113,6 +113,8 @@ export default function EventDetailScreen() {
   const [showFilters, setShowFilters] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [allowUndoPayments, setAllowUndoPayments] = useState(false);
+  const [selectedUndoIds, setSelectedUndoIds] = useState<Set<string>>(new Set());
   const [isOptimizationExpanded, setIsOptimizationExpanded] = useState(false);
   const [showExpenseDetailModal, setShowExpenseDetailModal] = useState(false);
   const [selectedExpenseForDetail, setSelectedExpenseForDetail] = useState<any>(null);
@@ -136,8 +138,13 @@ export default function EventDetailScreen() {
     eventSplits,
     eventPayments, // Payments (para compatibilidad legacy)
     dbSettlements,
-    (event?.status || 'active') as 'active' | 'completed' | 'archived'
+    (event?.status || 'active') as 'active' | 'archived'
   );
+
+  // --- Variables de permisos de estado ---
+  const isLocked = event?.isLocked === true;
+  const isClosed = event?.status === 'archived';
+  const isEditable = event?.status === 'active' && !isLocked;
 
   // Crear un objeto indexable para balances
   const balancesById = balances.reduce((acc: Record<string, number>, balance) => {
@@ -236,8 +243,8 @@ export default function EventDetailScreen() {
       console.log('❌ Sync cancelled: missing eventId or event', { eventId, event: !!event });
       return;
     }
-    if (event.status === 'archived') {
-      console.log('❌ Sync cancelled: event is archived');
+    if (isClosed) {
+      console.log('❌ Sync cancelled: event is closed/archived');
       return;
     }
 
@@ -371,7 +378,7 @@ export default function EventDetailScreen() {
   // Usar referencia para evitar bucles infinitos
   const previousSettlementsRef = useRef<string>('');
   useEffect(() => {
-    if (!eventId || !event || event.status === 'archived' || event.status === 'completed') return;
+    if (!eventId || !event || isClosed) return;
     
     // Crear una "huella" de las settlements calculadas para comparar cambios reales
     const settlementsSignature = JSON.stringify(
@@ -388,7 +395,7 @@ export default function EventDetailScreen() {
     // Y SOLO si el evento está en estado ACTIVO
     const shouldSync = settlementsSignature !== previousSettlementsRef.current && 
                       (eventExpenses.length > 0 && eventParticipants.length > 1) &&
-                      event?.status === 'active';
+                      event?.status === 'active' && !isLocked;
     
     // 🔍 DEBUG: Ver por qué la sincronización puede no ejecutarse
     console.log('🔍 Sync conditions check:', {
@@ -433,7 +440,7 @@ export default function EventDetailScreen() {
 
   // Efecto para auto-generar settlements cuando hay datos iniciales
   useEffect(() => {
-    if (!eventId || !event || event.status !== 'active') return;
+    if (!eventId || !event || !isEditable) return;
     
     // Auto-generar settlements si hay participantes y gastos pero no hay settlements
     const hasParticipants = eventParticipants.length > 0;
@@ -487,7 +494,7 @@ export default function EventDetailScreen() {
   // Recalcular consolidaciones en tiempo real cuando cambian los settlements calculados
   // (útil en eventos activos: cada nuevo gasto actualiza la vista consolidada sin esperar reload)
   useEffect(() => {
-    if (consolidationAssignments.length > 0 && settlements.length > 0 && event?.status === 'active') {
+    if (consolidationAssignments.length > 0 && settlements.length > 0 && isEditable) {
       const recalculated = ConsolidationService.applyConsolidations(settlements, consolidationAssignments);
       setConsolidatedSettlements(recalculated);
     }
@@ -529,7 +536,7 @@ export default function EventDetailScreen() {
   );
 
   const handleAddExpense = () => {
-    if (event?.status !== 'active') {
+    if (!isEditable) {
       showAlert({ type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyAddExpensesActive') });
       return;
     }
@@ -537,7 +544,7 @@ export default function EventDetailScreen() {
   };
 
   const handleEditExpense = (expense: Expense) => {
-    if (event?.status !== 'active') {
+    if (!isEditable) {
       showAlert({ type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyEditExpensesActive') });
       return;
     }
@@ -549,7 +556,7 @@ export default function EventDetailScreen() {
   };
 
   const handleDeleteExpense = (expense: Expense) => {
-    if (event?.status !== 'active') {
+    if (!isEditable) {
       showAlert({ type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyDeleteExpensesActive') });
       return;
     }
@@ -571,7 +578,7 @@ export default function EventDetailScreen() {
   };
 
   const handleEditParticipant = (participant: Participant) => {
-    if (event?.status !== 'active') {
+    if (!isEditable) {
       showAlert({ type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyEditParticipantsActive') });
       return;
     }
@@ -654,7 +661,7 @@ export default function EventDetailScreen() {
   };
 
   const handleRemoveParticipant = (participant: any) => {
-    if (event?.status !== 'active') {
+    if (!isEditable) {
       showAlert({ type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyDeleteParticipantsActive') });
       return;
     }
@@ -781,9 +788,9 @@ export default function EventDetailScreen() {
   };
 
   // Settlement handlers - SIMPLIFICADO
-  const handleToggleSettlementPaid = async (settlementId: string, isPaid: boolean) => {
-    // Solo permitir marcar pagos en estado COMPLETADO
-    if (event?.status !== 'completed') {
+  const handleToggleSettlementPaid = async (settlementId: string, isPaid: boolean, skipConfirmation = false) => {
+    // Solo permitir marcar pagos si el evento no está cerrado (tanto activo como bloqueado)
+    if (isClosed) {
       showAlert({ type: 'error', title: t('message.actionNotAllowed'), message: t('message.onlyMarkPaymentsCompleted') });
       return;
     }
@@ -873,8 +880,8 @@ export default function EventDetailScreen() {
       }
 
       // CASO NORMAL: Settlement regular con ID de DB válido
-      // Si se desmarca un pago, mostrar advertencia
-      if (!isPaid) {
+      // Si se desmarca un pago, mostrar advertencia (salvo que se omita la confirmación para bulk undo)
+      if (!isPaid && !skipConfirmation) {
         showAlert({ type: 'confirm', title: t('message.unmarkPaymentTitle'), message: t('message.unmarkPaymentMessage'), buttons: [
             { text: t('common.cancel'), style: 'cancel' },
             {
@@ -905,8 +912,8 @@ export default function EventDetailScreen() {
   };
 
   const handleUpdateSettlementReceipt = async (settlementId: string, imageUri: string | null) => {
-    // Solo permitir agregar comprobantes en estado COMPLETADO
-    if (event?.status !== 'completed') {
+    // Solo permitir agregar comprobantes si el evento no está cerrado
+    if (isClosed) {
       showAlert({ type: 'error', title: t('message.actionNotAllowed'), message: t('message.onlyReceiptsCompleted') });
       return;
     }
@@ -923,96 +930,64 @@ export default function EventDetailScreen() {
     }
   };
 
-  const handleCompleteEvent = useCallback(async () => {
+  const handleToggleLock = useCallback(async () => {
     if (!event) return;
 
-    showAlert({ type: 'success', title: `✅ ${t('message.markAsComplete')}`, message: t('message.markAsCompleteDesc'), buttons: [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('message.markComplete'),
-          onPress: async () => {
-            try {
-              // 1. Forzar sincronización de liquidaciones antes de completar
-              console.log('🔄 Sincronizando liquidaciones antes de completar evento...');
-              await syncSettlementsToDb();
-              
-              // 2. Actualizar estado del evento a completado
-              await updateEvent(eventId, {
-                status: 'completed',
-                completedAt: new Date().toISOString()
-              });
-              
-              // 3. Actualizar estado de todas las liquidaciones a completado
-              await databaseService.updateSettlementsEventStatus(eventId, 'completed');
-              
-              // 4. Recargar datos para reflejar el cambio
-              await loadEventData();
-              
-              showAlert({ type: 'success', title: `✅ ${t('message.eventCompleted')}`, message: t('message.eventCompletedDesc') });
-            } catch (error) {
-              console.error('Error completing event:', error);
-              showAlert({ type: 'error', title: t('common.error'), message: t('message.eventCompletedError') });
+    const willLock = !isLocked;
+    if (willLock) {
+      showAlert({ type: 'warning', title: `🔒 ${t('message.lockEvent')}`, message: t('message.lockEventDesc'), buttons: [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('events.lock'),
+            onPress: async () => {
+              try {
+                await syncSettlementsToDb();
+                await updateEvent(eventId, { isLocked: true });
+                await loadEventData();
+                showAlert({ type: 'success', title: `🔒 ${t('message.eventLocked')}`, message: t('message.eventLockedDesc') });
+              } catch (error) {
+                console.error('Error locking event:', error);
+                showAlert({ type: 'error', title: t('common.error'), message: t('message.eventStateChangeError') });
+              }
             }
           }
-        }
-      ] });
-  }, [event, eventId, t, updateEvent, loadEventData, syncSettlementsToDb]);
+        ] });
+    } else {
+      showAlert({ type: 'confirm', title: `🔓 ${t('message.unlockEvent')}`, message: t('message.unlockEventDesc'), buttons: [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('events.unlock'),
+            onPress: async () => {
+              try {
+                await updateEvent(eventId, { isLocked: false });
+                await loadEventData();
+                showAlert({ type: 'success', title: `🔓 ${t('message.eventUnlocked')}`, message: t('message.eventUnlockedDesc') });
+              } catch (error) {
+                console.error('Error unlocking event:', error);
+                showAlert({ type: 'error', title: t('common.error'), message: t('message.eventStateChangeError') });
+              }
+            }
+          }
+        ] });
+    }
+  }, [event, isLocked, eventId, t, updateEvent, loadEventData, syncSettlementsToDb]);
 
-  const handleReactivateEvent = useCallback(async (targetStatus: 'active' | 'completed' = 'active') => {
+  const handleReactivateEvent = useCallback(async () => {
     if (!event) return;
 
-    const isGoingToActive = targetStatus === 'active';
-    const isFromArchived = event?.status === 'archived';
-    
-    let title, message, buttonText, successTitle, successMessage;
-    
-    if (isGoingToActive && isFromArchived) {
-      // ARCHIVADO → ACTIVO: Advertencia sobre eliminación de pagos
-      title = `⚠️ ${t('message.reactivateEvent')}`;
-      message = t('message.reactivateWarningMessage');
-      buttonText = t('events.reactivate');
-      successTitle = `✅ ${t('message.eventReactivated')}`;
-      successMessage = t('message.reactivatedClearedPayments');
-    } else if (isGoingToActive) {
-      // COMPLETADO → ACTIVO: Reactivación normal
-      title = `🔓 ${t('message.reactivateEvent')}`;
-      message = t('message.reactivateEventDesc');
-      buttonText = t('events.reactivate');
-      successTitle = `✅ ${t('message.eventReactivated')}`;
-      successMessage = t('message.eventActiveAgain');
-    } else {
-      // Otros casos (completar)
-      title = `✅ ${t('message.markAsComplete')}`;
-      message = t('message.markAsCompleteShort');
-      buttonText = t('events.complete');
-      successTitle = `✅ ${t('message.eventCompleted')}`;
-      successMessage = t('message.eventCompletedShort');
-    }
-
-    showAlert({ type: 'confirm', title: title, message: message, buttons: [
+    showAlert({ type: 'warning', title: `⚠️ ${t('message.reactivateEvent')}`, message: t('message.reactivateWarningMessage'), buttons: [
         { text: t('common.cancel'), style: 'cancel' },
         {
-          text: buttonText,
+          text: t('events.reactivate'),
           onPress: async () => {
             try {
-              // Si va de ARCHIVADO → ACTIVO, resetear pagos
-              if (isGoingToActive && isFromArchived) {
-                await databaseService.resetSettlementsPayments(eventId);
-              }
-              
-              // Actualizar estado del evento
-              await updateEvent(eventId, {
-                status: targetStatus,
-                completedAt: targetStatus === 'completed' ? new Date().toISOString() : undefined
-              });
-              
-              // Actualizar estado de liquidaciones
-              await databaseService.updateSettlementsEventStatus(eventId, targetStatus);
-              
+              await databaseService.resetSettlementsPayments(eventId);
+              await updateEvent(eventId, { status: 'active', isLocked: false });
+              await databaseService.updateSettlementsEventStatus(eventId, 'active');
               await loadEventData();
-              showAlert({ type: 'success', title: successTitle, message: successMessage });
+              showAlert({ type: 'success', title: `✅ ${t('message.eventReactivated')}`, message: t('message.reactivatedClearedPayments') });
             } catch (error) {
-              console.error(`Error changing event to ${targetStatus}:`, error);
+              console.error('Error reactivating event:', error);
               showAlert({ type: 'error', title: t('common.error'), message: t('message.eventStateChangeError') });
             }
           }
@@ -1020,25 +995,20 @@ export default function EventDetailScreen() {
       ] });
   }, [event, eventId, t, updateEvent, loadEventData]);
 
-  const handleArchiveEvent = useCallback(async () => {
+  const handleCloseEvent = useCallback(async () => {
     if (!event) return;
 
     showAlert({ type: 'confirm', title: `📁 ${t('message.archiveEvent')}`, message: t('message.archiveEventDesc'), buttons: [
         { text: t('common.cancel'), style: 'cancel' },
         {
-          text: t('common.archive'),
+          text: t('events.close'),
           onPress: async () => {
             try {
-              await updateEvent(eventId, {
-                status: 'archived'
-              });
-              
-              // Actualizar estado de liquidaciones a archivado
+              await updateEvent(eventId, { status: 'archived', isLocked: false });
               await databaseService.updateSettlementsEventStatus(eventId, 'archived');
-              
               showAlert({ type: 'success', title: `✅ ${t('message.eventArchived')}`, message: t('message.eventArchivedDesc'), buttons: [{ text: 'OK', onPress: () => navigation.goBack() }] });
             } catch (error) {
-              console.error('Error archiving event:', error);
+              console.error('Error closing event:', error);
               showAlert({ type: 'error', title: t('common.error'), message: t('message.eventArchivedError') });
             }
           }
@@ -1059,8 +1029,8 @@ export default function EventDetailScreen() {
     let message = `📊 *${t('eventDetail.shareSummaryLabel')} - ${event.name}*\n`;
     message += `━━━━━━━\n`;
     
-    // Agregar advertencia si el evento está activo
-    if (event.status === 'active') {
+    // Agregar advertencia si el evento está editable (activo+no bloqueado)
+    if (isEditable) {
       message += `${t('eventDetail.shareWarning')}\n`;
       message += `━━━━━━━\n`;
     }
@@ -1164,15 +1134,15 @@ export default function EventDetailScreen() {
     let message = `🎉 ${t('eventDetail.shareSummaryLabel')} - ${event.name.toUpperCase()}\n`;
     message += `━━━━━━━\n`;
     
-    // Agregar advertencia si el evento está activo
-    if (event.status === 'active') {
+    // Agregar advertencia si el evento está editable
+    if (isEditable) {
       message += `${t('eventDetail.shareWarning')}\n`;
       message += `━━━━━━━\n`;
     }
     
     message += `📅 ${new Date(event.startDate).toLocaleDateString('es-AR')}\n`;
     message += `💵 $${formatCurrency(totalAmount)} ${event.currency}\n`;
-    message += `📊 ${t('eventDetail.shareStatusLabel')} ${event.status === 'active' ? t('events.active') : event.status === 'completed' ? t('events.completed') : t('events.archived')}\n`;
+    message += `📊 ${t('eventDetail.shareStatusLabel')} ${isClosed ? t('events.archived') : isLocked ? t('events.locked') : t('events.active')}\n`;
     message += `━━━━━━━\n`;
     const primaryParticipantsFull = eventParticipants.filter((p: any) => !p.parentParticipantId);
     message += `👥 ${t('eventDetail.shareParticipantsLabel')} (${primaryParticipantsFull.length}):\n`;
@@ -1753,7 +1723,7 @@ export default function EventDetailScreen() {
                 💸 {t('expenses.title')} ({filteredExpenses.length}{filteredExpenses.length !== eventExpenses.length ? ` de ${eventExpenses.length}` : ''})
               </Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                {event?.status === 'active' && (
+                {isEditable && (
                   <TouchableOpacity
                     style={[
                       { backgroundColor: theme.colors.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' },
@@ -1766,7 +1736,7 @@ export default function EventDetailScreen() {
                     <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 14 }}>{t('add')}</Text>
                   </TouchableOpacity>
                 )}
-                {event?.status === 'active' && eventExpenses.length > 0 && (
+                {isEditable && eventExpenses.length > 0 && (
                   <TouchableOpacity
                     style={{ backgroundColor: theme.colors.error + '15', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 }}
                     onPress={() => { setIsExpenseSelectMode(true); setSelectedExpenseIds(new Set()); }}
@@ -1939,7 +1909,7 @@ export default function EventDetailScreen() {
                     </Text>
                     
                     {/* Acciones a la derecha — solo en modo normal */}
-                    {event?.status === 'active' && !isExpenseSelectMode && (
+                    {isEditable && !isExpenseSelectMode && (
                       <View style={styles.expenseActions}>
                         <TouchableOpacity 
                           style={styles.actionButton}
@@ -2144,7 +2114,7 @@ export default function EventDetailScreen() {
                 👥 {t('participants.title')} ({visiblePrimaries.length}{visiblePrimaries.length !== primaryParticipants.length ? ` de ${primaryParticipants.length}` : ''})
               </Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                {event?.status === 'active' && (
+                {isEditable && (
                   <TouchableOpacity
                     style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
                     onPress={() => setShowAddParticipantModal(true)}
@@ -2153,7 +2123,7 @@ export default function EventDetailScreen() {
                     <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 14 }}>{t('common.add')}</Text>
                   </TouchableOpacity>
                 )}
-                {event?.status === 'active' && visiblePrimaries.length > 1 && (
+                {isEditable && visiblePrimaries.length > 1 && (
                   <TouchableOpacity
                     style={{ backgroundColor: theme.colors.error + '15', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 }}
                     onPress={() => { setIsParticipantSelectMode(true); setSelectedParticipantIds(new Set()); }}
@@ -2306,7 +2276,7 @@ export default function EventDetailScreen() {
                       </View>
                     </View>
                     <View style={styles.participantRightSection}>
-                      {event?.status === 'active' && !isParticipantSelectMode && (
+                      {isEditable && !isParticipantSelectMode && (
                         <View style={styles.participantActions}>
                           {participant.participantType === 'temporary' && (
                             <TouchableOpacity
@@ -2464,7 +2434,7 @@ export default function EventDetailScreen() {
                               )}
 
                               {/* Lápiz editar */}
-                              {event?.status === 'active' && !isParticipantSelectMode && (
+                              {isEditable && !isParticipantSelectMode && (
                                 isEditingThis ? (
                                   <TouchableOpacity
                                     onPress={() => handleSaveSecondaryName(secondary)}
@@ -2500,7 +2470,7 @@ export default function EventDetailScreen() {
                               </Text>
 
                               {/* Eliminar */}
-                              {event?.status === 'active' && !isParticipantSelectMode && (
+                              {isEditable && !isParticipantSelectMode && (
                                 <TouchableOpacity onPress={() => handleRemoveSecondaryParticipant(secondary)} style={{ padding: 4 }}>
                                   <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.error} />
                                 </TouchableOpacity>
@@ -2532,26 +2502,27 @@ export default function EventDetailScreen() {
           <Text style={styles.sectionTitle}>📋 {t('events.information')}</Text>
           {event && (
             <View style={{ 
-              backgroundColor: event.status === 'active' ? theme.colors.successContainer : 
-                             event.status === 'completed' ? theme.colors.warningContainer :
-                             event.status === 'archived' ? theme.colors.surfaceVariant : theme.colors.successContainer,
+              backgroundColor: isClosed ? theme.colors.surfaceVariant :
+                             isLocked ? theme.colors.warningContainer :
+                             theme.colors.successContainer,
               paddingHorizontal: 10,
               paddingVertical: 4,
               borderRadius: 12,
               borderWidth: 1,
-              borderColor: event.status === 'active' ? theme.colors.success : 
-                          event.status === 'completed' ? theme.colors.warning : 
-                          theme.colors.outline
+              borderColor: isClosed ? theme.colors.outline :
+                          isLocked ? theme.colors.warning :
+                          theme.colors.success
             }}>
               <Text style={{ 
-                color: event.status === 'active' ? theme.colors.success : 
-                       event.status === 'completed' ? theme.colors.warning : 
-                       theme.colors.onSurfaceVariant,
+                color: isClosed ? theme.colors.onSurfaceVariant :
+                       isLocked ? theme.colors.warning :
+                       theme.colors.success,
                 fontSize: 12,
                 fontWeight: '600'
               }}>
-                {event.status === 'active' ? `🟢 ${t('events.active')}` : 
-                 event.status === 'completed' ? `✅ ${t('events.completed')}` : `📁 ${t('events.archived')}`}
+                {isClosed ? `📁 ${t('events.archived')}` :
+                 isLocked ? `🔒 ${t('events.locked')}` :
+                 `🟢 ${t('events.active')}`}
               </Text>
             </View>
           )}
@@ -2629,63 +2600,53 @@ export default function EventDetailScreen() {
 
         {/* Fila inferior: estado del evento */}
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          {event?.status === 'active' ? (
+          {isEditable ? (
             <>
               <TouchableOpacity
-                onPress={handleCompleteEvent}
+                onPress={handleToggleLock}
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: theme.colors.primary, paddingVertical: 12, borderRadius: 10 }}
                 activeOpacity={0.8}
               >
-                <MaterialCommunityIcons name="check-circle" size={18} color={theme.colors.onPrimary} />
-                <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 13 }}>{t('events.complete')}</Text>
+                <MaterialCommunityIcons name="lock" size={18} color={theme.colors.onPrimary} />
+                <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 13 }}>{t('events.lock')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={handleArchiveEvent}
+                onPress={handleCloseEvent}
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: theme.colors.outline, paddingVertical: 12, borderRadius: 10 }}
                 activeOpacity={0.8}
               >
                 <MaterialCommunityIcons name="archive" size={18} color={theme.colors.onSurfaceVariant} />
-                <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 13 }}>{t('events.archive')}</Text>
+                <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 13 }}>{t('events.close')}</Text>
               </TouchableOpacity>
             </>
-          ) : event?.status === 'completed' ? (
+          ) : isLocked ? (
             <>
               <TouchableOpacity
-                onPress={() => handleReactivateEvent('active')}
+                onPress={handleToggleLock}
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: theme.colors.primary, paddingVertical: 12, borderRadius: 10 }}
                 activeOpacity={0.8}
               >
                 <MaterialCommunityIcons name="lock-open" size={18} color={theme.colors.primary} />
-                <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 13 }}>{t('events.reactivate')}</Text>
+                <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 13 }}>{t('events.unlock')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={handleArchiveEvent}
+                onPress={handleCloseEvent}
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: theme.colors.outline, paddingVertical: 12, borderRadius: 10 }}
                 activeOpacity={0.8}
               >
                 <MaterialCommunityIcons name="archive" size={18} color={theme.colors.onSurfaceVariant} />
-                <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 13 }}>{t('events.archive')}</Text>
+                <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 13 }}>{t('events.close')}</Text>
               </TouchableOpacity>
             </>
-          ) : event?.status === 'archived' ? (
-            <>
-              <TouchableOpacity
-                onPress={() => handleReactivateEvent('active')}
-                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: theme.colors.primary, paddingVertical: 12, borderRadius: 10 }}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons name="lock-open" size={18} color={theme.colors.onPrimary} />
-                <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 13 }}>{t('events.reactivate')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => handleReactivateEvent('completed')}
-                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: theme.colors.warning, paddingVertical: 12, borderRadius: 10 }}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons name="check-circle" size={18} color={theme.colors.warning} />
-                <Text style={{ color: theme.colors.warning, fontWeight: '600', fontSize: 13 }}>{t('events.complete')}</Text>
-              </TouchableOpacity>
-            </>
+          ) : isClosed ? (
+            <TouchableOpacity
+              onPress={handleReactivateEvent}
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: theme.colors.primary, paddingVertical: 12, borderRadius: 10 }}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="lock-open" size={18} color={theme.colors.onPrimary} />
+              <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 13 }}>{t('events.reactivate')}</Text>
+            </TouchableOpacity>
           ) : null}
         </View>
       </Card>
@@ -2695,7 +2656,7 @@ export default function EventDetailScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <Text style={styles.sectionTitle}>💸 {t('summary.settlements')}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            {settlements.length > 1 && (event?.status === 'active' || event?.status === 'completed') && (
+            {settlements.length > 1 && !isClosed && (
               <TouchableOpacity
                 style={{ backgroundColor: theme.colors.primaryContainer, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, flexDirection: 'row', alignItems: 'center', gap: 4 }}
                 onPress={() => setShowConsolidationModal(true)}
@@ -2704,7 +2665,7 @@ export default function EventDetailScreen() {
                 <Text style={{ fontSize: 12, fontWeight: '600', color: theme.colors.onPrimaryContainer }}>Consolidar</Text>
               </TouchableOpacity>
             )}
-            {(event?.status === 'active' || event?.status === 'completed') && getDisplaySettlements().length > 0 && (() => {
+            {!isClosed && getDisplaySettlements().length > 0 && (() => {
             const displaySettlements = getDisplaySettlements();
             const paidCount = displaySettlements.filter((s: Settlement) => s.isPaid).length;
             const isAnyPaid = paidCount > 0;
@@ -2728,8 +2689,8 @@ export default function EventDetailScreen() {
           </View>
         </View>
         
-        {/* Controles de Consolidación - Activo y Completado */}
-        {consolidationAssignments.length > 0 && settlements.length > 1 && (event?.status === 'active' || event?.status === 'completed') && (
+        {/* Controles de Consolidación */}
+        {consolidationAssignments.length > 0 && settlements.length > 1 && !isClosed && (
           <View style={styles.consolidationControls}>
             <View style={styles.consolidationButtons}>
               <TouchableOpacity
@@ -2899,55 +2860,143 @@ export default function EventDetailScreen() {
 
       {/* Liquidaciones Pagadas */}
       {(() => {
-        if (event?.status === 'completed') return null;
-        const paidSettlements = dbSettlements.filter((s: any) => s.isPaid);
+        if (isClosed) return null;
+        const paidSettlements = dbSettlements
+          .filter((s: any) => s.isPaid)
+          .sort((a: any, b: any) => {
+            if (a.paidAt && b.paidAt) return new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime();
+            return 0;
+          });
         if (paidSettlements.length === 0) return null;
+        const allPaidSelected = paidSettlements.length > 0 && paidSettlements.every((s: any) => selectedUndoIds.has(s.id));
         return (
           <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <Text style={styles.sectionTitle}>✅ {t('summary.paidSettlements')}</Text>
-              <View style={{ backgroundColor: theme.colors.successContainer, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
-                <Text style={{ color: theme.colors.onSuccessContainer, fontSize: 12, fontWeight: '600' }}>
-                  {paidSettlements.length} {t('payments.paid')}
-                </Text>
+            {/* Encabezado */}
+            {allowUndoPayments ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                  onPress={() => {
+                    if (allPaidSelected) {
+                      setSelectedUndoIds(new Set());
+                    } else {
+                      setSelectedUndoIds(new Set(paidSettlements.map((s: any) => s.id)));
+                    }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons
+                    name={allPaidSelected ? 'checkbox-marked-circle' : selectedUndoIds.size > 0 ? 'minus-circle-outline' : 'checkbox-blank-circle-outline'}
+                    size={22}
+                    color={theme.colors.primary}
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
+                    {selectedUndoIds.size > 0
+                      ? `${selectedUndoIds.size} seleccionado${selectedUndoIds.size !== 1 ? 's' : ''}`
+                      : t('summary.paidSettlements')}
+                  </Text>
+                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  {selectedUndoIds.size > 0 && (
+                    <TouchableOpacity
+                      style={{ backgroundColor: theme.colors.error, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}
+                      onPress={async () => {
+                        for (const id of selectedUndoIds) {
+                          await handleToggleSettlementPaid(id, false, true);
+                        }
+                        setSelectedUndoIds(new Set());
+                        setAllowUndoPayments(false);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <MaterialCommunityIcons name="undo-variant" size={20} color="#fff" />
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.outline + '25' }}
+                    onPress={() => { setAllowUndoPayments(false); setSelectedUndoIds(new Set()); }}
+                  >
+                    <MaterialCommunityIcons name="close" size={20} color={theme.colors.onSurface} />
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-            {paidSettlements
-              .sort((a: any, b: any) => {
-                if (a.paidAt && b.paidAt) return new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime();
-                return 0;
-              })
-              .map((s: any, idx: number) => (
-                <View
+            ) : (
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <Text style={styles.sectionTitle}>✅ {t('summary.paidSettlements')}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <TouchableOpacity
+                    style={{ backgroundColor: theme.colors.surfaceVariant, width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}
+                    onPress={() => { setAllowUndoPayments(true); setSelectedUndoIds(new Set()); }}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons name="undo-variant" size={14} color={theme.colors.onSurfaceVariant} />
+                  </TouchableOpacity>
+                  <View style={{ backgroundColor: theme.colors.successContainer, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                    <Text style={{ color: theme.colors.onSuccessContainer, fontSize: 12, fontWeight: '600' }}>
+                      {paidSettlements.length} {t('payments.paid')}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
+            {/* Ítems */}
+            {paidSettlements.map((s: any, idx: number) => {
+              const isSelected = selectedUndoIds.has(s.id);
+              return (
+                <TouchableOpacity
                   key={`paid_${s.id}_${idx}`}
+                  activeOpacity={allowUndoPayments ? 0.7 : 1}
+                  onPress={() => {
+                    if (!allowUndoPayments) return;
+                    setSelectedUndoIds(prev => {
+                      const next = new Set(prev);
+                      if (next.has(s.id)) next.delete(s.id); else next.add(s.id);
+                      return next;
+                    });
+                  }}
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
                     paddingVertical: 10,
                     paddingHorizontal: 12,
                     marginBottom: 6,
-                    backgroundColor: theme.colors.successContainer + '25',
+                    backgroundColor: isSelected
+                      ? theme.colors.primary + '18'
+                      : theme.colors.successContainer + '25',
                     borderRadius: 10,
                     borderWidth: 1,
-                    borderColor: theme.colors.success + '30',
+                    borderColor: isSelected ? theme.colors.primary + '60' : theme.colors.success + '30',
                   }}
                 >
-                  <TouchableOpacity
-                    onPress={() => {
-                      if (s.receiptImage) {
-                        setSelectedImage(s.receiptImage);
-                        setShowImageModal(true);
-                      }
-                    }}
-                    disabled={!s.receiptImage}
-                    style={{ marginRight: 10 }}
-                  >
+                  {/* Checkbox en modo selección */}
+                  {allowUndoPayments && (
                     <MaterialCommunityIcons
-                      name="file-image-outline"
+                      name={isSelected ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'}
                       size={22}
-                      color={s.receiptImage ? theme.colors.primary : theme.colors.onSurfaceVariant + '50'}
+                      color={theme.colors.primary}
+                      style={{ marginRight: 10 }}
                     />
-                  </TouchableOpacity>
+                  )}
+                  {/* Icono comprobante (solo fuera del modo selección) */}
+                  {!allowUndoPayments && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (s.receiptImage) {
+                          setSelectedImage(s.receiptImage);
+                          setShowImageModal(true);
+                        }
+                      }}
+                      disabled={!s.receiptImage}
+                      style={{ marginRight: 10 }}
+                    >
+                      <MaterialCommunityIcons
+                        name="file-image-outline"
+                        size={22}
+                        color={s.receiptImage ? theme.colors.primary : theme.colors.onSurfaceVariant + '50'}
+                      />
+                    </TouchableOpacity>
+                  )}
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.onSurface }}>
@@ -2969,8 +3018,9 @@ export default function EventDetailScreen() {
                       )}
                     </View>
                   </View>
-                </View>
-              ))}
+                </TouchableOpacity>
+              );
+            })}
           </Card>
         );
       })()}

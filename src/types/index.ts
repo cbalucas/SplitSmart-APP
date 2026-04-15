@@ -19,6 +19,7 @@ export interface Event {
   currency: string;
   totalAmount: number;
   status: 'active' | 'closed' | 'completed' | 'archived';
+  isLocked?: boolean;
   type: 'public' | 'private';
   category?: string;
   creatorId?: string;

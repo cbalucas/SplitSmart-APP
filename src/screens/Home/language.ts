@@ -15,8 +15,8 @@ export const homeLanguage = {
     // Metrics
     metrics: {
       active: 'Activos',
-      completed: 'Completados',
-      archived: 'Archivados'
+      locked: 'Bloqueados',
+      archived: 'Cerrados'
     },
     
     // Actions
@@ -78,8 +78,8 @@ export const homeLanguage = {
     // Metrics
     metrics: {
       active: 'Active',
-      completed: 'Completed',
-      archived: 'Archived'
+      locked: 'Locked',
+      archived: 'Closed'
     },    // Actions
     actions: {
       createEvent: 'Create Event',
@@ -139,8 +139,8 @@ export const homeLanguage = {
     // Metrics
     metrics: {
       active: 'Ativos',
-      completed: 'Completados',
-      archived: 'Arquivados'
+      locked: 'Bloqueados',
+      archived: 'Fechados'
     },
     
     // Actions

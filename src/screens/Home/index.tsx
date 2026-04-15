@@ -45,7 +45,7 @@ const HomeScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [metrics, setMetrics] = useState<HomeMetricData[]>([]);
-  const [statusFilter, setStatusFilter] = useState<'active' | 'completed' | 'archived' | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'active' | 'locked' | 'archived' | null>(null);
   const [eventParticipants, setEventParticipants] = useState<{[eventId: string]: number}>({});
   const [eventExpenses, setEventExpenses] = useState<{[eventId: string]: number}>({});
   const [eventTotals, setEventTotals] = useState<{[eventId: string]: number}>({});
@@ -143,6 +143,7 @@ const HomeScreen: React.FC = () => {
       totalAmount: eventTotals[event.id] || event.totalAmount || 0,
       currency: event.currency,
       status: event.status as 'active' | 'closed' | 'completed' | 'archived',
+      isLocked: event.isLocked === true,
       type: event.type as 'public' | 'private',
       participantCount: eventParticipants[event.id] || 0,
       expenseCount: eventExpenses[event.id] || 0,
@@ -169,7 +170,7 @@ const HomeScreen: React.FC = () => {
   }, [dbEvents, loadEventCounts, calculateEventTotals]);
 
   // Orden de estados para el sorting
-  const STATUS_ORDER: Record<string, number> = { active: 0, completed: 1, archived: 2, closed: 3 };
+  const STATUS_ORDER: Record<string, number> = { active: 0, locked: 1, archived: 2, closed: 3, completed: 4 };
 
   // Filtrar eventos y actualizar métricas
   useEffect(() => {
@@ -177,7 +178,13 @@ const HomeScreen: React.FC = () => {
     let result = eventsWithAmounts;
 
     if (statusFilter) {
-      result = result.filter(event => event.status === statusFilter);
+      if (statusFilter === 'locked') {
+        result = result.filter(event => event.status === 'active' && event.isLocked);
+      } else if (statusFilter === 'active') {
+        result = result.filter(event => event.status === 'active' && !event.isLocked);
+      } else {
+        result = result.filter(event => event.status === statusFilter);
+      }
     }
 
     if (searchQuery.trim()) {
@@ -189,7 +196,9 @@ const HomeScreen: React.FC = () => {
 
     // Ordenar: estado → fecha → título
     result = [...result].sort((a, b) => {
-      const statusDiff = (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99);
+      const aOrder = a.status === 'active' && a.isLocked ? 1 : STATUS_ORDER[a.status] ?? 99;
+      const bOrder = b.status === 'active' && b.isLocked ? 1 : STATUS_ORDER[b.status] ?? 99;
+      const statusDiff = aOrder - bOrder;
       if (statusDiff !== 0) return statusDiff;
       const dateDiff = new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
       if (dateDiff !== 0) return dateDiff;
@@ -199,8 +208,8 @@ const HomeScreen: React.FC = () => {
     setFilteredEvents(result);
 
     // Update metrics based on current events
-    const activeCount = eventsWithAmounts.filter(e => e.status === 'active').length;
-    const completedCount = eventsWithAmounts.filter(e => e.status === 'completed').length;
+    const activeCount = eventsWithAmounts.filter(e => e.status === 'active' && !e.isLocked).length;
+    const lockedCount = eventsWithAmounts.filter(e => e.status === 'active' && e.isLocked).length;
     const archivedCount = eventsWithAmounts.filter(e => e.status === 'archived').length;
 
     const newMetrics: HomeMetricData[] = [
@@ -212,11 +221,11 @@ const HomeScreen: React.FC = () => {
         status: 'active'
       },
       {
-        icon: 'check-circle',
-        value: completedCount.toString(),
-        label: t.metrics.completed,
+        icon: 'lock',
+        value: lockedCount.toString(),
+        label: t.metrics.locked,
         color: '#FF9800',
-        status: 'completed'
+        status: 'locked'
       },
       {
         icon: 'archive',

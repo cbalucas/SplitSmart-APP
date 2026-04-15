@@ -22,6 +22,7 @@ export interface EventData {
   totalAmount: number;
   currency: string;
   status: 'active' | 'completed' | 'archived';
+  isLocked?: boolean;
   type: 'public' | 'private';
   participantCount: number;
   expenseCount: number;
@@ -51,12 +52,13 @@ const EventCard: React.FC<EventCardProps> = ({
   const { t } = useLanguage();
   const styles = createStyles(theme);
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string, isLocked?: boolean) => {
+    if (status === 'active' && isLocked) return '#FF9800'; // Naranja - Bloqueado
     switch (status) {
       case 'active':
         return '#4CAF50'; // Verde
       case 'completed':
-        return '#FF9800'; // Amarillo
+        return '#FF9800'; // Naranja (legado)
       case 'archived':
         return '#9E9E9E'; // Gris
       default:
@@ -106,7 +108,7 @@ const EventCard: React.FC<EventCardProps> = ({
         {/* Barra de estado vertical */}
         <View style={[
           styles.statusIndicator,
-          { backgroundColor: getStatusColor(event.status) }
+          { backgroundColor: getStatusColor(event.status, event.isLocked) }
         ]} />
         
         <View style={styles.content}>

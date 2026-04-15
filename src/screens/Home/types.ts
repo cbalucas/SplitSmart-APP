@@ -7,9 +7,7 @@ export interface HomeEventData {
   totalAmount: number;
   currency: string;
   status: 'active' | 'closed' | 'completed' | 'archived';
-  participantCount: number;
-  expenseCount: number;
-  description?: string;
+  isLocked?: boolean;
   settlementCount?: number;
   paidSettlementCount?: number;
 }
@@ -36,7 +34,7 @@ export interface HomeScreenProps {
   // Props si las necesitamos más adelante
 }
 
-export type HomeEventStatus = 'active' | 'closed' | 'completed' | 'archived';
+export type HomeEventStatus = 'active' | 'locked' | 'archived';
 
 export interface HomeEventCounts {
   participants: { [eventId: string]: number };
