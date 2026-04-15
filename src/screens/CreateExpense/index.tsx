@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Alert,
   StyleSheet,
   ViewStyle,
   TextStyle,
@@ -23,6 +22,7 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 import { useData } from '../../context/DataContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { Theme } from '../../constants/theme';
 import { 
   Input,
@@ -32,7 +32,7 @@ import {
 } from '../../components';
 import SearchBar from '../../components/SearchBar';
 import { Participant, Expense, Split } from '../../types';
-import { useLanguage } from '../../context/LanguageContext';
+import { showAlert } from '../../services/alertService';
 import { 
   ExpenseFormData, 
   ExpenseSplit, 
@@ -55,13 +55,9 @@ const CreateExpenseScreen: React.FC = () => {
   const styles = createStyles(theme);
   const t = createExpenseLanguage[language] || createExpenseLanguage.es;
 
-  // Helper para mostrar alerts con tema
-  const showThemedAlert = (title: string, message: string, buttons?: any[], options?: any) => {
-    const isDarkMode = theme.colors.surface !== '#FFFFFF';
-    Alert.alert(title, message, buttons, {
-      ...options,
-      userInterfaceStyle: isDarkMode ? 'dark' : 'light'
-    });
+  // Helper para mostrar alerts (mantenido por compatibilidad con usos existentes)
+  const showThemedAlert = (title: string, message: string, buttons?: { text: string; style?: 'cancel' | 'destructive' | 'default'; onPress?: () => void }[]) => {
+    showAlert({ type: 'confirm', title, message, buttons });
   };
   
   const eventId = (route.params as any)?.eventId as string;
@@ -258,11 +254,7 @@ const CreateExpenseScreen: React.FC = () => {
             
             // Bloquear entrada si el evento está cerrado o completado
             if (!isEditing && (foundEvent.status === 'closed' || foundEvent.status === 'completed')) {
-              Alert.alert(
-                'Evento Cerrado',
-                'No se pueden agregar gastos en un evento cerrado o completado',
-                [{ text: 'OK', onPress: () => navigation.goBack() }]
-              );
+              showAlert({ type: 'warning', title: 'Evento Cerrado', message: 'No se pueden agregar gastos en un evento cerrado o completado', buttons: [{ text: 'OK', onPress: () => navigation.goBack() }] });
               return;
             }
           }
@@ -448,10 +440,7 @@ const CreateExpenseScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('❌ Error picking image:', error);
-      Alert.alert(
-        'Error al seleccionar imagen', 
-        `No se pudo acceder a la galería. Error: ${error instanceof Error ? error.message : 'Desconocido'}`
-      );
+      showAlert({ type: 'error', title: 'Error al seleccionar imagen', message: `No se pudo acceder a la galería. Error: ${error instanceof Error ? error.message : 'Desconocido'}` });
     }
   };
 
@@ -483,34 +472,33 @@ const CreateExpenseScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('❌ Error taking photo:', error);
-      Alert.alert(
-        'Error al tomar foto', 
-        `No se pudo acceder a la cámara. Error: ${error instanceof Error ? error.message : 'Desconocido'}`
-      );
+      showAlert({ type: 'error', title: 'Error al tomar foto', message: `No se pudo acceder a la cámara. Error: ${error instanceof Error ? error.message : 'Desconocido'}` });
     }
   };
 
   const selectImageSource = () => {
-    Alert.alert(
-      'Adjuntar Comprobante',
-      'Elige una opción',
-      [
+    showAlert({
+      type: 'info',
+      title: 'Adjuntar Comprobante',
+      message: 'Elige una opción',
+      buttons: [
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Tomar Foto', onPress: takePhoto },
         { text: 'Elegir de Galería', onPress: pickImage },
       ]
-    );
+    });
   };
 
   const removeImage = () => {
-    Alert.alert(
-      'Eliminar Imagen',
-      '¿Deseas eliminar la imagen del comprobante?',
-      [
+    showAlert({
+      type: 'destructive',
+      title: 'Eliminar Imagen',
+      message: '¿Deseas eliminar la imagen del comprobante?',
+      buttons: [
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Eliminar', style: 'destructive', onPress: () => setReceiptImage(null) },
       ]
-    );
+    });
   };
 
   // Validación del formulario
@@ -823,16 +811,12 @@ const CreateExpenseScreen: React.FC = () => {
         await updateExpense(editingExpenseId, expenseUpdates, splits);
         console.log('✅ Expense updated successfully with receipt image');
         
-        showThemedAlert(
-          'Gasto actualizado',
-          'El gasto se ha actualizado exitosamente',
-          [
-            { 
-              text: 'OK', 
-              onPress: () => navigation.goBack()
-            }
-          ]
-        );
+        showAlert({
+          type: 'success',
+          title: 'Gasto actualizado',
+          message: 'El gasto se ha actualizado exitosamente',
+          buttons: [{ text: 'OK', onPress: () => navigation.goBack() }]
+        });
       } else {
         // Crear nuevo gasto
         console.log('💾 Creating new expense...');
@@ -891,16 +875,12 @@ const CreateExpenseScreen: React.FC = () => {
         await addExpense(expense, splits);
         console.log('✅ Expense saved successfully');
         
-        showThemedAlert(
-          'Gasto creado',
-          'El gasto se ha registrado exitosamente',
-          [
-            { 
-              text: 'OK', 
-              onPress: () => navigation.goBack()
-            }
-          ]
-        );
+        showAlert({
+          type: 'success',
+          title: 'Gasto creado',
+          message: 'El gasto se ha registrado exitosamente',
+          buttons: [{ text: 'OK', onPress: () => navigation.goBack() }]
+        });
       }
     } catch (error) {
       console.error('Error saving expense:', error);

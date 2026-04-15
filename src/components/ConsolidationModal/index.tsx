@@ -6,10 +6,10 @@ import {
   TouchableOpacity,
   FlatList,
   StyleSheet,
-  Alert,
   ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { showAlert } from '../../services/alertService';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import HeaderBar from '../HeaderBar';
 import { useTheme } from '../../context/ThemeContext';
@@ -156,11 +156,7 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
 
   const handleApplyConsolidation = () => {
     if (assignments.length === 0) {
-      Alert.alert(
-        '⚠️ Sin Consolidaciones',
-        'No has seleccionado ninguna consolidación. Selecciona quién pagará por otros participantes antes de continuar.',
-        [{ text: 'Entendido', style: 'default' }]
-      );
+      showAlert({ type: 'warning', title: '⚠️ Sin Consolidaciones', message: 'No has seleccionado ninguna consolidación. Selecciona quién pagará por otros participantes antes de continuar.', buttons: [{ text: 'Entendido' }] });
       return;
     }
 
@@ -169,25 +165,25 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
     const totalDebtorsConsolidated = new Set(assignments.map(a => a.debtorId)).size;
     const totalPayers = new Set(assignments.map(a => a.payerId)).size;
     
-    Alert.alert(
-      t('consolidationModal.confirmation.title'),
-      t('consolidationModal.confirmation.summary', {
+    showAlert({
+      type: 'confirm',
+      title: t('consolidationModal.confirmation.title'),
+      message: t('consolidationModal.confirmation.summary', {
         assignments: affectedDebts,
         debtors: totalDebtorsConsolidated,
         payers: totalPayers
       }),
-      [
+      buttons: [
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Aplicar',
-          style: 'default',
           onPress: () => {
             onConsolidationChange(assignments);
             onClose();
           }
         }
       ]
-    );
+    });
   };
 
   const renderDebtorItem = ({ item, index }: { item: DebtSummary; index: number }) => {

@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   FlatList,
   Linking,
   Clipboard,
@@ -33,6 +32,7 @@ import { LanguageSelector, ThemeToggle, SettlementItem, ConsolidationModal } fro
 import { useCalculations } from '../../hooks/useCalculations';
 import { databaseService } from '../../services/database';
 import { ConsolidationService } from '../../services/ConsolidationService';
+import { showAlert } from '../../services/alertService';
 import * as ImagePicker from 'expo-image-picker';
 import { createStyles } from './styles';
 
@@ -515,7 +515,7 @@ export default function EventDetailScreen() {
 
   const handleAddExpense = () => {
     if (event?.status !== 'active') {
-      Alert.alert(t('message.eventNotEditable'), t('message.canOnlyAddExpensesActive'));
+      showAlert({ type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyAddExpensesActive') });
       return;
     }
     (navigation as any).navigate('CreateExpense', { eventId });
@@ -523,7 +523,7 @@ export default function EventDetailScreen() {
 
   const handleEditExpense = (expense: Expense) => {
     if (event?.status !== 'active') {
-      Alert.alert(t('message.eventNotEditable'), t('message.canOnlyEditExpensesActive'));
+      showAlert({ type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyEditExpensesActive') });
       return;
     }
     (navigation as any).navigate('CreateExpense', { 
@@ -535,13 +535,10 @@ export default function EventDetailScreen() {
 
   const handleDeleteExpense = (expense: Expense) => {
     if (event?.status !== 'active') {
-      Alert.alert(t('message.eventNotEditable'), t('message.canOnlyDeleteExpensesActive'));
+      showAlert({ type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyDeleteExpensesActive') });
       return;
     }
-    Alert.alert(
-      t('message.deleteExpenseTitle'),
-      t('message.deleteExpenseMessage', { name: expense.description }),
-      [
+    showAlert({ type: 'destructive', title: t('message.deleteExpenseTitle'), message: t('message.deleteExpenseMessage', { name: expense.description }), buttons: [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('common.delete'),
@@ -549,39 +546,34 @@ export default function EventDetailScreen() {
           onPress: async () => {
             try {
               await deleteExpense(expense.id);
-              Alert.alert(t('common.success'), t('message.expenseDeletedSuccess'));
+              showAlert({ type: 'success', title: t('common.success'), message: t('message.expenseDeletedSuccess') });
             } catch (error) {
-              Alert.alert(t('common.error'), t('message.expenseDeletedError'));
+              showAlert({ type: 'error', title: t('common.error'), message: t('message.expenseDeletedError') });
             }
           },
         },
-      ]
-    );
+      ] });
   };
 
   const handleEditParticipant = (participant: Participant) => {
     if (event?.status !== 'active') {
-      Alert.alert(t('message.eventNotEditable'), t('message.canOnlyEditParticipantsActive'));
+      showAlert({ type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyEditParticipantsActive') });
       return;
     }
     if (participant.participantType === 'temporary') {
       setEditingParticipant(participant);
       setShowEditModal(true);
     } else if (participant.participantType === 'friend') {
-      Alert.alert(
-        t('message.editFriendTitle'),
-        `"${participant.name}" ${t('message.editFriendMessage')}`,
-        [
+      showAlert({ type: 'confirm', title: t('message.editFriendTitle'), message: `"${participant.name}" ${t('message.editFriendMessage')}`, buttons: [
           { text: t('common.cancel'), style: 'cancel' },
           { text: t('message.goToFriends'), onPress: () => (navigation as any).navigate('ManageFriends') }
-        ]
-      );
+        ] });
     }
   };
 
   const handleSaveEditedParticipant = async (name: string, email?: string, phone?: string, aliasCbu?: string, convertToFriend?: boolean) => {
     if (!editingParticipant || !name.trim()) {
-      Alert.alert(t('common.error'), t('message.nameRequired'));
+      showAlert({ type: 'error', title: t('common.error'), message: t('message.nameRequired') });
       return;
     }
 
@@ -594,10 +586,7 @@ export default function EventDetailScreen() {
       );
 
       if (existingFriend) {
-        Alert.alert(
-          t('eventDetail.convertDuplicateTitle'),
-          t('eventDetail.convertDuplicateMessage', { name: existingFriend.name }),
-          [
+        showAlert({ type: 'confirm', title: t('eventDetail.convertDuplicateTitle'), message: t('eventDetail.convertDuplicateMessage', { name: existingFriend.name }), buttons: [
             { text: t('common.cancel'), style: 'cancel' },
             {
               text: t('eventDetail.replaceWithExisting'),
@@ -608,14 +597,13 @@ export default function EventDetailScreen() {
                   await loadEventData();
                   setShowEditModal(false);
                   setEditingParticipant(null);
-                  Alert.alert('✅', t('eventDetail.replacedSuccess', { name: existingFriend.name }));
+                  showAlert({ type: 'success', title: '✅', message: t('eventDetail.replacedSuccess', { name: existingFriend.name }) });
                 } catch {
-                  Alert.alert(t('common.error'), t('message.participantUpdatedError'));
+                  showAlert({ type: 'error', title: t('common.error'), message: t('message.participantUpdatedError') });
                 }
               }
             }
-          ]
-        );
+          ] });
         return;
       }
     }
@@ -641,24 +629,21 @@ export default function EventDetailScreen() {
       setEditingParticipant(null);
       
       if (convertToFriend) {
-        Alert.alert(`✅ ${t('message.convertedToFriend')}`, `${name} ${t('message.nowPermanentFriend')}`);
+        showAlert({ type: 'success', title: `✅ ${t('message.convertedToFriend')}`, message: `${name} ${t('message.nowPermanentFriend')}` });
       } else {
-        Alert.alert(`✅ ${t('message.updated')}`, t('message.participantUpdatedSuccess'));
+        showAlert({ type: 'success', title: `✅ ${t('message.updated')}`, message: t('message.participantUpdatedSuccess') });
       }
     } catch (error) {
-      Alert.alert(t('common.error'), t('message.participantUpdatedError'));
+      showAlert({ type: 'error', title: t('common.error'), message: t('message.participantUpdatedError') });
     }
   };
 
   const handleRemoveParticipant = (participant: any) => {
     if (event?.status !== 'active') {
-      Alert.alert(t('message.eventNotEditable'), t('message.canOnlyDeleteParticipantsActive'));
+      showAlert({ type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyDeleteParticipantsActive') });
       return;
     }
-    Alert.alert(
-      t('message.removeParticipantTitle'),
-      t('message.removeParticipantMessage', { name: participant.name }),
-      [
+    showAlert({ type: 'destructive', title: t('message.removeParticipantTitle'), message: t('message.removeParticipantMessage', { name: participant.name }), buttons: [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('common.delete'),
@@ -667,24 +652,20 @@ export default function EventDetailScreen() {
             try {
               await removeParticipantFromEvent(event?.id || '', participant.id);
               await loadEventData();
-              Alert.alert(t('common.success'), t('message.participantDeletedSuccess'));
+              showAlert({ type: 'success', title: t('common.success'), message: t('message.participantDeletedSuccess') });
             } catch (error: any) {
               console.error('Error removing participant:', error);
-              Alert.alert(t('common.error'), error.message || t('message.participantDeletedError'));
+              showAlert({ type: 'error', title: t('common.error'), message: error.message || t('message.participantDeletedError') });
             }
           },
         },
-      ]
-    );
+      ] });
   };
 
   const handleRemoveSelectedParticipants = () => {
     if (selectedParticipantIds.size === 0) return;
     const count = selectedParticipantIds.size;
-    Alert.alert(
-      t('message.removeParticipantTitle'),
-      t('participants.confirmDeleteSelected', { count, plural: count !== 1 ? 's' : '' }),
-      [
+    showAlert({ type: 'destructive', title: t('message.removeParticipantTitle'), message: t('participants.confirmDeleteSelected', { count, plural: count !== 1 ? 's' : '' }), buttons: [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('common.delete'),
@@ -698,18 +679,14 @@ export default function EventDetailScreen() {
               setIsParticipantSelectMode(false);
               setSelectedParticipantIds(new Set());
               setParticipantSearchQuery('');
-              Alert.alert(
-                t('common.success'),
-                t('participants.deletedSelected', { count, plural: count !== 1 ? 's' : '' })
-              );
+              showAlert({ type: 'success', title: t('common.success'), message: t('participants.deletedSelected', { count, plural: count !== 1 ? 's' : '' }) });
             } catch (error: any) {
               console.error('Error removing participants:', error);
-              Alert.alert(t('common.error'), error.message || t('message.participantDeletedError'));
+              showAlert({ type: 'error', title: t('common.error'), message: error.message || t('message.participantDeletedError') });
             }
           },
         },
-      ]
-    );
+      ] });
   };
 
   const handleAddSecondaryParticipant = async (primaryParticipant: Participant, name: string) => {
@@ -718,7 +695,7 @@ export default function EventDetailScreen() {
       await addSecondaryParticipant(eventId, primaryParticipant.id, name);
       await loadEventData();
     } catch (error: any) {
-      Alert.alert(t('common.error'), error.message || t('message.participantDeletedError'));
+      showAlert({ type: 'error', title: t('common.error'), message: error.message || t('message.participantDeletedError') });
     }
   };
 
@@ -732,17 +709,14 @@ export default function EventDetailScreen() {
       await updateParticipant(secondary.id, { name: newName });
       await loadEventData();
     } catch (error: any) {
-      Alert.alert(t('common.error'), error.message || t('message.participantDeletedError'));
+      showAlert({ type: 'error', title: t('common.error'), message: error.message || t('message.participantDeletedError') });
     } finally {
       setEditingSecondaryId(null);
     }
   };
 
   const handleRemoveSecondaryParticipant = (secondary: Participant) => {
-    Alert.alert(
-      t('participants.removeSecondary'),
-      t('participants.confirmRemoveSecondary', { name: secondary.name }),
-      [
+    showAlert({ type: 'destructive', title: t('participants.removeSecondary'), message: t('participants.confirmRemoveSecondary', { name: secondary.name }), buttons: [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('common.delete'),
@@ -752,20 +726,16 @@ export default function EventDetailScreen() {
               await removeSecondaryParticipant(eventId, secondary.id);
               await loadEventData();
             } catch (error: any) {
-              Alert.alert(t('common.error'), error.message || t('message.participantDeletedError'));
+              showAlert({ type: 'error', title: t('common.error'), message: error.message || t('message.participantDeletedError') });
             }
           }
         }
-      ]
-    );
+      ] });
   };
 
   const handleRemoveSelectedExpenses = () => {
     const count = selectedExpenseIds.size;
-    Alert.alert(
-      t('message.deleteExpenseTitle'),
-      t('expenses.confirmDeleteSelected', { count, plural: count !== 1 ? 's' : '' }),
-      [
+    showAlert({ type: 'destructive', title: t('message.deleteExpenseTitle'), message: t('expenses.confirmDeleteSelected', { count, plural: count !== 1 ? 's' : '' }), buttons: [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('common.delete'),
@@ -779,25 +749,21 @@ export default function EventDetailScreen() {
               setIsExpenseSelectMode(false);
               setSelectedExpenseIds(new Set());
               setSearchQuery('');
-              Alert.alert(
-                t('common.success'),
-                t('expenses.deletedSelected', { count, plural: count !== 1 ? 's' : '' })
-              );
+              showAlert({ type: 'success', title: t('common.success'), message: t('expenses.deletedSelected', { count, plural: count !== 1 ? 's' : '' }) });
             } catch (error: any) {
               console.error('Error removing expenses:', error);
-              Alert.alert(t('common.error'), error.message || t('message.expenseDeletedError'));
+              showAlert({ type: 'error', title: t('common.error'), message: error.message || t('message.expenseDeletedError') });
             }
           },
         },
-      ]
-    );
+      ] });
   };
 
   // Settlement handlers - SIMPLIFICADO
   const handleToggleSettlementPaid = async (settlementId: string, isPaid: boolean) => {
     // Solo permitir marcar pagos en estado COMPLETADO
     if (event?.status !== 'completed') {
-      Alert.alert(t('message.actionNotAllowed'), t('message.onlyMarkPaymentsCompleted'));
+      showAlert({ type: 'error', title: t('message.actionNotAllowed'), message: t('message.onlyMarkPaymentsCompleted') });
       return;
     }
 
@@ -821,7 +787,7 @@ export default function EventDetailScreen() {
         const consolidationSettlement = displaySettlements.find(s => s.id === settlementId);
         
         if (!consolidationSettlement) {
-          Alert.alert(t('common.error'), t('message.consolidationNotFound'));
+          showAlert({ type: 'error', title: t('common.error'), message: t('message.consolidationNotFound') });
           return;
         }
         
@@ -865,7 +831,7 @@ export default function EventDetailScreen() {
           );
           
           if (matchingDbSettlements.length === 0) {
-            Alert.alert(t('common.error'), t('message.consolidationOriginalNotFound'));
+            showAlert({ type: 'error', title: t('common.error'), message: t('message.consolidationOriginalNotFound') });
             return;
           }
           
@@ -888,10 +854,7 @@ export default function EventDetailScreen() {
       // CASO NORMAL: Settlement regular con ID de DB válido
       // Si se desmarca un pago, mostrar advertencia
       if (!isPaid) {
-        Alert.alert(
-          t('message.unmarkPaymentTitle'),
-          t('message.unmarkPaymentMessage'),
-          [
+        showAlert({ type: 'confirm', title: t('message.unmarkPaymentTitle'), message: t('message.unmarkPaymentMessage'), buttons: [
             { text: t('common.cancel'), style: 'cancel' },
             {
               text: t('message.continue'),
@@ -903,8 +866,7 @@ export default function EventDetailScreen() {
                 await loadEventData();
               }
             }
-          ]
-        );
+          ] });
         return;
       }
 
@@ -917,14 +879,14 @@ export default function EventDetailScreen() {
       await loadEventData();
     } catch (error) {
       console.error('Error toggling settlement paid:', error);
-      Alert.alert(t('common.error'), t('message.paymentStateError'));
+      showAlert({ type: 'error', title: t('common.error'), message: t('message.paymentStateError') });
     }
   };
 
   const handleUpdateSettlementReceipt = async (settlementId: string, imageUri: string | null) => {
     // Solo permitir agregar comprobantes en estado COMPLETADO
     if (event?.status !== 'completed') {
-      Alert.alert(t('message.actionNotAllowed'), t('message.onlyReceiptsCompleted'));
+      showAlert({ type: 'error', title: t('message.actionNotAllowed'), message: t('message.onlyReceiptsCompleted') });
       return;
     }
 
@@ -933,20 +895,17 @@ export default function EventDetailScreen() {
         receiptImage: imageUri
       });
       await loadEventData();
-      Alert.alert('✅', imageUri ? t('message.receiptAdded') : t('message.receiptRemoved'));
+      showAlert({ type: 'success', title: '✅', message: imageUri ? t('message.receiptAdded') : t('message.receiptRemoved') });
     } catch (error) {
       console.error('Error updating settlement receipt:', error);
-      Alert.alert(t('common.error'), t('message.receiptError'));
+      showAlert({ type: 'error', title: t('common.error'), message: t('message.receiptError') });
     }
   };
 
   const handleCompleteEvent = useCallback(async () => {
     if (!event) return;
 
-    Alert.alert(
-      `✅ ${t('message.markAsComplete')}`,
-      t('message.markAsCompleteDesc'),
-      [
+    showAlert({ type: 'success', title: `✅ ${t('message.markAsComplete')}`, message: t('message.markAsCompleteDesc'), buttons: [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('message.markComplete'),
@@ -968,15 +927,14 @@ export default function EventDetailScreen() {
               // 4. Recargar datos para reflejar el cambio
               await loadEventData();
               
-              Alert.alert(`✅ ${t('message.eventCompleted')}`, t('message.eventCompletedDesc'));
+              showAlert({ type: 'success', title: `✅ ${t('message.eventCompleted')}`, message: t('message.eventCompletedDesc') });
             } catch (error) {
               console.error('Error completing event:', error);
-              Alert.alert(t('common.error'), t('message.eventCompletedError'));
+              showAlert({ type: 'error', title: t('common.error'), message: t('message.eventCompletedError') });
             }
           }
         }
-      ]
-    );
+      ] });
   }, [event, eventId, t, updateEvent, loadEventData, syncSettlementsToDb]);
 
   const handleReactivateEvent = useCallback(async (targetStatus: 'active' | 'completed' = 'active') => {
@@ -1010,10 +968,7 @@ export default function EventDetailScreen() {
       successMessage = t('message.eventCompletedShort');
     }
 
-    Alert.alert(
-      title,
-      message,
-      [
+    showAlert({ type: 'confirm', title: title, message: message, buttons: [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: buttonText,
@@ -1034,24 +989,20 @@ export default function EventDetailScreen() {
               await databaseService.updateSettlementsEventStatus(eventId, targetStatus);
               
               await loadEventData();
-              Alert.alert(successTitle, successMessage);
+              showAlert({ type: 'success', title: successTitle, message: successMessage });
             } catch (error) {
               console.error(`Error changing event to ${targetStatus}:`, error);
-              Alert.alert(t('common.error'), t('message.eventStateChangeError'));
+              showAlert({ type: 'error', title: t('common.error'), message: t('message.eventStateChangeError') });
             }
           }
         }
-      ]
-    );
+      ] });
   }, [event, eventId, t, updateEvent, loadEventData]);
 
   const handleArchiveEvent = useCallback(async () => {
     if (!event) return;
 
-    Alert.alert(
-      `📁 ${t('message.archiveEvent')}`,
-      t('message.archiveEventDesc'),
-      [
+    showAlert({ type: 'confirm', title: `📁 ${t('message.archiveEvent')}`, message: t('message.archiveEventDesc'), buttons: [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('common.archive'),
@@ -1064,16 +1015,14 @@ export default function EventDetailScreen() {
               // Actualizar estado de liquidaciones a archivado
               await databaseService.updateSettlementsEventStatus(eventId, 'archived');
               
-              Alert.alert(`✅ ${t('message.eventArchived')}`, t('message.eventArchivedDesc'));
-              navigation.goBack();
+              showAlert({ type: 'success', title: `✅ ${t('message.eventArchived')}`, message: t('message.eventArchivedDesc'), buttons: [{ text: 'OK', onPress: () => navigation.goBack() }] });
             } catch (error) {
               console.error('Error archiving event:', error);
-              Alert.alert(t('common.error'), t('message.eventArchivedError'));
+              showAlert({ type: 'error', title: t('common.error'), message: t('message.eventArchivedError') });
             }
           }
         }
-      ]
-    );
+      ] });
   }, [event, eventId, updateEvent, navigation, t]);
 
   const handleShareSummary = () => {
@@ -1172,22 +1121,14 @@ export default function EventDetailScreen() {
         } else {
           // Si WhatsApp no está disponible, copiar al portapapeles como fallback
           Clipboard.setString(message);
-          Alert.alert(
-            t('message.whatsappNotAvailable'), 
-            `${t('summary.title')} ${t('message.copiedToClipboard')}`,
-            [{ text: t('ok') }]
-          );
+          showAlert({ type: 'warning', title: t('message.whatsappNotAvailable'), message: `${t('summary.title')} ${t('message.copiedToClipboard')}`, buttons: [{ text: t('ok') }] });
         }
       })
       .catch((err) => {
         console.error('Error opening WhatsApp:', err);
         // Si hay error, copiar al portapapeles como fallback
         Clipboard.setString(message);
-        Alert.alert(
-          t('message.whatsappError'),
-          `${t('summary.title')} ${t('message.copiedToClipboard')}`,
-          [{ text: t('ok') }]
-        );
+        showAlert({ type: 'warning', title: t('message.whatsappError'), message: `${t('summary.title')} ${t('message.copiedToClipboard')}`, buttons: [{ text: t('ok') }] });
       });
   };
 
@@ -1344,22 +1285,14 @@ export default function EventDetailScreen() {
         } else {
           // Si WhatsApp no está disponible, copiar al portapapeles como fallback
           Clipboard.setString(message);
-          Alert.alert(
-            t('message.whatsappNotAvailable'),
-            `${t('events.title')} ${t('message.copiedToClipboard')}`,
-            [{ text: t('ok') }]
-          );
+          showAlert({ type: 'warning', title: t('message.whatsappNotAvailable'), message: `${t('events.title')} ${t('message.copiedToClipboard')}`, buttons: [{ text: t('ok') }] });
         }
       })
       .catch((err) => {
         console.error('Error opening WhatsApp:', err);
         // Si hay error, copiar al portapapeles como fallback
         Clipboard.setString(message);
-        Alert.alert(
-          t('message.whatsappError'),
-          `${t('events.title')} ${t('message.copiedToClipboard')}`,
-          [{ text: t('ok') }]
-        );
+        showAlert({ type: 'warning', title: t('message.whatsappError'), message: `${t('events.title')} ${t('message.copiedToClipboard')}`, buttons: [{ text: t('ok') }] });
       });
   };
 
@@ -1399,37 +1332,25 @@ export default function EventDetailScreen() {
         const totalConsolidated = consolidated.reduce((sum, s) => sum + s.amount, 0);
         const forgivenAmount = totalOriginal - totalConsolidated;
         
-        Alert.alert(
-          t('eventDetail.consolidationForgivenTitle'),
-          t('eventDetail.consolidationForgivenMsg', {
+        showAlert({ type: 'error', title: t('eventDetail.consolidationForgivenTitle'), message: t('eventDetail.consolidationForgivenMsg', {
             original: settlements.length,
             consolidated: consolidated.length,
             forgiven: forgivenPayments,
             totalOriginal: totalOriginal.toLocaleString(),
             totalFinal: totalConsolidated.toLocaleString(),
             forgivenAmount: forgivenAmount.toLocaleString()
-          }),
-          [{ text: t('eventDetail.consolidationOk'), style: 'default' }]
-        );
+          }), buttons: [{ text: t('eventDetail.consolidationOk') }] });
       } else {
-        Alert.alert(
-          t('eventDetail.consolidationAppliedTitle'),
-          t('eventDetail.consolidationAppliedMsg', {
+        showAlert({ type: 'error', title: t('eventDetail.consolidationAppliedTitle'), message: t('eventDetail.consolidationAppliedMsg', {
             assignments: assignments.length,
             results: consolidated.length
-          }),
-          [{ text: t('eventDetail.consolidationOk'), style: 'default' }]
-        );
+          }), buttons: [{ text: t('eventDetail.consolidationOk') }] });
       }
       
       console.log('✅ Consolidación guardada exitosamente en la base de datos');
     } catch (error) {
       console.error('❌ Error guardando consolidación:', error);
-      Alert.alert(
-        t('common.error'),
-        t('eventDetail.consolidationError'),
-        [{ text: t('ok'), style: 'default' }]
-      );
+      showAlert({ type: 'error', title: t('common.error'), message: t('eventDetail.consolidationError'), buttons: [{ text: t('ok') }] });
     }
     
     // Cerrar modal
@@ -1552,10 +1473,7 @@ export default function EventDetailScreen() {
   };
 
   const handleClearConsolidations = () => {
-    Alert.alert(
-      t('message.clearConsolidationsTitle'),
-      t('message.clearConsolidationsMessage'),
-      [
+    showAlert({ type: 'destructive', title: t('message.clearConsolidationsTitle'), message: t('message.clearConsolidationsMessage'), buttons: [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('message.clear'),
@@ -1570,73 +1488,23 @@ export default function EventDetailScreen() {
               setConsolidatedSettlements([]);
               setShowOriginalView(false);
               
-              Alert.alert(
-                t('message.consolidationsClearedTitle'),
-                t('message.consolidationsClearedMessage'),
-                [{ text: 'OK', style: 'default' }]
-              );
+              showAlert({ type: 'success', title: t('message.consolidationsClearedTitle'), message: t('message.consolidationsClearedMessage') });
               
               console.log('✅ Consolidaciones eliminadas de la base de datos');
             } catch (error) {
               console.error('❌ Error limpiando consolidaciones:', error);
-              Alert.alert(
-                t('common.error'),
-                t('message.consolidationsClearError'),
-                [{ text: 'OK', style: 'default' }]
-              );
+              showAlert({ type: 'error', title: t('common.error'), message: t('message.consolidationsClearError') });
             }
           }
         }
-      ]
-    );
+      ] });
   };
 
   // =====================================================
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleAddExpenseOld = () => {
-    Alert.prompt(
-      '💸 Agregar Gasto',
-      t('message.enterExpenseDescription'),
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Siguiente',
-          onPress: (description?: string) => {
-            if (description && description.trim()) {
-              Alert.prompt(
-                '💰 Monto',
-                'Ingresa el monto gastado:',
-                [
-                  { text: 'Cancelar', style: 'cancel' },
-                  {
-                    text: 'Agregar',
-                    onPress: async (amount?: string) => {
-                      if (amount && !isNaN(parseFloat(amount))) {
-                        const newExpense: Expense = {
-                          id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                          eventId,
-                          description: description.trim(),
-                          amount: parseFloat(amount),
-                          date: new Date().toISOString(),
-                          currency: event?.currency || 'USD',
-                          category: 'general',
-                          payerId: user?.id || 'demo'
-                        };
-                        
-                        await addExpense(newExpense);
-                        loadEventData();
-                        
-                        Alert.alert(`✅ ${t('message.expenseAdded')}`, t('message.expenseAddedDesc'));
-                      }
-                    }
-                  }
-                ]
-              );
-            }
-          }
-        }
-      ]
-    );
+    // Deprecated: usar handleAddExpense() en su lugar
   };
 
   const handleAddParticipant = async (input: Participant | Participant[]) => {
@@ -1655,22 +1523,16 @@ export default function EventDetailScreen() {
       await loadEventData();
 
       if (list.length === 1) {
-        Alert.alert(
-          `✅ ${t('message.participantAdded')}`,
-          `${list[0].name} ${t('message.participantAddedDesc')}`
-        );
+        showAlert({ type: 'success', title: `✅ ${t('message.participantAdded')}`, message: `${list[0].name} ${t('message.participantAddedDesc')}` });
       } else {
-        Alert.alert(
-          `✅ ${t('message.participantAdded')}`,
-          t('addParticipant.alert.participantsAddedMessage', {
+        showAlert({ type: 'success', title: `✅ ${t('message.participantAdded')}`, message: t('addParticipant.alert.participantsAddedMessage', {
             count: list.length,
             plural: list.length !== 1 ? 's' : ''
-          })
-        );
+          }) });
       }
     } catch (error: any) {
       console.error('Error adding participant(s):', error);
-      Alert.alert(t('error'), error.message || t('message.participantAddedError'));
+      showAlert({ type: 'error', title: t('error'), message: error.message || t('message.participantAddedError') });
     }
   };
 
@@ -1852,8 +1714,12 @@ export default function EventDetailScreen() {
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 {event?.status === 'active' && (
                   <TouchableOpacity
-                    style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
-                    onPress={handleAddExpense}
+                    style={[
+                      { backgroundColor: theme.colors.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' },
+                      eventParticipants.length === 0 && { opacity: 0.4 }
+                    ]}
+                    onPress={eventParticipants.length === 0 ? undefined : handleAddExpense}
+                    activeOpacity={eventParticipants.length === 0 ? 1 : 0.7}
                   >
                     <MaterialCommunityIcons name="plus" size={16} color={theme.colors.onPrimary} style={{ marginRight: 6 }} />
                     <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 14 }}>{t('add')}</Text>
@@ -1878,7 +1744,15 @@ export default function EventDetailScreen() {
               <View style={styles.emptyState}>
                 <MaterialCommunityIcons name="receipt" size={48} color={theme.colors.onSurfaceVariant} />
                 <Text style={styles.emptyText}>{t('expenses.noExpenses')}</Text>
-                <Text style={styles.emptySubtext}>{t('expenses.noExpensesDesc')}</Text>
+                {eventParticipants.length === 0 ? (
+                  <TouchableOpacity onPress={() => setActiveTab('participantes')} activeOpacity={0.7}>
+                    <Text style={[styles.emptySubtext, { color: theme.colors.primary, textDecorationLine: 'underline', marginTop: 4 }]}>
+                      {t('expenses.addParticipantsFirst')}
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={styles.emptySubtext}>{t('expenses.noExpensesDesc')}</Text>
+                )}
               </View>
             ) : filteredExpenses.length === 0 ? (
               <View style={styles.emptyState}>
@@ -2283,10 +2157,7 @@ export default function EventDetailScreen() {
                     onPress={() => {
                       if (isParticipantSelectMode) {
                         if (hasExpenses) {
-                          Alert.alert(
-                            t('common.error'),
-                            t('participants.cannotDeleteHasExpenses', { name: participant.name })
-                          );
+                          showAlert({ type: 'error', title: t('common.error'), message: t('participants.cannotDeleteHasExpenses', { name: participant.name }) });
                           return;
                         }
                         const next = new Set(selectedParticipantIds);
@@ -3474,7 +3345,7 @@ export default function EventDetailScreen() {
       await updatePayment(paymentId, { isConfirmed: !currentStatus });
       await loadEventData();
     } catch (error) {
-      Alert.alert(t('common.error'), t('message.paymentStateError'));
+      showAlert({ type: 'error', title: t('common.error'), message: t('message.paymentStateError') });
     }
   };
 
@@ -3489,25 +3360,22 @@ export default function EventDetailScreen() {
       if (!result.canceled && result.assets[0]) {
         await updatePayment(paymentId, { receiptImage: result.assets[0].uri });
         await loadEventData();
-        Alert.alert(t('success'), t('message.receiptAddedSuccess'));
+        showAlert({ type: 'success', title: t('success'), message: t('message.receiptAddedSuccess') });
       }
     } catch (error) {
-      Alert.alert(t('error'), t('message.receiptAddedError'));
+      showAlert({ type: 'error', title: t('error'), message: t('message.receiptAddedError') });
     }
   };
 
   const handleCreatePaymentsFromSettlements = async () => {
     if (settlements.length === 0) {
-      Alert.alert(t('message.noSettlements'), t('message.noSettlementsDesc'));
+      showAlert({ type: 'error', title: t('message.noSettlements'), message: t('message.noSettlementsDesc') });
       return;
     }
 
     console.log(`💳 Creating ${settlements.length} payments from settlements...`);
     
-    Alert.alert(
-      t('message.createPaymentsTitle'),
-      t('eventDetail.createPaymentsDesc', { count: settlements.length, plural: settlements.length > 1 ? 's' : '' }),
-      [
+    showAlert({ type: 'confirm', title: t('message.createPaymentsTitle'), message: t('eventDetail.createPaymentsDesc', { count: settlements.length, plural: settlements.length > 1 ? 's' : '' }), buttons: [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('message.create'),
@@ -3534,15 +3402,14 @@ export default function EventDetailScreen() {
               console.log(`✅ Created ${createdCount} payments, reloading event data...`);
               await loadEventData();
               console.log(`✅ Event data reloaded`);
-              Alert.alert(t('common.success'), `${settlements.length} ${settlements.length > 1 ? t('message.paymentsCreatedPlural') : t('message.paymentsCreated')}`);
+              showAlert({ type: 'success', title: t('common.success'), message: `${settlements.length} ${settlements.length > 1 ? t('message.paymentsCreatedPlural') : t('message.paymentsCreated')}` });
             } catch (error) {
               console.error('❌ Error creating payments from settlements:', error);
-              Alert.alert(t('common.error'), t('message.couldNotCreatePayments'));
+              showAlert({ type: 'error', title: t('common.error'), message: t('message.couldNotCreatePayments') });
             }
           }
         }
-      ]
-    );
+      ] });
   };
 
   const renderPagosTab = () => {
@@ -3702,10 +3569,7 @@ export default function EventDetailScreen() {
 
   const handleDeleteEvent = () => {
     if (!event) return;
-    Alert.alert(
-      t('events.deleteTitle'),
-      t('events.deleteMessage', { name: event.name }),
-      [
+    showAlert({ type: 'destructive', title: t('events.deleteTitle'), message: t('events.deleteMessage', { name: event.name }), buttons: [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('common.delete'),
@@ -3713,23 +3577,18 @@ export default function EventDetailScreen() {
           onPress: async () => {
             try {
               await deleteEvent(event.id);
-              Alert.alert(t('common.success'), t('message.eventDeleted'));
-              navigation.goBack();
+              showAlert({ type: 'success', title: t('common.success'), message: t('message.eventDeleted'), buttons: [{ text: 'OK', onPress: () => navigation.goBack() }] });
             } catch (error) {
-              Alert.alert(t('common.error'), t('message.eventDeletedError'));
+              showAlert({ type: 'error', title: t('common.error'), message: t('message.eventDeletedError') });
             }
           }
         }
-      ]
-    );
+      ] });
   };
 
   const showEventOptions = () => {
     if (!event) return;
-    Alert.alert(
-      t('events.optionsTitle'),
-      t('events.optionsMessage', { name: event.name }),
-      [
+    showAlert({ type: 'destructive', title: t('events.optionsTitle'), message: t('events.optionsMessage', { name: event.name }), buttons: [
         {
           text: t('events.editEvent'),
           onPress: handleEditEvent
@@ -3743,8 +3602,7 @@ export default function EventDetailScreen() {
           text: t('common.cancel'),
           style: 'cancel'
         }
-      ]
-    );
+      ] });
   };
 
   if (!event) {
@@ -4378,7 +4236,7 @@ const EditParticipantModalContent: React.FC<{
                 setSubmittedOnce(true);
                 if (!name.trim()) return;
                 if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-                  Alert.alert(t('common.error'), t('eventDetail.error.emailInvalid'));
+                  showAlert({ type: 'error', title: t('common.error'), message: t('eventDetail.error.emailInvalid') });
                   return;
                 }
                 onSave(name, email, phone, aliasCbu, convertToFriend);

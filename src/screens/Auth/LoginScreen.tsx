@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, Image, Modal, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, Modal, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -12,6 +12,7 @@ import { LoginFormData, LoginFormErrors } from './types';
 import { createStyles } from './styles';
 import { loginLanguage } from './language';
 import { RootStackParamList } from '../../types/navigation';
+import { showAlert } from '../../services/alertService';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -39,24 +40,14 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     setSubmittedOnce(true);
     if (!formData.credential) {
-      const isDarkMode = theme.colors.surface !== '#FFFFFF';
-      Alert.alert(t.errors.general, t.errors.credentialRequired, [
-        { text: 'OK', style: 'default' }
-      ], {
-        userInterfaceStyle: isDarkMode ? 'dark' : 'light'
-      });
+      showAlert({ type: 'error', title: t.errors.general, message: t.errors.credentialRequired, buttons: [{ text: 'OK' }] });
       return;
     }
 
     // Si no hay contraseña ingresada, intentar login sin contraseña (skipPassword)
     const success = await login(formData.credential, formData.password || '');
     if (!success) {
-      const isDarkMode = theme.colors.surface !== '#FFFFFF';
-      Alert.alert(t.errors.general, t.errors.invalidCredentials, [
-        { text: 'OK', style: 'default' }
-      ], {
-        userInterfaceStyle: isDarkMode ? 'dark' : 'light'
-      });
+      showAlert({ type: 'error', title: t.errors.general, message: t.errors.invalidCredentials, buttons: [{ text: 'OK' }] });
     }
   };
 

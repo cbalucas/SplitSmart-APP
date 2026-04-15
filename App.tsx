@@ -7,6 +7,7 @@ import { ThemeProvider } from './src/context/ThemeContext';
 import { LanguageProvider } from './src/context/LanguageContext';
 import RootNavigator from './src/navigation';
 import SplashScreen from './src/screens/SplashScreen';
+import CustomAlertContainer from './src/components/CustomAlert';
 
 
 
@@ -30,6 +31,7 @@ export default function App() {
               <NavigationContainer>
                 <RootNavigator />
               </NavigationContainer>
+              <CustomAlertContainer />
             </DataProvider>
           </AuthProvider>
         </LanguageProvider>

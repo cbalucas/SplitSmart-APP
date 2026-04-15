@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Image, Platform, Modal, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Image, Platform, Modal, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -10,6 +10,7 @@ import { databaseService } from '../../services/database';
 import { createStyles } from './styles';
 import { forgotPasswordLanguage } from './language';
 import { RootStackParamList } from '../../types/navigation';
+import { showAlert } from '../../services/alertService';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -139,12 +140,7 @@ export default function ForgotPasswordScreen() {
   const handleResetPassword = async () => {
     setSubmittedOnce(true);
     if (!credential.trim()) {
-      const isDarkMode = theme.colors.surface !== '#FFFFFF';
-      Alert.alert(t.errors.title, t.errors.credentialRequired, [
-        { text: t.errors.okButton }
-      ], {
-        userInterfaceStyle: isDarkMode ? 'dark' : 'light'
-      });
+      showAlert({ type: 'error', title: t.errors.title, message: t.errors.credentialRequired, buttons: [{ text: t.errors.okButton }] });
       return;
     }
 
@@ -154,12 +150,7 @@ export default function ForgotPasswordScreen() {
       const user = await databaseService.getUserByCredential(credential.trim());
       
       if (!user) {
-        const isDarkMode = theme.colors.surface !== '#FFFFFF';
-        Alert.alert(t.errors.title, t.errors.userNotFound, [
-          { text: t.errors.okButton }
-        ], {
-          userInterfaceStyle: isDarkMode ? 'dark' : 'light'
-        });
+        showAlert({ type: 'error', title: t.errors.title, message: t.errors.userNotFound, buttons: [{ text: t.errors.okButton }] });
         return;
       }
 
@@ -174,12 +165,7 @@ export default function ForgotPasswordScreen() {
 
     } catch (error) {
       console.error('Error resetting password:', error);
-      const isDarkMode = theme.colors.surface !== '#FFFFFF';
-      Alert.alert(t.errors.title, t.errors.general, [
-        { text: t.errors.okButton }
-      ], {
-        userInterfaceStyle: isDarkMode ? 'dark' : 'light'
-      });
+      showAlert({ type: 'error', title: t.errors.title, message: t.errors.general, buttons: [{ text: t.errors.okButton }] });
     } finally {
       setLoading(false);
     }

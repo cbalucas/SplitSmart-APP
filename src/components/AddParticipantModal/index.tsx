@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   TextInput,
   StyleSheet,
-  Alert,
   ViewStyle,
   TextStyle,
   KeyboardAvoidingView,
@@ -24,6 +23,7 @@ import { Participant } from '../../types';
 import Button from '../Button';
 import HeaderBar from '../HeaderBar';
 import SearchBar from '../SearchBar';
+import { showAlert } from '../../services/alertService';
 
 interface AddParticipantModalProps {
   visible: boolean;
@@ -213,7 +213,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
 
   const handleAddSelectedFriends = () => {
     if (selectedFriends.size === 0) {
-      Alert.alert(t('common.error'), t('addParticipant.error.selectFriends'));
+      showAlert({ type: 'error', title: t('common.error'), message: t('addParticipant.error.selectFriends') });
       return;
     }
 
@@ -222,10 +222,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
     for (const friendId of selectedFriends) {
       const friend = participants.find(p => p.id === friendId);
       if (friend && currentNames.includes(friend.name.trim().toLowerCase())) {
-        Alert.alert(
-          t('addParticipant.alert.duplicateEventTitle'),
-          t('addParticipant.error.friendDuplicateInEvent', { name: friend.name })
-        );
+        showAlert({ type: 'error', title: t('addParticipant.alert.duplicateEventTitle'), message: t('addParticipant.error.friendDuplicateInEvent', { name: friend.name }) });
         return;
       }
     }
@@ -255,10 +252,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       p => p.name.trim().toLowerCase() === trimmedName
     );
     if (isDuplicateInEvent) {
-      Alert.alert(
-        t('addParticipant.alert.duplicateEventTitle'),
-        t('addParticipant.error.duplicateEventName')
-      );
+      showAlert({ type: 'error', title: t('addParticipant.alert.duplicateEventTitle'), message: t('addParticipant.error.duplicateEventName') });
       return;
     }
 
@@ -269,23 +263,20 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
         f => f.name.trim().toLowerCase() === trimmedName
       );
       if (isDuplicateFriend) {
-        Alert.alert(
-          t('addParticipant.alert.duplicateFriendTitle'),
-          t('addParticipant.error.duplicateFriendName')
-        );
+        showAlert({ type: 'error', title: t('addParticipant.alert.duplicateFriendTitle'), message: t('addParticipant.error.duplicateFriendName') });
         return;
       }
     }
 
     // Validar formato de teléfono (si fue ingresado)
     if (newParticipant.phone.trim() && !/^\+?\d{1,16}$/.test(newParticipant.phone.trim())) {
-      Alert.alert(t('common.error'), t('addParticipant.error.phoneInvalid'));
+      showAlert({ type: 'error', title: t('common.error'), message: t('addParticipant.error.phoneInvalid') });
       return;
     }
 
     // Validar formato de email (si fue ingresado)
     if (newParticipant.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newParticipant.email.trim())) {
-      Alert.alert(t('common.error'), t('addParticipant.error.emailInvalid'));
+      showAlert({ type: 'error', title: t('common.error'), message: t('addParticipant.error.emailInvalid') });
       return;
     }
 
@@ -319,7 +310,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       onClose();
       
     } catch (error) {
-      Alert.alert(t('common.error'), t('addParticipant.error.createParticipant'));
+      showAlert({ type: 'error', title: t('common.error'), message: t('addParticipant.error.createParticipant') });
     }
   };
 
@@ -344,10 +335,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
         const currentNames = currentParticipants.map(p => p.name.trim().toLowerCase());
         const duplicateName = names.find(name => currentNames.includes(name.toLowerCase()));
         if (duplicateName) {
-          Alert.alert(
-            t('addParticipant.alert.duplicateEventTitle'),
-            t('addParticipant.error.friendDuplicateInEvent', { name: duplicateName })
-          );
+          showAlert({ type: 'error', title: t('addParticipant.alert.duplicateEventTitle'), message: t('addParticipant.error.friendDuplicateInEvent', { name: duplicateName }) });
           return;
         }
 
@@ -363,7 +351,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       } else {
         // Crear participantes genéricos
         if (genericCount < 1 || genericCount > 50) {
-          Alert.alert(t('common.error'), t('addParticipant.error.numberRange'));
+          showAlert({ type: 'error', title: t('common.error'), message: t('addParticipant.error.numberRange') });
           return;
         }
 
@@ -399,7 +387,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       onClose();
 
     } catch (error) {
-      Alert.alert(t('common.error'), t('addParticipant.error.createBulk'));
+      showAlert({ type: 'error', title: t('common.error'), message: t('addParticipant.error.createBulk') });
     }
   };
 
@@ -448,11 +436,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
 
   const handleBulkTabPress = () => {
     if (hasExpenses) {
-      Alert.alert(
-        t('addParticipant.alert.bulkRestricted'),
-        t('addParticipant.alert.bulkRestrictedMessage'),
-        [{ text: t('addParticipant.alert.understood'), style: 'default' }]
-      );
+      showAlert({ type: 'warning', title: t('addParticipant.alert.bulkRestricted'), message: t('addParticipant.alert.bulkRestrictedMessage'), buttons: [{ text: t('addParticipant.alert.understood') }] });
       return;
     }
     setActiveTab('bulk');

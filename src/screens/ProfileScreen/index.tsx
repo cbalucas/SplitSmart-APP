@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Alert,
   StyleSheet,
   Switch,
   Modal,
@@ -38,6 +37,7 @@ import {
 } from './types';
 import { createStyles } from './styles';
 import { PROFILE_KEYS, NOTIFICATION_KEYS, getLanguageDisplayName, getUserInitials } from './language';
+import { showAlert } from '../../services/alertService';
 
 const ProfileSection: React.FC<ProfileSectionProps> = ({ title, icon, children, onPress, rightAction, collapsible }) => {
   const { theme } = useTheme();
@@ -335,7 +335,7 @@ const ProfileScreen: React.FC = () => {
   const handleSaveProfile = async () => {
     setSubmittedOnce(true);
     if (!user?.id) {
-      Alert.alert('Error', 'No se pudo identificar el usuario');
+      showAlert({ type: 'error', title: 'Error', message: 'No se pudo identificar el usuario' });
       return;
     }
 
@@ -349,24 +349,20 @@ const ProfileScreen: React.FC = () => {
     const emptyFields = requiredFields.filter(item => !item.field);
     
     if (emptyFields.length > 0) {
-      Alert.alert(
-        'Campos Requeridos', 
-        `Los siguientes campos son obligatorios:\n\n${emptyFields.map(f => `• ${f.name}`).join('\n')}`,
-        [{ text: 'Entendido', style: 'default' }]
-      );
+      showAlert({ type: 'error', title: 'Campos Requeridos', message: `Los siguientes campos son obligatorios:\n\n${emptyFields.map(f => `• ${f.name}`).join('\n')}`, buttons: [{ text: 'Entendido' }] });
       return;
     }
 
     // Validar formato de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(profileData.email)) {
-      Alert.alert(t('error'), t('profile.message.emailInvalid'));
+      showAlert({ type: 'error', title: t('error'), message: t('profile.message.emailInvalid') });
       return;
     }
 
     // Validar formato de teléfono (si fue ingresado)
     if (profileData.phone?.trim() && !/^\+?\d{1,16}$/.test(profileData.phone.trim())) {
-      Alert.alert(t('error'), t('profile.message.phoneInvalid'));
+      showAlert({ type: 'error', title: t('error'), message: t('profile.message.phoneInvalid') });
       return;
     }
 
@@ -392,11 +388,11 @@ const ProfileScreen: React.FC = () => {
         shareEvent: profileData.privacy.shareEvent, // NUEVO CAMPO
       });
 
-      Alert.alert(`? ${t('success')}`, t('profile.message.profileSaved'));
+      showAlert({ type: 'success', title: `? ${t('success')}`, message: t('profile.message.profileSaved') });
       setIsEditing(false);
       await refreshUser();
     } catch (error) {
-      Alert.alert(t('error'), t('profile.message.profileSaveError'));
+      showAlert({ type: 'error', title: t('error'), message: t('profile.message.profileSaveError') });
     }
   };
 
@@ -416,7 +412,7 @@ const ProfileScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('? Error picking image:', error);
-      Alert.alert(t('error'), t('profile.message.pickImageError'));
+      showAlert({ type: 'error', title: t('error'), message: t('profile.message.pickImageError') });
     }
   };
 
@@ -425,7 +421,7 @@ const ProfileScreen: React.FC = () => {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       
       if (status !== 'granted') {
-        Alert.alert(t('profile.message.permissionRequired'), t('profile.message.cameraPermission'));
+        showAlert({ type: 'error', title: t('profile.message.permissionRequired'), message: t('profile.message.cameraPermission') });
         return;
       }
 
@@ -440,7 +436,7 @@ const ProfileScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('? Error taking photo:', error);
-      Alert.alert(t('error'), t('profile.message.takePhotoError'));
+      showAlert({ type: 'error', title: t('error'), message: t('profile.message.takePhotoError') });
     }
   };
 
@@ -455,18 +451,15 @@ const ProfileScreen: React.FC = () => {
       console.log('? Avatar updated in database, refreshing user...');
       await refreshUser();
       console.log('? User refreshed, new avatar:', user?.avatar);
-      Alert.alert(`? ${t('success')}`, t('profile.message.updateAvatarSuccess'));
+      showAlert({ type: 'success', title: `? ${t('success')}`, message: t('profile.message.updateAvatarSuccess') });
     } catch (error) {
       console.error('? Error updating avatar:', error);
-      Alert.alert(t('error'), t('profile.message.updateAvatarError'));
+      showAlert({ type: 'error', title: t('error'), message: t('profile.message.updateAvatarError') });
     }
   };
 
   const handleChangeAvatar = () => {
-    Alert.alert(
-      t('profile.message.changeAvatarTitle'),
-      t('profile.message.chooseOption'),
-      [
+    showAlert({ type: 'destructive', title: t('profile.message.changeAvatarTitle'), message: t('profile.message.chooseOption'), buttons: [
         { text: t('cancel'), style: 'cancel' },
         { text: t('profile.message.takePhoto'), onPress: takePhoto },
         { text: t('profile.message.chooseFromGallery'), onPress: pickImageFromGallery },
@@ -480,8 +473,7 @@ const ProfileScreen: React.FC = () => {
             }
           }
         }] : [])
-      ]
-    );
+      ] });
   };
 
   const saveExportFile = async (jsonData: string) => {
@@ -522,10 +514,7 @@ const ProfileScreen: React.FC = () => {
         return true;
       } else {
         // Fallback: show file location (keep file since user needs to access it)
-        Alert.alert(
-          `? ${t('success')}`,
-          t('profile.message.exportFileSaved', { uri: fileUri })
-        );
+        showAlert({ type: 'success', title: `? ${t('success')}`, message: t('profile.message.exportFileSaved', { uri: fileUri }) });
         return true;
       }
     } catch (error) {
@@ -546,19 +535,13 @@ const ProfileScreen: React.FC = () => {
       setShowDatabaseStatsModal(true);
     } catch (error) {
       console.error('? Error loading database stats:', error);
-      Alert.alert(
-        t('error'),
-        'No se pudieron cargar las estadísticas de la base de datos'
-      );
+      showAlert({ type: 'error', title: t('error'), message: 'No se pudieron cargar las estadísticas de la base de datos' });
     }
   };
 
   const handleExportData = async () => {
     try {
-      Alert.alert(
-        t('profile.message.exportDataTitle'),
-        t('profile.message.exportConfirmMessage'),
-        [
+      showAlert({ type: 'confirm', title: t('profile.message.exportDataTitle'), message: t('profile.message.exportConfirmMessage'), buttons: [
           { text: t('cancel'), style: 'cancel' },
           { 
             text: t('profile.message.exportNow'), 
@@ -590,24 +573,17 @@ const ProfileScreen: React.FC = () => {
                 const success = await saveExportFile(data);
                 
                 if (success) {
-                  Alert.alert(
-                    `? ${t('success')}`, 
-                    `${t('profile.message.exportSuccess')}\n\n📋 Registros exportados (${totalRecords} total):\n• ${recordCounts.users} Usuarios\n• ${recordCounts.events} Eventos\n• ${recordCounts.participants} Participantes\n• ${recordCounts.expenses} Gastos\n• ${recordCounts.settlements} Liquidaciones\n• ${recordCounts.consolidations} Consolidaciones\n• ${recordCounts.payments} Pagos (legacy)\n• ${recordCounts.eventParticipants} Relaciones evento-participante\n• ${recordCounts.splits} Divisiones\n\n✅ El archivo se ha guardado correctamente.`
-                  );
+                  showAlert({ type: 'success', title: `✅ ${t('success')}`, message: `${t('profile.message.exportSuccess')}\n\n${t('profile.message.exportFileSaved', { uri: '' })}` });
                 }
               } catch (error) {
-                console.error('? Export error:', error);
-                Alert.alert(
-                  t('error'), 
-                  `${t('profile.message.exportError')}\n\nDetalle: ${error instanceof Error ? error.message : 'Error desconocido'}`
-                );
+                console.error('❌ Export error:', error);
+                showAlert({ type: 'error', title: t('error'), message: `${t('profile.message.exportError')}\n\nDetalle: ${error instanceof Error ? error.message : 'Error desconocido'}` });
               }
             }
           }
-        ]
-      );
+        ] });
     } catch (error) {
-      Alert.alert(t('error'), t('profile.message.exportError'));
+      showAlert({ type: 'error', title: t('error'), message: t('profile.message.exportError') });
     }
   };
 
@@ -645,10 +621,7 @@ const ProfileScreen: React.FC = () => {
         console.log('?? Metadata:', importData.metadata);
       } catch (parseError) {
         console.error('? Parse error:', parseError);
-        Alert.alert(
-          t('error'),
-          t('profile.message.importInvalidJson')
-        );
+        showAlert({ type: 'error', title: t('error'), message: t('profile.message.importInvalidJson') });
         return;
       }
 
@@ -664,10 +637,7 @@ const ProfileScreen: React.FC = () => {
         console.log('? Metadata:', importData.metadata);
         console.log('? Version:', importData.version);
         console.log('? Data keys:', importData.data ? Object.keys(importData.data) : 'No data');
-        Alert.alert(
-          t('error'),
-          `${t('profile.message.importInvalidFormat')}\n\nDetalles técnicos:\n• Metadata: ${JSON.stringify(importData.metadata)}\n• Version: ${importData.version}\n• Estructura: ${importData.data ? 'OK' : 'Missing data'}`
-        );
+        showAlert({ type: 'error', title: t('error'), message: `${t('profile.message.importInvalidFormat')}\n\nDetalles técnicos:\n• Metadata: ${JSON.stringify(importData.metadata)}\n• Version: ${importData.version}\n• Estructura: ${importData.data ? 'OK' : 'Missing data'}` });
         return;
       }
 
@@ -703,25 +673,18 @@ const ProfileScreen: React.FC = () => {
       const currentTotal = Object.values(currentCounts).reduce((sum, count) => sum + count, 0);
       
       // Show confirmation dialog with current vs import comparison
-      Alert.alert(
-        t('profile.message.importConfirmTitle'),
-        `COMPARACIÓN DE DATOS:\n\n📊 DATOS ACTUALES (${currentTotal} total):\n• ${currentCounts.users} Usuario${currentCounts.users !== 1 ? 's' : ''} ? ${importCounts.users} Usuario${importCounts.users !== 1 ? 's' : ''}\n• ${currentCounts.events} Evento${currentCounts.events !== 1 ? 's' : ''} ? ${importCounts.events} Evento${importCounts.events !== 1 ? 's' : ''}\n• ${currentCounts.participants} Participante${currentCounts.participants !== 1 ? 's' : ''} ? ${importCounts.participants} Participante${importCounts.participants !== 1 ? 's' : ''}\n• ${currentCounts.expenses} Gasto${currentCounts.expenses !== 1 ? 's' : ''} ? ${importCounts.expenses} Gasto${importCounts.expenses !== 1 ? 's' : ''}\n• ${currentCounts.payments} Pago${currentCounts.payments !== 1 ? 's' : ''} ? ${importCounts.payments} Pago${importCounts.payments !== 1 ? 's' : ''}\n• ${currentCounts.eventParticipants} Relación${currentCounts.eventParticipants !== 1 ? 'es' : ''} ? ${importCounts.eventParticipants} Relación${importCounts.eventParticipants !== 1 ? 'es' : ''}\n• ${currentCounts.splits} División${currentCounts.splits !== 1 ? 'es' : ''} ? ${importCounts.splits} División${importCounts.splits !== 1 ? 'es' : ''}\n• ${currentCounts.settlements} Liquidación${currentCounts.settlements !== 1 ? 'es' : ''} ? ${importCounts.settlements} Liquidación${importCounts.settlements !== 1 ? 'es' : ''}\n\n📊 TOTAL A IMPORTAR: ${totalRecords} registros\n\n⚠️ IMPORTANTE:\n• Se ELIMINARÁ toda la información (${currentTotal} registros)\n• Las contraseñas NO se importan (acceso directo sin contraseña)\n• Las imágenes NO se importan (avatares y comprobantes)\n\n¿Deseas REEMPLAZAR los datos actuales?`,
-        [
+      showAlert({ type: 'destructive', title: t('profile.message.importConfirmTitle'), message: `COMPARACIÓN DE DATOS:\n\n📊 DATOS ACTUALES (${currentTotal} total):\n• ${currentCounts.users} Usuario${currentCounts.users !== 1 ? 's' : ''} ? ${importCounts.users} Usuario${importCounts.users !== 1 ? 's' : ''}\n• ${currentCounts.events} Evento${currentCounts.events !== 1 ? 's' : ''} ? ${importCounts.events} Evento${importCounts.events !== 1 ? 's' : ''}\n• ${currentCounts.participants} Participante${currentCounts.participants !== 1 ? 's' : ''} ? ${importCounts.participants} Participante${importCounts.participants !== 1 ? 's' : ''}\n• ${currentCounts.expenses} Gasto${currentCounts.expenses !== 1 ? 's' : ''} ? ${importCounts.expenses} Gasto${importCounts.expenses !== 1 ? 's' : ''}\n• ${currentCounts.payments} Pago${currentCounts.payments !== 1 ? 's' : ''} ? ${importCounts.payments} Pago${importCounts.payments !== 1 ? 's' : ''}\n• ${currentCounts.eventParticipants} Relación${currentCounts.eventParticipants !== 1 ? 'es' : ''} ? ${importCounts.eventParticipants} Relación${importCounts.eventParticipants !== 1 ? 'es' : ''}\n• ${currentCounts.splits} División${currentCounts.splits !== 1 ? 'es' : ''} ? ${importCounts.splits} División${importCounts.splits !== 1 ? 'es' : ''}\n• ${currentCounts.settlements} Liquidación${currentCounts.settlements !== 1 ? 'es' : ''} ? ${importCounts.settlements} Liquidación${importCounts.settlements !== 1 ? 'es' : ''}\n\n📊 TOTAL A IMPORTAR: ${totalRecords} registros\n\n⚠️ IMPORTANTE:\n• Se ELIMINARÁ toda la información (${currentTotal} registros)\n• Las contraseñas NO se importan (acceso directo sin contraseña)\n• Las imágenes NO se importan (avatares y comprobantes)\n\n¿Deseas REEMPLAZAR los datos actuales?`, buttons: [
           { text: t('cancel'), style: 'cancel' },
           {
             text: t('profile.message.importAction'),
             style: 'destructive',
             onPress: () => performImport(importData, importCounts, totalRecords)
           }
-        ]
-      );
+        ] });
 
     } catch (error) {
       console.error('? Import error:', error);
-      Alert.alert(
-        t('error'),
-        `${t('profile.message.importError')}:\n\n${error instanceof Error ? error.message : 'Error desconocido'}`
-      );
+      showAlert({ type: 'error', title: t('error'), message: `${t('profile.message.importError')}:\n\n${error instanceof Error ? error.message : 'Error desconocido'}` });
     }
   };
 
@@ -742,16 +705,10 @@ const ProfileScreen: React.FC = () => {
       await refreshUser();
       await loadUserProfile();
 
-      Alert.alert(
-        `? ${t('success')}`,
-        `${t('profile.message.importCompleted')}\n\n✅ ${totalRecords} registros importados:\n• ${importCounts.events} Eventos\n• ${importCounts.participants} Participantes\n• ${importCounts.expenses} Gastos\n• ${importCounts.settlements} Liquidaciones\n• ${importCounts.splits} Divisiones`
-      );
+      showAlert({ type: 'success', title: `? ${t('success')}`, message: `${t('profile.message.importCompleted')}\n\n✅ ${totalRecords} registros importados:\n• ${importCounts.events} Eventos\n• ${importCounts.participants} Participantes\n• ${importCounts.expenses} Gastos\n• ${importCounts.settlements} Liquidaciones\n• ${importCounts.splits} Divisiones` });
     } catch (error) {
       console.error('? Import execution error:', error);
-      Alert.alert(
-        t('error'),
-        `${t('profile.message.importError')}:\n\n${error instanceof Error ? error.message : 'Error desconocido'}`
-      );
+      showAlert({ type: 'error', title: t('error'), message: `${t('profile.message.importError')}:\n\n${error instanceof Error ? error.message : 'Error desconocido'}` });
     }
   };
 
@@ -770,10 +727,7 @@ const ProfileScreen: React.FC = () => {
   };
 
   const handleClearData = () => {
-    Alert.alert(
-      t('profile.message.deleteAllDataTitle'),
-      t('profile.message.deleteAllDataMessage'),
-      [
+    showAlert({ type: 'destructive', title: t('profile.message.deleteAllDataTitle'), message: t('profile.message.deleteAllDataMessage'), buttons: [
         { text: t('cancel'), style: 'cancel' },
         {
           text: t('profile.message.deleteAll'),
@@ -785,25 +739,18 @@ const ProfileScreen: React.FC = () => {
               await initializeAuth();
               await refreshUser();
               await loadUserProfile();
-              Alert.alert(t('success'), t('profile.message.deleteCompleted'));
+              showAlert({ type: 'success', title: t('success'), message: t('profile.message.deleteCompleted') });
             } catch (error) {
-              console.error('? Error during reset:', error);
-              Alert.alert(
-                t('error'),
-                `${t('profile.message.deleteError')}\n\nDetalle: ${error instanceof Error ? error.message : 'Error desconocido'}`
-              );
+              console.error('❌ Error during reset:', error);
+              showAlert({ type: 'error', title: t('error'), message: `${t('profile.message.deleteError')}\n\nDetalle: ${error instanceof Error ? error.message : 'Error desconocido'}` });
             }
           }
         }
-      ]
-    );
+      ] });
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      t('profile.message.logoutTitle'),
-      t('profile.message.logoutMessage'),
-      [
+    showAlert({ type: 'destructive', title: t('profile.message.logoutTitle'), message: t('profile.message.logoutMessage'), buttons: [
         { text: t('cancel'), style: 'cancel' },
         {
           text: t('logout'),
@@ -816,8 +763,7 @@ const ProfileScreen: React.FC = () => {
             });
           }
         }
-      ]
-    );
+      ] });
   };
 
   const updateNotificationSetting = async (key: keyof UserProfileData['notifications'], value: boolean) => {
@@ -1118,20 +1064,17 @@ const ProfileScreen: React.FC = () => {
                 onValueChange={async (value) => {
                   try {
                     if (!user?.id) {
-                      Alert.alert('Error', 'No se pudo identificar el usuario');
+                      showAlert({ type: 'error', title: 'Error', message: 'No se pudo identificar el usuario' });
                       return;
                     }
                     await updateUserProfile(user.id, { skipPassword: value });
                     setSkipPassword(value);
                     await refreshUser();
-                    Alert.alert(
-                      `? ${t('profile.skipPasswordUpdated')}`, 
-                      value 
+                    showAlert({ type: 'error', title: `? ${t('profile.skipPasswordUpdated')}`, message: value 
                         ? t('profile.skipPasswordEnabled') 
-                        : t('profile.skipPasswordDisabled')
-                    );
+                        : t('profile.skipPasswordDisabled') });
                   } catch (error) {
-                    Alert.alert(t('error'), t('profile.message.settingUpdateError'));
+                    showAlert({ type: 'error', title: t('error'), message: t('profile.message.settingUpdateError') });
                   }
                 }}
                 trackColor={{ false: theme.colors.outline, true: theme.colors.primary }}
@@ -1163,7 +1106,7 @@ const ProfileScreen: React.FC = () => {
                 onValueChange={async (value) => {
                   try {
                     if (!user?.id) {
-                      Alert.alert('Error', 'No se pudo identificar el usuario');
+                      showAlert({ type: 'error', title: 'Error', message: 'No se pudo identificar el usuario' });
                       return;
                     }
                     
@@ -1181,15 +1124,12 @@ const ProfileScreen: React.FC = () => {
                     // Recargar el perfil para obtener el estado actualizado
                     await loadUserProfile();
                     
-                    Alert.alert(
-                      `? ${t('profile.autoLoginUpdated')}`, 
-                      value 
+                    showAlert({ type: 'error', title: `? ${t('profile.autoLoginUpdated')}`, message: value 
                         ? t('profile.autoLoginEnabled') 
-                        : t('profile.autoLoginDisabled')
-                    );
+                        : t('profile.autoLoginDisabled') });
                   } catch (error) {
                     console.error('Error updating auto-login:', error);
-                    Alert.alert(t('error'), t('profile.message.settingUpdateError'));
+                    showAlert({ type: 'error', title: t('error'), message: t('profile.message.settingUpdateError') });
                   }
                 }}
                 trackColor={{ false: theme.colors.outline, true: theme.colors.primary }}
@@ -1429,6 +1369,84 @@ const ProfileScreen: React.FC = () => {
         </ProfileSection>
         )}
 
+        {/* Guía de Errores */}
+        {!isEditing && (
+        <ProfileSection title="Guía de Errores" icon="alert-circle-outline" onPress={closeAutoLogoutDropdown} collapsible>
+          {[
+            { screen: 'Inicio de Sesión', errors: [
+              { title: 'Credencial requerida', desc: 'No ingresaste usuario o email antes de tocar Ingresar.' },
+              { title: 'Credenciales inválidas', desc: 'El usuario/email o contraseña no coinciden con ninguna cuenta.' },
+            ]},
+            { screen: 'Registro', errors: [
+              { title: 'Campos requeridos', desc: 'Hay campos obligatorios vacíos en el formulario de registro.' },
+              { title: 'Usuario ya existe', desc: 'El nombre de usuario ingresado ya está en uso por otra cuenta.' },
+              { title: 'Email ya existe', desc: 'El email ingresado ya está registrado en otra cuenta.' },
+              { title: 'Error al crear cuenta', desc: 'Fallo interno al guardar el nuevo usuario en la base de datos.' },
+            ]},
+            { screen: 'Recuperar Contraseña', errors: [
+              { title: 'Credencial requerida', desc: 'No ingresaste usuario o email antes de buscar la cuenta.' },
+              { title: 'Usuario no encontrado', desc: 'No existe ninguna cuenta con ese usuario o email.' },
+            ]},
+            { screen: 'Mi Perfil', errors: [
+              { title: 'Campos requeridos', desc: 'Falta completar campos obligatorios del perfil (nombre, etc.).' },
+              { title: 'Email inválido', desc: 'El formato del email ingresado no es válido (ej: sin @).' },
+              { title: 'Teléfono inválido', desc: 'El teléfono debe tener hasta 16 dígitos con + opcional al inicio.' },
+              { title: 'Permiso de cámara requerido', desc: 'Se denegó el permiso de acceso a la cámara del dispositivo.' },
+              { title: 'Error al guardar perfil', desc: 'No se pudo escribir el perfil actualizado en la base de datos.' },
+              { title: 'Error al exportar datos', desc: 'Fallo al generar o guardar el archivo de copia de seguridad.' },
+              { title: 'Formato de importación inválido', desc: 'El archivo seleccionado no es una exportación válida de SplitSmart.' },
+              { title: 'Error al eliminar datos', desc: 'Fallo al limpiar la base de datos local del dispositivo.' },
+              { title: 'Contraseña incorrecta', desc: 'La contraseña actual ingresada no coincide con la guardada.' },
+              { title: 'Contraseña muy corta', desc: 'La nueva contraseña debe tener al menos 6 caracteres.' },
+            ]},
+            { screen: 'Detalle de Evento', errors: [
+              { title: 'Evento no editable', desc: 'Solo se pueden agregar/editar/eliminar gastos y participantes en eventos activos.' },
+              { title: 'Nombre requerido', desc: 'Se intentó guardar un participante sin ingresar nombre.' },
+              { title: 'Error al eliminar gasto', desc: 'No se pudo eliminar el gasto seleccionado de la base de datos.' },
+              { title: 'Error al actualizar participante', desc: 'No se pudo guardar el nombre editado del participante.' },
+              { title: 'Error al eliminar participante', desc: 'No se pudo quitar el participante del evento.' },
+              { title: 'Consolidación no encontrada', desc: 'Se intentó aplicar una consolidación que ya no existe.' },
+              { title: 'Error al cambiar estado de pago', desc: 'No se pudo registrar el pago/deuda del participante.' },
+              { title: 'Compartir no disponible', desc: 'WhatsApp no está instalado; el resumen se copió al portapapeles.' },
+            ]},
+            { screen: 'Agregar Participantes', errors: [
+              { title: 'Seleccionar al menos uno', desc: 'En la pestaña Amigos, debes seleccionar al menos un amigo antes de agregar.' },
+              { title: 'Nombre duplicado en evento', desc: 'Ya existe un participante con ese nombre en este evento.' },
+              { title: 'Nombre duplicado en amigos', desc: 'Ya existe un amigo guardado con ese nombre exacto.' },
+              { title: 'Teléfono inválido', desc: 'El teléfono ingresado no tiene el formato correcto (hasta 16 dígitos).' },
+              { title: 'Email inválido', desc: 'El email ingresado no tiene el formato correcto.' },
+              { title: 'Rango numérico inválido', desc: 'La cantidad de participantes genéricos debe ser entre 1 y 50.' },
+              { title: 'Modo masivo restringido', desc: 'El evento tiene gastos registrados; no se pueden agregar participantes en forma masiva.' },
+            ]},
+            { screen: 'Crear Gasto', errors: [
+              { title: 'Evento cerrado', desc: 'No se pueden agregar gastos en eventos con estado cerrado o completado.' },
+              { title: 'Permiso de cámara denegado', desc: 'Se denegó el permiso para usar la cámara al querer adjuntar un comprobante.' },
+              { title: 'Error al seleccionar imagen', desc: 'No se pudo acceder a la galería del dispositivo.' },
+              { title: 'Error al tomar foto', desc: 'Falló la captura de imagen desde la cámara.' },
+            ]},
+            { screen: 'Consolidación', errors: [
+              { title: 'Sin consolidaciones seleccionadas', desc: 'Debes asignar al menos un pagador antes de aplicar la consolidación.' },
+            ]},
+          ].map(({ screen, errors }) => (
+            <View key={screen} style={{ marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6, paddingHorizontal: 4 }}>
+                <MaterialCommunityIcons name="monitor-cellphone" size={14} color={theme.colors.primary} style={{ marginRight: 6 }} />
+                <Text style={{ ...theme.typography.labelLarge, color: theme.colors.primary, fontWeight: '700' }}>{screen}</Text>
+              </View>
+              {errors.map(({ title, desc }) => (
+                <View key={title} style={{ flexDirection: 'row', paddingHorizontal: 4, marginBottom: 6, gap: 8 }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: theme.colors.error, marginTop: 5, flexShrink: 0 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ ...theme.typography.bodySmall, fontWeight: '700', color: theme.colors.onSurface }}>{title}</Text>
+                    <Text style={{ ...theme.typography.bodySmall, color: theme.colors.onSurfaceVariant }}>{desc}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ))}
+        </ProfileSection>
+        )}
+
         {/* Próximamente */}
         {!isEditing && (
         <ProfileSection title={t('profile.comingSoon')} icon="rocket-launch" onPress={closeAutoLogoutDropdown} collapsible>
@@ -1595,20 +1613,20 @@ const ProfileScreen: React.FC = () => {
                 disabled={confirmPassword.length > 0 && newPassword !== confirmPassword}
                 onPress={async () => {
                   if (!user?.id) {
-                    Alert.alert(t('error'), t('profile.message.userNotFound'));
+                    showAlert({ type: 'error', title: t('error'), message: t('profile.message.userNotFound') });
                     return;
                   }
                   if (newPassword.length < 6) {
-                    Alert.alert(t('error'), t('profile.message.passwordTooShort'));
+                    showAlert({ type: 'error', title: t('error'), message: t('profile.message.passwordTooShort') });
                     return;
                   }
                   if (newPassword !== confirmPassword) {
-                    Alert.alert(t('error'), t('profile.message.passwordMismatch'));
+                    showAlert({ type: 'error', title: t('error'), message: t('profile.message.passwordMismatch') });
                     return;
                   }
                   const isValid = await verifyUserPassword(user.id, currentPassword);
                   if (!isValid) {
-                    Alert.alert(t('error'), t('profile.message.passwordIncorrect'));
+                    showAlert({ type: 'error', title: t('error'), message: t('profile.message.passwordIncorrect') });
                     return;
                   }
                   try {
@@ -1621,9 +1639,9 @@ const ProfileScreen: React.FC = () => {
                     setShowCurrentPassword(false);
                     setShowNewPassword(false);
                     setShowConfirmPasswordVis(false);
-                    Alert.alert(`? ${t('profile.passwordUpdated')}`, t('profile.passwordUpdateSuccess'));
+                    showAlert({ type: 'error', title: `? ${t('profile.passwordUpdated')}`, message: t('profile.passwordUpdateSuccess') });
                   } catch (error) {
-                    Alert.alert(t('error'), t('profile.message.passwordChangeError'));
+                    showAlert({ type: 'error', title: t('error'), message: t('profile.message.passwordChangeError') });
                   }
                 }}
               >
@@ -2442,7 +2460,7 @@ const ProfileScreen: React.FC = () => {
                     </View>
                   )}
 
-                  {/* Tablas de Relación */}}
+                  {/* Tablas de Relación */}
                   <TouchableOpacity 
                     onPress={() => setShowRelationTables(!showRelationTables)}
                     style={{ 
@@ -2734,7 +2752,7 @@ const ProfileScreen: React.FC = () => {
                 <Text style={styles.supportSectionTitle}>{t('profile.support.contactMethods')}</Text>
                 <TouchableOpacity 
                   style={styles.contactItem}
-                  onPress={() => Alert.alert('Email', 'cbalucas@gmail.com')}
+                  onPress={() => showAlert({ type: 'error', title: 'Email', message: 'cbalucas@gmail.com' })}
                 >
                   <MaterialCommunityIcons name="email" size={20} color={theme.colors.primary} />
                   <Text style={styles.contactText}>cbalucas@gmail.com</Text>

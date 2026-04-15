@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, KeyboardAvoidingView, Image, Platform, Modal, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Image, Platform, Modal, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -12,6 +12,7 @@ import { useAuth } from '../../context/AuthContext';
 import { createStyles } from './styles';
 import { signUpLanguage } from './language';
 import { RootStackParamList } from '../../types/navigation';
+import { showAlert } from '../../services/alertService';
 
 interface SignUpFormData {
   name: string;
@@ -195,12 +196,7 @@ export default function SignUpScreen() {
     setSubmittedOnce(true);
     const validation = validateForm();
     if (!validation.isValid) {
-      const isDarkMode = theme.colors.surface !== '#FFFFFF';
-      Alert.alert(t.errors.title, validation.error, [
-        { text: 'OK', style: 'default' }
-      ], {
-        userInterfaceStyle: isDarkMode ? 'dark' : 'light'
-      });
+      showAlert({ type: 'error', title: t.errors.title, message: validation.error, buttons: [{ text: 'OK' }] });
       return;
     }
 
@@ -209,12 +205,7 @@ export default function SignUpScreen() {
       // Verificar si el username ya existe
       const existingUser = await databaseService.getUserByCredential(formData.username);
       if (existingUser) {
-        const isDarkMode = theme.colors.surface !== '#FFFFFF';
-        Alert.alert(t.errors.title, t.errors.usernameExists, [
-          { text: 'OK', style: 'default' }
-        ], {
-          userInterfaceStyle: isDarkMode ? 'dark' : 'light'
-        });
+        showAlert({ type: 'error', title: t.errors.title, message: t.errors.usernameExists, buttons: [{ text: 'OK' }] });
         return;
       }
 
@@ -222,12 +213,7 @@ export default function SignUpScreen() {
       if (formData.email.trim()) {
         const existingEmail = await databaseService.getUserByCredential(formData.email);
         if (existingEmail) {
-          const isDarkMode = theme.colors.surface !== '#FFFFFF';
-          Alert.alert(t.errors.title, t.errors.emailExists, [
-            { text: 'OK', style: 'default' }
-          ], {
-            userInterfaceStyle: isDarkMode ? 'dark' : 'light'
-          });
+          showAlert({ type: 'error', title: t.errors.title, message: t.errors.emailExists, buttons: [{ text: 'OK' }] });
           return;
         }
       }
@@ -250,12 +236,7 @@ export default function SignUpScreen() {
 
     } catch (error) {
       console.error('Error creating user:', error);
-      const isDarkMode = theme.colors.surface !== '#FFFFFF';
-      Alert.alert(t.errors.title, t.errors.general, [
-        { text: 'OK', style: 'default' }
-      ], {
-        userInterfaceStyle: isDarkMode ? 'dark' : 'light'
-      });
+      showAlert({ type: 'error', title: t.errors.title, message: t.errors.general, buttons: [{ text: 'OK' }] });
     } finally {
       setLoading(false);
     }
@@ -299,13 +280,7 @@ export default function SignUpScreen() {
     if (pendingCredentials) {
       const success = await login(pendingCredentials.username, pendingCredentials.password);
       if (!success) {
-        const isDarkMode = theme.colors.surface !== '#FFFFFF';
-        Alert.alert(
-          t.success.title,
-          t.success.messageLoginManual,
-          [{ text: t.success.button, onPress: () => navigation.navigate('Login') }],
-          { userInterfaceStyle: isDarkMode ? 'dark' : 'light' }
-        );
+        showAlert({ type: 'info', title: t.success.title, message: t.success.messageLoginManual, buttons: [{ text: t.success.button, onPress: () => navigation.navigate('Login') }] });
       }
     }
     setPendingCredentials(null);
