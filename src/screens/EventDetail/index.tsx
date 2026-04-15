@@ -480,6 +480,17 @@ export default function EventDetailScreen() {
   }, [expenses, participants, eventId, loadEventData]);
 
   // Congela el orden de las liquidaciones en pantalla.
+  // Recalcular consolidaciones en tiempo real cuando cambian los settlements calculados
+  // (útil en eventos activos: cada nuevo gasto actualiza la vista consolidada sin esperar reload)
+  useEffect(() => {
+    if (consolidationAssignments.length > 0 && settlements.length > 0 && event?.status === 'active') {
+      const recalculated = ConsolidationService.applyConsolidations(settlements, consolidationAssignments);
+      setConsolidatedSettlements(recalculated);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settlements, consolidationAssignments]);
+
+  // Congela el orden de las liquidaciones en pantalla.
   // Se recalcula SOLO cuando cambia la cantidad/composición (o la vista activa),
   // pero NO cuando cambia isPaid → el ítem no salta al marcarse como pagado.
   useEffect(() => {
@@ -1332,7 +1343,7 @@ export default function EventDetailScreen() {
         const totalConsolidated = consolidated.reduce((sum, s) => sum + s.amount, 0);
         const forgivenAmount = totalOriginal - totalConsolidated;
         
-        showAlert({ type: 'error', title: t('eventDetail.consolidationForgivenTitle'), message: t('eventDetail.consolidationForgivenMsg', {
+        showAlert({ type: 'success', title: t('eventDetail.consolidationForgivenTitle'), message: t('eventDetail.consolidationForgivenMsg', {
             original: settlements.length,
             consolidated: consolidated.length,
             forgiven: forgivenPayments,
@@ -1341,7 +1352,7 @@ export default function EventDetailScreen() {
             forgivenAmount: forgivenAmount.toLocaleString()
           }), buttons: [{ text: t('eventDetail.consolidationOk') }] });
       } else {
-        showAlert({ type: 'error', title: t('eventDetail.consolidationAppliedTitle'), message: t('eventDetail.consolidationAppliedMsg', {
+        showAlert({ type: 'success', title: t('eventDetail.consolidationAppliedTitle'), message: t('eventDetail.consolidationAppliedMsg', {
             assignments: assignments.length,
             results: consolidated.length
           }), buttons: [{ text: t('eventDetail.consolidationOk') }] });
@@ -2501,150 +2512,6 @@ export default function EventDetailScreen() {
   const renderResumenTab = () => {
     return (
     <View style={styles.tabContent}>
-      {/* Header de Acciones */}
-      <View style={{ 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        gap: 8,
-        paddingHorizontal: 16, 
-        paddingVertical: 12,
-        backgroundColor: theme.colors.surface,
-        borderBottomWidth: 1,
-        borderBottomColor: theme.colors.outline + '20'
-      }}>
-        <TouchableOpacity 
-          style={{ 
-            backgroundColor: theme.colors.primary + '15',
-            paddingHorizontal: 10,
-            paddingVertical: 10,
-            borderRadius: 8
-          }} 
-          onPress={handleShareSummary}
-        >
-          <MaterialCommunityIcons name="clipboard-check" size={20} color={theme.colors.primary} />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={{ 
-            backgroundColor: theme.colors.primary + '15',
-            paddingHorizontal: 10,
-            paddingVertical: 10,
-            borderRadius: 8
-          }} 
-          onPress={handleShareEvent}
-        >
-          <MaterialCommunityIcons name="file-document" size={20} color={theme.colors.primary} />
-        </TouchableOpacity>
-
-        {/* Separador */}
-        <View style={{ width: 1, height: 28, backgroundColor: theme.colors.outline + '40', marginHorizontal: 4 }} />
-
-        {/* Botones de Estado del Evento */}
-        <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 6 }}>
-        {event?.status === 'active' ? (
-          <>
-            <TouchableOpacity
-              onPress={handleCompleteEvent}
-              style={{ 
-                backgroundColor: theme.colors.primary, 
-                paddingHorizontal: 8, 
-                paddingVertical: 6, 
-                borderRadius: 6, 
-                flexDirection: 'row', 
-                alignItems: 'center'
-              }}
-            >
-              <MaterialCommunityIcons name="check-circle" size={14} color={theme.colors.onPrimary} style={{ marginRight: 4 }} />
-              <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 12 }}>{t('events.complete')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleArchiveEvent}
-              style={{ 
-                backgroundColor: theme.colors.surface, 
-                borderWidth: 1, 
-                borderColor: theme.colors.outline, 
-                paddingHorizontal: 8, 
-                paddingVertical: 6, 
-                borderRadius: 6, 
-                flexDirection: 'row', 
-                alignItems: 'center' 
-              }}
-            >
-              <MaterialCommunityIcons name="archive" size={14} color={theme.colors.onSurfaceVariant} style={{ marginRight: 4 }} />
-              <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 12 }}>{t('events.archive')}</Text>
-            </TouchableOpacity>
-          </>
-        ) : event?.status === 'completed' ? (
-          <>
-            <TouchableOpacity
-              onPress={() => handleReactivateEvent('active')}
-              style={{ 
-                backgroundColor: theme.colors.surface, 
-                borderWidth: 1, 
-                borderColor: theme.colors.primary, 
-                paddingHorizontal: 8, 
-                paddingVertical: 6, 
-                borderRadius: 6, 
-                flexDirection: 'row', 
-                alignItems: 'center' 
-              }}
-            >
-              <MaterialCommunityIcons name="lock-open" size={14} color={theme.colors.primary} style={{ marginRight: 4 }} />
-              <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 12 }}>{t('events.reactivate')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleArchiveEvent}
-              style={{ 
-                backgroundColor: theme.colors.surface, 
-                borderWidth: 1, 
-                borderColor: theme.colors.outline, 
-                paddingHorizontal: 8, 
-                paddingVertical: 6, 
-                borderRadius: 6, 
-                flexDirection: 'row', 
-                alignItems: 'center' 
-              }}
-            >
-              <MaterialCommunityIcons name="archive" size={14} color={theme.colors.onSurfaceVariant} style={{ marginRight: 4 }} />
-              <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 12 }}>{t('events.archive')}</Text>
-            </TouchableOpacity>
-          </>
-        ) : event?.status === 'archived' ? (
-          <>
-            <TouchableOpacity
-              onPress={() => handleReactivateEvent('active')}
-              style={{ 
-                backgroundColor: theme.colors.primary, 
-                paddingHorizontal: 8, 
-                paddingVertical: 6, 
-                borderRadius: 6, 
-                flexDirection: 'row', 
-                alignItems: 'center' 
-              }}
-            >
-              <MaterialCommunityIcons name="lock-open" size={14} color={theme.colors.onPrimary} style={{ marginRight: 4 }} />
-              <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 12 }}>{t('events.reactivate')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => handleReactivateEvent('completed')}
-              style={{ 
-                backgroundColor: theme.colors.surface, 
-                borderWidth: 1, 
-                borderColor: theme.colors.warning, 
-                paddingHorizontal: 8, 
-                paddingVertical: 6, 
-                borderRadius: 6, 
-                flexDirection: 'row', 
-                alignItems: 'center' 
-              }}
-            >
-              <MaterialCommunityIcons name="check-circle" size={14} color={theme.colors.warning} style={{ marginRight: 4 }} />
-              <Text style={{ color: theme.colors.warning, fontWeight: '600', fontSize: 12 }}>{t('events.complete')}</Text>
-            </TouchableOpacity>
-          </>
-        ) : null}
-        </View>
-      </View>
-
       <ScrollView style={{ flex: 1 }}>
       {/* Información del evento */}
       <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
@@ -2722,11 +2589,109 @@ export default function EventDetailScreen() {
         )}
       </Card>
 
+      {/* Acciones del evento */}
+      <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
+        {/* Fila superior: compartir */}
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+          <TouchableOpacity
+            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: theme.colors.primary + '15', paddingVertical: 12, borderRadius: 10 }}
+            onPress={handleShareSummary}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="clipboard-check" size={20} color={theme.colors.primary} />
+            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colors.primary }}>{t('eventDetail.shareSummaryLabel')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: theme.colors.primary + '15', paddingVertical: 12, borderRadius: 10 }}
+            onPress={handleShareEvent}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="file-document" size={20} color={theme.colors.primary} />
+            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colors.primary }}>{t('eventDetail.shareEventLabel')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Separador */}
+        <View style={{ height: 1, backgroundColor: theme.colors.outline + '30', marginBottom: 12 }} />
+
+        {/* Fila inferior: estado del evento */}
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          {event?.status === 'active' ? (
+            <>
+              <TouchableOpacity
+                onPress={handleCompleteEvent}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: theme.colors.primary, paddingVertical: 12, borderRadius: 10 }}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="check-circle" size={18} color={theme.colors.onPrimary} />
+                <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 13 }}>{t('events.complete')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleArchiveEvent}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: theme.colors.outline, paddingVertical: 12, borderRadius: 10 }}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="archive" size={18} color={theme.colors.onSurfaceVariant} />
+                <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 13 }}>{t('events.archive')}</Text>
+              </TouchableOpacity>
+            </>
+          ) : event?.status === 'completed' ? (
+            <>
+              <TouchableOpacity
+                onPress={() => handleReactivateEvent('active')}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: theme.colors.primary, paddingVertical: 12, borderRadius: 10 }}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="lock-open" size={18} color={theme.colors.primary} />
+                <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 13 }}>{t('events.reactivate')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleArchiveEvent}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: theme.colors.outline, paddingVertical: 12, borderRadius: 10 }}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="archive" size={18} color={theme.colors.onSurfaceVariant} />
+                <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 13 }}>{t('events.archive')}</Text>
+              </TouchableOpacity>
+            </>
+          ) : event?.status === 'archived' ? (
+            <>
+              <TouchableOpacity
+                onPress={() => handleReactivateEvent('active')}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: theme.colors.primary, paddingVertical: 12, borderRadius: 10 }}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="lock-open" size={18} color={theme.colors.onPrimary} />
+                <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 13 }}>{t('events.reactivate')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleReactivateEvent('completed')}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: theme.colors.warning, paddingVertical: 12, borderRadius: 10 }}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="check-circle" size={18} color={theme.colors.warning} />
+                <Text style={{ color: theme.colors.warning, fontWeight: '600', fontSize: 13 }}>{t('events.complete')}</Text>
+              </TouchableOpacity>
+            </>
+          ) : null}
+        </View>
+      </Card>
+
       {/* Liquidación de cuentas */}
       <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <Text style={styles.sectionTitle}>💸 {t('summary.settlements')}</Text>
-          {(event?.status === 'active' || event?.status === 'completed') && getDisplaySettlements().length > 0 && (() => {
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {settlements.length > 1 && (event?.status === 'active' || event?.status === 'completed') && (
+              <TouchableOpacity
+                style={{ backgroundColor: theme.colors.primaryContainer, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                onPress={() => setShowConsolidationModal(true)}
+              >
+                <MaterialCommunityIcons name="group" size={14} color={theme.colors.onPrimaryContainer} />
+                <Text style={{ fontSize: 12, fontWeight: '600', color: theme.colors.onPrimaryContainer }}>Consolidar</Text>
+              </TouchableOpacity>
+            )}
+            {(event?.status === 'active' || event?.status === 'completed') && getDisplaySettlements().length > 0 && (() => {
             const displaySettlements = getDisplaySettlements();
             const paidCount = displaySettlements.filter((s: Settlement) => s.isPaid).length;
             const isAnyPaid = paidCount > 0;
@@ -2747,67 +2712,48 @@ export default function EventDetailScreen() {
               </View>
             );
           })()}
+          </View>
         </View>
         
-        {/* Controles de Consolidación - Solo en eventos completados */}
-        {settlements.length > 1 && event?.status === 'completed' && (
+        {/* Controles de Consolidación - Activo y Completado */}
+        {consolidationAssignments.length > 0 && settlements.length > 1 && (event?.status === 'active' || event?.status === 'completed') && (
           <View style={styles.consolidationControls}>
             <View style={styles.consolidationButtons}>
               <TouchableOpacity
-                style={[styles.consolidationButton, { backgroundColor: theme.colors.primaryContainer }]}
-                onPress={() => setShowConsolidationModal(true)}
+                style={[styles.consolidationButton, { 
+                  backgroundColor: showOriginalView ? theme.colors.primary : theme.colors.surface,
+                  borderWidth: 1,
+                  borderColor: theme.colors.outline
+                }]}
+                onPress={handleToggleView}
               >
                 <MaterialCommunityIcons 
-                  name="group" 
+                  name={showOriginalView ? "eye-off" : "eye"} 
                   size={16} 
-                  color={theme.colors.onPrimaryContainer} 
+                  color={showOriginalView ? theme.colors.onPrimary : theme.colors.onSurface} 
                 />
-                <Text style={[styles.consolidationButtonText, { color: theme.colors.onPrimaryContainer }]}>
-                  Consolidar
+                <Text style={[styles.consolidationButtonText, { 
+                  color: showOriginalView ? theme.colors.onPrimary : theme.colors.onSurface 
+                }]}>
+                  {showOriginalView ? t('eventDetail.viewConsolidated') : t('eventDetail.viewOriginal')}
                 </Text>
               </TouchableOpacity>
 
-              {consolidationAssignments.length > 0 && (
-                <>
-                  <TouchableOpacity
-                    style={[styles.consolidationButton, { 
-                      backgroundColor: showOriginalView ? theme.colors.primary : theme.colors.surface,
-                      borderWidth: 1,
-                      borderColor: theme.colors.outline
-                    }]}
-                    onPress={handleToggleView}
-                  >
-                    <MaterialCommunityIcons 
-                      name={showOriginalView ? "eye-off" : "eye"} 
-                      size={16} 
-                      color={showOriginalView ? theme.colors.onPrimary : theme.colors.onSurface} 
-                    />
-                    <Text style={[styles.consolidationButtonText, { 
-                      color: showOriginalView ? theme.colors.onPrimary : theme.colors.onSurface 
-                    }]}>
-                      {showOriginalView ? t('eventDetail.viewConsolidated') : t('eventDetail.viewOriginal')}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.consolidationButton, { backgroundColor: theme.colors.errorContainer }]}
-                    onPress={handleClearConsolidations}
-                  >
-                    <MaterialCommunityIcons 
-                      name="close" 
-                      size={16} 
-                      color={theme.colors.onErrorContainer} 
-                    />
-                    <Text style={[styles.consolidationButtonText, { color: theme.colors.onErrorContainer }]}>
-                      {t('eventDetail.clear')}
-                    </Text>
-                  </TouchableOpacity>
-                </>
-              )}
+              <TouchableOpacity
+                style={[styles.consolidationButton, { backgroundColor: theme.colors.errorContainer }]}
+                onPress={handleClearConsolidations}
+              >
+                <MaterialCommunityIcons 
+                  name="close" 
+                  size={16} 
+                  color={theme.colors.onErrorContainer} 
+                />
+                <Text style={[styles.consolidationButtonText, { color: theme.colors.onErrorContainer }]}>
+                  {t('eventDetail.clear')}
+                </Text>
+              </TouchableOpacity>
             </View>
-
-            {consolidationAssignments.length > 0 && (
-              <View style={styles.consolidationSummary}>
+            <View style={styles.consolidationSummary}>
                 <Text style={[styles.consolidationSummaryText, { color: theme.colors.onSurfaceVariant }]}>
                   {t('eventDetail.consolidationSummary', { count: consolidationAssignments.length })} • 
                   {showOriginalView ? t('eventDetail.viewOriginalLabel') : t('eventDetail.viewConsolidatedLabel')}
@@ -2820,7 +2766,6 @@ export default function EventDetailScreen() {
                   })()}
                 </Text>
               </View>
-            )}
           </View>
         )}
         

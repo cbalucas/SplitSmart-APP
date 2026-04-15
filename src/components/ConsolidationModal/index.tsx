@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { showAlert } from '../../services/alertService';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import HeaderBar from '../HeaderBar';
+import SearchBar from '../SearchBar';
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { Settlement, ConsolidationAssignment, Participant } from '../../types';
@@ -47,7 +48,8 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
   const [assignments, setAssignments] = useState<ConsolidationAssignment[]>([]);
   const [debtSummaries, setDebtSummaries] = useState<DebtSummary[]>([]);
   const [showInstructions, setShowInstructions] = useState(false);
-  const [expandedDebtors, setExpandedDebtors] = useState<Set<string>>(new Set());
+  const [expandedDebtors, setExpandedDebtors] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Cargar consolidaciones existentes cuando el modal se abre
   useEffect(() => {
@@ -58,6 +60,9 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
       // Reset si no hay consolidaciones existentes
       setAssignments([]);
     }
+    // Contraer todo y limpiar búsqueda al abrir
+    setExpandedDebtors(null);
+    setSearchQuery('');
   }, [visible, existingAssignments]);
 
   // Calcular resumen de deudas por participante
@@ -143,16 +148,10 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
   };
 
   const toggleDebtorExpansion = (debtorId: string) => {
-    const newExpanded = new Set(expandedDebtors);
-    if (newExpanded.has(debtorId)) {
-      newExpanded.delete(debtorId);
-    } else {
-      newExpanded.add(debtorId);
-    }
-    setExpandedDebtors(newExpanded);
+    setExpandedDebtors(prev => prev === debtorId ? null : debtorId);
   };
 
-  const isDebtorExpanded = (debtorId: string) => expandedDebtors.has(debtorId);
+  const isDebtorExpanded = (debtorId: string) => expandedDebtors === debtorId;
 
   const handleApplyConsolidation = () => {
     if (assignments.length === 0) {
@@ -193,106 +192,120 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
 
     return (
       <React.Fragment key={`debtor_fragment_${item.participantId}_${index}`}>
-        <View style={[styles.debtorCard, { backgroundColor: theme.colors.surface }]}>
-        <TouchableOpacity 
-          style={styles.debtorHeader}
-          onPress={() => toggleDebtorExpansion(item.participantId)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.debtorInfo}>
-            <Text style={[styles.debtorName, { color: theme.colors.onSurface }]}>
-              {item.participantName}
-            </Text>
-            <Text style={[styles.debtorAmount, { color: theme.colors.error }]}>
-              Debe: ${item.totalDebt.toFixed(2)} {currency}
-            </Text>
-            {assignedPayer && (
-              <Text style={[styles.assignedIndicator, { color: theme.colors.primary }]}>
-                📝 {assignedPayer.name} pagará por {item.participantName}
-              </Text>
-            )}
-          </View>
-          
-          <View style={styles.expandIcon}>
-            <MaterialCommunityIcons 
-              name={isExpanded ? "chevron-up" : "chevron-down"} 
-              size={24} 
-              color={theme.colors.onSurfaceVariant} 
-            />
-          </View>
-        </TouchableOpacity>
+        <View style={[styles.debtorCard, {
+          backgroundColor: theme.colors.surface,
+          borderLeftWidth: 3,
+          borderLeftColor: assignedPayerId ? theme.colors.success : theme.colors.outline,
+        }]}>
+          {/* Header fila */}
+          <TouchableOpacity
+            style={styles.debtorHeader}
+            onPress={() => toggleDebtorExpansion(item.participantId)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10 }}>
+              <MaterialCommunityIcons
+                name={assignedPayerId ? 'check-circle' : 'account-clock'}
+                size={22}
+                color={assignedPayerId ? theme.colors.success : theme.colors.onSurfaceVariant}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.debtorName, { color: theme.colors.onSurface }]}>
+                  {item.participantName}
+                </Text>
+                {assignedPayer ? (
+                  <Text style={{ fontSize: 12, color: theme.colors.success, fontWeight: '600', marginTop: 2 }}>
+                    ✓ {assignedPayer.name} pagará
+                  </Text>
+                ) : (
+                  <Text style={{ fontSize: 12, color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
+                    Sin asignar
+                  </Text>
+                )}
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={{ backgroundColor: theme.colors.errorContainer, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: theme.colors.onErrorContainer }}>
+                  ${item.totalDebt.toFixed(2)}
+                </Text>
+              </View>
+              <MaterialCommunityIcons
+                name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={theme.colors.onSurfaceVariant}
+              />
+            </View>
+          </TouchableOpacity>
 
-        {isExpanded && (
-          <>
-            <View style={styles.payerSelector}>
-              <Text style={[styles.selectorLabel, { color: theme.colors.onSurfaceVariant }]}>
+          {/* Contenido expandible */}
+          {isExpanded && (
+            <>
+              <View style={{ height: 1, backgroundColor: theme.colors.outlineVariant, marginVertical: 12 }} />
+
+              {/* Selector de pagador */}
+              <Text style={{ fontSize: 13, color: theme.colors.onSurfaceVariant, fontWeight: '500', marginBottom: 8 }}>
                 ¿Quién pagará por {item.participantName}?
               </Text>
-              
               <View style={styles.payerButtons}>
                 {participants
                   .filter(p => {
-                    // No puede pagarse a sí mismo
                     if (p.id === item.participantId) return false;
-                    
-                    // ✅ REGLA CLAVE: No puede ser pagador alguien que ya tiene a otro pagando por él
-                    // (para evitar cadenas: A paga por B, B paga por C)
                     const hasDebtorAssigned = assignments.some(a => a.debtorId === p.id);
-                    if (hasDebtorAssigned) {
-                      console.log(`🚫 Excluyendo ${p.name} como pagador porque ya tiene a alguien pagando por él`);
-                      return false;
-                    }
-                    
+                    if (hasDebtorAssigned) return false;
                     return true;
                   })
                   .map(participant => (
                     <TouchableOpacity
                       key={participant.id}
-                      style={[
-                        styles.payerButton,
-                        {
-                          backgroundColor: assignedPayerId === participant.id
-                            ? theme.colors.primary
-                            : theme.colors.surfaceVariant
-                        }
-                      ]}
+                      style={[styles.payerButton, {
+                        backgroundColor: assignedPayerId === participant.id
+                          ? theme.colors.primary
+                          : theme.colors.surfaceVariant,
+                        borderWidth: 1,
+                        borderColor: assignedPayerId === participant.id
+                          ? theme.colors.primary
+                          : theme.colors.outline,
+                      }]}
                       onPress={() => handleAssignPayment(participant.id, item.participantId)}
                     >
-                      <Text
-                        style={[
-                          styles.payerButtonText,
-                          {
-                            color: assignedPayerId === participant.id
-                              ? theme.colors.onPrimary
-                              : theme.colors.onSurfaceVariant
-                          }
-                        ]}
-                      >
+                      {assignedPayerId === participant.id && (
+                        <MaterialCommunityIcons name="check" size={12} color={theme.colors.onPrimary} />
+                      )}
+                      <Text style={[styles.payerButtonText, {
+                        color: assignedPayerId === participant.id
+                          ? theme.colors.onPrimary
+                          : theme.colors.onSurfaceVariant
+                      }]}>
                         {participant.name}
                       </Text>
                     </TouchableOpacity>
                   ))}
               </View>
-            </View>
 
-            {/* Mostrar detalles de las liquidaciones */}
-            <View style={styles.settlementDetails}>
-              <Text style={[styles.detailsTitle, { color: theme.colors.onSurfaceVariant }]}>
-                Liquidaciones:
-              </Text>
-              {item.settlements.map((settlement, index) => (
-                <Text
-                  key={`settlement_${settlement.id}_${index}_${item.participantId}`}
-                  style={[styles.settlementDetail, { color: theme.colors.onSurfaceVariant }]}
-                >
-                  • ${settlement.amount.toFixed(2)} → {settlement.toParticipantName}
+              {/* Detalles de liquidaciones */}
+              <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: theme.colors.outlineVariant }}>
+                <Text style={{ fontSize: 12, color: theme.colors.onSurfaceVariant, fontWeight: '600', marginBottom: 6 }}>
+                  Deudas detalladas:
                 </Text>
-              ))}
-            </View>
-          </>
-        )}
+                {item.settlements.map((settlement, sIdx) => (
+                  <View
+                    key={`settlement_${settlement.id}_${sIdx}_${item.participantId}`}
+                    style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 3 }}
+                  >
+                    <Text style={{ fontSize: 12, color: theme.colors.onSurfaceVariant }}>
+                      → {settlement.toParticipantName}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: theme.colors.error, fontWeight: '600' }}>
+                      ${settlement.amount.toFixed(2)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
         </View>
-        {index < debtSummaries.length - 1 && <View style={styles.separator} />}
+        {index < debtSummaries.length - 1 && <View style={{ height: 8 }} />}
       </React.Fragment>
     );
   };
@@ -315,10 +328,10 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
           isModal={true}
         />
 
-        {/* Content */}
-        <ScrollView style={styles.content}>
+        {/* Cabecera fija: instrucciones + buscador */}
+        <View style={[styles.fixedHeader, { borderBottomColor: theme.colors.outlineVariant }]}>
           <TouchableOpacity 
-            style={styles.instructions}
+            style={[styles.instructions, { backgroundColor: theme.colors.primaryContainer + '40', borderWidth: 1, borderColor: theme.colors.primary + '30' }]}
             onPress={() => setShowInstructions(!showInstructions)}
             activeOpacity={0.7}
           >
@@ -328,7 +341,7 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
                 size={20} 
                 color={theme.colors.primary} 
               />
-              <Text style={[styles.instructionsTitle, { color: theme.colors.onSurfaceVariant }]}>
+              <Text style={[styles.instructionsTitle, { color: theme.colors.onSurface }]}>
                 {t('consolidationModal.instructionsTitle')}
               </Text>
               <MaterialCommunityIcons 
@@ -338,16 +351,32 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
               />
             </View>
             {showInstructions && (
-              <Text style={[styles.instructionsText, { color: theme.colors.onSurfaceVariant }]}>
-                {t('consolidationModal.description').replace('<1>', '').replace('</1>', '')}
-                {'\n\n'}
-                <Text style={{ fontStyle: 'italic' }}>{t('consolidationModal.example')}</Text>
-              </Text>
+              <View style={{ marginTop: 10 }}>
+                <Text style={[styles.instructionsText, { color: theme.colors.onSurfaceVariant }]}>
+                  {t('consolidationModal.description').replace('<1>', '').replace('</1>', '')}
+                </Text>
+                <Text style={[styles.instructionsText, { color: theme.colors.onSurfaceVariant, fontStyle: 'italic', marginTop: 6 }]}>
+                  {t('consolidationModal.example')}
+                </Text>
+              </View>
             )}
           </TouchableOpacity>
 
+          {/* Buscador de deudores — solo visible si hay más de 2 */}
+          {debtSummaries.length > 2 && (
+            <SearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Buscar deudor..."
+              style={{ marginTop: 8 }}
+            />
+          )}
+        </View>
+
+        {/* Lista scrolleable */}
+        <ScrollView style={styles.content}>
           <FlatList
-            data={debtSummaries}
+            data={debtSummaries.filter(d => d.participantName.toLowerCase().includes(searchQuery.toLowerCase()))}
             renderItem={renderDebtorItem}
             keyExtractor={(item, index) => `debtor_${item.participantId}_${index}`}
             scrollEnabled={false}
@@ -389,11 +418,18 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  fixedHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
   },
   instructions: {
     padding: 12,
-    marginBottom: 16,
+    marginBottom: 0,
     borderRadius: 8,
     backgroundColor: 'rgba(0,0,0,0.05)',
   },
@@ -476,8 +512,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    marginRight: 8,
-    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   payerButtonText: {
     fontSize: 12,
