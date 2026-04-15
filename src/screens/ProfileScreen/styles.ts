@@ -153,6 +153,10 @@ export const createStyles = (theme: Theme) =>
       marginBottom: 16,
     } as ViewStyle,
 
+    sectionHeaderCollapsed: {
+      marginBottom: 0,
+    } as ViewStyle,
+
     sectionHeaderLeft: {
       flexDirection: 'row',
       alignItems: 'flex-start',

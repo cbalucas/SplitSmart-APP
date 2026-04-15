@@ -178,6 +178,31 @@ if ($buildResult -eq 0) {
         Write-Host "RECORDATORIO: Haz un backup del archivo keystore:" -ForegroundColor Magenta
         Write-Host "  $keystoreFile`n" -ForegroundColor Yellow
 
+        # ─── Actualizar latest-version.json y push a GitHub ──────────────────
+        Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkCyan
+        Write-Host "  Actualizar latest-version.json en GitHub" -ForegroundColor Cyan
+        Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkCyan
+        $versionJsonPath = "latest-version.json"
+        $versionJson = Get-Content $versionJsonPath | ConvertFrom-Json
+        $versionJson.version = $version
+        $versionJson | ConvertTo-Json -Depth 10 | Set-Content $versionJsonPath -Encoding UTF8
+        Write-Host "  latest-version.json actualizado a v$version" -ForegroundColor Green
+
+        $gitCheck = git status --porcelain $versionJsonPath 2>&1
+        if ($gitCheck) {
+            git add $versionJsonPath
+            git commit -m "chore: bump latest-version.json to v$version"
+            git push
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "  GitHub actualizado correctamente (v$version)`n" -ForegroundColor Green
+            } else {
+                Write-Host "  AVISO: git push fallo. Ejecutalo manualmente antes de publicar en Play Store.`n" -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "  (ya estaba en v$version, sin cambios para commitear)`n" -ForegroundColor DarkGray
+        }
+        # ─────────────────────────────────────────────────────────────────────
+
     } else {
         Write-Host "`nEl build fue exitoso pero no se encontro el archivo .aab en la ruta esperada." -ForegroundColor Red
         Write-Host "Busca manualmente en: android\app\build\outputs\bundle\" -ForegroundColor Yellow

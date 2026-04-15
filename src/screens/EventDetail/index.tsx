@@ -1655,6 +1655,7 @@ export default function EventDetailScreen() {
 
   const renderGastosTab = () => {
     const filteredExpenses = getFilteredAndSortedExpenses();
+    const allExpensesSelected = filteredExpenses.length > 0 && filteredExpenses.every(e => selectedExpenseIds.has(e.id));
     
     return (
       <View style={styles.tabContent}>
@@ -1682,27 +1683,43 @@ export default function EventDetailScreen() {
         }}>
           {isExpenseSelectMode ? (
             <>
-              <Text style={styles.sectionTitle}>
-                {t('expenses.selectedCount', {
-                  count: selectedExpenseIds.size,
-                  plural: selectedExpenseIds.size !== 1 ? 's' : ''
-                })}
-              </Text>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                onPress={() => {
+                  if (allExpensesSelected) {
+                    setSelectedExpenseIds(new Set());
+                  } else {
+                    setSelectedExpenseIds(new Set(filteredExpenses.map(e => e.id)));
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name={allExpensesSelected ? 'checkbox-marked-circle' : selectedExpenseIds.size > 0 ? 'minus-circle-outline' : 'checkbox-blank-circle-outline'}
+                  size={22}
+                  color={theme.colors.primary}
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
+                  {selectedExpenseIds.size > 0
+                    ? t('expenses.selectedCount', { count: selectedExpenseIds.size, plural: selectedExpenseIds.size !== 1 ? 's' : '' })
+                    : t('expenses.selectAll')}
+                </Text>
+              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 {selectedExpenseIds.size > 0 && (
                   <TouchableOpacity
-                    style={{ backgroundColor: theme.colors.error, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
+                    style={{ backgroundColor: theme.colors.error, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}
                     onPress={handleRemoveSelectedExpenses}
                   >
-                    <MaterialCommunityIcons name="delete" size={16} color="#fff" style={{ marginRight: 6 }} />
-                    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>{t('common.delete')}</Text>
+                    <MaterialCommunityIcons name="delete-outline" size={20} color="#fff" />
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
-                  style={{ backgroundColor: theme.colors.outline + '30', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 }}
+                  style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.outline + '25' }}
                   onPress={() => { setIsExpenseSelectMode(false); setSelectedExpenseIds(new Set()); }}
                 >
-                  <Text style={{ color: theme.colors.onSurface, fontWeight: '600', fontSize: 14 }}>{t('expenses.cancelSelect')}</Text>
+                  <MaterialCommunityIcons name="close" size={20} color={theme.colors.onSurface} />
                 </TouchableOpacity>
               </View>
             </>
@@ -1747,7 +1764,7 @@ export default function EventDetailScreen() {
                 {eventParticipants.length === 0 ? (
                   <TouchableOpacity onPress={() => setActiveTab('participantes')} activeOpacity={0.7}>
                     <Text style={[styles.emptySubtext, { color: theme.colors.primary, textDecorationLine: 'underline', marginTop: 4 }]}>
-                      {t('expenses.addParticipantsFirst')}
+                      {t('expenses.noParticipantsForExpenses')}
                     </Text>
                   </TouchableOpacity>
                 ) : (
@@ -2020,6 +2037,18 @@ export default function EventDetailScreen() {
         - absorbedFromOthers;
     };
 
+    // Participantes que pueden ser eliminados (sin gastos pagados)
+    const selectableParticipantIds = visiblePrimaries
+      .filter(p => !eventExpenses.some(e => {
+        if (e.payers && e.payers.length > 0) {
+          return e.payers.some((pp: any) => pp.participantId === p.id && pp.amount > 0);
+        }
+        return e.payerId === p.id;
+      }))
+      .map(p => p.id);
+    const allParticipantsSelected = selectableParticipantIds.length > 0
+      && selectableParticipantIds.every(id => selectedParticipantIds.has(id));
+
     return (
       <View style={styles.tabContent}>
         <View style={{ paddingHorizontal: 16 }}>
@@ -2045,27 +2074,43 @@ export default function EventDetailScreen() {
         }}>
           {isParticipantSelectMode ? (
             <>
-              <Text style={styles.sectionTitle}>
-                {t('participants.selectedCount', {
-                  count: selectedParticipantIds.size,
-                  plural: selectedParticipantIds.size !== 1 ? 's' : ''
-                })}
-              </Text>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                onPress={() => {
+                  if (allParticipantsSelected) {
+                    setSelectedParticipantIds(new Set());
+                  } else {
+                    setSelectedParticipantIds(new Set(selectableParticipantIds));
+                  }
+                }}
+                activeOpacity={selectableParticipantIds.length > 0 ? 0.7 : 1}
+              >
+                <MaterialCommunityIcons
+                  name={allParticipantsSelected ? 'checkbox-marked-circle' : selectedParticipantIds.size > 0 ? 'minus-circle-outline' : 'checkbox-blank-circle-outline'}
+                  size={22}
+                  color={selectableParticipantIds.length > 0 ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
+                  {selectedParticipantIds.size > 0
+                    ? t('participants.selectedCount', { count: selectedParticipantIds.size, plural: selectedParticipantIds.size !== 1 ? 's' : '' })
+                    : t('participants.selectAll')}
+                </Text>
+              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 {selectedParticipantIds.size > 0 && (
                   <TouchableOpacity
-                    style={{ backgroundColor: theme.colors.error, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
+                    style={{ backgroundColor: theme.colors.error, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}
                     onPress={handleRemoveSelectedParticipants}
                   >
-                    <MaterialCommunityIcons name="delete" size={16} color="#fff" style={{ marginRight: 6 }} />
-                    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>{t('common.delete')}</Text>
+                    <MaterialCommunityIcons name="delete-outline" size={20} color="#fff" />
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
-                  style={{ backgroundColor: theme.colors.outline + '30', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 }}
+                  style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.outline + '25' }}
                   onPress={() => { setIsParticipantSelectMode(false); setSelectedParticipantIds(new Set()); }}
                 >
-                  <Text style={{ color: theme.colors.onSurface, fontWeight: '600', fontSize: 14 }}>{t('participants.cancelSelect')}</Text>
+                  <MaterialCommunityIcons name="close" size={20} color={theme.colors.onSurface} />
                 </TouchableOpacity>
               </View>
             </>
@@ -3631,6 +3676,7 @@ export default function EventDetailScreen() {
         showThemeToggle={true}
         showLanguageSelector={true}
         showHelp={true}
+        showLogout={true}
         useDynamicColors={true}
         elevation={true}
       />

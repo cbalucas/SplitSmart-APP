@@ -395,6 +395,7 @@ const CreateEventScreen: React.FC = () => {
         showThemeToggle={true}
         showLanguageSelector={true}
         showHelp={true}
+        showLogout={true}
         useDynamicColors={true}
         titleAlignment="left"
       />

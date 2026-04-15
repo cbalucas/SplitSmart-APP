@@ -318,6 +318,7 @@ const ManageFriendsScreen: React.FC = () => {
       showThemeToggle={true}
       showLanguageSelector={true}
       showHelp={true}
+      showLogout={true}
       showBackButton={false}
       elevation={true}
     />

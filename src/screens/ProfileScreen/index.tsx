@@ -38,6 +38,9 @@ import {
 import { createStyles } from './styles';
 import { PROFILE_KEYS, NOTIFICATION_KEYS, getLanguageDisplayName, getUserInitials } from './language';
 import { showAlert } from '../../services/alertService';
+import { fetchVersionInfo, isNewerVersion, RemoteVersionInfo } from '../../services/UpdateService';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const appVersion: string = require('../../../app.json').expo?.version ?? require('../../../app.json').version ?? '0.0.0';
 
 const ProfileSection: React.FC<ProfileSectionProps> = ({ title, icon, children, onPress, rightAction, collapsible }) => {
   const { theme } = useTheme();
@@ -59,7 +62,7 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ title, icon, children, 
   return (
     <Card style={styles.card} onPress={collapsible ? undefined : onPress}>
       <TouchableOpacity
-        style={styles.sectionHeader}
+        style={[styles.sectionHeader, collapsed && { marginBottom: 0 }]}
         onPress={handleHeaderPress}
         activeOpacity={collapsible ? 0.6 : 1}
         disabled={!collapsible && !onPress}
@@ -215,6 +218,8 @@ const ProfileScreen: React.FC = () => {
   const [showTechInfo, setShowTechInfo] = useState(false);
   const [showMainTables, setShowMainTables] = useState(false);
   const [showRelationTables, setShowRelationTables] = useState(false);
+  const [versionInfo, setVersionInfo] = useState<RemoteVersionInfo | null>(null);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
   const [databaseStats, setDatabaseStats] = useState<{
     tables: { [tableName: string]: number };
     totalRecords: number;
@@ -233,6 +238,16 @@ const ProfileScreen: React.FC = () => {
     calculateStats();
     loadUserProfile();
   }, [events, expenses, participants]);
+
+  // Chequeo de versión disponible en Play Store
+  useEffect(() => {
+    fetchVersionInfo().then(info => {
+      if (info) {
+        setVersionInfo(info);
+        setUpdateAvailable(isNewerVersion(appVersion, info.version));
+      }
+    });
+  }, []);
 
   // Efecto para sincronizar el estado del auto-login con el AuthContext
   useEffect(() => {
@@ -823,6 +838,7 @@ const ProfileScreen: React.FC = () => {
         showThemeToggle={true}
         showLanguageSelector={true}
         showHelp={true}
+        showLogout={true}
         useDynamicColors={true}
       />
 
@@ -833,6 +849,43 @@ const ProfileScreen: React.FC = () => {
         contentContainerStyle={styles.scrollViewContent}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Banner de versión */}
+        <TouchableOpacity
+          activeOpacity={updateAvailable ? 0.7 : 1}
+          onPress={updateAvailable && versionInfo ? () => Linking.openURL(versionInfo.playStoreUrl) : undefined}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginHorizontal: 16,
+            marginBottom: 8,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            borderRadius: 12,
+            backgroundColor: updateAvailable
+              ? theme.colors.errorContainer ?? '#FDECEA'
+              : theme.colors.primaryContainer ?? theme.colors.surface,
+            borderWidth: 1,
+            borderColor: updateAvailable ? theme.colors.error : theme.colors.primary + '40',
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <MaterialCommunityIcons
+              name={updateAvailable ? 'update' : 'check-circle-outline'}
+              size={18}
+              color={updateAvailable ? theme.colors.error : theme.colors.primary}
+            />
+            <Text style={{ ...theme.typography.bodySmall, color: updateAvailable ? theme.colors.error : theme.colors.primary, fontWeight: '600' }}>
+              {updateAvailable
+                ? `Actualización disponible (v${versionInfo?.version})`
+                : `Última versión (v${appVersion})`}
+            </Text>
+          </View>
+          {updateAvailable && (
+            <MaterialCommunityIcons name="download-circle-outline" size={22} color={theme.colors.error} />
+          )}
+        </TouchableOpacity>
+
         {/* Perfil del Usuario */}
         <Card style={styles.profileCard} onPress={closeAutoLogoutDropdown}>
           <View style={styles.profileHeader}>
@@ -1493,24 +1546,6 @@ const ProfileScreen: React.FC = () => {
             </View>
           </View>
         </ProfileSection>
-        )}
-
-        {/* Cerrar Sesión */}
-        {!isEditing && (
-          <Card style={StyleSheet.flatten([styles.card, styles.logoutCard])}>
-            <TouchableOpacity 
-              style={styles.logoutButton}
-              onPress={handleLogout}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons 
-                name="logout" 
-                size={22} 
-                color="#F44336" 
-              />
-              <Text style={styles.logoutText}>{t('logout')}</Text>
-            </TouchableOpacity>
-          </Card>
         )}
       </ScrollView>
       </KeyboardAvoidingView>

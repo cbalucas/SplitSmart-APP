@@ -415,6 +415,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       showThemeToggle={true}
       showLanguageSelector={true}
       showHelp={true}
+      showLogout={true}
       rightIcon="close"
       rightIconLabel="Cerrar"
       onRightPress={handleClose}

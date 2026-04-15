@@ -17,6 +17,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
+import { showAlert } from '../services/alertService';
 import { Theme } from '../constants/theme';
 import { LanguageSelector } from './LanguageSelector';
 import { ThemeToggle } from './ThemeToggle';
@@ -48,6 +50,7 @@ export interface HeaderBarProps {
   overflowAfterItems?: Array<{ icon: string; label: string; onPress: () => void }>;
   showLogo?: boolean;
   isModal?: boolean;
+  showLogout?: boolean;
 }
 
 const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -75,10 +78,12 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   overflowBeforeItems,
   overflowAfterItems,
   showLogo = true,
-  isModal = false
+  isModal = false,
+  showLogout = false
 }) => {
   const { theme, isDarkMode, toggleTheme } = useTheme();
   const { language } = useLanguage();
+  const { logout } = useAuth();
   const insets = useSafeAreaInsets();
   const [overflowVisible, setOverflowVisible] = useState(false);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
@@ -101,6 +106,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
     showHelp,
     !!rightIcon,
     !!rightText,
+    showLogout,
   ].filter(Boolean).length
     + (overflowBeforeItems?.length || 0)
     + (overflowAfterItems?.length || 0);
@@ -113,9 +119,9 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   };
 
   const menuLabels: Record<string, Record<string, string>> = {
-    es: { themeLight: 'Modo claro', themeDark: 'Modo oscuro', language: 'Idioma', help: 'Ayuda' },
-    en: { themeLight: 'Light mode', themeDark: 'Dark mode', language: 'Language', help: 'Help' },
-    pt: { themeLight: 'Modo claro', themeDark: 'Modo escuro', language: 'Idioma', help: 'Ajuda' },
+    es: { themeLight: 'Modo claro', themeDark: 'Modo oscuro', language: 'Idioma', help: 'Ayuda', logout: 'Cerrar sesión', logoutTitle: 'Cerrar Sesión', logoutMessage: '¿Estás seguro de que quieres cerrar sesión?', logoutButton: 'Cerrar Sesión' },
+    en: { themeLight: 'Light mode', themeDark: 'Dark mode', language: 'Language', help: 'Help', logout: 'Sign out', logoutTitle: 'Sign Out', logoutMessage: 'Are you sure you want to sign out?', logoutButton: 'Sign Out' },
+    pt: { themeLight: 'Modo claro', themeDark: 'Modo escuro', language: 'Idioma', help: 'Ajuda', logout: 'Encerrar sessão', logoutTitle: 'Encerrar Sessão', logoutMessage: 'Tem certeza que deseja encerrar a sessão?', logoutButton: 'Encerrar Sessão' },
   };
   const ml = menuLabels[language] || menuLabels.es;
 
@@ -276,6 +282,29 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
       );
     });
 
+    if (showLogout) {
+      elements.push(
+        <TouchableOpacity
+          key="logout-button"
+          style={styles.actionButton}
+          onPress={() => {
+            showAlert({
+              type: 'destructive',
+              title: ml.logoutTitle,
+              message: ml.logoutMessage,
+              buttons: [
+                { text: language === 'en' ? 'Cancel' : 'Cancelar', style: 'cancel' },
+                { text: ml.logoutButton, style: 'destructive', onPress: () => logout() }
+              ]
+            });
+          }}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons name="logout" size={24} color="#F44336" />
+        </TouchableOpacity>
+      );
+    }
+
     if (elements.length > 0) {
       return (
         <View style={styles.rightElementsContainer}>
@@ -393,6 +422,31 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
               <Text style={[styles.overflowItemLabel, { color: theme.colors.onSurface }]}>{item.label}</Text>
             </TouchableOpacity>
           ))}
+
+          {showLogout && (
+            <>
+              <View style={{ height: 1, backgroundColor: theme.colors.outline + '40', marginVertical: 4 }} />
+              <TouchableOpacity
+                style={styles.overflowItem}
+                onPress={() => {
+                  setOverflowVisible(false);
+                  showAlert({
+                    type: 'destructive',
+                    title: ml.logoutTitle,
+                    message: ml.logoutMessage,
+                    buttons: [
+                      { text: language === 'en' ? 'Cancel' : 'Cancelar', style: 'cancel' },
+                      { text: ml.logoutButton, style: 'destructive', onPress: () => logout() }
+                    ]
+                  });
+                }}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons name="logout" size={22} color="#F44336" />
+                <Text style={[styles.overflowItemLabel, { color: '#F44336' }]}>{ml.logout}</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </Pressable>
     </Modal>

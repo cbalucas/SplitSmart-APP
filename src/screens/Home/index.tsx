@@ -32,7 +32,7 @@ const HomeScreen: React.FC = () => {
   const navigation = useNavigation();
   const { theme } = useTheme();
   const { language } = useLanguage();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { events: dbEvents, loading: dbLoading, refreshData, getEventParticipants, getExpensesByEvent, updateEvent, deleteEvent } = useData();
   const insets = useSafeAreaInsets();
   const styles = createStyles(theme, insets.bottom);
@@ -321,23 +321,6 @@ const HomeScreen: React.FC = () => {
     (navigation as any).navigate('ManageFriends');
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      t.logout.title,
-      t.logout.message,
-      [
-        { text: t.actions.cancel, style: 'cancel' },
-        { 
-          text: t.logout.button, 
-          style: 'destructive',
-          onPress: () => {
-            logout(); // El AuthContext se encarga de la navegación automáticamente
-          }
-        }
-      ]
-    );
-  };
-
   // Render functions
   const renderSearchBar = () => (
     <SearchBar
@@ -410,11 +393,9 @@ const HomeScreen: React.FC = () => {
         showThemeToggle={true}
         showLanguageSelector={true}
         showHelp={true}
+        showLogout={true}
         overflowBeforeItems={[
           { icon: 'account-group', label: t.header.friends, onPress: handleManageFriends }
-        ]}
-        overflowAfterItems={[
-          { icon: 'logout', label: t.header.logout, onPress: handleLogout }
         ]}
         elevation={true}
       />
