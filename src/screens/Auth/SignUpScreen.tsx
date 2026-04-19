@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Image, Platform, Modal, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { HeaderBar } from '../../components';
+import TutorialOverlay from '../../components/TutorialOverlay';
 import { databaseService } from '../../services/database';
 import { useAuth } from '../../context/AuthContext';
 import { createStyles } from './styles';
@@ -59,6 +60,27 @@ export default function SignUpScreen() {
     isChecking: false,
     message: ''
   });
+
+  // ── Tour guiado ───────────────────────────────────────────
+  const [suTourVisible, setSuTourVisible] = useState(false);
+  const [suTourStep, setSuTourStep] = useState(0);
+  const suScrollRef   = useRef<ScrollView>(null);
+  const suBasicRef    = useRef<View>(null);
+  const suContactRef  = useRef<View>(null);
+  const suPasswordRef = useRef<View>(null);
+  const suButtonRef   = useRef<View>(null);
+
+  const suScrollTo = (ref: React.RefObject<View>) => {
+    if (ref.current && suScrollRef.current) {
+      ref.current.measureLayout(
+        suScrollRef.current as any,
+        (_x: number, y: number) => {
+          suScrollRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true });
+        },
+        () => {}
+      );
+    }
+  };
 
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
@@ -420,11 +442,12 @@ export default function SignUpScreen() {
         showHelp={true}
         showBackButton={false}
         elevation={true}
+        onHelpPress={() => { suScrollRef.current?.scrollTo({ y: 0, animated: false }); setSuTourStep(0); setSuTourVisible(true); }}
       />
       
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <ScrollView ref={suScrollRef} style={styles.scrollView} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <View style={styles.iconSection}>
             <Image
               source={require('../../../assets/splitsmart/splash-icon-app_google.png')}
@@ -433,7 +456,7 @@ export default function SignUpScreen() {
             />
           </View>
           <View style={styles.form}>
-
+            <View ref={suBasicRef} collapsable={false}>
             {/* Nombre completo */}
             <Text style={[styles.label, hasFieldError('name') && styles.labelError]}>
               {t.form.nameLabel}<Text style={styles.requiredStar}> *</Text>
@@ -484,7 +507,9 @@ export default function SignUpScreen() {
                 {usernameValidation.message}
               </Text>
             )}
+            </View>{/* end suBasicRef */}
 
+            <View ref={suContactRef} collapsable={false}>
             {/* Teléfono (obligatorio) */}
             <Text style={[styles.label, hasFieldError('phone') && styles.labelError]}>
               {t.form.phoneLabel}<Text style={styles.requiredStar}> *</Text>
@@ -516,8 +541,10 @@ export default function SignUpScreen() {
               autoCapitalize="none"
               autoCorrect={false}
             />
+            </View>{/* end suContactRef */}
 
-            {/* Checkbox para usuario sin contraseña */}
+            <View ref={suPasswordRef} collapsable={false}>
+            {/* Checkbox para usuario sin contraseña */}}
             <TouchableOpacity 
               style={styles.checkboxContainer}
               onPress={() => updateFormData('skipPassword', !formData.skipPassword)}
@@ -608,12 +635,13 @@ export default function SignUpScreen() {
                 )}
               </>
             )}
+            </View>{/* end suPasswordRef */}
 
           </View>
         </ScrollView>
 
         {/* Footer fijo con botón de registro */}
-        <View style={styles.fixedFooter}>
+        <View ref={suButtonRef} collapsable={false} style={styles.fixedFooter}>
           <TouchableOpacity 
             style={[styles.button, loading && styles.buttonDisabled]} 
             onPress={handleSignUp}
@@ -633,6 +661,20 @@ export default function SignUpScreen() {
         </View>
       </SafeAreaView>
       </KeyboardAvoidingView>
+
+      <TutorialOverlay
+        visible={suTourVisible}
+        steps={[
+          { ref: suBasicRef,    titleKey: 'tour.signUp.basic.title',    descKey: 'tour.signUp.basic.desc',    popupPosition: 'below' },
+          { ref: suContactRef,  titleKey: 'tour.signUp.contact.title',  descKey: 'tour.signUp.contact.desc',  popupPosition: 'below', onBeforeShow: () => suScrollTo(suContactRef),  delay: 400 },
+          { ref: suPasswordRef, titleKey: 'tour.signUp.password.title', descKey: 'tour.signUp.password.desc', popupPosition: 'center', onBeforeShow: () => suScrollTo(suPasswordRef), delay: 400 },
+          { ref: suButtonRef,   titleKey: 'tour.signUp.button.title',   descKey: 'tour.signUp.button.desc',   popupPosition: 'above' },
+        ]}
+        currentStep={suTourStep}
+        onNext={() => setSuTourStep(p => p + 1)}
+        onPrev={() => setSuTourStep(p => p - 1)}
+        onClose={() => { setSuTourVisible(false); setSuTourStep(0); }}
+      />
     </View>
   );
 }

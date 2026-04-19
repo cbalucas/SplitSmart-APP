@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
   Pressable,
   Linking,
   KeyboardAvoidingView,
-  Platform
+  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -39,6 +39,8 @@ import { createStyles } from './styles';
 import { PROFILE_KEYS, NOTIFICATION_KEYS, getLanguageDisplayName, getUserInitials } from './language';
 import { showAlert } from '../../services/alertService';
 import { fetchVersionInfo, isNewerVersion, RemoteVersionInfo } from '../../services/UpdateService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import TutorialOverlay from '../../components/TutorialOverlay';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const appVersion: string = require('../../../app.json').expo?.version ?? require('../../../app.json').version ?? '0.0.0';
 
@@ -233,6 +235,26 @@ const ProfileScreen: React.FC = () => {
     friendsCount: 0
   });
   const autoLogoutDropdownRef = useRef<View>(null);
+  const [pfTourVisible, setPfTourVisible] = useState(false);
+  const [pfTourStep, setPfTourStep] = useState(0);
+  const pfHeaderRef = useRef<View>(null);
+  const pfCardRef = useRef<View>(null);
+  const pfStatsRef = useRef<View>(null);
+  const pfSettingsRef = useRef<View>(null);
+  const pfInfoRef = useRef<View>(null);
+  const pfBannerRef = useRef<View>(null);
+  const pfScrollRef = useRef<ScrollView>(null);
+  const pfPersonalInfoRef = useRef<View>(null);
+  const pfPreferencesRef = useRef<View>(null);
+  const pfDataBackupRef = useRef<View>(null);
+  const pfErrorGuideRef = useRef<View>(null);
+  const pfComingSoonRef = useRef<View>(null);
+  const [pfSectionY, setPfSectionY] = useState({ banner: 0, card: 0, stats: 0, personalInfo: 0, settings: 0, preferences: 0, dataBackup: 0, info: 0, errorGuide: 0, comingSoon: 0 });
+
+  /** Devuelve un callback onBeforeShow que scrollea al Y precalculado de cada sección */
+  const scrollToSection = (key: keyof typeof pfSectionY) => () => {
+    pfScrollRef.current?.scrollTo({ y: Math.max(0, pfSectionY[key] - 90), animated: false });
+  };
 
   useEffect(() => {
     calculateStats();
@@ -262,6 +284,23 @@ const ProfileScreen: React.FC = () => {
       setShowAutoLogoutOptions(false);
     }
   };
+
+  const handlePfTourNext = () => setPfTourStep(s => s + 1);
+  const handlePfTourPrev = () => { if (pfTourStep > 0) setPfTourStep(s => s - 1); };
+  const handlePfTourClose = () => { setPfTourVisible(false); setPfTourStep(0); };
+
+  useEffect(() => {
+    const checkPfTour = async () => {
+      try {
+        const seen = await AsyncStorage.getItem('splitsmart_profile_tour_seen');
+        if (!seen) {
+          setPfTourVisible(true);
+          await AsyncStorage.setItem('splitsmart_profile_tour_seen', 'true');
+        }
+      } catch {}
+    };
+    checkPfTour();
+  }, []);
 
   const toggleVersionExpanded = (version: string) => {
     const newExpandedVersions = new Set(expandedVersions);
@@ -832,6 +871,7 @@ const ProfileScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
+      <View ref={pfHeaderRef} collapsable={false}>
       <HeaderBar
         title={t('profile.title')}
         titleAlignment="left"
@@ -840,16 +880,21 @@ const ProfileScreen: React.FC = () => {
         showHelp={true}
         showLogout={true}
         useDynamicColors={true}
+        onHelpPress={() => { setPfTourStep(0); setPfTourVisible(true); }}
       />
+      </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView 
+        ref={pfScrollRef}
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}
         keyboardShouldPersistTaps="handled"
       >
         {/* Banner de versión */}
+        <View ref={pfBannerRef} collapsable={false}
+          onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, banner: y })); }}>
         <TouchableOpacity
           activeOpacity={updateAvailable ? 0.7 : 1}
           onPress={updateAvailable && versionInfo ? () => Linking.openURL(versionInfo.playStoreUrl) : undefined}
@@ -885,8 +930,11 @@ const ProfileScreen: React.FC = () => {
             <MaterialCommunityIcons name="download-circle-outline" size={22} color={theme.colors.error} />
           )}
         </TouchableOpacity>
+        </View>
 
         {/* Perfil del Usuario */}
+        <View ref={pfCardRef} collapsable={false}
+          onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, card: y })); }}>
         <Card style={styles.profileCard} onPress={closeAutoLogoutDropdown}>
           <View style={styles.profileHeader}>
             <TouchableOpacity 
@@ -918,9 +966,12 @@ const ProfileScreen: React.FC = () => {
             </View>
           </View>
         </Card>
+        </View>
 
         {/* Estadísticas */}
         {!isEditing && (
+        <View ref={pfStatsRef} collapsable={false}
+          onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, stats: y })); }}>
         <ProfileSection title={t('profile.stats')} icon="chart-line" onPress={closeAutoLogoutDropdown}>
           <View style={styles.statsContainer}>
             <View style={styles.statRow}>
@@ -945,6 +996,7 @@ const ProfileScreen: React.FC = () => {
             </View>
           </View>
         </ProfileSection>
+        </View>
         )}
 
         {/* Información Personal */}
@@ -1020,6 +1072,8 @@ const ProfileScreen: React.FC = () => {
               </View>
             </ProfileSection>
         ) : (
+          <View ref={pfPersonalInfoRef} collapsable={false}
+            onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, personalInfo: y })); }}>
           <ProfileSection 
             title={t('profile.personalInfo')} 
             icon="account" 
@@ -1071,10 +1125,11 @@ const ProfileScreen: React.FC = () => {
               />
             )}
           </ProfileSection>
+          </View>
         )}
-
-        {/* Seguridad */}
         {!isEditing && (
+        <View ref={pfSettingsRef} collapsable={false}
+          onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, settings: y })); }}>
         <ProfileSection title={t('profile.security')} icon="lock" onPress={closeAutoLogoutDropdown} collapsible>
           <TouchableOpacity
             style={styles.settingItem}
@@ -1137,10 +1192,10 @@ const ProfileScreen: React.FC = () => {
           </View>
 
         </ProfileSection>
-        )}
 
         {/* Preferencias */}
-        {!isEditing && (
+        <View ref={pfPreferencesRef} collapsable={false}
+          onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, preferences: y })); }}>
         <ProfileSection title={t('profile.preferences')} icon="cog" collapsible>
              {/* Auto Login Section */}
           <View style={styles.settingItem}>
@@ -1336,6 +1391,8 @@ const ProfileScreen: React.FC = () => {
           
       
         </ProfileSection>
+        </View>
+        </View>
         )}
 
 
@@ -1344,6 +1401,8 @@ const ProfileScreen: React.FC = () => {
 
         {/* Datos y Respaldo */}
         {!isEditing && (
+        <View ref={pfDataBackupRef} collapsable={false}
+          onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, dataBackup: y })); }}>
         <ProfileSection title={t('profile.dataBackup')} icon="database" onPress={closeAutoLogoutDropdown} collapsible>
           <SettingItem
             title={t('profile.dataStats')}
@@ -1374,10 +1433,11 @@ const ProfileScreen: React.FC = () => {
             onPress={handleClearData}
           />
         </ProfileSection>
+        </View>
         )}
-
-        {/* Información de la App */}
         {!isEditing && (
+        <View ref={pfInfoRef} collapsable={false}
+          onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, info: y })); }}>
         <ProfileSection title={t('profile.information')} icon="information" onPress={closeAutoLogoutDropdown} collapsible>
           <TouchableOpacity
             style={styles.settingItem}
@@ -1420,10 +1480,13 @@ const ProfileScreen: React.FC = () => {
             onPress={() => setShowSupportModal(true)}
           />
         </ProfileSection>
+        </View>
         )}
 
         {/* Guía de Errores */}
         {!isEditing && (
+        <View ref={pfErrorGuideRef} collapsable={false}
+          onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, errorGuide: y })); }}>
         <ProfileSection title="Guía de Errores" icon="alert-circle-outline" onPress={closeAutoLogoutDropdown} collapsible>
           {[
             { screen: 'Inicio de Sesión', errors: [
@@ -1498,10 +1561,13 @@ const ProfileScreen: React.FC = () => {
             </View>
           ))}
         </ProfileSection>
+        </View>
         )}
 
         {/* Próximamente */}
         {!isEditing && (
+        <View ref={pfComingSoonRef} collapsable={false}
+          onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, comingSoon: y })); }}>
         <ProfileSection title={t('profile.comingSoon')} icon="rocket-launch" onPress={closeAutoLogoutDropdown} collapsible>
           <View style={styles.settingItem}>
             <View style={styles.settingIcon}>
@@ -1546,6 +1612,7 @@ const ProfileScreen: React.FC = () => {
             </View>
           </View>
         </ProfileSection>
+        </View>
         )}
       </ScrollView>
       </KeyboardAvoidingView>
@@ -2893,6 +2960,24 @@ const ProfileScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+      <TutorialOverlay
+        visible={pfTourVisible}
+        steps={[
+          { ref: pfBannerRef,       titleKey: 'tour.profile.banner.title',       descKey: 'tour.profile.banner.desc',       popupPosition: 'below', onBeforeShow: scrollToSection('banner') },
+          { ref: pfCardRef,         titleKey: 'tour.profile.card.title',         descKey: 'tour.profile.card.desc',         popupPosition: 'below', onBeforeShow: scrollToSection('card') },
+          { ref: pfStatsRef,        titleKey: 'tour.profile.stats.title',        descKey: 'tour.profile.stats.desc',        popupPosition: 'below', onBeforeShow: scrollToSection('stats') },
+          { ref: pfPersonalInfoRef, titleKey: 'tour.profile.personalInfo.title', descKey: 'tour.profile.personalInfo.desc', popupPosition: 'below', onBeforeShow: scrollToSection('personalInfo') },
+          { ref: pfSettingsRef,     titleKey: 'tour.profile.settings.title',     descKey: 'tour.profile.settings.desc',     popupPosition: 'below', onBeforeShow: scrollToSection('settings') },
+          { ref: pfDataBackupRef,   titleKey: 'tour.profile.dataBackup.title',   descKey: 'tour.profile.dataBackup.desc',   popupPosition: 'above', onBeforeShow: scrollToSection('dataBackup') },
+          { ref: pfInfoRef,         titleKey: 'tour.profile.info.title',         descKey: 'tour.profile.info.desc',         popupPosition: 'above', onBeforeShow: scrollToSection('info') },
+          { ref: pfErrorGuideRef,   titleKey: 'tour.profile.errorGuide.title',   descKey: 'tour.profile.errorGuide.desc',   popupPosition: 'above', onBeforeShow: scrollToSection('errorGuide') },
+          { ref: pfComingSoonRef,   titleKey: 'tour.profile.comingSoon.title',   descKey: 'tour.profile.comingSoon.desc',   popupPosition: 'above', onBeforeShow: scrollToSection('comingSoon') },
+        ]}
+        currentStep={pfTourStep}
+        onNext={handlePfTourNext}
+        onPrev={handlePfTourPrev}
+        onClose={handlePfTourClose}
+      />
     </SafeAreaView>
   );
 };

@@ -51,6 +51,7 @@ export interface HeaderBarProps {
   showLogo?: boolean;
   isModal?: boolean;
   showLogout?: boolean;
+  onHelpPress?: () => void;
 }
 
 const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -79,7 +80,8 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   overflowAfterItems,
   showLogo = true,
   isModal = false,
-  showLogout = false
+  showLogout = false,
+  onHelpPress,
 }) => {
   const { theme, isDarkMode, toggleTheme } = useTheme();
   const { language } = useLanguage();
@@ -239,7 +241,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
         <TouchableOpacity
           key="help-button"
           style={styles.actionButton}
-          onPress={() => Alert.alert('Próximamente', 'Esta función estará disponible en una próxima versión.')}
+          onPress={() => onHelpPress?.()}
           activeOpacity={0.7}
         >
           <MaterialCommunityIcons name="help-circle-outline" size={24} color={dynamicTitleColor} />
@@ -377,7 +379,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
               style={styles.overflowItem}
               onPress={() => {
                 setOverflowVisible(false);
-                Alert.alert('Próximamente', 'Esta función estará disponible en una próxima versión.');
+                onHelpPress?.();
               }}
               activeOpacity={0.7}
             >

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Platform,
   KeyboardAvoidingView
 } from 'react-native';
+import TutorialOverlay from '../../components/TutorialOverlay';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
@@ -63,6 +64,27 @@ const CreateEventScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [submittedOnce, setSubmittedOnce] = useState(false);
+
+  // ── Tour guiado ───────────────────────────────────────────
+  const [cevTourVisible, setCevTourVisible] = useState(false);
+  const [cevTourStep, setCevTourStep] = useState(0);
+  const cevScrollRef    = useRef<ScrollView>(null);
+  const cevBasicRef     = useRef<View>(null);
+  const cevDatesRef     = useRef<View>(null);
+  const cevFinanceRef   = useRef<View>(null);
+  const cevPrivacyRef   = useRef<View>(null);
+
+  const cevScrollTo = (ref: React.RefObject<View>) => {
+    if (ref.current && cevScrollRef.current) {
+      ref.current.measureLayout(
+        cevScrollRef.current as any,
+        (_x: number, y: number) => {
+          cevScrollRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true });
+        },
+        () => {}
+      );
+    }
+  };
 
   // Cargar datos del evento si estamos editando - cada vez que la pantalla se enfoca
   // Cargar moneda preferida del usuario para eventos nuevos
@@ -383,17 +405,20 @@ const CreateEventScreen: React.FC = () => {
         showLogout={true}
         useDynamicColors={true}
         titleAlignment="left"
+        onHelpPress={() => { cevScrollRef.current?.scrollTo({ y: 0, animated: false }); setCevTourStep(0); setCevTourVisible(true); }}
       />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
         <ScrollView 
+          ref={cevScrollRef}
           style={styles.scrollView} 
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollViewContent}
           keyboardShouldPersistTaps="handled"
         >
-        {/* InformaciÃ³n BÃ¡sica */}
+        {/* Información Básica */}
+        <View ref={cevBasicRef} collapsable={false}>
         <Card style={StyleSheet.flatten([styles.card])}>
           <Text style={styles.cardTitle}>{t.form.basicInformation}</Text>
           
@@ -421,8 +446,10 @@ const CreateEventScreen: React.FC = () => {
             containerStyle={styles.input}
           />
         </Card>
+        </View>
 
-        {/* Fechas y UbicaciÃ³n */}
+        {/* Fechas y Ubicación */}
+        <View ref={cevDatesRef} collapsable={false}>
         <Card style={StyleSheet.flatten([styles.card])}>
           <Text style={styles.cardTitle}>{t.form.datesAndLocation}</Text>
           
@@ -463,8 +490,10 @@ const CreateEventScreen: React.FC = () => {
             containerStyle={styles.input}
           />
         </Card>
+        </View>
 
-        {/* ConfiguraciÃ³n Financiera */}
+        {/* Configuración Financiera */}
+        <View ref={cevFinanceRef} collapsable={false}>
         <Card style={StyleSheet.flatten([styles.card])}>
           <Text style={styles.cardTitle}>{t.form.financialConfiguration}</Text>
           
@@ -498,8 +527,10 @@ const CreateEventScreen: React.FC = () => {
 
 
         </Card>
+        </View>
 
-        {/* ConfiguraciÃ³n de Privacidad */}
+        {/* Configuración de Privacidad */}
+        <View ref={cevPrivacyRef} collapsable={false}>
         <Card style={StyleSheet.flatten([styles.card])}>
           <Text style={styles.cardTitle}>{t.form.privacyConfiguration}</Text>
           
@@ -572,6 +603,7 @@ const CreateEventScreen: React.FC = () => {
             </View>
           </View>
         </Card>
+        </View>
 
 
 
@@ -609,6 +641,20 @@ const CreateEventScreen: React.FC = () => {
 
       </SafeAreaView>
       </KeyboardAvoidingView>
+
+      <TutorialOverlay
+        visible={cevTourVisible}
+        steps={[
+          { ref: cevBasicRef,   titleKey: 'tour.createEvent.basic.title',   descKey: 'tour.createEvent.basic.desc',   popupPosition: 'below' },
+          { ref: cevDatesRef,   titleKey: 'tour.createEvent.dates.title',   descKey: 'tour.createEvent.dates.desc',   popupPosition: 'below',  onBeforeShow: () => cevScrollTo(cevDatesRef),   delay: 500 },
+          { ref: cevFinanceRef, titleKey: 'tour.createEvent.finance.title', descKey: 'tour.createEvent.finance.desc', popupPosition: 'center', onBeforeShow: () => cevScrollTo(cevFinanceRef), delay: 500 },
+          { ref: cevPrivacyRef, titleKey: 'tour.createEvent.privacy.title', descKey: 'tour.createEvent.privacy.desc', popupPosition: 'above',  onBeforeShow: () => cevScrollTo(cevPrivacyRef), delay: 500 },
+        ]}
+        currentStep={cevTourStep}
+        onNext={() => setCevTourStep(p => p + 1)}
+        onPrev={() => setCevTourStep(p => p - 1)}
+        onClose={() => { setCevTourVisible(false); setCevTourStep(0); }}
+      />
     </View>
   );
 };

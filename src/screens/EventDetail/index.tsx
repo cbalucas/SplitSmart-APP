@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
   Text,
@@ -36,6 +37,7 @@ import { ConsolidationService } from '../../services/ConsolidationService';
 import { showAlert, dismissAlert } from '../../services/alertService';
 import * as ImagePicker from 'expo-image-picker';
 import { createStyles } from './styles';
+import TutorialOverlay from '../../components/TutorialOverlay';
 
 export default function EventDetailScreen() {
   const navigation = useNavigation();
@@ -78,6 +80,18 @@ export default function EventDetailScreen() {
   const [dbSettlements, setDbSettlements] = useState<Settlement[]>([]);
   const [activeTab, setActiveTab] = useState('resumen');
   const [showAddParticipantModal, setShowAddParticipantModal] = useState(false);
+
+  // Tour guiado
+  const [edTourVisible, setEdTourVisible] = useState(false);
+  const [edTourStep, setEdTourStep] = useState(0);
+  const edHeaderRef = useRef<View>(null);
+  const edInfoRef = useRef<View>(null);
+  const edSettlementsRef = useRef<View>(null);
+  const edParticipantsRef = useRef<View>(null);
+  const edExpenseFiltersRef = useRef<View>(null);
+  const edExpensesRef = useRef<View>(null);
+  const edParticipantActionsRef = useRef<View>(null);
+  const edEventActionsRef = useRef<View>(null);
 
   const [editingParticipant, setEditingParticipant] = useState<Participant | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -161,6 +175,29 @@ export default function EventDetailScreen() {
     dbSettlements: dbSettlements.length,
     settlementsCalculated: settlements.length
   });
+
+  // Tour handlers
+  const handleEdTourNext = () => setEdTourStep(p => p + 1);
+  const handleEdTourPrev = () => {
+    const prev = edTourStep - 1;
+    // Al retroceder del paso 3 (participantActions) al 2 (settlements) → volver a resumen
+    if (edTourStep === 3) setActiveTab('resumen');
+    // Al retroceder del paso 5 (expenseFilters) al 4 (participants) → volver a participantes
+    if (edTourStep === 5) setActiveTab('participantes');
+    setEdTourStep(prev);
+  };
+  const handleEdTourClose = async () => {
+    await AsyncStorage.setItem('splitsmart_eventdetail_tour_seen', 'true');
+    setEdTourVisible(false);
+    setEdTourStep(0);
+    setActiveTab('resumen');
+  };
+
+  useEffect(() => {
+    AsyncStorage.getItem('splitsmart_eventdetail_tour_seen').then(seen => {
+      if (!seen) { setEdTourStep(0); setEdTourVisible(true); }
+    }).catch(() => {});
+  }, []);
 
   const loadEventData = useCallback(async () => {
     if (!eventId) return;
@@ -1653,6 +1690,7 @@ export default function EventDetailScreen() {
     
     return (
       <View style={styles.tabContent}>
+        <View ref={edExpenseFiltersRef} collapsable={false}>
         {/* Barra de búsqueda fija */}
         <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
           <SearchBar
@@ -1748,7 +1786,9 @@ export default function EventDetailScreen() {
             </>
           )}
         </View>
+        </View>
 
+        <View ref={edExpensesRef} collapsable={false} style={{ flex: 1 }}>
         <ScrollView style={{ flex: 1 }}>
           <Card>
             {filteredExpenses.length === 0 && eventExpenses.length === 0 ? (
@@ -1942,6 +1982,7 @@ export default function EventDetailScreen() {
             )}
           </Card>
         </ScrollView>
+        </View>
       </View>
     );
   };
@@ -2045,6 +2086,7 @@ export default function EventDetailScreen() {
 
     return (
       <View style={styles.tabContent}>
+        <View ref={edParticipantActionsRef} collapsable={false}>
         <View style={{ paddingHorizontal: 16 }}>
           <SearchBar
             value={participantSearchQuery}
@@ -2135,8 +2177,10 @@ export default function EventDetailScreen() {
             </>
           )}
         </View>
+        </View>
 
         <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+          <View ref={edParticipantsRef} collapsable={false}>
           <Card style={{ marginHorizontal: 16, marginTop: 8, marginBottom: 16 }}>
 
           {visiblePrimaries.length === 0 ? (
@@ -2487,6 +2531,7 @@ export default function EventDetailScreen() {
             })
           )}
           </Card>
+          </View>
         </ScrollView>
       </View>
     );
@@ -2497,7 +2542,8 @@ export default function EventDetailScreen() {
     <View style={styles.tabContent}>
       <ScrollView style={{ flex: 1 }}>
       {/* Información del evento */}
-      <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
+      <View ref={edInfoRef} collapsable={false} style={{ marginHorizontal: 16 }}>
+      <Card style={{ marginBottom: 16 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
           <Text style={styles.sectionTitle}>📋 {t('events.information')}</Text>
           {event && (
@@ -2572,9 +2618,11 @@ export default function EventDetailScreen() {
           </View>
         )}
       </Card>
+      </View>
 
       {/* Acciones del evento */}
-      <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
+      <View ref={edEventActionsRef} collapsable={false} style={{ marginHorizontal: 16, marginBottom: 16 }}>
+      <Card>
         {/* Fila superior: compartir */}
         <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
           <TouchableOpacity
@@ -2650,8 +2698,10 @@ export default function EventDetailScreen() {
           ) : null}
         </View>
       </Card>
+      </View>
 
       {/* Liquidación de cuentas */}
+      <View ref={edSettlementsRef} collapsable={false}>
       <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <Text style={styles.sectionTitle}>💸 {t('summary.settlements')}</Text>
@@ -3024,6 +3074,7 @@ export default function EventDetailScreen() {
           </Card>
         );
       })()}
+      </View>
 
       {/* Consolidaciones Aplicadas - Solo mostrar cuando hay consolidaciones */}
       {consolidationAssignments.length > 0 && (
@@ -3685,17 +3736,20 @@ export default function EventDetailScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <HeaderBar
-        title={event.name}
-        titleAlignment="left"
-        showBackButton={false}
-        showThemeToggle={true}
-        showLanguageSelector={true}
-        showHelp={true}
-        showLogout={true}
-        useDynamicColors={true}
-        elevation={true}
-      />
+      <View ref={edHeaderRef} collapsable={false}>
+        <HeaderBar
+          title={event.name}
+          titleAlignment="left"
+          showBackButton={false}
+          showThemeToggle={true}
+          showLanguageSelector={true}
+          showHelp={true}
+          showLogout={true}
+          useDynamicColors={true}
+          elevation={true}
+          onHelpPress={() => { setActiveTab('resumen'); setEdTourStep(0); setEdTourVisible(true); }}
+        />
+      </View>
       
       <View style={[styles.safeContent, { paddingBottom: Math.max(insets.bottom, 20) }]}>
         {/* Tab Bar */}
@@ -3704,6 +3758,24 @@ export default function EventDetailScreen() {
         {/* Tab Content */}
         {renderTabContent()}
       </View>
+
+      {/* Tour guiado */}
+      <TutorialOverlay
+        visible={edTourVisible}
+        steps={[
+          { ref: edInfoRef,               titleKey: 'tour.eventdetail.info.title',           descKey: 'tour.eventdetail.info.desc',           popupPosition: 'below' },
+          { ref: edEventActionsRef,       titleKey: 'tour.eventdetail.eventActions.title',   descKey: 'tour.eventdetail.eventActions.desc',   popupPosition: 'above' },
+          { ref: edSettlementsRef,        titleKey: 'tour.eventdetail.settlements.title',    descKey: 'tour.eventdetail.settlements.desc',    popupPosition: 'center' },
+          { ref: edParticipantActionsRef, titleKey: 'tour.eventdetail.participantActions.title', descKey: 'tour.eventdetail.participantActions.desc', popupPosition: 'below', onBeforeShow: () => setActiveTab('participantes'), delay: 350 },
+          { ref: edParticipantsRef,       titleKey: 'tour.eventdetail.participants.title',   descKey: 'tour.eventdetail.participants.desc',   popupPosition: 'center' },
+          { ref: edExpenseFiltersRef,     titleKey: 'tour.eventdetail.expenseFilters.title', descKey: 'tour.eventdetail.expenseFilters.desc', popupPosition: 'below', onBeforeShow: () => setActiveTab('gastos'), delay: 350 },
+          { ref: edExpensesRef,           titleKey: 'tour.eventdetail.expensesList.title',   descKey: 'tour.eventdetail.expensesList.desc',   popupPosition: 'center' },
+        ]}
+        currentStep={edTourStep}
+        onNext={handleEdTourNext}
+        onPrev={handleEdTourPrev}
+        onClose={handleEdTourClose}
+      />
 
       {/* Add Participant Modal */}
       <AddParticipantModal

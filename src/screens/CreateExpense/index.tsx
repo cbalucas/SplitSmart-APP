@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
   TextInput,
   Modal
 } from 'react-native';
+import TutorialOverlay from '../../components/TutorialOverlay';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -90,7 +91,29 @@ const CreateExpenseScreen: React.FC = () => {
   const [isMultiplePayers, setIsMultiplePayers] = useState(false);
   const [multiPayers, setMultiPayers] = useState<MultiPayer[]>([]);
 
-  // ── Calculadora ──────────────────────────────────────────────
+  // ── Tour guiado ───────────────────────────────────────────
+  const [ceTourVisible, setCeTourVisible] = useState(false);
+  const [ceTourStep, setCeTourStep] = useState(0);
+  const ceScrollRef   = useRef<ScrollView>(null);
+  const ceInfoRef     = useRef<View>(null);
+  const cePayerRef    = useRef<View>(null);
+  const ceSplitRef    = useRef<View>(null);
+  const ceReceiptRef  = useRef<View>(null);
+  const ceCategoryRef = useRef<View>(null);
+
+  const scrollToCard = (ref: React.RefObject<View>) => {
+    if (ref.current && ceScrollRef.current) {
+      ref.current.measureLayout(
+        ceScrollRef.current as any,
+        (_x: number, y: number) => {
+          ceScrollRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true });
+        },
+        () => {}
+      );
+    }
+  };
+
+  // ── Calculadora ───────────────────────────────────────────────
   const [showCalculator, setShowCalculator] = useState(false);
   // calcCurrentInput: número que se está escribiendo (mostrado abajo, grande)
   const [calcCurrentInput, setCalcCurrentInput] = useState('');
@@ -990,18 +1013,21 @@ const CreateExpenseScreen: React.FC = () => {
         showLogout={true}
         showBackButton={false}
         elevation={true}
+        onHelpPress={() => { ceScrollRef.current?.scrollTo({ y: 0, animated: false }); setCeTourStep(0); setCeTourVisible(true); }}
       />
       
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
 
       <ScrollView 
+        ref={ceScrollRef}
         style={styles.scrollView} 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}
         keyboardShouldPersistTaps="handled"
       >
         {/* Información del Gasto */}
+        <View ref={ceInfoRef} collapsable={false}>
         <Card style={styles.card}>
           <Text style={styles.cardTitle}>{t.expenseInfoCard.title}</Text>
           
@@ -1059,8 +1085,10 @@ const CreateExpenseScreen: React.FC = () => {
             </View>
           </TouchableOpacity>
         </Card>
+        </View>
 
         {/* Pagador */}
+        <View ref={cePayerRef} collapsable={false}>
         <Card style={styles.card}>
           <Text style={styles.cardTitle}>{t.payerCard.title}</Text>
 
@@ -1166,8 +1194,10 @@ const CreateExpenseScreen: React.FC = () => {
             <Text style={styles.errorText}>{errors.payerId}</Text>
           )}
         </Card>
+        </View>
 
         {/* División de Participantes Unificada */}
+        <View ref={ceSplitRef} collapsable={false}>
         <Card style={styles.card}>
           <Text style={styles.cardTitle}>{t.participantsCard.title}</Text>
           <Text style={styles.cardSubtitle}>{t.participantsCard.subtitle}</Text>
@@ -1239,8 +1269,10 @@ const CreateExpenseScreen: React.FC = () => {
           )}
 
         </Card>
+        </View>
 
         {/* Comprobante / Imagen */}
+        <View ref={ceReceiptRef} collapsable={false}>
         <Card style={styles.card}>
           <Text style={styles.cardTitle}>{t.receiptCard.title}</Text>
           
@@ -1284,8 +1316,10 @@ const CreateExpenseScreen: React.FC = () => {
             </TouchableOpacity>
           )}
         </Card>
+        </View>
 
         {/* Categorización */}
+        <View ref={ceCategoryRef} collapsable={false}>
         <Card style={styles.card}>
           <Text style={styles.cardTitle}>{t.categoryCard.title}</Text>
           
@@ -1315,6 +1349,7 @@ const CreateExpenseScreen: React.FC = () => {
             ))}
           </View>
         </Card>
+        </View>
 
         {/* Espacio para los botones footer */}
         <View style={styles.footerSpace} />
@@ -1444,6 +1479,22 @@ const CreateExpenseScreen: React.FC = () => {
 
       </SafeAreaView>
       </KeyboardAvoidingView>
+
+      {/* Tour guiado */}
+      <TutorialOverlay
+        visible={ceTourVisible}
+        steps={[
+          { ref: ceInfoRef,     titleKey: 'tour.createExpense.info.title',     descKey: 'tour.createExpense.info.desc',     popupPosition: 'below' },
+          { ref: cePayerRef,    titleKey: 'tour.createExpense.payer.title',    descKey: 'tour.createExpense.payer.desc',    popupPosition: 'below',  onBeforeShow: () => scrollToCard(cePayerRef),    delay: 500 },
+          { ref: ceSplitRef,    titleKey: 'tour.createExpense.split.title',    descKey: 'tour.createExpense.split.desc',    popupPosition: 'center', onBeforeShow: () => scrollToCard(ceSplitRef),    delay: 500 },
+          { ref: ceReceiptRef,  titleKey: 'tour.createExpense.receipt.title',  descKey: 'tour.createExpense.receipt.desc',  popupPosition: 'center', onBeforeShow: () => scrollToCard(ceReceiptRef),  delay: 500 },
+          { ref: ceCategoryRef, titleKey: 'tour.createExpense.category.title', descKey: 'tour.createExpense.category.desc', popupPosition: 'above',  onBeforeShow: () => scrollToCard(ceCategoryRef), delay: 500 },
+        ]}
+        currentStep={ceTourStep}
+        onNext={() => setCeTourStep(p => p + 1)}
+        onPrev={() => setCeTourStep(p => p - 1)}
+        onClose={() => { setCeTourVisible(false); setCeTourStep(0); }}
+      />
     </View>
   );
 };

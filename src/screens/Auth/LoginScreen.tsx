@@ -60,7 +60,7 @@ export default function LoginScreen() {
         useDynamicColors={true}
         showThemeToggle={true}
         showLanguageSelector={true}
-        showHelp={true}
+        showHelp={false}
         showBackButton={false}
         elevation={true}
         showLogo={false}

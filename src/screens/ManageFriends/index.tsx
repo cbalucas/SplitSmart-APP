@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,8 @@ import SearchBar from '../../components/SearchBar';
 import { FriendItemProps, NewFriendData, TabType, AVATAR_COLORS } from './types';
 import { createStyles } from './styles';
 import { manageFriendsLanguage } from './language';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import TutorialOverlay from '../../components/TutorialOverlay';
 
 interface NameValidation {
   isValid: boolean;
@@ -119,6 +121,16 @@ const ManageFriendsScreen: React.FC = () => {
   const t = manageFriendsLanguage[language] || manageFriendsLanguage.es;
 
   const [activeTab, setActiveTab] = useState<TabType>('list');
+  const [mfTourVisible, setMfTourVisible] = useState(false);
+  const [mfTourStep, setMfTourStep] = useState(0);
+  const mfHeaderRef = useRef<View>(null);
+  const mfTabsRef = useRef<View>(null);
+  const mfSearchRef = useRef<View>(null);
+  const mfListRef = useRef<View>(null);
+  const mfListAnchorRef = useRef<View>(null);
+  const mfFormRef = useRef<View>(null);
+  const mfFormInputsRef = useRef<View>(null);
+  const mfFormButtonsRef = useRef<View>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [friends, setFriends] = useState<Participant[]>([]);
   const [filteredFriends, setFilteredFriends] = useState<Participant[]>([]);
@@ -162,6 +174,29 @@ const ManageFriendsScreen: React.FC = () => {
       setFilteredFriends(filtered);
     }
   }, [friends, searchQuery]);
+
+  const handleMfTourNext = () => {
+    if (mfTourStep < 3) setMfTourStep(s => s + 1);
+    else handleMfTourClose();
+  };
+  const handleMfTourPrev = () => {
+    if (mfTourStep === 3) setActiveTab('list');
+    if (mfTourStep > 0) setMfTourStep(s => s - 1);
+  };
+  const handleMfTourClose = () => { setMfTourVisible(false); setMfTourStep(0); setActiveTab('list'); };
+
+  useEffect(() => {
+    const checkMfTour = async () => {
+      try {
+        const seen = await AsyncStorage.getItem('splitsmart_friends_tour_seen');
+        if (!seen) {
+          setMfTourVisible(true);
+          await AsyncStorage.setItem('splitsmart_friends_tour_seen', 'true');
+        }
+      } catch {}
+    };
+    checkMfTour();
+  }, []);
 
   const validateFriendName = (name: string) => {
     if (name.length < 2) {
@@ -311,6 +346,7 @@ const ManageFriendsScreen: React.FC = () => {
   };
 
   const renderHeader = () => (
+    <View ref={mfHeaderRef} collapsable={false}>
     <HeaderBar
       title={t.screen.title}
       titleAlignment="left"
@@ -321,11 +357,13 @@ const ManageFriendsScreen: React.FC = () => {
       showLogout={true}
       showBackButton={false}
       elevation={true}
+      onHelpPress={() => { setActiveTab('list'); setMfTourStep(0); setMfTourVisible(true); }}
     />
+    </View>
   );
 
   const renderTabs = () => (
-    <View style={styles.tabsContainer}>
+    <View ref={mfTabsRef} collapsable={false} style={styles.tabsContainer}>
       <TouchableOpacity
         style={[
           styles.tab,
@@ -375,11 +413,12 @@ const ManageFriendsScreen: React.FC = () => {
 
   const renderNewFriendTab = () => (
     <ScrollView style={styles.newFriendContainer} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <View ref={mfFormRef} collapsable={false}>
       <Card style={styles.addFormCard}>
         <Text style={styles.addFormTitle}>
           {editingFriend ? t.form.editTitle : t.form.addTitle}
         </Text>
-        
+        <View ref={mfFormInputsRef} collapsable={false}>
         <View style={styles.inputGroup}>
           <Text style={[styles.inputLabel, (submittedOnce && !newFriend.name.trim()) || (!nameValidation.isValid && !!nameValidation.message && !nameValidation.isChecking) ? styles.inputLabelError : undefined]}>
             {t.form.nameLabel}<Text style={styles.requiredStar}> *</Text>
@@ -458,8 +497,9 @@ const ManageFriendsScreen: React.FC = () => {
             autoCapitalize="none"
           />
         </View>
+        </View>
 
-        <View style={styles.formButtons}>
+        <View ref={mfFormButtonsRef} collapsable={false} style={styles.formButtons}>
           <Button
             title={t.buttons.cancel}
             variant="outlined"
@@ -482,6 +522,7 @@ const ManageFriendsScreen: React.FC = () => {
           />
         </View>
       </Card>
+      </View>
     </ScrollView>
   );
 
@@ -508,9 +549,15 @@ const ManageFriendsScreen: React.FC = () => {
 
   const renderListTab = () => (
     <View style={styles.tabContent}>
-      {renderSearchBar()}
+      <View ref={mfSearchRef} collapsable={false}>
+        {renderSearchBar()}
+      </View>
+      <View ref={mfListRef} collapsable={false} style={{ flex: 1 }}>
       {filteredFriends.length === 0 && !searchQuery ? (
-        renderEmptyState()
+        <View>
+          <View ref={mfListAnchorRef} collapsable={false} />
+          {renderEmptyState()}
+        </View>
       ) : (
         <FlatList
           data={filteredFriends}
@@ -522,10 +569,12 @@ const ManageFriendsScreen: React.FC = () => {
               onDelete={() => handleDeleteFriend(item)}
             />
           )}
+          ListHeaderComponent={<View ref={mfListAnchorRef} collapsable={false} />}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
         />
       )}
+      </View>
     </View>
   );
 
@@ -538,6 +587,19 @@ const ManageFriendsScreen: React.FC = () => {
         {activeTab === 'list' ? renderListTab() : renderNewFriendTab()}
       </SafeAreaView>
       </KeyboardAvoidingView>
+      <TutorialOverlay
+        visible={mfTourVisible}
+        steps={[
+          { ref: mfTabsRef, titleKey: 'tour.friends.tabs.title', descKey: 'tour.friends.tabs.desc', popupPosition: 'below' },
+          { ref: mfSearchRef, titleKey: 'tour.friends.search.title', descKey: 'tour.friends.search.desc', popupPosition: 'below' },
+          { ref: mfListRef, titleKey: 'tour.friends.list.title', descKey: 'tour.friends.list.desc', popupPosition: 'center' },
+          { ref: mfFormInputsRef, titleKey: 'tour.friends.form.title', descKey: 'tour.friends.form.desc', popupPosition: 'below', onBeforeShow: () => setActiveTab('new'), delay: 350 },
+        ]}
+        currentStep={mfTourStep}
+        onNext={handleMfTourNext}
+        onPrev={handleMfTourPrev}
+        onClose={handleMfTourClose}
+      />
     </View>
   );
 };

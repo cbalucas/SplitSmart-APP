@@ -221,7 +221,7 @@ export default function ForgotPasswordScreen() {
         useDynamicColors={true}
         showThemeToggle={true}
         showLanguageSelector={true}
-        showHelp={true}
+        showHelp={false}
         showBackButton={false}
         elevation={true}
       />

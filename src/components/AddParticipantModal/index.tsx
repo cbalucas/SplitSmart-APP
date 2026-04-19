@@ -13,6 +13,7 @@ import {
   ScrollView,
   Platform
 } from 'react-native';
+import TutorialOverlay from '../TutorialOverlay';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
@@ -142,6 +143,14 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
   const [genericCount, setGenericCount] = useState(5);
   const [submittedOnce, setSubmittedOnce] = useState(false);
   const [bulkSubmittedOnce, setBulkSubmittedOnce] = useState(false);
+
+  // ── Tour guiado ───────────────────────────────────────────
+  const [apTourVisible, setApTourVisible] = useState(false);
+  const [apTourStep, setApTourStep] = useState(0);
+  const apTabsRef    = useRef<View>(null);
+  const apFriendsRef = useRef<View>(null);
+  const apNewRef     = useRef<View>(null);
+  const apBulkRef    = useRef<View>(null);
 
   // Get current participant IDs to filter them out
   const currentParticipantIds = new Set(currentParticipants.map(p => p.id));
@@ -416,11 +425,9 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       showLanguageSelector={true}
       showHelp={true}
       showLogout={true}
-      rightIcon="close"
-      rightIconLabel="Cerrar"
-      onRightPress={handleClose}
       useDynamicColors={true}
       elevation={true}
+      onHelpPress={() => { setActiveTab('friends'); setApTourStep(0); setApTourVisible(true); }}
     />
   );
 
@@ -444,7 +451,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
   };
 
   const renderTabs = () => (
-    <View style={styles.tabContainer}>
+    <View ref={apTabsRef} collapsable={false} style={styles.tabContainer}>
       <TouchableOpacity
         style={[styles.tab, activeTab === 'friends' && styles.activeTab]}
         onPress={() => setActiveTab('friends')}
@@ -588,7 +595,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
 
     if (filteredFriends.length > 0 && selectedFriends.size === 0) {
       return (
-        <>
+        <View style={{ flex: 1 }}>
           <View style={styles.hintBanner}>
             <MaterialCommunityIcons
               name="information"
@@ -612,7 +619,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
             style={styles.friendsList}
             showsVerticalScrollIndicator={false}
           />
-        </>
+        </View>
       );
     }
 
@@ -691,6 +698,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
     if (activeTab !== 'bulk') return null;
 
     return (
+      <View ref={apBulkRef} collapsable={false} style={{ flex: 1 }}>
       <KeyboardAvoidingView
         style={styles.newParticipantContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -834,6 +842,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+      </View>
     );
   };
 
@@ -841,6 +850,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
     if (activeTab !== 'new') return null;
 
     return (
+      <View ref={apNewRef} collapsable={false} style={{ flex: 1 }}>
       <KeyboardAvoidingView
         style={styles.newParticipantContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -965,6 +975,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
           />
         </View>
       </KeyboardAvoidingView>
+      </View>
     );
   };
 
@@ -978,13 +989,34 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       <SafeAreaView style={styles.modalContainer} edges={['top', 'bottom', 'left', 'right']}>
         {renderHeader()}
         {renderTabs()}
-        {renderSearchBar()}
-        
-        <View style={styles.content}>
-          {renderFriendsTab()}
-          {renderNewParticipantTab()}
-          {renderBulkTab()}
+
+        <View ref={apFriendsRef} collapsable={false} style={{ flex: 1 }}>
+          {renderSearchBar()}
+          <View style={styles.content}>
+            {renderFriendsTab()}
+            {renderNewParticipantTab()}
+            {renderBulkTab()}
+          </View>
         </View>
+
+        {/* Tour guiado */}
+        <TutorialOverlay
+          visible={apTourVisible}
+          steps={[
+            { ref: apTabsRef,    titleKey: 'tour.addParticipant.tabs.title',    descKey: 'tour.addParticipant.tabs.desc',    popupPosition: 'below' },
+            { ref: apFriendsRef, titleKey: 'tour.addParticipant.friends.title', descKey: 'tour.addParticipant.friends.desc', popupPosition: 'center' },
+            { ref: apNewRef,  titleKey: 'tour.addParticipant.new.title',  descKey: 'tour.addParticipant.new.desc',  popupPosition: 'center', onBeforeShow: () => setActiveTab('new'),  delay: 350 },
+            { ref: apBulkRef, titleKey: 'tour.addParticipant.bulk.title', descKey: 'tour.addParticipant.bulk.desc', popupPosition: 'center', onBeforeShow: () => setActiveTab('bulk'), delay: 350 },
+          ]}
+          currentStep={apTourStep}
+          onNext={() => setApTourStep(p => p + 1)}
+          onPrev={() => {
+            if (apTourStep === 2) setActiveTab('friends');
+            if (apTourStep === 3) setActiveTab('new');
+            setApTourStep(p => p - 1);
+          }}
+          onClose={() => { setApTourVisible(false); setApTourStep(0); setActiveTab('friends'); }}
+        />
       </SafeAreaView>
     </Modal>
   );

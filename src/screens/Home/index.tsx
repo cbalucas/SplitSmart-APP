@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TextInput,
   StyleSheet
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showAlert } from '../../services/alertService';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -27,6 +28,7 @@ import { databaseService } from '../../services/database';
 import { HomeEventData, HomeMetricData, HomeScreenState } from './types';
 import { createStyles } from './styles';
 import { homeLanguage } from './language';
+import TutorialOverlay, { TourStep } from '../../components/TutorialOverlay';
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -50,6 +52,15 @@ const HomeScreen: React.FC = () => {
   const [eventExpenses, setEventExpenses] = useState<{[eventId: string]: number}>({});
   const [eventTotals, setEventTotals] = useState<{[eventId: string]: number}>({});
   const [eventSettlements, setEventSettlements] = useState<{[eventId: string]: { total: number; paid: number }}>({});
+
+  // Tour
+  const [tourVisible, setTourVisible] = useState(false);
+  const [tourStep, setTourStep] = useState(0);
+  const headerRef = useRef<View>(null);
+  const searchRef = useRef<View>(null);
+  const metricsRef = useRef<View>(null);
+  const eventsRef = useRef<View>(null);
+  const fabRef = useRef<View>(null);
 
   // Cargar participantes, gastos y liquidaciones para cada evento
   const loadEventCounts = useCallback(async () => {
@@ -238,6 +249,29 @@ const HomeScreen: React.FC = () => {
     setMetrics(newMetrics);
   }, [eventsWithAmounts, searchQuery, statusFilter, t.metrics]);
 
+  // Tour handlers
+  const handleTourNext = () => setTourStep(prev => prev + 1);
+  const handleTourPrev = () => setTourStep(prev => prev - 1);
+  const handleTourClose = async () => {
+    await AsyncStorage.setItem('splitsmart_home_tour_seen', 'true');
+    setTourVisible(false);
+    setTourStep(0);
+  };
+
+  // Primer uso: mostrar tour automáticamente
+  useEffect(() => {
+    const checkFirstTimeTour = async () => {
+      try {
+        const seen = await AsyncStorage.getItem('splitsmart_home_tour_seen');
+        if (!seen) {
+          setTourStep(0);
+          setTourVisible(true);
+        }
+      } catch (_) {}
+    };
+    checkFirstTimeTour();
+  }, []);
+
   // Refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -329,16 +363,18 @@ const HomeScreen: React.FC = () => {
 
   // Render functions
   const renderSearchBar = () => (
-    <SearchBar
-      value={searchQuery}
-      onChangeText={setSearchQuery}
-      placeholder={t.search.placeholder}
-    />
+    <View ref={searchRef} collapsable={false}>
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder={t.search.placeholder}
+      />
+    </View>
   );
 
   const renderMetrics = () => (
     <View style={styles.metricsSection}>
-      <View style={styles.metricsContainer}>
+      <View ref={metricsRef} collapsable={false} style={styles.metricsContainer}>
         {metrics.map((metric, index) => (
           <MetricsCard
             key={index}
@@ -392,45 +428,50 @@ const HomeScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       {/* HeaderBar */}
-      <HeaderBar 
-        title={t.header.title}
-        titleAlignment="left"
-        useDynamicColors={true}
-        showThemeToggle={true}
-        showLanguageSelector={true}
-        showHelp={true}
-        showLogout={true}
-        overflowBeforeItems={[
-          { icon: 'account-group', label: t.header.friends, onPress: handleManageFriends }
-        ]}
-        elevation={true}
-      />
+      <View ref={headerRef} collapsable={false}>
+        <HeaderBar 
+          title={t.header.title}
+          titleAlignment="left"
+          useDynamicColors={true}
+          showThemeToggle={true}
+          showLanguageSelector={true}
+          showHelp={true}
+          showLogout={true}
+          overflowBeforeItems={[
+            { icon: 'account-group', label: t.header.friends, onPress: handleManageFriends }
+          ]}
+          elevation={true}
+          onHelpPress={() => { setTourStep(0); setTourVisible(true); }}
+        />
+      </View>
       
       <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
         {renderSearchBar()}
         
-        <FlatList
-          data={filteredEvents}
-          renderItem={renderEventItem}
-          keyExtractor={item => item.id}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing || dbLoading}
-              onRefresh={onRefresh}
-              colors={[theme.colors.primary]}
-              tintColor={theme.colors.primary}
-            />
-          }
-          ListHeaderComponent={renderMetrics}
-          ListEmptyComponent={renderEmptyState}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={
-            filteredEvents.length === 0 ? styles.emptyContainer : styles.eventsList
-          }
-        />
+        <View ref={eventsRef} collapsable={false} style={{ flex: 1 }}>
+          <FlatList
+            data={filteredEvents}
+            renderItem={renderEventItem}
+            keyExtractor={item => item.id}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing || dbLoading}
+                onRefresh={onRefresh}
+                colors={[theme.colors.primary]}
+                tintColor={theme.colors.primary}
+              />
+            }
+            ListHeaderComponent={renderMetrics}
+            ListEmptyComponent={renderEmptyState}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={
+              filteredEvents.length === 0 ? styles.emptyContainer : styles.eventsList
+            }
+          />
+        </View>
 
         {/* Floating Action Buttons */}
-        <View style={styles.fabContainer}>
+        <View ref={fabRef} collapsable={false} style={styles.fabContainer}>
           {/* Botón Crear Evento */}
           <TouchableOpacity
             style={styles.fab}
@@ -457,6 +498,22 @@ const HomeScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </SafeAreaView>
+
+      {/* Tour guiado */}
+      <TutorialOverlay
+        visible={tourVisible}
+        steps={[
+          { ref: headerRef,  titleKey: 'tour.home.header.title',  descKey: 'tour.home.header.desc',  popupPosition: 'below'  },
+          { ref: searchRef,  titleKey: 'tour.home.search.title',  descKey: 'tour.home.search.desc',  popupPosition: 'below'  },
+          { ref: metricsRef, titleKey: 'tour.home.metrics.title', descKey: 'tour.home.metrics.desc', popupPosition: 'below'  },
+          { ref: eventsRef, titleKey: 'tour.home.events.title', descKey: 'tour.home.events.desc', popupPosition: 'center' },
+          { ref: fabRef,     titleKey: 'tour.home.fabs.title',    descKey: 'tour.home.fabs.desc',    popupPosition: 'above'  },
+        ]}
+        currentStep={tourStep}
+        onNext={handleTourNext}
+        onPrev={handleTourPrev}
+        onClose={handleTourClose}
+      />
     </View>
   );
 };
