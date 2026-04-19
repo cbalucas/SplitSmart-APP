@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -1451,7 +1451,7 @@ const ProfileScreen: React.FC = () => {
             </View>
             <View style={styles.settingAction}>
               <View style={styles.versionBadge}>
-                <Text style={styles.versionBadgeText}>v1.8.0</Text>
+                <Text style={styles.versionBadgeText}>v1.9.0</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -1779,15 +1779,73 @@ const ProfileScreen: React.FC = () => {
               contentContainerStyle={{ flexGrow: 1 }}
               nestedScrollEnabled={true}
             >
-                                                        {/* Versión 1.8.0 - Versión Actual */}
+                                                                      {/* Versión 1.9.0 - Versión Actual */}
               <TouchableOpacity 
                 style={[styles.versionBlock, styles.currentVersionBlock]} 
+                onPress={() => toggleVersionExpanded('1.9.0')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.versionHeader}>
+                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.9.0 (Actual)</Text>
+                  <Text style={[styles.versionDate, styles.currentVersionDate]}>19 Abr 2026</Text>
+                  <MaterialCommunityIcons 
+                    name={expandedVersions.has('1.9.0') ? 'chevron-up' : 'chevron-down'} 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
+                </View>
+                {expandedVersions.has('1.9.0') && (
+                  <View style={styles.versionContent}>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🚀 Novedades</Text>
+                      <Text style={styles.changelogItem}>• Tour guiado (TutorialOverlay): componente nuevo creado desde cero</Text>
+                      <Text style={styles.changelogItem}>• Overlay oscuro con recorte highlight sobre el elemento destacado</Text>
+                      <Text style={styles.changelogItem}>• Borde del highlight con 4 Views independientes (evita clipping en bordes de pantalla)</Text>
+                      <Text style={styles.changelogItem}>• Estado que oculta el popup durante la transición entre pasos (sin flash)</Text>
+                      <Text style={styles.changelogItem}>• Soporte para (callback antes de mostrar el paso) y configurable por paso</Text>
+                      <Text style={styles.changelogItem}>• Corrección de offset de StatusBar en Android</Text>
+                      <Text style={styles.changelogItem}>• Guard contra</Text>
+                      <Text style={styles.changelogItem}>• Tour en Home: 4 pasos</Text>
+                      <Text style={styles.changelogItem}>• Tour en EventDetail: 7 pasos con cambio automático de tab (resumen → participantes → ga...</Text>
+                      <Text style={styles.changelogItem}>• Tour en CreateExpense: 5 pasos con scroll automático a cada card; para desplazamiento p...</Text>
+                      <Text style={styles.changelogItem}>• Tour en CreateEvent: 4 pasos con scroll automático; nuevo</Text>
+                      <Text style={styles.changelogItem}>• Tour en ManageFriends: 4 pasos con cambio de tab al paso "Crear amigo"</Text>
+                      <Text style={styles.changelogItem}>• Tour en ProfileScreen: 9 pasos con scroll automático por sección</Text>
+                      <Text style={styles.changelogItem}>• Tour en AddParticipantModal: 4 pasos con cambio de tab (amigos → nuevo → en masa); cubr...</Text>
+                      <Text style={styles.changelogItem}>• Tour en SignUpScreen: 4 pasos con scroll automático</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
+                      <Text style={styles.changelogItem}>• TutorialOverlay: borde inferior invisible</Text>
+                      <Text style={styles.changelogItem}>• TutorialOverlay: flash de popup durante transición</Text>
+                      <Text style={styles.changelogItem}>• CreateExpense: popup fuera de pantalla en pasos 2-5</Text>
+                      <Text style={styles.changelogItem}>• AddParticipantModal: paso 2 highlight incorrecto</Text>
+                      <Text style={styles.changelogItem}>• AddParticipantModal: error en paso 3</Text>
+                      <Text style={styles.changelogItem}>• AddParticipantModal: error</Text>
+                      <Text style={styles.changelogItem}>• LanguageContext: doble coma en línea PT</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>✨ Mejoras</Text>
+                      <Text style={styles.changelogItem}>• Paso 1 eliminado (header) de los tours de</Text>
+                      <Text style={styles.changelogItem}>• AddParticipantModal: eliminado botón X (cerrar) del HeaderBar; la pantalla ya se cierra...</Text>
+                      <Text style={styles.changelogItem}>• ForgotPasswordScreen: eliminado icono (ayuda) del HeaderBar (sin tour implementado)</Text>
+                      <Text style={styles.changelogItem}>• LoginScreen: eliminado icono (ayuda) del HeaderBar (sin tour implementado)</Text>
+                      <Text style={styles.changelogItem}>• CreateExpense / CreateEvent: al abrir el tour, scroll automático al tope () para garant...</Text>
+                      <Text style={styles.changelogItem}>• Traducciones: claves tour agregadas en ES, EN y PT para</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+{/* Versión 1.8.0 - Versión Actual */}
+              <TouchableOpacity 
+                style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.8.0')}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
-                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.8.0 (Actual)</Text>
-                  <Text style={[styles.versionDate, styles.currentVersionDate]}>15 Abr 2026</Text>
+                  <Text style={[styles.versionNumber]}>v1.8.0</Text>
+                  <Text style={[styles.versionDate]}>15 Abr 2026</Text>
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.8.0') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
@@ -2431,7 +2489,7 @@ const ProfileScreen: React.FC = () => {
                   color={theme.colors.primary} 
                   style={{ alignSelf: 'center', marginBottom: 16 }}
                 />
-                <Text style={styles.aboutTitle}>SplitSmart v1.8.0</Text>
+                <Text style={styles.aboutTitle}>SplitSmart v1.9.0</Text>
                 <Text style={styles.aboutDescription}>
                   {t('profile.about.appDescription')}
                 </Text>
@@ -2476,7 +2534,7 @@ const ProfileScreen: React.FC = () => {
               <View style={[styles.aboutSection, { backgroundColor: theme.colors.surfaceVariant, padding: 16, borderRadius: 12 }]}>
                 <Text style={styles.aboutSectionTitle}>{t('profile.about.techSpecs')}</Text>
                 <Text style={styles.aboutDescription}>
-                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.version')}:</Text> 1.8.0{'\n'}
+                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.version')}:</Text> 1.9.0{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.platform')}</Text>{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.database')}</Text>{'\n'}
                   <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.languages')}</Text>

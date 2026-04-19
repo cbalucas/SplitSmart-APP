@@ -6,9 +6,9 @@
 
 ---
 
-## 🗂️ Versión en desarrollo: v1.8.1
+## 🗂️ Versión en desarrollo: v1.9.1
 
-> Cambios realizados después del build de v1.8.0
+> Cambios realizados después del build de v1.9.0
 
 ### 🚀 Nuevas Funcionalidades
 

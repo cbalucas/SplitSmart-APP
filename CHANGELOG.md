@@ -1,5 +1,48 @@
 ﻿# Changelog - SplitSmart
 
+## [1.9.0] - 2026-04-19
+
+### 🚀 Nuevas Funcionalidades
+- **Tour guiado (TutorialOverlay)** — componente nuevo creado desde cero (`src/components/TutorialOverlay/index.tsx`):
+- Overlay oscuro con recorte highlight sobre el elemento destacado
+- Borde del highlight con 4 Views independientes (evita clipping en bordes de pantalla)
+- Estado `transitioning` que oculta el popup durante la transición entre pasos (sin flash)
+- Soporte para `onBeforeShow` (callback antes de mostrar el paso) y `delay` configurable por paso
+- Corrección de offset de StatusBar en Android
+- Guard contra `currentStep >= steps.length`
+- **Tour en Home** — 4 pasos: banner de bienvenida, métricas, lista de eventos, acciones rápidas
+- **Tour en EventDetail** — 7 pasos con cambio automático de tab (resumen → participantes → gastos), navegación prev/next correcta
+- **Tour en CreateExpense** — 5 pasos con scroll automático a cada card; `ceScrollRef` para desplazamiento previo a `measureInWindow`
+- **Tour en CreateEvent** — 4 pasos con scroll automático; nuevo `cevScrollRef`
+- **Tour en ManageFriends** — 4 pasos con cambio de tab al paso "Crear amigo"
+- **Tour en ProfileScreen** — 9 pasos con scroll automático por sección
+- **Tour en AddParticipantModal** — 4 pasos con cambio de tab (amigos → nuevo → en masa); `apFriendsRef` cubre SearchBar + lista
+- **Tour en SignUpScreen** — 4 pasos con scroll automático: datos personales, contacto, contraseña, botón crear cuenta
+
+### 🔧 Correcciones de Bugs
+- **TutorialOverlay — borde inferior invisible**: reemplazado `borderWidth:2` único por 4 Views de 2px posicionadas absolutamente; el borde ya no se recorta al borde de pantalla
+- **TutorialOverlay — flash de popup durante transición**: estado `transitioning` renderiza solo overlay oscuro mientras `onBeforeShow` espera; popup solo aparece cuando `measureInWindow` termina
+- **CreateExpense — popup fuera de pantalla en pasos 2-5**: `scrollToCard()` con `measureLayout` hace scroll previo al elemento antes de medir; popup siempre visible
+- **AddParticipantModal — paso 2 highlight incorrecto**: `apFriendsRef` movido al return principal cubriendo SearchBar + lista (antes estaba solo dentro de `renderFriendsTab`)
+- **AddParticipantModal — error `measureInWindow is not a function`** en paso 3: `KeyboardAvoidingView` no expone `measureInWindow`; envuelto en `<View ref={apNewRef}>` wrapper
+- **AddParticipantModal — error `Adjacent JSX elements`**: `return (` + `<Modal` faltante tras agregar el wrapper `</View>` al cerrar `renderNewParticipantTab`
+- **LanguageContext — doble coma `,,`** en línea PT `tour.addParticipant.friends.desc`: corregida via PowerShell `TrimEnd(',')`
+
+### ✨ Mejoras
+- **Paso 1 eliminado** (header) de los tours de: EventDetail, ProfileScreen, ManageFriends — el tour arranca directamente en el contenido útil
+- **AddParticipantModal** — eliminado botón X (cerrar) del HeaderBar; la pantalla ya se cierra con el botón de la barra de navegación
+- **ForgotPasswordScreen** — eliminado icono `?` (ayuda) del HeaderBar (sin tour implementado)
+- **LoginScreen** — eliminado icono `?` (ayuda) del HeaderBar (sin tour implementado)
+- **CreateExpense / CreateEvent** — al abrir el tour, scroll automático al tope (`scrollTo({ y: 0, animated: false })`) para garantizar que el paso 1 siempre esté visible
+- **Traducciones** — claves tour agregadas en ES, EN y PT para: `tour.eventdetail.*`, `tour.addParticipant.*`, `tour.createExpense.*`, `tour.createEvent.*`, `tour.signUp.*`
+
+### 🔢 Versiones
+- **versionCode**: 21 → 22
+- **versionName**: "1.8.0" → "1.9.0"
+
+---
+
+
 ## [1.8.0] - 2026-04-15
 
 ### 🚀 Nuevas Funcionalidades
@@ -126,6 +169,49 @@
 - **EventDetail — Cards de participantes: botón eliminar individual eliminado**: la eliminación individual por ✕ fue removida. La única vía de eliminación es el modo selección múltiple con el tacho de basura.
 - **EventDetail — Cards de participantes: layout del panel derecho invertido**: el lápiz de editar queda arriba y el balance abajo (`flexDirection: 'column'`).
 - **EventDetail — Cards de participantes: montos de pagado/división más grandes**: `fontSize` subido de `11` a `13` con `fontWeight: '500'`. El 💰 (pagado) solo se muestra si el monto es mayor a # Changelog - SplitSmart
+
+## [1.9.0] - 2026-04-19
+
+### 🚀 Nuevas Funcionalidades
+- **Tour guiado (TutorialOverlay)** — componente nuevo creado desde cero (`src/components/TutorialOverlay/index.tsx`):
+- Overlay oscuro con recorte highlight sobre el elemento destacado
+- Borde del highlight con 4 Views independientes (evita clipping en bordes de pantalla)
+- Estado `transitioning` que oculta el popup durante la transición entre pasos (sin flash)
+- Soporte para `onBeforeShow` (callback antes de mostrar el paso) y `delay` configurable por paso
+- Corrección de offset de StatusBar en Android
+- Guard contra `currentStep >= steps.length`
+- **Tour en Home** — 4 pasos: banner de bienvenida, métricas, lista de eventos, acciones rápidas
+- **Tour en EventDetail** — 7 pasos con cambio automático de tab (resumen → participantes → gastos), navegación prev/next correcta
+- **Tour en CreateExpense** — 5 pasos con scroll automático a cada card; `ceScrollRef` para desplazamiento previo a `measureInWindow`
+- **Tour en CreateEvent** — 4 pasos con scroll automático; nuevo `cevScrollRef`
+- **Tour en ManageFriends** — 4 pasos con cambio de tab al paso "Crear amigo"
+- **Tour en ProfileScreen** — 9 pasos con scroll automático por sección
+- **Tour en AddParticipantModal** — 4 pasos con cambio de tab (amigos → nuevo → en masa); `apFriendsRef` cubre SearchBar + lista
+- **Tour en SignUpScreen** — 4 pasos con scroll automático: datos personales, contacto, contraseña, botón crear cuenta
+
+### 🔧 Correcciones de Bugs
+- **TutorialOverlay — borde inferior invisible**: reemplazado `borderWidth:2` único por 4 Views de 2px posicionadas absolutamente; el borde ya no se recorta al borde de pantalla
+- **TutorialOverlay — flash de popup durante transición**: estado `transitioning` renderiza solo overlay oscuro mientras `onBeforeShow` espera; popup solo aparece cuando `measureInWindow` termina
+- **CreateExpense — popup fuera de pantalla en pasos 2-5**: `scrollToCard()` con `measureLayout` hace scroll previo al elemento antes de medir; popup siempre visible
+- **AddParticipantModal — paso 2 highlight incorrecto**: `apFriendsRef` movido al return principal cubriendo SearchBar + lista (antes estaba solo dentro de `renderFriendsTab`)
+- **AddParticipantModal — error `measureInWindow is not a function`** en paso 3: `KeyboardAvoidingView` no expone `measureInWindow`; envuelto en `<View ref={apNewRef}>` wrapper
+- **AddParticipantModal — error `Adjacent JSX elements`**: `return (` + `<Modal` faltante tras agregar el wrapper `</View>` al cerrar `renderNewParticipantTab`
+- **LanguageContext — doble coma `,,`** en línea PT `tour.addParticipant.friends.desc`: corregida via PowerShell `TrimEnd(',')`
+
+### ✨ Mejoras
+- **Paso 1 eliminado** (header) de los tours de: EventDetail, ProfileScreen, ManageFriends — el tour arranca directamente en el contenido útil
+- **AddParticipantModal** — eliminado botón X (cerrar) del HeaderBar; la pantalla ya se cierra con el botón de la barra de navegación
+- **ForgotPasswordScreen** — eliminado icono `?` (ayuda) del HeaderBar (sin tour implementado)
+- **LoginScreen** — eliminado icono `?` (ayuda) del HeaderBar (sin tour implementado)
+- **CreateExpense / CreateEvent** — al abrir el tour, scroll automático al tope (`scrollTo({ y: 0, animated: false })`) para garantizar que el paso 1 siempre esté visible
+- **Traducciones** — claves tour agregadas en ES, EN y PT para: `tour.eventdetail.*`, `tour.addParticipant.*`, `tour.createExpense.*`, `tour.createEvent.*`, `tour.signUp.*`
+
+### 🔢 Versiones
+- **versionCode**: 21 → 22
+- **versionName**: "1.8.0" → "1.9.0"
+
+---
+
 
 ## [1.8.0] - 2026-04-15
 
@@ -270,6 +356,49 @@ _(ninguna)_
 - **EventDetail — Layout de importes del participante**: cambiado de `flexDirection: 'row'` a `flexDirection: 'column'` en la fila de montos (💰 pagado / 💵 debe), mejorando la legibilidad en nombres largos.
 - **EventDetail — Visualización de monto efectivo adeudado**: cuando hay condonación o absorción activa, el monto `💵 debe` ahora muestra el original tachado y el monto real que queda pendiente (ej. ~~$50.00~~ → # Changelog - SplitSmart
 
+## [1.9.0] - 2026-04-19
+
+### 🚀 Nuevas Funcionalidades
+- **Tour guiado (TutorialOverlay)** — componente nuevo creado desde cero (`src/components/TutorialOverlay/index.tsx`):
+- Overlay oscuro con recorte highlight sobre el elemento destacado
+- Borde del highlight con 4 Views independientes (evita clipping en bordes de pantalla)
+- Estado `transitioning` que oculta el popup durante la transición entre pasos (sin flash)
+- Soporte para `onBeforeShow` (callback antes de mostrar el paso) y `delay` configurable por paso
+- Corrección de offset de StatusBar en Android
+- Guard contra `currentStep >= steps.length`
+- **Tour en Home** — 4 pasos: banner de bienvenida, métricas, lista de eventos, acciones rápidas
+- **Tour en EventDetail** — 7 pasos con cambio automático de tab (resumen → participantes → gastos), navegación prev/next correcta
+- **Tour en CreateExpense** — 5 pasos con scroll automático a cada card; `ceScrollRef` para desplazamiento previo a `measureInWindow`
+- **Tour en CreateEvent** — 4 pasos con scroll automático; nuevo `cevScrollRef`
+- **Tour en ManageFriends** — 4 pasos con cambio de tab al paso "Crear amigo"
+- **Tour en ProfileScreen** — 9 pasos con scroll automático por sección
+- **Tour en AddParticipantModal** — 4 pasos con cambio de tab (amigos → nuevo → en masa); `apFriendsRef` cubre SearchBar + lista
+- **Tour en SignUpScreen** — 4 pasos con scroll automático: datos personales, contacto, contraseña, botón crear cuenta
+
+### 🔧 Correcciones de Bugs
+- **TutorialOverlay — borde inferior invisible**: reemplazado `borderWidth:2` único por 4 Views de 2px posicionadas absolutamente; el borde ya no se recorta al borde de pantalla
+- **TutorialOverlay — flash de popup durante transición**: estado `transitioning` renderiza solo overlay oscuro mientras `onBeforeShow` espera; popup solo aparece cuando `measureInWindow` termina
+- **CreateExpense — popup fuera de pantalla en pasos 2-5**: `scrollToCard()` con `measureLayout` hace scroll previo al elemento antes de medir; popup siempre visible
+- **AddParticipantModal — paso 2 highlight incorrecto**: `apFriendsRef` movido al return principal cubriendo SearchBar + lista (antes estaba solo dentro de `renderFriendsTab`)
+- **AddParticipantModal — error `measureInWindow is not a function`** en paso 3: `KeyboardAvoidingView` no expone `measureInWindow`; envuelto en `<View ref={apNewRef}>` wrapper
+- **AddParticipantModal — error `Adjacent JSX elements`**: `return (` + `<Modal` faltante tras agregar el wrapper `</View>` al cerrar `renderNewParticipantTab`
+- **LanguageContext — doble coma `,,`** en línea PT `tour.addParticipant.friends.desc`: corregida via PowerShell `TrimEnd(',')`
+
+### ✨ Mejoras
+- **Paso 1 eliminado** (header) de los tours de: EventDetail, ProfileScreen, ManageFriends — el tour arranca directamente en el contenido útil
+- **AddParticipantModal** — eliminado botón X (cerrar) del HeaderBar; la pantalla ya se cierra con el botón de la barra de navegación
+- **ForgotPasswordScreen** — eliminado icono `?` (ayuda) del HeaderBar (sin tour implementado)
+- **LoginScreen** — eliminado icono `?` (ayuda) del HeaderBar (sin tour implementado)
+- **CreateExpense / CreateEvent** — al abrir el tour, scroll automático al tope (`scrollTo({ y: 0, animated: false })`) para garantizar que el paso 1 siempre esté visible
+- **Traducciones** — claves tour agregadas en ES, EN y PT para: `tour.eventdetail.*`, `tour.addParticipant.*`, `tour.createExpense.*`, `tour.createEvent.*`, `tour.signUp.*`
+
+### 🔢 Versiones
+- **versionCode**: 21 → 22
+- **versionName**: "1.8.0" → "1.9.0"
+
+---
+
+
 ## [1.8.0] - 2026-04-15
 
 ### 🚀 Nuevas Funcionalidades
@@ -396,6 +525,49 @@ _(ninguna)_
 - **EventDetail — Cards de participantes: botón eliminar individual eliminado**: la eliminación individual por ✕ fue removida. La única vía de eliminación es el modo selección múltiple con el tacho de basura.
 - **EventDetail — Cards de participantes: layout del panel derecho invertido**: el lápiz de editar queda arriba y el balance abajo (`flexDirection: 'column'`).
 - **EventDetail — Cards de participantes: montos de pagado/división más grandes**: `fontSize` subido de `11` a `13` con `fontWeight: '500'`. El 💰 (pagado) solo se muestra si el monto es mayor a # Changelog - SplitSmart
+
+## [1.9.0] - 2026-04-19
+
+### 🚀 Nuevas Funcionalidades
+- **Tour guiado (TutorialOverlay)** — componente nuevo creado desde cero (`src/components/TutorialOverlay/index.tsx`):
+- Overlay oscuro con recorte highlight sobre el elemento destacado
+- Borde del highlight con 4 Views independientes (evita clipping en bordes de pantalla)
+- Estado `transitioning` que oculta el popup durante la transición entre pasos (sin flash)
+- Soporte para `onBeforeShow` (callback antes de mostrar el paso) y `delay` configurable por paso
+- Corrección de offset de StatusBar en Android
+- Guard contra `currentStep >= steps.length`
+- **Tour en Home** — 4 pasos: banner de bienvenida, métricas, lista de eventos, acciones rápidas
+- **Tour en EventDetail** — 7 pasos con cambio automático de tab (resumen → participantes → gastos), navegación prev/next correcta
+- **Tour en CreateExpense** — 5 pasos con scroll automático a cada card; `ceScrollRef` para desplazamiento previo a `measureInWindow`
+- **Tour en CreateEvent** — 4 pasos con scroll automático; nuevo `cevScrollRef`
+- **Tour en ManageFriends** — 4 pasos con cambio de tab al paso "Crear amigo"
+- **Tour en ProfileScreen** — 9 pasos con scroll automático por sección
+- **Tour en AddParticipantModal** — 4 pasos con cambio de tab (amigos → nuevo → en masa); `apFriendsRef` cubre SearchBar + lista
+- **Tour en SignUpScreen** — 4 pasos con scroll automático: datos personales, contacto, contraseña, botón crear cuenta
+
+### 🔧 Correcciones de Bugs
+- **TutorialOverlay — borde inferior invisible**: reemplazado `borderWidth:2` único por 4 Views de 2px posicionadas absolutamente; el borde ya no se recorta al borde de pantalla
+- **TutorialOverlay — flash de popup durante transición**: estado `transitioning` renderiza solo overlay oscuro mientras `onBeforeShow` espera; popup solo aparece cuando `measureInWindow` termina
+- **CreateExpense — popup fuera de pantalla en pasos 2-5**: `scrollToCard()` con `measureLayout` hace scroll previo al elemento antes de medir; popup siempre visible
+- **AddParticipantModal — paso 2 highlight incorrecto**: `apFriendsRef` movido al return principal cubriendo SearchBar + lista (antes estaba solo dentro de `renderFriendsTab`)
+- **AddParticipantModal — error `measureInWindow is not a function`** en paso 3: `KeyboardAvoidingView` no expone `measureInWindow`; envuelto en `<View ref={apNewRef}>` wrapper
+- **AddParticipantModal — error `Adjacent JSX elements`**: `return (` + `<Modal` faltante tras agregar el wrapper `</View>` al cerrar `renderNewParticipantTab`
+- **LanguageContext — doble coma `,,`** en línea PT `tour.addParticipant.friends.desc`: corregida via PowerShell `TrimEnd(',')`
+
+### ✨ Mejoras
+- **Paso 1 eliminado** (header) de los tours de: EventDetail, ProfileScreen, ManageFriends — el tour arranca directamente en el contenido útil
+- **AddParticipantModal** — eliminado botón X (cerrar) del HeaderBar; la pantalla ya se cierra con el botón de la barra de navegación
+- **ForgotPasswordScreen** — eliminado icono `?` (ayuda) del HeaderBar (sin tour implementado)
+- **LoginScreen** — eliminado icono `?` (ayuda) del HeaderBar (sin tour implementado)
+- **CreateExpense / CreateEvent** — al abrir el tour, scroll automático al tope (`scrollTo({ y: 0, animated: false })`) para garantizar que el paso 1 siempre esté visible
+- **Traducciones** — claves tour agregadas en ES, EN y PT para: `tour.eventdetail.*`, `tour.addParticipant.*`, `tour.createExpense.*`, `tour.createEvent.*`, `tour.signUp.*`
+
+### 🔢 Versiones
+- **versionCode**: 21 → 22
+- **versionName**: "1.8.0" → "1.9.0"
+
+---
+
 
 ## [1.8.0] - 2026-04-15
 
