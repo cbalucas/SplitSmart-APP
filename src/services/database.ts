@@ -3096,7 +3096,7 @@ class DatabaseService {
     preferred_currency?: string;
     skipPassword?: boolean;
     autoLogin?: boolean;
-    avatar?: string;
+    avatar?: string | null;
   }): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 

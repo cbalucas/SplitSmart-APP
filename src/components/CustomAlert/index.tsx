@@ -8,6 +8,7 @@ import {
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { registerAlertHandler, registerDismissHandler, AlertOptions, AlertButton, AlertType } from '../../services/alertService';
 
@@ -59,7 +60,10 @@ export default function CustomAlertContainer() {
     : [{ text: 'OK', style: 'default' }];
 
   const cancelBtn = buttons.find(b => b.style === 'cancel');
-  const actionBtns = buttons.filter(b => b.style !== 'cancel');
+  const destructiveBtn = buttons.find(b => b.style === 'destructive');
+  const regularBtns = buttons.filter(b => b.style !== 'cancel' && b.style !== 'destructive');
+  const isColumn = regularBtns.length > 1;
+  const hasSpecialRow = !!(cancelBtn || destructiveBtn);
 
   return (
     <Modal
@@ -114,33 +118,49 @@ export default function CustomAlertContainer() {
                 <View style={[styles.divider, { backgroundColor: theme.colors.outline }]} />
 
                 {/* Botones */}
-                <View style={[styles.buttonsRow, buttons.length > 2 && styles.buttonsColumn]}>
-                  {cancelBtn && (
-                    <TouchableOpacity
-                      style={[styles.btn, styles.btnCancel, { borderColor: theme.colors.outline }]}
-                      onPress={() => handleButton(cancelBtn)}
-                    >
-                      <Text style={[styles.btnText, { color: theme.colors.onSurfaceVariant }]}>
-                        {cancelBtn.text}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                  {actionBtns.map((btn, i) => (
-                    <TouchableOpacity
-                      key={i}
-                      style={[
-                        styles.btn,
-                        styles.btnAction,
-                        { borderColor: accentColor },
-                      ]}
-                  onPress={() => handleButton(btn)}
-                >
-                  <Text style={[styles.btnText, styles.btnActionText, { color: accentColor }]}>
-                    {btn.text}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+                {isColumn ? (
+                  <View style={styles.buttonsColumn}>
+                    {regularBtns.map((btn, i) => (
+                      <TouchableOpacity key={i} style={[styles.btn, styles.btnAction, styles.btnColumnItem, { borderColor: accentColor }]} onPress={() => handleButton(btn)}>
+                        {btn.icon && <MaterialCommunityIcons name={btn.icon as any} size={16} color={accentColor} />}
+                        <Text style={[styles.btnText, styles.btnActionText, { color: accentColor }]}>{btn.text}</Text>
+                      </TouchableOpacity>
+                    ))}
+                    {destructiveBtn && (
+                      <TouchableOpacity style={[styles.btn, styles.btnDestructive, styles.btnColumnItem]} onPress={() => handleButton(destructiveBtn)}>
+                        {destructiveBtn.icon && <MaterialCommunityIcons name={destructiveBtn.icon as any} size={16} color="#D32F2F" />}
+                        <Text style={[styles.btnText, styles.btnDestructiveText]}>{destructiveBtn.text}</Text>
+                      </TouchableOpacity>
+                    )}
+                    {cancelBtn && (
+                      <TouchableOpacity style={[styles.btn, styles.btnCancel, styles.btnColumnItem, { borderColor: theme.colors.outline }]} onPress={() => handleButton(cancelBtn)}>
+                        {cancelBtn.icon && <MaterialCommunityIcons name={cancelBtn.icon as any} size={16} color={theme.colors.onSurfaceVariant} />}
+                        <Text style={[styles.btnText, { color: theme.colors.onSurfaceVariant }]}>{cancelBtn.text}</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ) : (
+                  <View style={styles.buttonsRow}>
+                    {cancelBtn && (
+                      <TouchableOpacity style={[styles.btn, styles.btnCancel, { borderColor: theme.colors.outline }]} onPress={() => handleButton(cancelBtn)}>
+                        {cancelBtn.icon && <MaterialCommunityIcons name={cancelBtn.icon as any} size={16} color={theme.colors.onSurfaceVariant} />}
+                        <Text style={[styles.btnText, { color: theme.colors.onSurfaceVariant }]}>{cancelBtn.text}</Text>
+                      </TouchableOpacity>
+                    )}
+                    {regularBtns.map((btn, i) => (
+                      <TouchableOpacity key={i} style={[styles.btn, styles.btnAction, { borderColor: accentColor }]} onPress={() => handleButton(btn)}>
+                        {btn.icon && <MaterialCommunityIcons name={btn.icon as any} size={16} color={accentColor} />}
+                        <Text style={[styles.btnText, styles.btnActionText, { color: accentColor }]}>{btn.text}</Text>
+                      </TouchableOpacity>
+                    ))}
+                    {destructiveBtn && (
+                      <TouchableOpacity style={[styles.btn, styles.btnDestructive]} onPress={() => handleButton(destructiveBtn)}>
+                        {destructiveBtn.icon && <MaterialCommunityIcons name={destructiveBtn.icon as any} size={16} color="#D32F2F" />}
+                        <Text style={[styles.btnText, styles.btnDestructiveText]}>{destructiveBtn.text}</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
               </>
             )}
           </View>
@@ -194,19 +214,36 @@ const styles = StyleSheet.create({
   },
   buttonsColumn: {
     flexDirection: 'column',
+    gap: 8,
   },
   btn: {
     flex: 1,
     borderWidth: 1,
     borderRadius: 8,
     paddingVertical: 10,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
   btnCancel: {
     backgroundColor: 'transparent',
   },
   btnAction: {
     backgroundColor: 'transparent',
+  },
+  btnColumnItem: {
+    flex: 0,
+    alignSelf: 'stretch',
+  },
+  btnDestructive: {
+    borderColor: '#D32F2F',
+    backgroundColor: 'transparent',
+  },
+  btnDestructiveText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#D32F2F',
   },
   btnText: {
     fontSize: 14,

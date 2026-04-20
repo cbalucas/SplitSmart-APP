@@ -232,6 +232,8 @@ const ProfileScreen: React.FC = () => {
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [showDatabaseStatsModal, setShowDatabaseStatsModal] = useState(false);
+  const [showErrorGuideModal, setShowErrorGuideModal] = useState(false);
+  const [selectedErrorScreen, setSelectedErrorScreen] = useState<{ title: string; icon: string; color: string; errors: { title: string; desc: string }[] } | null>(null);
   const [versionInfo, setVersionInfo] = useState<RemoteVersionInfo | null>(null);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [databaseStats, setDatabaseStats] = useState<{
@@ -464,7 +466,7 @@ const ProfileScreen: React.FC = () => {
         shareEvent: profileData.privacy.shareEvent, // NUEVO CAMPO
       });
 
-      showAlert({ type: 'success', title: `? ${t('success')}`, message: t('profile.message.profileSaved') });
+      showAlert({ type: 'success', title: `✅ ${t('success')}`, message: t('profile.message.profileSaved') });
       setIsEditing(false);
       await refreshUser();
     } catch (error) {
@@ -527,7 +529,7 @@ const ProfileScreen: React.FC = () => {
       console.log('? Avatar updated in database, refreshing user...');
       await refreshUser();
       console.log('? User refreshed, new avatar:', user?.avatar);
-      showAlert({ type: 'success', title: `? ${t('success')}`, message: t('profile.message.updateAvatarSuccess') });
+      showAlert({ type: 'success', title: `✅ ${t('success')}`, message: t('profile.message.updateAvatarSuccess') });
     } catch (error) {
       console.error('? Error updating avatar:', error);
       showAlert({ type: 'error', title: t('error'), message: t('profile.message.updateAvatarError') });
@@ -535,21 +537,27 @@ const ProfileScreen: React.FC = () => {
   };
 
   const handleChangeAvatar = () => {
-    showAlert({ type: 'destructive', title: t('profile.message.changeAvatarTitle'), message: t('profile.message.chooseOption'), buttons: [
-        { text: t('cancel'), style: 'cancel' },
-        { text: t('profile.message.takePhoto'), onPress: takePhoto },
-        { text: t('profile.message.chooseFromGallery'), onPress: pickImageFromGallery },
-        ...(user?.avatar ? [{ 
-          text: t('profile.message.removePhoto'), 
-          style: 'destructive' as const, 
+    showAlert({
+      type: 'info',
+      title: t('profile.message.changeAvatarTitle'),
+      message: t('profile.message.chooseOption'),
+      buttons: [
+        { text: 'Foto', icon: 'camera', onPress: takePhoto },
+        { text: 'Galería', icon: 'image-multiple', onPress: pickImageFromGallery },
+        ...(user?.avatar ? [{
+          text: 'Eliminar',
+          icon: 'trash-can-outline',
+          style: 'destructive' as const,
           onPress: async () => {
             if (user?.id) {
-              await updateUserProfile(user.id, { avatar: undefined });
+              await updateUserProfile(user.id, { avatar: null });
               await refreshUser();
             }
           }
-        }] : [])
-      ] });
+        }] : []),
+        { text: t('cancel'), style: 'cancel' as const },
+      ],
+    });
   };
 
   const saveExportFile = async (jsonData: string) => {
@@ -590,7 +598,7 @@ const ProfileScreen: React.FC = () => {
         return true;
       } else {
         // Fallback: show file location (keep file since user needs to access it)
-        showAlert({ type: 'success', title: `? ${t('success')}`, message: t('profile.message.exportFileSaved', { uri: fileUri }) });
+        showAlert({ type: 'success', title: `✅ ${t('success')}`, message: t('profile.message.exportFileSaved', { uri: fileUri }) });
         return true;
       }
     } catch (error) {
@@ -799,7 +807,7 @@ const ProfileScreen: React.FC = () => {
       await refreshUser();
       await loadUserProfile();
 
-      showAlert({ type: 'success', title: `? ${t('success')}`, message: `${t('profile.message.importCompleted')}\n\n✅ ${totalRecords} registros importados:\n• ${importCounts.events} Eventos\n• ${importCounts.participants} Participantes\n• ${importCounts.expenses} Gastos\n• ${importCounts.settlements} Liquidaciones\n• ${importCounts.splits} Divisiones` });
+      showAlert({ type: 'success', title: `✅ ${t('success')}`, message: `${t('profile.message.importCompleted')}\n\n✅ ${totalRecords} registros importados:\n• ${importCounts.events} Eventos\n• ${importCounts.participants} Participantes\n• ${importCounts.expenses} Gastos\n• ${importCounts.settlements} Liquidaciones\n• ${importCounts.splits} Divisiones` });
     } catch (error) {
       console.error('? Import execution error:', error);
       showAlert({ type: 'error', title: t('error'), message: `${t('profile.message.importError')}:\n\n${error instanceof Error ? error.message : 'Error desconocido'}` });
@@ -908,6 +916,63 @@ const ProfileScreen: React.FC = () => {
   };
 
 
+
+  const ERROR_SCREENS: { key: string; title: string; icon: string; color: string; errors: { title: string; desc: string }[] }[] = [
+    { key: 'login', title: 'Inicio de Sesión', icon: 'login', color: '#E91E63', errors: [
+      { title: 'Credencial requerida', desc: 'No ingresaste usuario o email antes de tocar Ingresar.' },
+      { title: 'Credenciales inválidas', desc: 'El usuario/email o contraseña no coinciden con ninguna cuenta.' },
+    ]},
+    { key: 'register', title: 'Registro', icon: 'account-plus', color: '#4CAF50', errors: [
+      { title: 'Campos requeridos', desc: 'Hay campos obligatorios vacíos en el formulario de registro.' },
+      { title: 'Usuario ya existe', desc: 'El nombre de usuario ingresado ya está en uso por otra cuenta.' },
+      { title: 'Email ya existe', desc: 'El email ingresado ya está registrado en otra cuenta.' },
+      { title: 'Error al crear cuenta', desc: 'Fallo interno al guardar el nuevo usuario en la base de datos.' },
+    ]},
+    { key: 'recover', title: 'Recuperar Contraseña', icon: 'lock-reset', color: '#FF9800', errors: [
+      { title: 'Credencial requerida', desc: 'No ingresaste usuario o email antes de buscar la cuenta.' },
+      { title: 'Usuario no encontrado', desc: 'No existe ninguna cuenta con ese usuario o email.' },
+    ]},
+    { key: 'profile', title: 'Mi Perfil', icon: 'account-circle', color: '#2196F3', errors: [
+      { title: 'Campos requeridos', desc: 'Falta completar campos obligatorios del perfil (nombre, etc.).' },
+      { title: 'Email inválido', desc: 'El formato del email ingresado no es válido (ej: sin @).' },
+      { title: 'Teléfono inválido', desc: 'El teléfono debe tener hasta 16 dígitos con + opcional al inicio.' },
+      { title: 'Permiso de cámara requerido', desc: 'Se denegó el permiso de acceso a la cámara del dispositivo.' },
+      { title: 'Error al guardar perfil', desc: 'No se pudo escribir el perfil actualizado en la base de datos.' },
+      { title: 'Error al exportar datos', desc: 'Fallo al generar o guardar el archivo de copia de seguridad.' },
+      { title: 'Formato de importación inválido', desc: 'El archivo seleccionado no es una exportación válida de SplitSmart.' },
+      { title: 'Error al eliminar datos', desc: 'Fallo al limpiar la base de datos local del dispositivo.' },
+      { title: 'Contraseña incorrecta', desc: 'La contraseña actual ingresada no coincide con la guardada.' },
+      { title: 'Contraseña muy corta', desc: 'La nueva contraseña debe tener al menos 6 caracteres.' },
+    ]},
+    { key: 'eventDetail', title: 'Detalle de Evento', icon: 'calendar-check', color: '#9C27B0', errors: [
+      { title: 'Evento no editable', desc: 'Solo se pueden agregar/editar/eliminar gastos y participantes en eventos activos.' },
+      { title: 'Nombre requerido', desc: 'Se intentó guardar un participante sin ingresar nombre.' },
+      { title: 'Error al eliminar gasto', desc: 'No se pudo eliminar el gasto seleccionado de la base de datos.' },
+      { title: 'Error al actualizar participante', desc: 'No se pudo guardar el nombre editado del participante.' },
+      { title: 'Error al eliminar participante', desc: 'No se pudo quitar el participante del evento.' },
+      { title: 'Consolidación no encontrada', desc: 'Se intentó aplicar una consolidación que ya no existe.' },
+      { title: 'Error al cambiar estado de pago', desc: 'No se pudo registrar el pago/deuda del participante.' },
+      { title: 'Compartir no disponible', desc: 'WhatsApp no está instalado; el resumen se copió al portapapeles.' },
+    ]},
+    { key: 'addParticipants', title: 'Agregar Participantes', icon: 'account-group', color: '#607D8B', errors: [
+      { title: 'Seleccionar al menos uno', desc: 'En la pestaña Amigos, debés seleccionar al menos un amigo antes de agregar.' },
+      { title: 'Nombre duplicado en evento', desc: 'Ya existe un participante con ese nombre en este evento.' },
+      { title: 'Nombre duplicado en amigos', desc: 'Ya existe un amigo guardado con ese nombre exacto.' },
+      { title: 'Teléfono inválido', desc: 'El teléfono ingresado no tiene el formato correcto (hasta 16 dígitos).' },
+      { title: 'Email inválido', desc: 'El email ingresado no tiene el formato correcto.' },
+      { title: 'Rango numérico inválido', desc: 'La cantidad de participantes genéricos debe ser entre 1 y 50.' },
+      { title: 'Modo masivo restringido', desc: 'El evento tiene gastos registrados; no se pueden agregar participantes en forma masiva.' },
+    ]},
+    { key: 'createExpense', title: 'Crear Gasto', icon: 'receipt', color: '#F44336', errors: [
+      { title: 'Evento cerrado', desc: 'No se pueden agregar gastos en eventos con estado cerrado o completado.' },
+      { title: 'Permiso de cámara denegado', desc: 'Se denegó el permiso para usar la cámara al querer adjuntar un comprobante.' },
+      { title: 'Error al seleccionar imagen', desc: 'No se pudo acceder a la galería del dispositivo.' },
+      { title: 'Error al tomar foto', desc: 'Falló la captura de imagen desde la cámara.' },
+    ]},
+    { key: 'consolidation', title: 'Consolidación', icon: 'bank-transfer', color: '#00BCD4', errors: [
+      { title: 'Sin consolidaciones seleccionadas', desc: 'Debés asignar al menos un pagador antes de aplicar la consolidación.' },
+    ]},
+  ];
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
@@ -1245,7 +1310,7 @@ const ProfileScreen: React.FC = () => {
                   await updateUserProfile(user.id, { skipPassword: newValue });
                   setSkipPassword(newValue);
                   await refreshUser();
-                  showAlert({ type: 'error', title: `? ${t('profile.skipPasswordUpdated')}`, message: newValue
+                  showAlert({ type: 'success', title: `✅ ${t('profile.skipPasswordUpdated')}`, message: newValue
                       ? t('profile.skipPasswordEnabled')
                       : t('profile.skipPasswordDisabled') });
                 } catch (error) {
@@ -1479,78 +1544,74 @@ const ProfileScreen: React.FC = () => {
         <View ref={pfErrorGuideRef} collapsable={false}
           onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, errorGuide: y })); }}>
         <ProfileSection title="Guía de Errores" icon="alert-circle-outline" onPress={closeAutoLogoutDropdown} collapsible isOpen={openSection === 'errorGuide'} onToggle={() => toggleSection('errorGuide')}>
-          {[
-            { screen: 'Inicio de Sesión', errors: [
-              { title: 'Credencial requerida', desc: 'No ingresaste usuario o email antes de tocar Ingresar.' },
-              { title: 'Credenciales inválidas', desc: 'El usuario/email o contraseña no coinciden con ninguna cuenta.' },
-            ]},
-            { screen: 'Registro', errors: [
-              { title: 'Campos requeridos', desc: 'Hay campos obligatorios vacíos en el formulario de registro.' },
-              { title: 'Usuario ya existe', desc: 'El nombre de usuario ingresado ya está en uso por otra cuenta.' },
-              { title: 'Email ya existe', desc: 'El email ingresado ya está registrado en otra cuenta.' },
-              { title: 'Error al crear cuenta', desc: 'Fallo interno al guardar el nuevo usuario en la base de datos.' },
-            ]},
-            { screen: 'Recuperar Contraseña', errors: [
-              { title: 'Credencial requerida', desc: 'No ingresaste usuario o email antes de buscar la cuenta.' },
-              { title: 'Usuario no encontrado', desc: 'No existe ninguna cuenta con ese usuario o email.' },
-            ]},
-            { screen: 'Mi Perfil', errors: [
-              { title: 'Campos requeridos', desc: 'Falta completar campos obligatorios del perfil (nombre, etc.).' },
-              { title: 'Email inválido', desc: 'El formato del email ingresado no es válido (ej: sin @).' },
-              { title: 'Teléfono inválido', desc: 'El teléfono debe tener hasta 16 dígitos con + opcional al inicio.' },
-              { title: 'Permiso de cámara requerido', desc: 'Se denegó el permiso de acceso a la cámara del dispositivo.' },
-              { title: 'Error al guardar perfil', desc: 'No se pudo escribir el perfil actualizado en la base de datos.' },
-              { title: 'Error al exportar datos', desc: 'Fallo al generar o guardar el archivo de copia de seguridad.' },
-              { title: 'Formato de importación inválido', desc: 'El archivo seleccionado no es una exportación válida de SplitSmart.' },
-              { title: 'Error al eliminar datos', desc: 'Fallo al limpiar la base de datos local del dispositivo.' },
-              { title: 'Contraseña incorrecta', desc: 'La contraseña actual ingresada no coincide con la guardada.' },
-              { title: 'Contraseña muy corta', desc: 'La nueva contraseña debe tener al menos 6 caracteres.' },
-            ]},
-            { screen: 'Detalle de Evento', errors: [
-              { title: 'Evento no editable', desc: 'Solo se pueden agregar/editar/eliminar gastos y participantes en eventos activos.' },
-              { title: 'Nombre requerido', desc: 'Se intentó guardar un participante sin ingresar nombre.' },
-              { title: 'Error al eliminar gasto', desc: 'No se pudo eliminar el gasto seleccionado de la base de datos.' },
-              { title: 'Error al actualizar participante', desc: 'No se pudo guardar el nombre editado del participante.' },
-              { title: 'Error al eliminar participante', desc: 'No se pudo quitar el participante del evento.' },
-              { title: 'Consolidación no encontrada', desc: 'Se intentó aplicar una consolidación que ya no existe.' },
-              { title: 'Error al cambiar estado de pago', desc: 'No se pudo registrar el pago/deuda del participante.' },
-              { title: 'Compartir no disponible', desc: 'WhatsApp no está instalado; el resumen se copió al portapapeles.' },
-            ]},
-            { screen: 'Agregar Participantes', errors: [
-              { title: 'Seleccionar al menos uno', desc: 'En la pestaña Amigos, debes seleccionar al menos un amigo antes de agregar.' },
-              { title: 'Nombre duplicado en evento', desc: 'Ya existe un participante con ese nombre en este evento.' },
-              { title: 'Nombre duplicado en amigos', desc: 'Ya existe un amigo guardado con ese nombre exacto.' },
-              { title: 'Teléfono inválido', desc: 'El teléfono ingresado no tiene el formato correcto (hasta 16 dígitos).' },
-              { title: 'Email inválido', desc: 'El email ingresado no tiene el formato correcto.' },
-              { title: 'Rango numérico inválido', desc: 'La cantidad de participantes genéricos debe ser entre 1 y 50.' },
-              { title: 'Modo masivo restringido', desc: 'El evento tiene gastos registrados; no se pueden agregar participantes en forma masiva.' },
-            ]},
-            { screen: 'Crear Gasto', errors: [
-              { title: 'Evento cerrado', desc: 'No se pueden agregar gastos en eventos con estado cerrado o completado.' },
-              { title: 'Permiso de cámara denegado', desc: 'Se denegó el permiso para usar la cámara al querer adjuntar un comprobante.' },
-              { title: 'Error al seleccionar imagen', desc: 'No se pudo acceder a la galería del dispositivo.' },
-              { title: 'Error al tomar foto', desc: 'Falló la captura de imagen desde la cámara.' },
-            ]},
-            { screen: 'Consolidación', errors: [
-              { title: 'Sin consolidaciones seleccionadas', desc: 'Debes asignar al menos un pagador antes de aplicar la consolidación.' },
-            ]},
-          ].map(({ screen, errors }) => (
-            <View key={screen} style={{ marginBottom: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6, paddingHorizontal: 4 }}>
-                <MaterialCommunityIcons name="monitor-cellphone" size={14} color={theme.colors.primary} style={{ marginRight: 6 }} />
-                <Text style={{ ...theme.typography.labelLarge, color: theme.colors.primary, fontWeight: '700' }}>{screen}</Text>
-              </View>
-              {errors.map(({ title, desc }) => (
-                <View key={title} style={{ flexDirection: 'row', paddingHorizontal: 4, marginBottom: 6, gap: 8 }}>
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: theme.colors.error, marginTop: 5, flexShrink: 0 }} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ ...theme.typography.bodySmall, fontWeight: '700', color: theme.colors.onSurface }}>{title}</Text>
-                    <Text style={{ ...theme.typography.bodySmall, color: theme.colors.onSurfaceVariant }}>{desc}</Text>
+          {/* Fila 1 */}
+          <View style={[styles.statsGrid, { marginBottom: 10 }]}>
+            {ERROR_SCREENS.slice(0, 2).map(screen => (
+              <View key={screen.key} style={{ flex: 1, height: 82 }}>
+                <TouchableOpacity
+                  style={[styles.infoNavCard, { borderTopColor: screen.color }]}
+                  onPress={() => { setSelectedErrorScreen(screen); setShowErrorGuideModal(true); }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                    <MaterialCommunityIcons name={screen.icon as any} size={20} color={screen.color} />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: screen.color }}>{screen.errors.length} errores</Text>
                   </View>
-                </View>
-              ))}
-            </View>
-          ))}
+                  <Text numberOfLines={1} style={styles.infoNavCardTitle}>{screen.title}</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+          {/* Fila 2 */}
+          <View style={[styles.statsGrid, { marginBottom: 10 }]}>
+            {ERROR_SCREENS.slice(2, 4).map(screen => (
+              <View key={screen.key} style={{ flex: 1, height: 82 }}>
+                <TouchableOpacity
+                  style={[styles.infoNavCard, { borderTopColor: screen.color }]}
+                  onPress={() => { setSelectedErrorScreen(screen); setShowErrorGuideModal(true); }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                    <MaterialCommunityIcons name={screen.icon as any} size={20} color={screen.color} />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: screen.color }}>{screen.errors.length} errores</Text>
+                  </View>
+                  <Text numberOfLines={1} style={styles.infoNavCardTitle}>{screen.title}</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+          {/* Fila 3 */}
+          <View style={[styles.statsGrid, { marginBottom: 10 }]}>
+            {ERROR_SCREENS.slice(4, 6).map(screen => (
+              <View key={screen.key} style={{ flex: 1, height: 82 }}>
+                <TouchableOpacity
+                  style={[styles.infoNavCard, { borderTopColor: screen.color }]}
+                  onPress={() => { setSelectedErrorScreen(screen); setShowErrorGuideModal(true); }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                    <MaterialCommunityIcons name={screen.icon as any} size={20} color={screen.color} />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: screen.color }}>{screen.errors.length} errores</Text>
+                  </View>
+                  <Text numberOfLines={1} style={styles.infoNavCardTitle}>{screen.title}</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+          {/* Fila 4 */}
+          <View style={styles.statsGrid}>
+            {ERROR_SCREENS.slice(6, 8).map(screen => (
+              <View key={screen.key} style={{ flex: 1, height: 82 }}>
+                <TouchableOpacity
+                  style={[styles.infoNavCard, { borderTopColor: screen.color }]}
+                  onPress={() => { setSelectedErrorScreen(screen); setShowErrorGuideModal(true); }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                    <MaterialCommunityIcons name={screen.icon as any} size={20} color={screen.color} />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: screen.color }}>{screen.errors.length} errores</Text>
+                  </View>
+                  <Text numberOfLines={1} style={styles.infoNavCardTitle}>{screen.title}</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
         </ProfileSection>
         </View>
         )}
@@ -1560,47 +1621,32 @@ const ProfileScreen: React.FC = () => {
         <View ref={pfComingSoonRef} collapsable={false}
           onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, comingSoon: y })); }}>
         <ProfileSection title={t('profile.comingSoon')} icon="rocket-launch" onPress={closeAutoLogoutDropdown} collapsible isOpen={openSection === 'comingSoon'} onToggle={() => toggleSection('comingSoon')}>
-          <View style={styles.settingItem}>
-            <View style={styles.settingIcon}>
-              <MaterialCommunityIcons name="cash-check" size={20} color={theme.colors.onSurfaceVariant} />
+          {/* Notificaciones de Pago */}
+          <View style={[styles.statCardWide, { borderLeftColor: '#4CAF50', marginBottom: 10 }]}>
+            <MaterialCommunityIcons name="cash-check" size={24} color="#4CAF50" />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.statCardNumber, { color: theme.colors.onSurface, fontSize: 14 }]}>{t('notifications.paymentReceived')}</Text>
+              <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant, textAlign: 'left' }]}>{t('notifications.paymentReceivedDesc')}</Text>
             </View>
-            <View style={styles.settingContent}>
-              <Text style={styles.settingTitle}>{t('notifications.paymentReceived')}</Text>
-              <Text style={styles.settingSubtitle}>{t('notifications.paymentReceivedDesc')}</Text>
-            </View>
-            <View style={styles.settingAction}>
-              <View style={styles.comingSoonBadge}>
-                <Text style={styles.comingSoonText}>{t('profile.comingSoon')}</Text>
-              </View>
-            </View>
+            <MaterialCommunityIcons name="rocket-launch" size={18} color={theme.colors.onSurfaceVariant} />
           </View>
-          <View style={styles.settingItem}>
-            <View style={styles.settingIcon}>
-              <MaterialCommunityIcons name="fingerprint" size={20} color={theme.colors.onSurfaceVariant} />
+          {/* Login Biométrico */}
+          <View style={[styles.statCardWide, { borderLeftColor: '#9C27B0', marginBottom: 10 }]}>
+            <MaterialCommunityIcons name="fingerprint" size={24} color="#9C27B0" />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.statCardNumber, { color: theme.colors.onSurface, fontSize: 14 }]}>{t('profile.biometricLogin')}</Text>
+              <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant, textAlign: 'left' }]}>{t('profile.biometricLoginDesc')}</Text>
             </View>
-            <View style={styles.settingContent}>
-              <Text style={styles.settingTitle}>{t('profile.biometricLogin')}</Text>
-              <Text style={styles.settingSubtitle}>{t('profile.biometricLoginDesc')}</Text>
-            </View>
-            <View style={styles.settingAction}>
-              <View style={styles.comingSoonBadge}>
-                <Text style={styles.comingSoonText}>{t('profile.comingSoon')}</Text>
-              </View>
-            </View>
+            <MaterialCommunityIcons name="rocket-launch" size={18} color={theme.colors.onSurfaceVariant} />
           </View>
-          <View style={styles.settingItem}>
-            <View style={styles.settingIcon}>
-              <MaterialCommunityIcons name="share" size={20} color={theme.colors.onSurfaceVariant} />
+          {/* Compartir Evento */}
+          <View style={[styles.statCardWide, { borderLeftColor: '#2196F3' }]}>
+            <MaterialCommunityIcons name="share" size={24} color="#2196F3" />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.statCardNumber, { color: theme.colors.onSurface, fontSize: 14 }]}>{t('profile.shareEvent')}</Text>
+              <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant, textAlign: 'left' }]}>{t('profile.shareEventDesc')}</Text>
             </View>
-            <View style={styles.settingContent}>
-              <Text style={styles.settingTitle}>{t('profile.shareEvent')}</Text>
-              <Text style={styles.settingSubtitle}>{t('profile.shareEventDesc')}</Text>
-            </View>
-            <View style={styles.settingAction}>
-              <View style={styles.comingSoonBadge}>
-                <Text style={styles.comingSoonText}>{t('profile.comingSoon')}</Text>
-              </View>
-            </View>
+            <MaterialCommunityIcons name="rocket-launch" size={18} color={theme.colors.onSurfaceVariant} />
           </View>
         </ProfileSection>
         </View>
@@ -1747,7 +1793,7 @@ const ProfileScreen: React.FC = () => {
                     setShowCurrentPassword(false);
                     setShowNewPassword(false);
                     setShowConfirmPasswordVis(false);
-                    showAlert({ type: 'error', title: `? ${t('profile.passwordUpdated')}`, message: t('profile.passwordUpdateSuccess') });
+                    showAlert({ type: 'success', title: `✅ ${t('profile.passwordUpdated')}`, message: t('profile.passwordUpdateSuccess') });
                   } catch (error) {
                     showAlert({ type: 'error', title: t('error'), message: t('profile.message.passwordChangeError') });
                   }
@@ -2924,6 +2970,47 @@ const ProfileScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+      {/* Modal Guía de Errores */}
+      <Modal
+        visible={showErrorGuideModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowErrorGuideModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.changelogModalContent}>
+            <View style={styles.changelogHeader}>
+              <View style={styles.infoModalHeaderLeft}>
+                <View style={[styles.infoModalHeaderIcon, { backgroundColor: selectedErrorScreen?.color ?? theme.colors.primary }]}>
+                  <MaterialCommunityIcons name={(selectedErrorScreen?.icon ?? 'alert-circle') as any} size={18} color="#FFF" />
+                </View>
+                <Text style={styles.modalTitle}>{selectedErrorScreen?.title ?? ''}</Text>
+              </View>
+            </View>
+            <ScrollView
+              style={styles.changelogContent}
+              showsVerticalScrollIndicator={true}
+              contentContainerStyle={{ paddingBottom: 24 }}
+            >
+              {selectedErrorScreen?.errors.map(({ title, desc }, idx) => (
+                <View key={idx} style={{ flexDirection: 'row', paddingHorizontal: 8, marginBottom: 14, gap: 10 }}>
+                  <MaterialCommunityIcons
+                    name="alert-circle"
+                    size={18}
+                    color={selectedErrorScreen.color}
+                    style={{ marginTop: 1, flexShrink: 0 }}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: theme.colors.onSurface, marginBottom: 2 }}>{title}</Text>
+                    <Text style={{ fontSize: 13, color: theme.colors.onSurfaceVariant, lineHeight: 19 }}>{desc}</Text>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       <TutorialOverlay
         visible={pfTourVisible}
         steps={[
