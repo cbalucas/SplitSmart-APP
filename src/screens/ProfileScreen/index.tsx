@@ -225,6 +225,8 @@ const ProfileScreen: React.FC = () => {
   const [showAutoLogoutOptions, setShowAutoLogoutOptions] = useState(false);
   const [showChangelogModal, setShowChangelogModal] = useState(false);
   const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
+  const changelogScrollRef = useRef<ScrollView>(null);
+  const versionYOffsets = useRef<Record<string, number>>({});
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showSupportModal, setShowSupportModal] = useState(false);
@@ -318,13 +320,18 @@ const ProfileScreen: React.FC = () => {
   }, []);
 
   const toggleVersionExpanded = (version: string) => {
-    const newExpandedVersions = new Set(expandedVersions);
-    if (newExpandedVersions.has(version)) {
-      newExpandedVersions.delete(version);
-    } else {
-      newExpandedVersions.add(version);
-    }
-    setExpandedVersions(newExpandedVersions);
+    setExpandedVersions(prev => {
+      if (prev.has(version)) {
+        return new Set<string>();
+      }
+      setTimeout(() => {
+        const y = versionYOffsets.current[version];
+        if (y !== undefined) {
+          changelogScrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+        }
+      }, 300);
+      return new Set<string>([version]);
+    });
   };
 
   const calculatePasswordStrength = (password: string): { score: number; label: string; color: string } => {
@@ -1022,10 +1029,10 @@ const ProfileScreen: React.FC = () => {
         <ProfileSection title={t('profile.stats')} icon="chart-line" onPress={closeAutoLogoutDropdown}>
           {/* Fila superior: Amigos + Total */}
           <View style={styles.statsTopRow}>
-            <View style={[styles.statCardWide, { borderLeftColor: '#9C27B0' }]}>
+            <View style={[styles.statCardWide, { borderLeftColor: '#E91E63' }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <MaterialCommunityIcons name="account-group-outline" size={22} color="#9C27B0" />
-                <Text style={[styles.statCardNumber, { color: '#9C27B0' }]}>{stats.friendsCount}</Text>
+                <MaterialCommunityIcons name="account-group-outline" size={22} color="#E91E63" />
+                <Text style={[styles.statCardNumber, { color: '#E91E63' }]}>{stats.friendsCount}</Text>
               </View>
               <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant }]}>{t('profile.friendsCount')}</Text>
             </View>
@@ -1160,35 +1167,44 @@ const ProfileScreen: React.FC = () => {
               </TouchableOpacity>
             }
           >
-            <SettingItem
-              title={t('profile.name')}
-              subtitle={profileData.name || 'No especificado'}
-              icon="account"
-              type="value"
-              value=""
-            />
-            <SettingItem
-              title={t('profile.username')}
-              subtitle={profileData.username || 'No especificado'}
-              icon="account-circle"
-              type="value"
-              value=""
-            />
-            <SettingItem
-              title={t('profile.email')}
-              subtitle={profileData.email || 'No especificado'}
-              icon="email"
-              type="value"
-              value=""
-            />
+            {/* Fila: Nombre + Usuario */}
+            <View style={[styles.statsGrid, { marginBottom: 10 }]}>
+              <View style={[styles.infoNavCard, { borderTopColor: '#4CAF50' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <MaterialCommunityIcons name="account" size={20} color="#4CAF50" />
+                  <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: '700', color: '#4CAF50' }}>
+                    {profileData.name || '—'}
+                  </Text>
+                </View>
+                <Text style={styles.infoNavCardTitle}>{t('profile.name')}</Text>
+              </View>
+              <View style={[styles.infoNavCard, { borderTopColor: '#2196F3' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <MaterialCommunityIcons name="at" size={20} color="#2196F3" />
+                  <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: '700', color: '#2196F3' }}>
+                    {profileData.username ? `@${profileData.username}` : '—'}
+                  </Text>
+                </View>
+                <Text style={styles.infoNavCardTitle}>{t('profile.username')}</Text>
+              </View>
+            </View>
+            {/* Email - ancho completo */}
+            <View style={[styles.statCardWide, { borderLeftColor: '#FF9800', marginBottom: 10 }]}>
+              <MaterialCommunityIcons name="email-outline" size={24} color="#FF9800" />
+              <View style={{ flex: 1 }}>
+                <Text numberOfLines={1} style={[styles.statCardNumber, { color: theme.colors.onSurface, fontSize: 13 }]}>{profileData.email || '—'}</Text>
+                <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant, textAlign: 'left' }]}>{t('profile.email')}</Text>
+              </View>
+            </View>
+            {/* Teléfono - condicional */}
             {profileData.phone && (
-              <SettingItem
-                title={t('profile.phone')}
-                subtitle={profileData.phone}
-                icon="phone"
-                type="value"
-                value=""
-              />
+              <View style={[styles.statCardWide, { borderLeftColor: '#9C27B0' }]}>
+                <MaterialCommunityIcons name="phone-outline" size={24} color="#9C27B0" />
+                <View style={{ flex: 1 }}>
+                  <Text numberOfLines={1} style={[styles.statCardNumber, { color: theme.colors.onSurface, fontSize: 13 }]}>{profileData.phone}</Text>
+                  <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant, textAlign: 'left' }]}>{t('profile.phone')}</Text>
+                </View>
+              </View>
             )}
           </ProfileSection>
           </View>
@@ -1197,265 +1213,186 @@ const ProfileScreen: React.FC = () => {
         <View ref={pfSettingsRef} collapsable={false}
           onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, settings: y })); }}>
         <ProfileSection title={t('profile.security')} icon="lock" onPress={closeAutoLogoutDropdown} collapsible isOpen={openSection === 'security'} onToggle={() => toggleSection('security')}>
-          <TouchableOpacity
-            style={styles.settingItem}
-            onPress={() => {
-              closeAutoLogoutDropdown();
-              setCurrentPassword('');
-              setNewPassword('');
-              setConfirmPassword('');
-              setShowCurrentPassword(false);
-              setShowNewPassword(false);
-              setShowConfirmPasswordVis(false);
-              setShowPasswordModal(true);
-            }}
-          >
-            <View style={styles.settingIcon}>
-              <MaterialCommunityIcons name="lock-reset" size={20} color={theme.colors.onSurfaceVariant} />
-            </View>
-            <View style={styles.settingContent}>
-              <Text style={styles.settingTitle}>{t('profile.changePassword')}</Text>
-              <Text style={styles.settingSubtitle}>{t('profile.changePassword')}</Text>
-            </View>
-            <View style={styles.settingAction}>
-              <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.settingItem}>
-            <View style={styles.settingIcon}>
-              <MaterialCommunityIcons name="login-variant" size={20} color={theme.colors.onSurfaceVariant} />
-            </View>
-            <View style={styles.settingContent}>
-              <Text style={styles.settingTitle}>{t('profile.skipPassword')}</Text>
-              <Text style={styles.settingSubtitle}>
-                {skipPassword ? t('profile.skipPasswordOn') : t('profile.skipPasswordOff')}
-              </Text>
-            </View>
-            <View style={styles.settingAction}>
-              <Switch
-                value={skipPassword}
-                onValueChange={async (value) => {
-                  try {
-                    if (!user?.id) {
-                      showAlert({ type: 'error', title: 'Error', message: 'No se pudo identificar el usuario' });
-                      return;
-                    }
-                    await updateUserProfile(user.id, { skipPassword: value });
-                    setSkipPassword(value);
-                    await refreshUser();
-                    showAlert({ type: 'error', title: `? ${t('profile.skipPasswordUpdated')}`, message: value 
-                        ? t('profile.skipPasswordEnabled') 
-                        : t('profile.skipPasswordDisabled') });
-                  } catch (error) {
-                    showAlert({ type: 'error', title: t('error'), message: t('profile.message.settingUpdateError') });
+          {/* Fila: Cambiar Contraseña + Omitir Contraseña */}
+          <View style={styles.statsGrid}>
+            {/* Cambiar Contraseña */}
+            <TouchableOpacity
+              style={[styles.infoNavCard, { borderTopColor: '#E91E63' }]}
+              onPress={() => {
+                closeAutoLogoutDropdown();
+                setCurrentPassword('');
+                setNewPassword('');
+                setConfirmPassword('');
+                setShowCurrentPassword(false);
+                setShowNewPassword(false);
+                setShowConfirmPasswordVis(false);
+                setShowPasswordModal(true);
+              }}
+            >
+              <MaterialCommunityIcons name="lock-reset" size={22} color="#E91E63" />
+              <Text numberOfLines={1} style={styles.infoNavCardTitle}>{t('profile.changePassword')}</Text>
+            </TouchableOpacity>
+            {/* Omitir Contraseña */}
+            <TouchableOpacity
+              style={[styles.infoNavCard, { borderTopColor: skipPassword ? theme.colors.primary : theme.colors.outline }]}
+              onPress={async () => {
+                try {
+                  if (!user?.id) {
+                    showAlert({ type: 'error', title: 'Error', message: 'No se pudo identificar el usuario' });
+                    return;
                   }
-                }}
-                trackColor={{ false: theme.colors.outline, true: theme.colors.primary }}
-                thumbColor={theme.colors.surface}
-              />
-            </View>
+                  const newValue = !skipPassword;
+                  await updateUserProfile(user.id, { skipPassword: newValue });
+                  setSkipPassword(newValue);
+                  await refreshUser();
+                  showAlert({ type: 'error', title: `? ${t('profile.skipPasswordUpdated')}`, message: newValue
+                      ? t('profile.skipPasswordEnabled')
+                      : t('profile.skipPasswordDisabled') });
+                } catch (error) {
+                  showAlert({ type: 'error', title: t('error'), message: t('profile.message.settingUpdateError') });
+                }
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <MaterialCommunityIcons name="login-variant" size={20} color={skipPassword ? theme.colors.primary : theme.colors.onSurfaceVariant} />
+                <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '700', color: skipPassword ? theme.colors.primary : theme.colors.onSurfaceVariant }}>
+                  {skipPassword ? 'ACTIVO' : 'DESACTIVADO'}
+                </Text>
+              </View>
+              <Text numberOfLines={1} style={styles.infoNavCardTitle}>{t('profile.skipPassword')}</Text>
+            </TouchableOpacity>
           </View>
-
         </ProfileSection>
 
         {/* Preferencias */}
         <View ref={pfPreferencesRef} collapsable={false}
           onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, preferences: y })); }}>
         <ProfileSection title={t('profile.preferences')} icon="cog" collapsible isOpen={openSection === 'preferences'} onToggle={() => toggleSection('preferences')}>
-             {/* Auto Login Section */}
-          <View style={styles.settingItem}>
-            <View style={styles.settingIcon}>
-              <MaterialCommunityIcons name="account-key" size={20} color={theme.colors.onSurfaceVariant} />
+          {/* Fila 1: Tema + Idioma */}
+          <View style={[styles.statsGrid, { marginBottom: 10 }]}>
+            <View style={{ flex: 1, height: 82 }}>
+              <TouchableOpacity
+                style={[styles.infoNavCard, { borderTopColor: '#E91E63' }]}
+                onPress={toggleTheme}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <MaterialCommunityIcons name={isDarkMode ? 'weather-night' : 'weather-sunny'} size={20} color="#E91E63" />
+                  <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: '700', color: '#E91E63' }}>
+                    {isDarkMode ? t('profile.themeDark') : t('profile.themeLight')}
+                  </Text>
+                </View>
+                <Text style={styles.infoNavCardTitle}>{t('profile.theme')}</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.settingContent}>
-              <Text style={styles.settingTitle}>{t('profile.autoLogin')}</Text>
-              <Text style={styles.settingSubtitle}>
-                {autoLogin ? t('profile.autoLoginOn') : t('profile.autoLoginOff')}
-              </Text>
-            </View>
-            <View style={styles.settingAction}>
-              <Switch
-                value={autoLogin}
-                onValueChange={async (value) => {
-                  try {
-                    if (!user?.id) {
-                      showAlert({ type: 'error', title: 'Error', message: 'No se pudo identificar el usuario' });
-                      return;
-                    }
-                    
-                    console.log(`?? ProfileScreen: Toggling auto-login for user ${user.id} to ${value}`);
-                    console.log(`?? Current user in ProfileScreen:`, { id: user.id, username: user.username });
-                    
-                    await toggleAutoLogin(value);
-                    
-                    // Actualizar estado local inmediatamente
-                    setAutoLogin(value);
-                    
-                    // Refrescar datos del usuario para asegurar sincronización
-                    await refreshUser();
-                    
-                    // Recargar el perfil para obtener el estado actualizado
-                    await loadUserProfile();
-                    
-                    showAlert({ type: 'error', title: `? ${t('profile.autoLoginUpdated')}`, message: value 
-                        ? t('profile.autoLoginEnabled') 
-                        : t('profile.autoLoginDisabled') });
-                  } catch (error) {
-                    console.error('Error updating auto-login:', error);
-                    showAlert({ type: 'error', title: t('error'), message: t('profile.message.settingUpdateError') });
-                  }
-                }}
-                trackColor={{ false: theme.colors.outline, true: theme.colors.primary }}
-                thumbColor={theme.colors.surface}
+            <View style={{ flex: 1, height: 82 }}>
+              <LanguageSelector
+                size={20}
+                color={theme.colors.onSurfaceVariant}
+                renderTrigger={(onPress) => (
+                  <TouchableOpacity
+                    style={[styles.infoNavCard, { borderTopColor: '#2196F3' }]}
+                    onPress={() => { closeAutoLogoutDropdown(); onPress(); }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                      <MaterialCommunityIcons name="translate" size={20} color="#2196F3" />
+                      <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: '700', color: '#2196F3' }}>
+                        {getLanguageDisplayName(language)}
+                      </Text>
+                    </View>
+                    <Text style={styles.infoNavCardTitle}>{t('profile.language')}</Text>
+                  </TouchableOpacity>
+                )}
               />
             </View>
           </View>
-         
-          <SettingItem
-            title={t('profile.theme')}
-            subtitle={isDarkMode ? t('profile.themeDark') : t('profile.themeLight')}
-            icon="palette"
-            type="navigation"
-            onPress={toggleTheme}
-          />
-          <CurrencySelector
-            selectedCurrency={profileData.preferredCurrency}
-            onCurrencyChange={(currency: string) => {
-              closeAutoLogoutDropdown();
-              const validCurrency = currency as 'ARS' | 'USD' | 'EUR' | 'BRL';
-              setProfileData(prev => ({ ...prev, preferredCurrency: validCurrency }));
-              (async () => {
+          {/* Fila 2: Moneda + Auto Cierre */}
+          <View style={[styles.statsGrid, { marginBottom: 10 }]}>
+            <View style={{ flex: 1, height: 82 }}>
+              <CurrencySelector
+                selectedCurrency={profileData.preferredCurrency}
+                onCurrencyChange={(currency: string) => {
+                  const validCurrency = currency as 'ARS' | 'USD' | 'EUR' | 'BRL';
+                  setProfileData(prev => ({ ...prev, preferredCurrency: validCurrency }));
+                  (async () => {
+                    try {
+                      await updateUserProfile(user!.id, { preferred_currency: validCurrency });
+                    } catch (error) {
+                      console.error('Error updating currency preference:', error);
+                    }
+                  })();
+                }}
+                renderTrigger={(onPress) => (
+                  <TouchableOpacity
+                    style={[styles.infoNavCard, { borderTopColor: '#FF9800' }]}
+                    onPress={onPress}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                      <MaterialCommunityIcons name="currency-usd" size={20} color="#FF9800" />
+                      <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: '700', color: '#FF9800' }}>
+                        {profileData.preferredCurrency}
+                      </Text>
+                    </View>
+                    <Text style={styles.infoNavCardTitle}>{t('profile.currency')}</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+            <View style={{ flex: 1, height: 82 }}>
+            <TouchableOpacity
+              style={[styles.infoNavCard, { borderTopColor: '#607D8B' }]}
+              onPress={async () => {
+                const options = getAutoLogoutOptions();
+                const currentIndex = options.findIndex(o => o.value === profileData.autoLogout);
+                const nextOption = options[(currentIndex + 1) % options.length];
+                setProfileData(prev => ({ ...prev, autoLogout: nextOption.value }));
                 try {
-                  await updateUserProfile(user!.id, { preferred_currency: validCurrency });
-                  console.log('Currency preference updated successfully:', validCurrency);
+                  await updateUserProfile(user!.id, { auto_logout: nextOption.value });
                 } catch (error) {
-                  console.error('Error updating currency preference:', error);
+                  console.error('Error updating auto-logout preference:', error);
                 }
-              })();
-            }}
-            renderTrigger={(onPress) => (
-              <TouchableOpacity
-                style={styles.settingItem}
-                onPress={() => {
-                  closeAutoLogoutDropdown();
-                  onPress();
-                }}
-              >
-                <View style={styles.settingIcon}>
-                  <MaterialCommunityIcons name="currency-usd" size={20} color={theme.colors.onSurfaceVariant} />
-                </View>
-                <View style={styles.settingContent}>
-                  <Text style={styles.settingTitle}>{t('profile.currency')}</Text>
-                  <Text style={styles.settingSubtitle}>{profileData.preferredCurrency}</Text>
-                </View>
-                <View style={styles.settingAction}>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
-                </View>
-              </TouchableOpacity>
-            )}
-          />
-          <LanguageSelector 
-            size={20} 
-            color={theme.colors.onSurfaceVariant}
-            renderTrigger={(onPress) => (
-              <TouchableOpacity
-                style={styles.settingItem}
-                onPress={() => {
-                  closeAutoLogoutDropdown();
-                  onPress();
-                }}
-              >
-                <View style={styles.settingIcon}>
-                  <MaterialCommunityIcons name="translate" size={20} color={theme.colors.onSurfaceVariant} />
-                </View>
-                <View style={styles.settingContent}>
-                  <Text style={styles.settingTitle}>{t('profile.language')}</Text>
-                  <Text style={styles.settingSubtitle}>{getLanguageDisplayName(language)}</Text>
-                </View>
-                <View style={styles.settingAction}>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
-                </View>
-              </TouchableOpacity>
-            )}
-          />
-          {/* Auto Logout Section */}
-          <View ref={autoLogoutDropdownRef}>
-            <Pressable
-              onPress={(e) => {
-                e.stopPropagation();
-                setShowAutoLogoutOptions(!showAutoLogoutOptions);
               }}
             >
-              <View style={styles.settingItem}>
-              <View style={styles.settingIcon}>
-                <MaterialCommunityIcons name="timer-outline" size={20} color={theme.colors.onSurfaceVariant} />
-              </View>
-              <View style={styles.settingContent}>
-                <Text style={styles.settingTitle}>{t('profile.autoLogout')}</Text>
-                <Text style={styles.settingSubtitle}>
-                  {getAutoLogoutOptions().find(option => option.value === profileData.autoLogout)?.label}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <MaterialCommunityIcons name="timer-outline" size={20} color="#607D8B" />
+                <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: '700', color: '#607D8B' }}>
+                  {getAutoLogoutOptions().find(o => o.value === profileData.autoLogout)?.label}
                 </Text>
               </View>
-              <View style={styles.settingAction}>
-                <MaterialCommunityIcons 
-                  name={showAutoLogoutOptions ? "chevron-up" : "chevron-down"} 
-                  size={20} 
-                  color={theme.colors.onSurfaceVariant} 
-                />
-              </View>
-              </View>
-            </Pressable>
-            
-            {/* Desplegable con opciones en dos columnas */}
-            {showAutoLogoutOptions && (
-              <Pressable 
-                style={styles.dropdownContainer}
-                onPress={(e) => {
-                  e.stopPropagation();
-                }}
-              >
-                <View style={styles.dropdownGrid}>
-                  {getAutoLogoutOptions().map((option, index) => (
-                    <TouchableOpacity
-                      key={option.value}
-                      style={[
-                        styles.dropdownOption,
-                        index % 2 === 1 && styles.dropdownOptionRight,
-                        profileData.autoLogout === option.value && styles.dropdownOptionSelected
-                      ]}
-                      onPress={async () => {
-                        setProfileData(prev => ({ ...prev, autoLogout: option.value }));
-                        setShowAutoLogoutOptions(false);
-                        try {
-                          await updateUserProfile(user!.id, { auto_logout: option.value });
-                          console.log('Auto-logout preference updated:', option.value);
-                        } catch (error) {
-                          console.error('Error updating auto-logout preference:', error);
-                        }
-                      }}
-                    >
-                      <Text style={[
-                        styles.dropdownOptionText,
-                        profileData.autoLogout === option.value && styles.dropdownOptionTextSelected
-                      ]}>
-                        {option.label}
-                      </Text>
-                      {profileData.autoLogout === option.value && (
-                        <MaterialCommunityIcons 
-                          name="check" 
-                          size={16} 
-                          color={theme.colors.primary} 
-                        />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </Pressable>
-            )}
+              <Text style={styles.infoNavCardTitle}>{t('profile.autoLogout')}</Text>
+            </TouchableOpacity>
+            </View>
           </View>
-          
-      
+          {/* Auto Login - ancho completo */}
+          <TouchableOpacity
+            style={[styles.statCardWide, { borderLeftColor: autoLogin ? theme.colors.primary : theme.colors.outline }]}
+            onPress={async () => {
+              try {
+                if (!user?.id) {
+                  showAlert({ type: 'error', title: 'Error', message: 'No se pudo identificar el usuario' });
+                  return;
+                }
+                const newValue = !autoLogin;
+                await toggleAutoLogin(newValue);
+                setAutoLogin(newValue);
+                await refreshUser();
+                await loadUserProfile();
+                showAlert({ type: 'error', title: `✅ ${t('profile.autoLoginUpdated')}`, message: newValue ? t('profile.autoLoginEnabled') : t('profile.autoLoginDisabled') });
+              } catch (error) {
+                showAlert({ type: 'error', title: t('error'), message: t('profile.message.settingUpdateError') });
+              }
+            }}
+          >
+            <MaterialCommunityIcons name="account-key" size={24} color={autoLogin ? theme.colors.primary : theme.colors.onSurfaceVariant} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.statCardNumber, { color: autoLogin ? theme.colors.primary : theme.colors.onSurface, fontSize: 15 }]}>{t('profile.autoLogin')}</Text>
+              <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant, textAlign: 'left' }]}>
+                {autoLogin ? t('profile.autoLoginOn') : t('profile.autoLoginOff')}
+              </Text>
+            </View>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: autoLogin ? theme.colors.primary : theme.colors.onSurfaceVariant }}>
+              {autoLogin ? 'ACTIVADO' : 'DESACTIVADO'}
+            </Text>
+          </TouchableOpacity>
         </ProfileSection>
         </View>
         </View>
@@ -1470,34 +1407,28 @@ const ProfileScreen: React.FC = () => {
         <View ref={pfDataBackupRef} collapsable={false}
           onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, dataBackup: y })); }}>
         <ProfileSection title={t('profile.dataBackup')} icon="database" onPress={closeAutoLogoutDropdown} collapsible isOpen={openSection === 'dataBackup'} onToggle={() => toggleSection('dataBackup')}>
-          <SettingItem
-            title={t('profile.dataStats')}
-            subtitle={t('profile.dataStatsDesc')}
-            icon="chart-bar"
-            type="navigation"
-            onPress={handleShowDatabaseStats}
-          />
-          <SettingItem
-            title={t('profile.exportData')}
-            subtitle={t('profile.exportDataDesc')}
-            icon="database-export"
-            type="navigation"
-            onPress={handleExportData}
-          />
-          <SettingItem
-            title={t('profile.importData')}
-            subtitle={t('profile.importDataDesc')}
-            icon="database-import"
-            type="navigation"
-            onPress={handleImportData}
-          />
-          <SettingItem
-            title={t('profile.deleteAllData')}
-            subtitle={t('profile.deleteAllDataDesc')}
-            icon="delete-alert"
-            type="navigation"
-            onPress={handleClearData}
-          />
+          {/* Fila 1: Estadísticas + Eliminar */}
+          <View style={[styles.statsGrid, { marginBottom: 10 }]}>
+            <TouchableOpacity style={[styles.infoNavCard, { borderTopColor: '#607D8B' }]} onPress={handleShowDatabaseStats}>
+              <MaterialCommunityIcons name="chart-bar" size={22} color="#607D8B" />
+              <Text style={styles.infoNavCardTitle}>{t('profile.dataStats')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.infoNavCard, { borderTopColor: '#F44336' }]} onPress={handleClearData}>
+              <MaterialCommunityIcons name="delete-alert" size={22} color="#F44336" />
+              <Text style={styles.infoNavCardTitle}>{t('profile.deleteAllData')}</Text>
+            </TouchableOpacity>
+          </View>
+          {/* Fila 2: Exportar + Importar */}
+          <View style={[styles.statsGrid]}>
+            <TouchableOpacity style={[styles.infoNavCard, { borderTopColor: theme.colors.primary }]} onPress={handleExportData}>
+              <MaterialCommunityIcons name="database-export" size={22} color={theme.colors.primary} />
+              <Text style={styles.infoNavCardTitle}>{t('profile.exportData')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.infoNavCard, { borderTopColor: '#4CAF50' }]} onPress={handleImportData}>
+              <MaterialCommunityIcons name="database-import" size={22} color="#4CAF50" />
+              <Text style={styles.infoNavCardTitle}>{t('profile.importData')}</Text>
+            </TouchableOpacity>
+          </View>
         </ProfileSection>
         </View>
         )}
@@ -1505,46 +1436,40 @@ const ProfileScreen: React.FC = () => {
         <View ref={pfInfoRef} collapsable={false}
           onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, info: y })); }}>
         <ProfileSection title={t('profile.information')} icon="information" onPress={closeAutoLogoutDropdown} collapsible isOpen={openSection === 'information'} onToggle={() => toggleSection('information')}>
-          <TouchableOpacity
-            style={styles.settingItem}
-            onPress={() => setShowChangelogModal(true)}
-          >
-            <View style={styles.settingIcon}>
-              <MaterialCommunityIcons name="information-outline" size={20} color={theme.colors.onSurfaceVariant} />
-            </View>
-            <View style={styles.settingContent}>
-              <Text style={styles.settingTitle}>{t('profile.appVersion')}</Text>
-            </View>
-            <View style={styles.settingAction}>
-              <View style={styles.versionBadge}>
-                <Text style={styles.versionBadgeText}>v1.9.0</Text>
+          {/* Fila 1: Versión + Acerca de */}
+          <View style={[styles.statsGrid, { marginBottom: 10 }]}>
+            <TouchableOpacity style={[styles.infoNavCard, { borderTopColor: theme.colors.primary }]} onPress={() => setShowChangelogModal(true)}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <MaterialCommunityIcons name="tag-outline" size={22} color={theme.colors.primary} />
+                <Text style={[styles.versionBadgeText, { fontSize: 13 }]}>v{appVersion}</Text>
               </View>
+              <Text style={styles.infoNavCardTitle}>{t('profile.appVersion')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.infoNavCard, { borderTopColor: theme.colors.primary }]} onPress={() => setShowAboutModal(true)}>
+              <MaterialCommunityIcons name="information" size={22} color={theme.colors.primary} />
+              <Text style={styles.infoNavCardTitle}>{t('profile.aboutApp')}</Text>
+            </TouchableOpacity>
+          </View>
+          {/* Fila 2: Términos + Privacidad */}
+          <View style={[styles.statsGrid, { marginBottom: 10 }]}>
+            <TouchableOpacity style={[styles.infoNavCard, { borderTopColor: '#2196F3' }]} onPress={() => setShowTermsModal(true)}>
+              <MaterialCommunityIcons name="file-document" size={22} color="#2196F3" />
+              <Text style={styles.infoNavCardTitle}>{t('profile.termsOfService')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.infoNavCard, { borderTopColor: '#4CAF50' }]} onPress={() => setShowPrivacyModal(true)}>
+              <MaterialCommunityIcons name="shield-check" size={22} color="#4CAF50" />
+              <Text style={styles.infoNavCardTitle}>{t('profile.privacyPolicy')}</Text>
+            </TouchableOpacity>
+          </View>
+          {/* Fila 3: Soporte (ancho completo) */}
+          <TouchableOpacity style={[styles.statCardWide, { borderLeftColor: '#FF9800' }]} onPress={() => setShowSupportModal(true)}>
+            <MaterialCommunityIcons name="headset" size={24} color="#FF9800" />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.statCardNumber, { color: '#FF9800', fontSize: 15 }]}>{t('profile.contactSupport')}</Text>
+              <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant, textAlign: 'left' }]}>Email · WhatsApp</Text>
             </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
           </TouchableOpacity>
-          <SettingItem
-            title={t('profile.aboutApp')}
-            icon="information"
-            type="navigation"
-            onPress={() => setShowAboutModal(true)}
-          />
-          <SettingItem
-            title={t('profile.termsOfService')}
-            icon="file-document"
-            type="navigation"
-            onPress={() => setShowTermsModal(true)}
-          />
-          <SettingItem
-            title={t('profile.privacyPolicy')}
-            icon="shield-check"
-            type="navigation"
-            onPress={() => setShowPrivacyModal(true)}
-          />
-          <SettingItem
-            title={t('profile.contactSupport')}
-            icon="help-circle"
-            type="navigation"
-            onPress={() => setShowSupportModal(true)}
-          />
         </ProfileSection>
         </View>
         )}
@@ -1845,17 +1770,17 @@ const ProfileScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.changelogModalContent}>
             <View style={styles.changelogHeader}>
-              <Text style={styles.modalTitle}>{t('profile.changelogTitle')}</Text>
-              <TouchableOpacity 
-                style={styles.closeButton}
-                onPress={() => setShowChangelogModal(false)}
-              >
-                <MaterialCommunityIcons name="close" size={24} color={theme.colors.onSurface} />
-              </TouchableOpacity>
+              <View style={styles.infoModalHeaderLeft}>
+                <View style={[styles.infoModalHeaderIcon, { backgroundColor: theme.colors.primary }]}>
+                  <MaterialCommunityIcons name="tag-multiple" size={18} color="#FFF" />
+                </View>
+                <Text style={styles.modalTitle}>{t('profile.changelogTitle')}</Text>
+              </View>
             </View>
             
-            <ScrollView 
-              style={styles.changelogContent} 
+            <ScrollView
+              ref={changelogScrollRef}
+              style={styles.changelogContent}
               showsVerticalScrollIndicator={true}
               contentContainerStyle={{ flexGrow: 1 }}
               nestedScrollEnabled={true}
@@ -1864,10 +1789,11 @@ const ProfileScreen: React.FC = () => {
               <TouchableOpacity 
                 style={[styles.versionBlock, styles.currentVersionBlock]} 
                 onPress={() => toggleVersionExpanded('1.9.0')}
+                onLayout={(e) => { versionYOffsets.current['1.9.0'] = e.nativeEvent.layout.y; }}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
-                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.9.0 (Actual)</Text>
+                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.9.0</Text>
                   <Text style={[styles.versionDate, styles.currentVersionDate]}>19 Abr 2026</Text>
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.9.0') ? 'chevron-up' : 'chevron-down'} 
@@ -1922,6 +1848,7 @@ const ProfileScreen: React.FC = () => {
               <TouchableOpacity 
                 style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.8.0')}
+                onLayout={(e) => { versionYOffsets.current['1.8.0'] = e.nativeEvent.layout.y; }}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
@@ -1976,6 +1903,7 @@ const ProfileScreen: React.FC = () => {
               <TouchableOpacity 
                 style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.7.0')}
+                onLayout={(e) => { versionYOffsets.current['1.7.0'] = e.nativeEvent.layout.y; }}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
@@ -2021,6 +1949,7 @@ const ProfileScreen: React.FC = () => {
               <TouchableOpacity 
                 style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.6.0')}
+                onLayout={(e) => { versionYOffsets.current['1.6.0'] = e.nativeEvent.layout.y; }}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
@@ -2052,6 +1981,7 @@ const ProfileScreen: React.FC = () => {
               <TouchableOpacity 
                 style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.5.0')}
+                onLayout={(e) => { versionYOffsets.current['1.5.0'] = e.nativeEvent.layout.y; }}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
@@ -2087,6 +2017,7 @@ const ProfileScreen: React.FC = () => {
               <TouchableOpacity 
                 style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.4.10')}
+                onLayout={(e) => { versionYOffsets.current['1.4.10'] = e.nativeEvent.layout.y; }}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
@@ -2114,6 +2045,7 @@ const ProfileScreen: React.FC = () => {
               <TouchableOpacity 
                 style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.4.9')}
+                onLayout={(e) => { versionYOffsets.current['1.4.9'] = e.nativeEvent.layout.y; }}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
@@ -2128,7 +2060,7 @@ const ProfileScreen: React.FC = () => {
                 {expandedVersions.has('1.4.9') && (
                   <View style={styles.versionContent}>
                     <View style={styles.changelogSection}>
-                      <Text style={styles.sectionTitle}>� Correcciones</Text>
+                      <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
                       <Text style={styles.changelogItem}>• Los balances se calculan correctamente cuando hay deudas condonadas</Text>
                       <Text style={styles.changelogItem}>• Corregido el doble conteo de montos en liquidaciones condonadas y pagadas</Text>
                     </View>
@@ -2146,6 +2078,7 @@ const ProfileScreen: React.FC = () => {
               <TouchableOpacity 
                 style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.4.8')}
+                onLayout={(e) => { versionYOffsets.current['1.4.8'] = e.nativeEvent.layout.y; }}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
@@ -2177,6 +2110,7 @@ const ProfileScreen: React.FC = () => {
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.4.7')}
+                onLayout={(e) => { versionYOffsets.current['1.4.7'] = e.nativeEvent.layout.y; }}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
@@ -2208,6 +2142,7 @@ const ProfileScreen: React.FC = () => {
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.4.6')}
+                onLayout={(e) => { versionYOffsets.current['1.4.6'] = e.nativeEvent.layout.y; }}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
@@ -2243,6 +2178,7 @@ const ProfileScreen: React.FC = () => {
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.4.5')}
+                onLayout={(e) => { versionYOffsets.current['1.4.5'] = e.nativeEvent.layout.y; }}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
@@ -2269,6 +2205,7 @@ const ProfileScreen: React.FC = () => {
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.4.4')}
+                onLayout={(e) => { versionYOffsets.current['1.4.4'] = e.nativeEvent.layout.y; }}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
@@ -2295,6 +2232,7 @@ const ProfileScreen: React.FC = () => {
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.4.3')}
+                onLayout={(e) => { versionYOffsets.current['1.4.3'] = e.nativeEvent.layout.y; }}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
@@ -2321,6 +2259,7 @@ const ProfileScreen: React.FC = () => {
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.4.2')}
+                onLayout={(e) => { versionYOffsets.current['1.4.2'] = e.nativeEvent.layout.y; }}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
@@ -2347,6 +2286,7 @@ const ProfileScreen: React.FC = () => {
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.4.1')}
+                onLayout={(e) => { versionYOffsets.current['1.4.1'] = e.nativeEvent.layout.y; }}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
@@ -2373,6 +2313,7 @@ const ProfileScreen: React.FC = () => {
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.4.0')}
+                onLayout={(e) => { versionYOffsets.current['1.4.0'] = e.nativeEvent.layout.y; }}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
@@ -2404,6 +2345,7 @@ const ProfileScreen: React.FC = () => {
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.3.0')}
+                onLayout={(e) => { versionYOffsets.current['1.3.0'] = e.nativeEvent.layout.y; }}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
@@ -2436,6 +2378,7 @@ const ProfileScreen: React.FC = () => {
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.2.0')}
+                onLayout={(e) => { versionYOffsets.current['1.2.0'] = e.nativeEvent.layout.y; }}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
@@ -2468,6 +2411,7 @@ const ProfileScreen: React.FC = () => {
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.1.0')}
+                onLayout={(e) => { versionYOffsets.current['1.1.0'] = e.nativeEvent.layout.y; }}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
@@ -2503,6 +2447,7 @@ const ProfileScreen: React.FC = () => {
               <TouchableOpacity 
                 style={styles.versionBlock} 
                 onPress={() => toggleVersionExpanded('1.0.0')}
+                onLayout={(e) => { versionYOffsets.current['1.0.0'] = e.nativeEvent.layout.y; }}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
@@ -2554,104 +2499,86 @@ const ProfileScreen: React.FC = () => {
                 </View>
                 <Text style={styles.modalTitle}>{t('profile.about.title')}</Text>
               </View>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setShowAboutModal(false)}
-              >
-                <MaterialCommunityIcons name="close" size={18} color={theme.colors.onSurfaceVariant} />
-              </TouchableOpacity>
             </View>
-            
+
             <ScrollView
-              style={styles.changelogContent} 
+              style={styles.changelogContent}
               showsVerticalScrollIndicator={true}
-              contentContainerStyle={{ padding: 16 }}
+              contentContainerStyle={{ flexGrow: 1 }}
+              nestedScrollEnabled={true}
             >
-              {/* Introducción Principal */}
-              <View style={styles.aboutSection}>
-                <MaterialCommunityIcons 
-                  name="account-group" 
-                  size={64} 
-                  color={theme.colors.primary} 
-                  style={{ alignSelf: 'center', marginBottom: 16 }}
-                />
-                <Text style={styles.aboutTitle}>SplitSmart v1.9.0</Text>
-                <Text style={styles.aboutDescription}>
-                  {t('profile.about.appDescription')}
-                </Text>
+              {/* Banner: icono + nombre + descripción */}
+              <View style={[styles.aboutSection, { flexDirection: 'row', alignItems: 'flex-start', gap: 14 }]}>
+                <View style={[styles.infoModalHeaderIcon, { width: 52, height: 52, borderRadius: 16, backgroundColor: theme.colors.primaryContainer }]}>
+                  <MaterialCommunityIcons name="account-group" size={28} color={theme.colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <Text style={styles.aboutTitle}>SplitSmart</Text>
+                    <View style={styles.versionBadge}><Text style={styles.versionBadgeText}>v1.9.0</Text></View>
+                  </View>
+                  <Text style={styles.aboutDescription}>{t('profile.about.appDescription')}</Text>
+                </View>
               </View>
-              
-              {/* Características Principales */}
+
+              {/* Características */}
               <View style={styles.aboutSection}>
                 <Text style={styles.aboutSectionTitle}>{t('profile.about.keyFeatures')}</Text>
-                
-                <View style={styles.featureItem}>
-                  <MaterialCommunityIcons name="check-circle" size={20} color={theme.colors.primary} />
-                  <Text style={styles.aboutItem}>{t('profile.about.feature1')}</Text>
-                </View>
-                
-                <View style={styles.featureItem}>
-                  <MaterialCommunityIcons name="account-group" size={20} color={theme.colors.primary} />
-                  <Text style={styles.aboutItem}>{t('profile.about.feature2')}</Text>
-                </View>
-                
-                <View style={styles.featureItem}>
-                  <MaterialCommunityIcons name="calculator" size={20} color={theme.colors.primary} />
-                  <Text style={styles.aboutItem}>{t('profile.about.feature3')}</Text>
-                </View>
-                
-                <View style={styles.featureItem}>
-                  <MaterialCommunityIcons name="chart-line" size={20} color={theme.colors.primary} />
-                  <Text style={styles.aboutItem}>{t('profile.about.feature4')}</Text>
-                </View>
-                
-                <View style={styles.featureItem}>
-                  <MaterialCommunityIcons name="cellphone" size={20} color={theme.colors.primary} />
-                  <Text style={styles.aboutItem}>{t('profile.about.feature5')}</Text>
-                </View>
-                
-                <View style={styles.featureItem}>
-                  <MaterialCommunityIcons name="shield-check" size={20} color="#4CAF50" />
-                  <Text style={styles.aboutItem}>{t('profile.about.feature6')}</Text>
-                </View>
+                {[
+                  t('profile.about.feature1'),
+                  t('profile.about.feature2'),
+                  t('profile.about.feature3'),
+                  t('profile.about.feature4'),
+                  t('profile.about.feature5'),
+                  t('profile.about.feature6'),
+                ].map((feat, i, arr) => (
+                  <View key={i}>
+                    <Text style={styles.aboutItem}>{feat}</Text>
+                    {i < arr.length - 1 && (
+                      <View style={{ height: 1, backgroundColor: theme.colors.outline, opacity: 0.25, marginVertical: 2 }} />
+                    )}
+                  </View>
+                ))}
               </View>
 
-              {/* Información Técnica */}
-              <View style={[styles.aboutSection, { backgroundColor: theme.colors.surfaceVariant, padding: 16, borderRadius: 12 }]}>
+              {/* Especificaciones Técnicas */}
+              <View style={[styles.aboutSection, { borderLeftColor: '#607D8B' }]}>
                 <Text style={styles.aboutSectionTitle}>{t('profile.about.techSpecs')}</Text>
-                <Text style={styles.aboutDescription}>
-                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.version')}:</Text> 1.9.0{'\n'}
-                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.platform')}</Text>{'\n'}
-                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.database')}</Text>{'\n'}
-                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.languages')}</Text>
-                </Text>
-              </View>
-
-              {/* Estadísticas */}
-              <View style={styles.aboutSection}>
-                <Text style={styles.aboutSectionTitle}>{t('profile.about.statistics')}</Text>
-                <Text style={styles.aboutDescription}>
-                  {t('profile.about.users')}{'\n'}
-                  {t('profile.about.events')}{'\n'}
-                  {t('profile.about.calculations')}
-                </Text>
+                {[
+                  t('profile.about.platform'),
+                  t('profile.about.database'),
+                  t('profile.about.languages'),
+                ].map((spec, i, arr) => (
+                  <View key={i}>
+                    <Text style={styles.aboutItem}>{spec}</Text>
+                    {i < arr.length - 1 && (
+                      <View style={{ height: 1, backgroundColor: theme.colors.outline, opacity: 0.25, marginVertical: 2 }} />
+                    )}
+                  </View>
+                ))}
               </View>
 
               {/* Contacto */}
-              <View style={styles.aboutSection}>
+              <View style={[styles.aboutSection, { borderLeftColor: '#FF9800' }]}>
                 <Text style={styles.aboutSectionTitle}>{t('profile.about.contact')}</Text>
-                <Text style={styles.aboutDescription}>
-                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.email')}</Text> cbalucas@gmail.com{'\n'}
-                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.whatsapp')}</Text> +54 351 617-5809 {t('profile.about.whatsappNote')}{'\n'}
-                  <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{t('profile.about.hours')}</Text> {t('profile.about.hoursValue')}
-                </Text>
+                <View style={styles.contactItem}>
+                  <MaterialCommunityIcons name="email-outline" size={20} color={theme.colors.primary} />
+                  <Text style={styles.contactText}>cbalucas@gmail.com</Text>
+                </View>
+                <View style={styles.contactItem}>
+                  <MaterialCommunityIcons name="whatsapp" size={20} color="#25D366" />
+                  <Text style={styles.contactText}>+54 351 617-5809 {t('profile.about.whatsappNote')}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 2 }}>
+                  <MaterialCommunityIcons name="clock-outline" size={13} color={theme.colors.onSurfaceVariant} />
+                  <Text style={[styles.aboutDescription, { fontSize: 12 }]}>{t('profile.about.hours')} {t('profile.about.hoursValue')}</Text>
+                </View>
               </View>
 
               {/* Copyright */}
-              <View style={[styles.aboutSection, { alignItems: 'center', borderTopWidth: 1, borderTopColor: theme.colors.outline, paddingTop: 20 }]}>
-                <Text style={[styles.aboutDescription, { textAlign: 'center', fontSize: 12, color: theme.colors.onSurfaceVariant }]}>
-                  {t('profile.about.copyright')}{'\n'}
-                  {t('profile.about.madeWith')}
+              <View style={{ alignItems: 'center', paddingVertical: 8 }}>
+                <Text style={{ fontSize: 11, color: theme.colors.onSurfaceVariant, textAlign: 'center', lineHeight: 18 }}>
+                  {t('profile.about.copyright')}{`\n`}{t('profile.about.madeWith')}
                 </Text>
               </View>
             </ScrollView>
@@ -2780,12 +2707,6 @@ const ProfileScreen: React.FC = () => {
                 </View>
                 <Text style={styles.modalTitle}>{t('profile.terms.title')}</Text>
               </View>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setShowTermsModal(false)}
-              >
-                <MaterialCommunityIcons name="close" size={18} color={theme.colors.onSurfaceVariant} />
-              </TouchableOpacity>
             </View>
             
             <ScrollView
@@ -2862,12 +2783,6 @@ const ProfileScreen: React.FC = () => {
                 </View>
                 <Text style={styles.modalTitle}>{t('profile.privacy.title')}</Text>
               </View>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setShowPrivacyModal(false)}
-              >
-                <MaterialCommunityIcons name="close" size={18} color={theme.colors.onSurfaceVariant} />
-              </TouchableOpacity>
             </View>
             
             <ScrollView
@@ -2951,12 +2866,6 @@ const ProfileScreen: React.FC = () => {
                 </View>
                 <Text style={styles.modalTitle}>{t('profile.support.title')}</Text>
               </View>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setShowSupportModal(false)}
-              >
-                <MaterialCommunityIcons name="close" size={18} color={theme.colors.onSurfaceVariant} />
-              </TouchableOpacity>
             </View>
             
             <ScrollView
@@ -2964,26 +2873,17 @@ const ProfileScreen: React.FC = () => {
               showsVerticalScrollIndicator={true}
               contentContainerStyle={{ flexGrow: 1 }}
             >
-              <View style={styles.supportSection}>
-                <Text style={styles.supportTitle}>{t('profile.support.description')}</Text>
-                <Text style={styles.supportText}>
-                  {t('profile.support.description')}
-                </Text>
-              </View>
-
+              {/* Métodos de contacto */}
               <View style={styles.supportSection}>
                 <Text style={styles.supportSectionTitle}>{t('profile.support.contactMethods')}</Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.contactItem}
                   onPress={() => showAlert({ type: 'error', title: 'Email', message: 'cbalucas@gmail.com' })}
                 >
                   <MaterialCommunityIcons name="email" size={20} color={theme.colors.primary} />
                   <Text style={styles.contactText}>cbalucas@gmail.com</Text>
                 </TouchableOpacity>
-              </View>
-
-              <View style={styles.supportSection}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.contactItem}
                   onPress={() => {
                     const message = encodeURIComponent("Hola! Necesito ayuda con SplitSmart");
@@ -2995,29 +2895,26 @@ const ProfileScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
+              {/* Cómo reportar */}
               <View style={styles.supportSection}>
                 <Text style={styles.supportSectionTitle}>{t('profile.support.reportIssue')}</Text>
-                <Text style={styles.supportText}>
-                  {t('profile.support.reportIssueText')}
-                </Text>
+                <Text style={styles.supportText}>{t('profile.support.reportIssueText')}</Text>
                 <Text style={styles.supportText}>{t('profile.support.reportItem1')}</Text>
                 <Text style={styles.supportText}>{t('profile.support.reportItem2')}</Text>
                 <Text style={styles.supportText}>{t('profile.support.reportItem3')}</Text>
                 <Text style={styles.supportText}>{t('profile.support.reportItem4')}</Text>
               </View>
 
+              {/* Tiempo de respuesta */}
               <View style={styles.supportSection}>
                 <Text style={styles.supportSectionTitle}>{t('profile.support.responseTime')}</Text>
-                <Text style={styles.supportText}>
-                  {t('profile.support.responseTimeText')}
-                </Text>
+                <Text style={styles.supportText}>{t('profile.support.responseTimeText')}</Text>
               </View>
 
+              {/* Antes de contactar */}
               <View style={styles.supportSection}>
                 <Text style={styles.supportSectionTitle}>{t('profile.support.beforeContact')}</Text>
-                <Text style={styles.supportText}>
-                  {t('profile.support.beforeContactText')}
-                </Text>
+                <Text style={styles.supportText}>{t('profile.support.beforeContactText')}</Text>
                 <Text style={styles.supportText}>{t('profile.support.beforeItem1')}</Text>
                 <Text style={styles.supportText}>{t('profile.support.beforeItem2')}</Text>
                 <Text style={styles.supportText}>{t('profile.support.beforeItem3')}</Text>

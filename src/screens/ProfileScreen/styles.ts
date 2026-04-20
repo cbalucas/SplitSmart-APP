@@ -218,11 +218,12 @@ export const createStyles = (theme: Theme) =>
     } as ViewStyle,
 
     sectionTitle: {
-      fontSize: 16,
-      fontWeight: '600',
+      fontSize: 13,
+      fontWeight: '700',
       color: theme.colors.onSurface,
-      lineHeight: 20,
-      marginTop: 0,
+      marginBottom: 4,
+      marginTop: 4,
+      letterSpacing: 0.2,
     } as TextStyle,
 
     statsContainer: {
@@ -589,24 +590,19 @@ export const createStyles = (theme: Theme) =>
 
     versionBlock: {
       marginBottom: 8,
-      backgroundColor: theme.colors.background,
-      borderRadius: 10,
-      padding: 12,
-      marginHorizontal: 8,
-      borderWidth: 1,
-      borderColor: theme.colors.outline,
-      elevation: 1,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 1,
+      backgroundColor: theme.colors.surfaceVariant,
+      borderRadius: 12,
+      padding: 14,
+      marginHorizontal: 4,
+      borderLeftWidth: 4,
+      borderLeftColor: theme.colors.outline,
+      overflow: 'hidden',
     } as ViewStyle,
 
     versionHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingBottom: 8,
     } as ViewStyle,
 
     versionContent: {
@@ -614,19 +610,20 @@ export const createStyles = (theme: Theme) =>
       paddingTop: 12,
       borderTopWidth: 1,
       borderTopColor: theme.colors.outline,
+      gap: 6,
     } as ViewStyle,
 
     versionNumber: {
-      fontSize: 18,
+      fontSize: 15,
       fontWeight: '700',
-      color: theme.colors.primary,
+      color: theme.colors.onSurface,
+      flex: 1,
     } as TextStyle,
 
     versionDate: {
-      fontSize: 14,
+      fontSize: 12,
       color: theme.colors.onSurfaceVariant,
       fontStyle: 'italic',
-      marginLeft: 12,
     } as TextStyle,
 
     versionSummary: {
@@ -638,36 +635,32 @@ export const createStyles = (theme: Theme) =>
 
     currentVersionBlock: {
       backgroundColor: theme.colors.surface,
-      borderColor: theme.colors.primary,
-      borderWidth: 2,
-      elevation: 3,
-      shadowColor: theme.colors.primary,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.2,
-      shadowRadius: 4,
+      borderLeftColor: theme.colors.primary,
+      borderLeftWidth: 4,
     } as ViewStyle,
 
     currentVersionNumber: {
       color: theme.colors.primary,
       fontWeight: '700',
+      fontSize: 15,
     } as TextStyle,
 
     currentVersionDate: {
       color: theme.colors.onSurface,
       fontWeight: '500',
+      fontStyle: 'normal',
     } as TextStyle,
 
     changelogSection: {
-      marginBottom: 8,
+      marginBottom: 4,
     } as ViewStyle,
 
-
-
     changelogItem: {
-      fontSize: 14,
+      fontSize: 13,
       color: theme.colors.onSurfaceVariant,
-      lineHeight: 20,
-      marginBottom: 4,
+      lineHeight: 19,
+      marginBottom: 2,
+      paddingLeft: 4,
     } as TextStyle,
 
     versionBadge: {
@@ -685,113 +678,147 @@ export const createStyles = (theme: Theme) =>
       color: theme.colors.primary,
     } as TextStyle,
 
-    // Estilos para Modal Acerca de
-    aboutSection: {
-      marginBottom: 20,
+    infoNavCard: {
+      flex: 1,
+      height: 82,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.surfaceVariant,
+      borderRadius: 12,
+      paddingHorizontal: 8,
+      borderTopWidth: 3,
+      gap: 5,
+      overflow: 'hidden',
     } as ViewStyle,
 
-    aboutTitle: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: theme.colors.primary,
-      marginBottom: 12,
+    infoNavCardTitle: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: theme.colors.onSurface,
       textAlign: 'center',
     } as TextStyle,
 
+    // Estilos para Modal Acerca de
+    aboutSection: {
+      backgroundColor: theme.colors.surfaceVariant,
+      borderRadius: 12,
+      borderLeftWidth: 4,
+      borderLeftColor: theme.colors.primary,
+      padding: 14,
+      marginBottom: 10,
+      overflow: 'hidden',
+    } as ViewStyle,
+
+    aboutTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: theme.colors.primary,
+      marginBottom: 0,
+    } as TextStyle,
+
     aboutSectionTitle: {
-      fontSize: 16,
-      fontWeight: '600',
+      fontSize: 13,
+      fontWeight: '700',
       color: theme.colors.onSurface,
       marginBottom: 8,
+      letterSpacing: 0.3,
     } as TextStyle,
 
     aboutDescription: {
-      fontSize: 14,
+      fontSize: 13,
       color: theme.colors.onSurfaceVariant,
-      lineHeight: 20,
+      lineHeight: 19,
       textAlign: 'justify',
     } as TextStyle,
 
     aboutItem: {
-      fontSize: 14,
+      fontSize: 13,
       color: theme.colors.onSurfaceVariant,
-      lineHeight: 20,
-      marginBottom: 4,
-      flex: 1,
-      marginLeft: 8,
+      lineHeight: 19,
+      paddingVertical: 3,
     } as TextStyle,
 
     featureItem: {
       flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 12,
-      paddingLeft: 8,
+      alignItems: 'flex-start',
+      marginBottom: 6,
     } as ViewStyle,
 
     // Estilos para Modal Términos de Servicio
     termsSection: {
-      marginBottom: 20,
+      backgroundColor: theme.colors.surfaceVariant,
+      borderRadius: 12,
+      borderLeftWidth: 4,
+      borderLeftColor: '#2196F3',
+      padding: 14,
+      marginBottom: 10,
+      overflow: 'hidden',
     } as ViewStyle,
 
     termsTitle: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: theme.colors.primary,
-      marginBottom: 8,
+      fontSize: 13,
+      fontWeight: '700',
+      color: '#2196F3',
+      marginBottom: 6,
+      letterSpacing: 0.3,
     } as TextStyle,
 
     termsText: {
-      fontSize: 14,
+      fontSize: 13,
       color: theme.colors.onSurfaceVariant,
-      lineHeight: 20,
-      marginBottom: 8,
+      lineHeight: 19,
       textAlign: 'justify',
     } as TextStyle,
 
     // Estilos para Modal Política de Privacidad
     privacySection: {
-      marginBottom: 20,
+      backgroundColor: theme.colors.surfaceVariant,
+      borderRadius: 12,
+      borderLeftWidth: 4,
+      borderLeftColor: '#4CAF50',
+      padding: 14,
+      marginBottom: 10,
+      overflow: 'hidden',
     } as ViewStyle,
 
     privacyTitle: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: theme.colors.primary,
-      marginBottom: 8,
+      fontSize: 13,
+      fontWeight: '700',
+      color: '#4CAF50',
+      marginBottom: 6,
+      letterSpacing: 0.3,
     } as TextStyle,
 
     privacyText: {
-      fontSize: 14,
+      fontSize: 13,
       color: theme.colors.onSurfaceVariant,
-      lineHeight: 20,
-      marginBottom: 4,
+      lineHeight: 19,
       textAlign: 'justify',
     } as TextStyle,
 
     // Estilos para Modal Contactar Soporte
     supportSection: {
-      marginBottom: 20,
+      backgroundColor: theme.colors.surfaceVariant,
+      borderRadius: 12,
+      borderLeftWidth: 4,
+      borderLeftColor: '#FF9800',
+      padding: 14,
+      marginBottom: 10,
+      overflow: 'hidden',
     } as ViewStyle,
 
-    supportTitle: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: theme.colors.primary,
-      marginBottom: 12,
-      textAlign: 'center',
-    } as TextStyle,
-
     supportSectionTitle: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: theme.colors.onSurface,
+      fontSize: 13,
+      fontWeight: '700',
+      color: '#FF9800',
       marginBottom: 8,
+      letterSpacing: 0.3,
     } as TextStyle,
 
     supportText: {
-      fontSize: 14,
+      fontSize: 13,
       color: theme.colors.onSurfaceVariant,
-      lineHeight: 20,
+      lineHeight: 19,
       marginBottom: 4,
       textAlign: 'justify',
     } as TextStyle,
@@ -799,17 +826,18 @@ export const createStyles = (theme: Theme) =>
     contactItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 12,
-      backgroundColor: theme.colors.surfaceVariant,
+      padding: 10,
+      backgroundColor: theme.colors.surface,
       borderRadius: 8,
       marginBottom: 8,
       gap: 12,
     } as ViewStyle,
 
     contactText: {
-      fontSize: 14,
+      fontSize: 13,
       color: theme.colors.onSurface,
       fontWeight: '500',
+      flex: 1,
     } as TextStyle,
 
     // Modal contraseña — campos con ojo
