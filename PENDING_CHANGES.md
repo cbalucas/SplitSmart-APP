@@ -9,11 +9,23 @@
 ## 🗂️ Versión en desarrollo: v1.9.1
 
 > Cambios realizados después del build de v1.9.0
-> Commits locales: `b1c0a73` → `014dcec` (5 commits, no pusheados a origin)
+> Commits locales: `b1c0a73` → `e9f1613` (7 commits, no pusheados a origin)
 
 ---
 
 ### 🚀 Nuevas Funcionalidades
+
+#### CreateEvent — Rediseño completo de UI (commit `e9f1613`)
+- **Layout de 2 cards** en lugar de las 4 anteriores, usando el mismo design language que ProfileScreen (borde de color en el top, header con ícono + título)
+- **Card 1 — Información** (borde azul `#2196F3`, ícono `calendar-edit`): agrupa Nombre, Fecha, Ubicación y Descripción en un único bloque visual
+- **Campo Ubicación**: nuevo `rightIcon="map-search-outline"` que aparece solo cuando hay texto — al presionarlo abre Google Maps vía `Linking.openURL()` con la dirección codificada
+- **Card 2 — Opciones** (borde naranja `#FF9800`, ícono `cog-outline`): colapsable/expandible con `TouchableOpacity` en el header y animación de chevron
+  - **Contraída**: muestra 3 chips resumen — `[🇦🇷 ARS]` · `[🌐 Público / 🔒 Privado]` · `[✈️ Categoría]` — cada uno con ícono, texto y color semántico
+  - **Expandida — fila superior**: cards cíclicas estilo ProfileScreen — Card Moneda (cicla ARS→USD→EUR→BRL al tap) + Card Tipo (alterna Público↔Privado al tap)
+  - **Expandida — fila inferior**: pills de categoría en `flexWrap` (Viaje, Casa, Cena, Trabajo, Evento, Otro)
+- **Card Compartir**: preparada y oculta via `const SHOW_SHARE_CARD = false` — activar cuando la funcionalidad esté lista; se integra automáticamente en la fila de cards expandidas y en los chips contraídos
+- **TutorialOverlay actualizado**: reducido de 4 pasos a 2 (uno por card); textos actualizados en ES, EN y PT para describir el nuevo layout
+- **Helper `getCategoryLabel()`**: mapea el key interno de categoría al texto traducido para los chips contraídos
 
 #### ProfileScreen — Rediseño completo de UI
 - **Sistema de cards unificado**: todas las secciones usan `infoNavCard` (grid 2 col, altura 82 px, borde superior de color) y `statCardWide` (fila completa, borde izquierdo de color), consistentes con el design language de la app
@@ -47,6 +59,8 @@
 
 ### 🔧 Correcciones de Bugs
 
+- **Íconos `earth-outline` / `lock-outline` no existen en MaterialCommunityIcons** (chips contraídos de CreateEvent): aparecía `?` en lugar del ícono. Fix: reemplazados por `earth` y `lock` (variantes sólidas que sí existen en el set)
+- **Color del candado inconsistente**: en los chips contraídos el ícono 🔒 era rojo `#F44336`; en las cards expandidas era amarillo `#FFC107`. Unificado a `#FFC107` en ambos contextos
 - **Cards de altura desigual (Preferencias)**: `alignItems:'stretch'` de Yoga/RN estiraba las cards sin altura explícita. Fix: wrapper `<View style={{ flex:1, height:82 }}>` en todas las cards de grilla + `overflow:'hidden'` en `infoNavCard`
 - **Card Tema sin wrapper**: era un `TouchableOpacity` directo sin wrapper de altura. Corregido con el mismo patrón que las otras cards
 - **`flex:1` inline en Cierre Aut.**: estaba en el `infoNavCard` en vez del wrapper. Movido al `<View>` contenedor
@@ -62,6 +76,14 @@
 
 ### ✨ Mejoras
 
+- **Chips contraídos de Opciones más grandes y con texto**: padding `8×4` → `10×6`, font `12` → `13 bold`, ícono `14` → `16`; ahora muestran el label además del ícono (moneda: código + flag; tipo: "Público"/"Privado" con color semántico; categoría: nombre con color semántico)
+- **Reorden del contenido expandido**: Moneda + Tipo (cards cíclicas) aparecen primero; Categoría (pills) aparece debajo — flujo más natural al configurar el evento
+- **Título de Card 2**: renombrado de "Preferencias" → "Opciones" en los 3 idiomas (ES: `Opciones`, EN: `Options`, PT: `Opções`)
+- **Chip de Compartir en chips contraídos**: cuando `SHOW_SHARE_CARD = true`, aparece un chip `[share Compartir]` entre Tipo y Categoría — preparado para la futura funcionalidad
+- **Separación visual entre HeaderBar y primera card**: `paddingTop:16` en `scrollViewContent` para evitar que el contenido quede pegado al header
+- **Textos del TutorialOverlay actualizados** (`LanguageContext.tsx`):
+  - Paso 1: describe los 4 campos de la Card Información (nombre, fecha, ubicación, descripción)
+  - Paso 2: explica que se puede expandir la sección Opciones y qué se configura (moneda, tipo, categoría)
 - **Etiquetas de Preferencias abreviadas** (`LanguageContext.tsx` + `localization/*.json`):
   - `"Moneda Preferida"` → `"Moneda"` / `"Preferred Currency"` → `"Currency"`
   - `"Cierre Automático"` → `"Cierre Aut."` / `"Auto Logout"` → `"Auto Close"`
@@ -75,19 +97,21 @@
 
 | Archivo | Cambios |
 |---|---|
+| `src/screens/CreateEvent/index.tsx` | Rediseño completo: 2 cards, ubicación con Maps, chips contraídos, cards cíclicas, SHOW_SHARE_CARD, getCategoryLabel |
+| `src/screens/CreateEvent/styles.ts` | Nuevos estilos: `cardInfo`, `cardConfig`, `cardHeaderRow`, `cardHeaderTitle`, `scrollViewContent`, `configSummaryRow`, `configSummaryChip`, `configSummaryText`, `configSummaryFlag`, `prefGrid`, `prefCard`, `prefCardTitle` |
+| `src/screens/CreateEvent/language.ts` | Títulos actualizados (ES/EN/PT): `basicInformation` → "Información/Information/Informações"; `financialConfiguration` → "Opciones/Options/Opções" |
+| `src/context/LanguageContext.tsx` | Tour CreateEvent (ES/EN/PT): paso 1 "Información del evento", paso 2 "Opciones" con textos del nuevo layout; claves `dates` y `privacy` conservadas por compatibilidad |
 | `src/screens/ProfileScreen/index.tsx` | Rediseño completo: Error Guide grid+modal, Próximamente statCardWide, corrección emojis y tipos de alert |
 | `src/screens/ProfileScreen/styles.ts` | `infoNavCard`: `overflow:'hidden'`; nuevos estilos `statsGrid`, `infoNavCardTitle`, etc. |
 | `src/screens/ProfileScreen/types.ts` | Ajustes de tipos |
 | `src/components/CustomAlert/index.tsx` | Soporte `icon` en botones, layout columna corregido, `MaterialCommunityIcons` importado |
 | `src/components/HeaderBar.tsx` | Menú overflow rediseñado: dropdown con borde de color por ítem, posición bajo header |
-| `src/context/LanguageContext.tsx` | Claves abreviadas de Preferencias (ES + EN) |
-| `src/context/DataContext.tsx` | Ajustes menores |
-| `src/localization/es.json` | Ídem (para coherencia, no usado en runtime) |
-| `src/localization/en.json` | Ídem |
 | `src/services/alertService.ts` | `AlertButton.icon?: string` agregado |
 | `src/services/database.ts` | `updateUserProfile`: `avatar?: string \| null`; fix columna `is_locked` |
 | `src/screens/Auth/SignUpScreen.tsx` | Fix `}` extra en JSX (bug preexistente) |
 | `src/screens/EventDetail/index.tsx` | Ajustes menores |
+| `src/localization/es.json` | Claves Preferencias abreviadas (coherencia, no usado en runtime) |
+| `src/localization/en.json` | Ídem |
 
 ---
 

@@ -68,7 +68,7 @@ const CreateEventScreen: React.FC = () => {
   const [isConfigExpanded, setIsConfigExpanded] = useState(false);
 
   // Cambiar a true cuando la funcionalidad de compartir esté lista
-  const SHOW_SHARE_CARD = true;
+  const SHOW_SHARE_CARD = false;
 
   // ── Tour guiado ───────────────────────────────────────────
   const [cevTourVisible, setCevTourVisible] = useState(false);
