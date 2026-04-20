@@ -9,7 +9,50 @@
 ## 🗂️ Versión en desarrollo: v1.9.1
 
 > Cambios realizados después del build de v1.9.0
-> Commits locales: `b1c0a73` → `e9f1613` (7 commits, no pusheados a origin)
+> Commits locales: `b1c0a73` → `de23faf` (9 commits, no pusheados a origin)
+
+---
+
+#### Auth — Rediseño completo de pantallas de autenticación (commit `de23faf`)
+
+Se unificó el lenguaje visual de las 3 pantallas de auth con el design system establecido por `ProfileScreen` y `CreateEvent`: cards con borde de color en el top, `Card`/`Button`/`Input` del sistema de componentes, footer fijo con botones de acción.
+
+**Archivos de estilos creados** (patrón `createXxxStyles(theme: Theme)`):
+- `src/screens/Auth/SignUpScreen.styles.ts` — 3 cards (azul `#2196F3` / verde `#4CAF50` / naranja `#FF9800`), barra de fortaleza de contraseña, estilos de modal con `borderTopWidth:4`
+- `src/screens/Auth/ForgotPasswordScreen.styles.ts` — card violeta `#9C27B0`, `infoBox` con `borderLeftWidth:4`, `warningBox` naranja, modal de éxito verde `#4CAF50`
+- `src/screens/Auth/LoginScreen.styles.ts` — card azul `#2196F3` (credencial) + naranja `#FF9800` (contraseña), chip demo inline, footer fijo, modal de datos con filas label/valor
+
+**SignUpScreen — Rediseño JSX** (`src/screens/Auth/SignUpScreen.tsx`):
+- **3 Cards con acento de color** en lugar del form plano anterior:
+  - Card 1 "Básico" (azul `#2196F3`, ícono `account-box-outline`): Username + chip de validación asíncrona
+  - Card 2 "Contacto" (verde `#4CAF50`, ícono `email-outline`): Email
+  - Card 3 "Seguridad" (naranja `#FF9800`, ícono `shield-lock-outline`): Password + barra de fortaleza + tile "Sin contraseña"
+- **Componentes del sistema**: `Input` con props `icon`, `error`, `success`, `required`; `Button` con `variant` y `title`
+- **Footer fijo** con `[Button outlined → Login]` + `[Button filled → Registrarse]`
+- **Modal de "Agregar amigos"** rediseñado: `borderTopWidth:4` primary, botones apilados con íconos (`account-plus` / `arrow-right`)
+- Toda la lógica de negocio intacta: validación de formulario, debounce de username, `TutorialOverlay` con sus 4 refs
+
+**ForgotPasswordScreen — Rediseño JSX** (`src/screens/Auth/ForgotPasswordScreen.tsx`):
+- **Card única** con borde violeta `#9C27B0` e ícono `lock-reset`
+- **`infoBox`** con franja izquierda violeta + ícono `information-outline` explicando el proceso
+- **Footer fijo** con `[Button outlined → Volver al login]` + `[Button filled → Generar Contraseña Temporal]`
+- **Modal de éxito** rediseñado: `borderTopWidth:4` verde `#4CAF50`, `warningBox` naranja con `borderLeftWidth:4` (reemplaza el fondo naranja semi-transparente anterior), contraseña en monospace
+- Lógica intacta: `generateTempPassword()`, `handleResetPassword()`, `submittedOnce`
+
+**LoginScreen — Rediseño JSX** (`src/screens/Auth/LoginScreen.tsx`):
+- **2 Cards** en lugar del form plano anterior:
+  - Card "Credencial" (azul `#2196F3`): `Input` de usuario/email + **chip demo** (`🧪 Datos de prueba`) integrado en el header de la card
+  - Card "Contraseña" (naranja `#FF9800`): `Input type="password"` (toggle de ojo interno) + link "¿Olvidaste tu contraseña?" alineado a la derecha dentro de la card
+- **Link "¿No tienes cuenta?"** debajo de las cards, centrado
+- **Footer fijo** con `[Button filled → Iniciar Sesión]`
+- **Modal de datos demo** rediseñado: `animationType="fade"`, `borderTopWidth:4` primary, filas `[Label | Valor monospace]` por dato, botón "Entendido"
+- Import limpiado: `TextInput`/`StyleSheet`/`LoginFormErrors` eliminados; `Card`, `Button`, `Input` del sistema de componentes; `createStyles` → `createLoginStyles`
+
+**Claves i18n agregadas** (`src/screens/Auth/language.ts`):
+- `signUpLanguage.*.form.basicSectionTitle` (ES: "Información Básica" / EN: "Basic Info" / PT: "Informações Básicas")
+- `signUpLanguage.*.form.contactSectionTitle` (ES: "Contacto" / EN: "Contact" / PT: "Contato")
+- `signUpLanguage.*.form.securitySectionTitle` (ES: "Seguridad" / EN: "Security" / PT: "Segurança")
+- `forgotPasswordLanguage.*.form.sectionTitle` (ES: "Recuperar Contraseña" / EN: "Password Recovery" / PT: "Recuperar Senha")
 
 ---
 
@@ -97,6 +140,13 @@
 
 | Archivo | Cambios |
 |---|---|
+| `src/screens/Auth/SignUpScreen.styles.ts` | **NUEVO** — estilos dedicados con 3 cards de color, barra de fortaleza, modal accent |
+| `src/screens/Auth/SignUpScreen.tsx` | Rediseño completo: 3 cards con borde de color, `Card`/`Button`/`Input`, footer fijo, modal rediseñado |
+| `src/screens/Auth/ForgotPasswordScreen.styles.ts` | **NUEVO** — estilos dedicados con card violeta, infoBox, warningBox, modal éxito verde |
+| `src/screens/Auth/ForgotPasswordScreen.tsx` | Rediseño completo: card única, infoBox, footer fijo, modal de éxito con warningBox |
+| `src/screens/Auth/LoginScreen.styles.ts` | **NUEVO** — estilos dedicados con 2 cards de color, chip demo, footer fijo, modal datos |
+| `src/screens/Auth/LoginScreen.tsx` | Rediseño completo: 2 cards con borde de color, chip demo inline, footer fijo, modal rediseñado; imports limpiados |
+| `src/screens/Auth/language.ts` | 4 claves nuevas: `basicSectionTitle`, `contactSectionTitle`, `securitySectionTitle` (SignUp) + `sectionTitle` (ForgotPassword) en ES/EN/PT |
 | `src/screens/CreateEvent/index.tsx` | Rediseño completo: 2 cards, ubicación con Maps, chips contraídos, cards cíclicas, SHOW_SHARE_CARD, getCategoryLabel |
 | `src/screens/CreateEvent/styles.ts` | Nuevos estilos: `cardInfo`, `cardConfig`, `cardHeaderRow`, `cardHeaderTitle`, `scrollViewContent`, `configSummaryRow`, `configSummaryChip`, `configSummaryText`, `configSummaryFlag`, `prefGrid`, `prefCard`, `prefCardTitle` |
 | `src/screens/CreateEvent/language.ts` | Títulos actualizados (ES/EN/PT): `basicInformation` → "Información/Information/Informações"; `financialConfiguration` → "Opciones/Options/Opções" |
