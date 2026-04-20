@@ -109,6 +109,9 @@ export const signUpLanguage = {
       phoneLabel: 'Teléfono',
       phonePlaceholder: '+54 11 1234 5678',
       skipPasswordLabel: 'Crear usuario sin contraseña',
+      basicSectionTitle: 'Información Básica',
+      contactSectionTitle: 'Contacto',
+      securitySectionTitle: 'Seguridad',
       passwordLabel: 'Contraseña',
       passwordPlaceholder: 'Mínimo 6 caracteres',
       confirmPasswordLabel: 'Confirmar Contraseña',
@@ -183,6 +186,9 @@ export const signUpLanguage = {
       phoneLabel: 'Phone',
       phonePlaceholder: '+1 555 1234 5678',
       skipPasswordLabel: 'Create user without password',
+      basicSectionTitle: 'Basic Information',
+      contactSectionTitle: 'Contact',
+      securitySectionTitle: 'Security',
       passwordLabel: 'Password',
       passwordPlaceholder: 'Minimum 6 characters',
       confirmPasswordLabel: 'Confirm Password',
@@ -257,6 +263,9 @@ export const signUpLanguage = {
       phoneLabel: 'Telefone',
       phonePlaceholder: '+55 11 1234 5678',
       skipPasswordLabel: 'Criar usuário sem senha',
+      basicSectionTitle: 'Informações Básicas',
+      contactSectionTitle: 'Contato',
+      securitySectionTitle: 'Segurança',
       passwordLabel: 'Senha',
       passwordPlaceholder: 'Mínimo 6 caracteres',
       confirmPasswordLabel: 'Confirmar Senha',
@@ -330,6 +339,7 @@ export const forgotPasswordLanguage = {
       credentialPlaceholder: 'Tu usuario o email registrado',
       resetButton: 'Generar Contraseña Temporal',
       resetButtonLoading: 'Generando...',
+      sectionTitle: 'Recuperar Acceso',
       infoText: 'Ingresa tu usuario o email y generaremos una contraseña temporal para ti.'
     },
     errors: {
@@ -361,6 +371,7 @@ export const forgotPasswordLanguage = {
       credentialPlaceholder: 'Your registered username or email',
       resetButton: 'Generate Temporary Password',
       resetButtonLoading: 'Generating...',
+      sectionTitle: 'Recover Access',
       infoText: 'Enter your username or email and we will generate a temporary password for you.'
     },
     errors: {
@@ -392,6 +403,7 @@ export const forgotPasswordLanguage = {
       credentialPlaceholder: 'Seu usuário ou email cadastrado',
       resetButton: 'Gerar Senha Temporária',
       resetButtonLoading: 'Gerando...',
+      sectionTitle: 'Recuperar Acesso',
       infoText: 'Digite seu usuário ou email e geraremos uma senha temporária para você.'
     },
     errors: {

@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Image, Platform, Modal, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, KeyboardAvoidingView, Image, Platform, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
-import { HeaderBar } from '../../components';
+import { HeaderBar, Card, Button, Input } from '../../components';
 import { databaseService } from '../../services/database';
-import { createStyles } from './styles';
+import { createForgotPasswordStyles } from './ForgotPasswordScreen.styles';
 import { forgotPasswordLanguage } from './language';
 import { RootStackParamList } from '../../types/navigation';
 import { showAlert } from '../../services/alertService';
@@ -24,101 +25,8 @@ export default function ForgotPasswordScreen() {
   const { theme } = useTheme();
   const { language } = useLanguage();
   
-  const styles = createStyles(theme);
+  const styles = createForgotPasswordStyles(theme);
   const t = forgotPasswordLanguage[language as keyof typeof forgotPasswordLanguage] || forgotPasswordLanguage.es;
-
-  const fp = StyleSheet.create({
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.55)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 20,
-    },
-    successModal: {
-      backgroundColor: theme.colors.surface,
-      borderRadius: 20,
-      padding: 28,
-      width: '100%',
-      elevation: 10,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.25,
-      shadowRadius: 16,
-    },
-    title: {
-      fontSize: 22,
-      fontWeight: '700',
-      textAlign: 'center',
-      color: theme.colors.onSurface,
-      marginBottom: 8,
-    },
-    subtitle: {
-      fontSize: 14,
-      textAlign: 'center',
-      color: theme.colors.onSurfaceVariant,
-      marginBottom: 20,
-      lineHeight: 20,
-    },
-    passwordBox: {
-      borderRadius: 12,
-      borderWidth: 2,
-      borderColor: theme.colors.primary,
-      backgroundColor: theme.colors.surfaceVariant,
-      padding: 20,
-      alignItems: 'center',
-      marginBottom: 16,
-    },
-    passwordLabel: {
-      fontSize: 11,
-      fontWeight: '600',
-      textTransform: 'uppercase',
-      letterSpacing: 1,
-      color: theme.colors.onSurfaceVariant,
-      marginBottom: 10,
-    },
-    passwordText: {
-      fontSize: 26,
-      fontWeight: '800',
-      fontFamily: 'monospace',
-      letterSpacing: 4,
-      textAlign: 'center',
-      color: theme.colors.primary,
-    },
-    warningBox: {
-      borderRadius: 10,
-      borderWidth: 1,
-      borderColor: '#FF6D00',
-      backgroundColor: '#FFF3E0',
-      padding: 12,
-      marginBottom: 14,
-    },
-    warningText: {
-      ...theme.typography.bodyMedium,
-      fontWeight: '600',
-      textAlign: 'center',
-      color: '#E65100',
-    },
-    hint: {
-      fontSize: 12,
-      textAlign: 'center',
-      lineHeight: 18,
-      marginBottom: 22,
-      fontStyle: 'italic',
-      color: theme.colors.onSurfaceVariant,
-    },
-    confirmButton: {
-      borderRadius: 10,
-      paddingVertical: 14,
-      alignItems: 'center',
-      backgroundColor: theme.colors.primary,
-    },
-    confirmButtonText: {
-      fontSize: 16,
-      fontWeight: '700',
-      color: theme.colors.onPrimary,
-    },
-  });
 
   const generateTempPassword = (): string => {
     const upper = 'ABCDEFGHJKMNPQRSTUVWXYZ';
@@ -171,50 +79,49 @@ export default function ForgotPasswordScreen() {
     }
   };
 
-  const isDarkMode = theme.colors.surface !== '#FFFFFF';
-
   return (
     <View style={styles.container}>
 
-      {/* Modal de contraseña generada */}
+      {/* ── Modal: contraseña generada ─────────────────────── */}
       <Modal
         visible={generatedPassword !== null}
         transparent
         animationType="fade"
         onRequestClose={() => {}}
       >
-        <View style={fp.modalOverlay}>
-          <View style={fp.successModal}>
-            <Text style={fp.title}>{t.success.title}</Text>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{t.success.title}</Text>
+            <Text style={styles.modalSubtitle}>{t.success.message}</Text>
 
-            <Text style={fp.subtitle}>{t.success.message}</Text>
-
-            {/* Caja de la contraseña */}
-            <View style={fp.passwordBox}>
-              <Text style={fp.passwordLabel}>{t.success.tempPassword}</Text>
-              <Text style={fp.passwordText} selectable>{generatedPassword}</Text>
+            {/* Caja con la contraseña */}
+            <View style={styles.passwordBox}>
+              <Text style={styles.passwordBoxLabel}>{t.success.tempPassword}</Text>
+              <Text style={styles.passwordBoxText} selectable>{generatedPassword}</Text>
             </View>
 
             {/* Aviso importante */}
-            <View style={fp.warningBox}>
-              <Text style={fp.warningText}>{t.success.noteHint}</Text>
+            <View style={styles.warningBox}>
+              <Text style={styles.warningText}>{t.success.noteHint}</Text>
             </View>
 
-            <Text style={fp.hint}>{t.success.changePassword}</Text>
+            <Text style={styles.modalHint}>{t.success.changePassword}</Text>
 
             <TouchableOpacity
-              style={fp.confirmButton}
+              style={styles.modalButton}
               onPress={() => {
                 setGeneratedPassword(null);
                 navigation.navigate('Login');
               }}
+              activeOpacity={0.8}
             >
-              <Text style={fp.confirmButtonText}>{t.success.goToLogin}</Text>
+              <Text style={styles.modalButtonText}>{t.success.goToLogin}</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
+      {/* ── Header ────────────────────────────────────────── */}
       <HeaderBar
         title={t.title}
         titleAlignment="left"
@@ -225,61 +132,84 @@ export default function ForgotPasswordScreen() {
         showBackButton={false}
         elevation={true}
       />
-      
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
-        <View style={styles.iconSection}>
-          <Image
-            source={require('../../../assets/splitsmart/splash-icon-app_google.png')}
-            style={styles.appIcon}
-            resizeMode="contain"
-          />
-        </View>
-        <View style={styles.form}>
-          
-          <Text style={styles.infoText}>{t.form.infoText}</Text>
 
-          <Text style={[styles.label, submittedOnce && !credential.trim() && styles.labelError]}>
-            {t.form.credentialLabel}<Text style={styles.requiredStar}> *</Text>
-          </Text>
-          <TextInput
-            style={styles.input}
-            value={credential}
-            onChangeText={setCredential}
-            placeholder={t.form.credentialPlaceholder}
-            placeholderTextColor={theme.colors.onSurfaceVariant}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-
-          <TouchableOpacity 
-            style={[styles.button, loading && styles.buttonDisabled]} 
-            onPress={handleResetPassword}
-            disabled={loading}
+      {/* ── Contenido principal ───────────────────────────── */}
+      <KeyboardAvoidingView style={styles.keyboardWrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
-            <Text style={styles.buttonText}>
-              {loading ? t.form.resetButtonLoading : t.form.resetButton}
-            </Text>
-          </TouchableOpacity>
+            {/* Logo */}
+            <View style={styles.logoSection}>
+              <Image
+                source={require('../../../assets/splitsmart/splash-icon-app_google.png')}
+                style={styles.appIcon}
+                resizeMode="contain"
+              />
+            </View>
 
-          {/* Enlaces de navegación */}
-          <View style={styles.linksContainer}>
-            <TouchableOpacity 
-              style={styles.linkButton}
-              onPress={() => navigation.navigate('Login')}
-            >
-              <Text style={styles.linkText}>{t.links.backToLogin}</Text>
-            </TouchableOpacity>
+            {/* ── Card: Recuperar contraseña ───────────────── */}
+            <Card style={styles.card}>
+              {/* Header de card */}
+              <View style={styles.cardHeaderRow}>
+                <MaterialCommunityIcons name="lock-reset" size={20} color="#9C27B0" />
+                <Text style={styles.cardHeaderTitle}>{t.form.sectionTitle || 'Recuperar Contraseña'}</Text>
+              </View>
 
-            <TouchableOpacity 
-              style={styles.linkButton}
+              {/* Info box */}
+              <View style={styles.infoBox}>
+                <MaterialCommunityIcons name="information-outline" size={18} color="#9C27B0" />
+                <Text style={styles.infoText}>{t.form.infoText}</Text>
+              </View>
+
+              {/* Input de credencial */}
+              <Input
+                label={t.form.credentialLabel}
+                required
+                value={credential}
+                onChangeText={setCredential}
+                placeholder={t.form.credentialPlaceholder}
+                autoCapitalize="none"
+                autoCorrect={false}
+                error={submittedOnce && !credential.trim() ? t.errors.credentialRequired : undefined}
+                icon="account-search-outline"
+              />
+            </Card>
+
+            {/* Link secundario */}
+            <TouchableOpacity
+              style={styles.linkRow}
               onPress={() => navigation.navigate('SignUp')}
             >
               <Text style={styles.linkText}>{t.links.createAccount}</Text>
             </TouchableOpacity>
+          </ScrollView>
+
+          {/* ── Footer fijo ─────────────────────────────────── */}
+          <View style={styles.footer}>
+            <View style={styles.footerButtonFlex}>
+              <Button
+                title={t.links.backToLogin}
+                variant="outlined"
+                onPress={() => navigation.navigate('Login')}
+                fullWidth
+              />
+            </View>
+            <View style={styles.footerButtonFlex}>
+              <Button
+                title={loading ? t.form.resetButtonLoading : t.form.resetButton}
+                variant="filled"
+                onPress={handleResetPassword}
+                loading={loading}
+                disabled={loading}
+                fullWidth
+              />
+            </View>
           </View>
-        </View>
-      </SafeAreaView>
+        </SafeAreaView>
       </KeyboardAvoidingView>
     </View>
   );

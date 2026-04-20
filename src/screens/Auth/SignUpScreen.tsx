@@ -1,16 +1,16 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Image, Platform, Modal, StyleSheet } from 'react-native';
+﻿import React, { useState, useRef } from 'react';
+import { View, Text, ScrollView, KeyboardAvoidingView, Image, Platform, Modal, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
-import { HeaderBar } from '../../components';
+import { HeaderBar, Card, Button, Input } from '../../components';
 import TutorialOverlay from '../../components/TutorialOverlay';
 import { databaseService } from '../../services/database';
 import { useAuth } from '../../context/AuthContext';
-import { createStyles } from './styles';
+import { createSignUpStyles } from './SignUpScreen.styles';
 import { signUpLanguage } from './language';
 import { RootStackParamList } from '../../types/navigation';
 import { showAlert } from '../../services/alertService';
@@ -87,7 +87,7 @@ export default function SignUpScreen() {
   const { language } = useLanguage();
   const { login } = useAuth();
   
-  const styles = createStyles(theme);
+  const styles = createSignUpStyles(theme);
   const t = signUpLanguage[language as keyof typeof signUpLanguage] || signUpLanguage.es;
 
   // Función para calcular fortaleza de contraseña
@@ -308,131 +308,44 @@ export default function SignUpScreen() {
     setPendingCredentials(null);
   };
 
-  const fm = StyleSheet.create({
-    overlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.55)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 20,
-    },
-    card: {
-      backgroundColor: theme.colors.surface,
-      borderRadius: 20,
-      padding: 24,
-      width: '100%',
-      elevation: 10,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.25,
-      shadowRadius: 16,
-    },
-    title: {
-      fontSize: 20,
-      fontWeight: '700',
-      color: theme.colors.onSurface,
-      textAlign: 'center',
-      marginBottom: 8,
-    },
-    subtitle: {
-      fontSize: 13,
-      color: theme.colors.onSurfaceVariant,
-      textAlign: 'center',
-      lineHeight: 19,
-      marginBottom: 18,
-    },
-    dataRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 7,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.outline + '40',
-      gap: 10,
-    },
-    dataLabel: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: theme.colors.onSurfaceVariant,
-      width: 60,
-    },
-    dataValue: {
-      fontSize: 14,
-      color: theme.colors.onSurface,
-      flex: 1,
-    },
-    noteBox: {
-      backgroundColor: theme.colors.surfaceVariant,
-      borderRadius: 10,
-      padding: 12,
-      marginTop: 16,
-      marginBottom: 20,
-    },
-    noteText: {
-      fontSize: 12,
-      color: theme.colors.onSurfaceVariant,
-      lineHeight: 18,
-    },
-    confirmButton: {
-      backgroundColor: theme.colors.primary,
-      borderRadius: 10,
-      paddingVertical: 14,
-      alignItems: 'center',
-      marginBottom: 10,
-    },
-    confirmText: {
-      fontSize: 15,
-      fontWeight: '700',
-      color: theme.colors.onPrimary,
-    },
-    skipButton: {
-      alignItems: 'center',
-      paddingVertical: 10,
-    },
-    skipText: {
-      fontSize: 14,
-      color: theme.colors.onSurfaceVariant,
-    },
-  });
-
   return (
     <View style={styles.container}>
 
-      {/* Modal: ¿Agregarte como amigo? */}
+      {/* ── Modal: ¿Agregarte como amigo? ─────────────────── */}
       <Modal visible={showFriendModal} transparent animationType="fade" onRequestClose={() => {}}>
-        <View style={fm.overlay}>
-          <View style={fm.card}>
-            <Text style={fm.title}>{t.friendModal.title}</Text>
-            <Text style={fm.subtitle}>{t.friendModal.subtitle}</Text>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{t.friendModal.title}</Text>
+            <Text style={styles.modalSubtitle}>{t.friendModal.subtitle}</Text>
 
-            {/* Datos que se usarán */}
-            <View style={fm.dataRow}>
-              <Text style={fm.dataLabel}>{t.friendModal.nameLabel}</Text>
-              <Text style={fm.dataValue}>{formData.name.trim()}</Text>
+            <View style={styles.modalDataRow}>
+              <Text style={styles.modalDataLabel}>{t.friendModal.nameLabel}</Text>
+              <Text style={styles.modalDataValue}>{formData.name.trim()}</Text>
             </View>
-            <View style={fm.dataRow}>
-              <Text style={fm.dataLabel}>{t.friendModal.emailLabel}</Text>
-              <Text style={fm.dataValue}>{formData.email.trim() || t.friendModal.noEmail}</Text>
+            <View style={styles.modalDataRow}>
+              <Text style={styles.modalDataLabel}>{t.friendModal.emailLabel}</Text>
+              <Text style={styles.modalDataValue}>{formData.email.trim() || t.friendModal.noEmail}</Text>
             </View>
-            <View style={fm.dataRow}>
-              <Text style={fm.dataLabel}>{t.friendModal.phoneLabel}</Text>
-              <Text style={fm.dataValue}>{formData.phone.trim() || t.friendModal.noPhone}</Text>
-            </View>
-
-            {/* Nota de independencia */}
-            <View style={fm.noteBox}>
-              <Text style={fm.noteText}>{t.friendModal.note}</Text>
+            <View style={styles.modalDataRow}>
+              <Text style={styles.modalDataLabel}>{t.friendModal.phoneLabel}</Text>
+              <Text style={styles.modalDataValue}>{formData.phone.trim() || t.friendModal.noPhone}</Text>
             </View>
 
-            <TouchableOpacity style={fm.confirmButton} onPress={() => handleFriendDecision(true)} activeOpacity={0.8}>
-              <Text style={fm.confirmText}>{t.friendModal.confirmButton}</Text>
+            <View style={styles.modalNoteBox}>
+              <Text style={styles.modalNoteText}>{t.friendModal.note}</Text>
+            </View>
+
+            <TouchableOpacity style={styles.modalConfirmButton} onPress={() => handleFriendDecision(true)} activeOpacity={0.8}>
+              <Text style={styles.modalConfirmText}>{t.friendModal.confirmButton}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={fm.skipButton} onPress={() => handleFriendDecision(false)} activeOpacity={0.7}>
-              <Text style={fm.skipText}>{t.friendModal.skipButton}</Text>
+            <TouchableOpacity style={styles.modalSkipButton} onPress={() => handleFriendDecision(false)} activeOpacity={0.7}>
+              <Text style={styles.modalSkipText}>{t.friendModal.skipButton}</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
+      {/* ── Header ────────────────────────────────────────── */}
       <HeaderBar
         title={t.title}
         titleAlignment="left"
@@ -442,226 +355,231 @@ export default function SignUpScreen() {
         showHelp={true}
         showBackButton={false}
         elevation={true}
-        onHelpPress={() => { suScrollRef.current?.scrollTo({ y: 0, animated: false }); setSuTourStep(0); setSuTourVisible(true); }}
+        onHelpPress={() => {
+          suScrollRef.current?.scrollTo({ y: 0, animated: false });
+          setSuTourStep(0);
+          setSuTourVisible(true);
+        }}
       />
-      
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
-        <ScrollView ref={suScrollRef} style={styles.scrollView} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <View style={styles.iconSection}>
-            <Image
-              source={require('../../../assets/splitsmart/splash-icon-app_google.png')}
-              style={styles.appIcon}
-              resizeMode="contain"
-            />
-          </View>
-          <View style={styles.form}>
-            <View ref={suBasicRef} collapsable={false}>
-            {/* Nombre completo */}
-            <Text style={[styles.label, hasFieldError('name') && styles.labelError]}>
-              {t.form.nameLabel}<Text style={styles.requiredStar}> *</Text>
-            </Text>
-            <TextInput
-              style={styles.input}
-              value={formData.name}
-              onChangeText={(text) => updateFormData('name', text)}
-              placeholder={t.form.namePlaceholder}
-              placeholderTextColor={theme.colors.onSurfaceVariant}
-              autoCapitalize="words"
-              autoCorrect={false}
-            />
 
-            {/* Username */}
-            <Text style={[styles.label, hasFieldError('username') && styles.labelError]}>
-              {t.form.usernameLabel}<Text style={styles.requiredStar}> *</Text>
-            </Text>
-            <View style={styles.inputWithIndicator}>
-              <TextInput
-                style={[
-                  styles.inputWithIcon,
-                  usernameValidation.isValid && styles.inputValid,
-                  (!usernameValidation.isValid && usernameValidation.message && !usernameValidation.isChecking) && styles.inputInvalid
-                ]}
-                value={formData.username}
-                onChangeText={(text) => updateFormData('username', text)}
-                placeholder={t.form.usernamePlaceholder}
-                placeholderTextColor={theme.colors.onSurfaceVariant}
-                autoCapitalize="none"
-                autoCorrect={false}
+      {/* ── Contenido principal ───────────────────────────── */}
+      <KeyboardAvoidingView style={styles.keyboardWrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
+          <ScrollView
+            ref={suScrollRef}
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Logo */}
+            <View style={styles.logoSection}>
+              <Image
+                source={require('../../../assets/splitsmart/splash-icon-app_google.png')}
+                style={styles.appIcon}
+                resizeMode="contain"
               />
-              <View style={styles.validationIndicator}>
-                {usernameValidation.isChecking ? (
-                  <MaterialCommunityIcons name="loading" size={20} color={theme.colors.primary} />
-                ) : usernameValidation.isValid ? (
-                  <MaterialCommunityIcons name="check-circle" size={20} color="#4CAF50" />
-                ) : usernameValidation.message ? (
-                  <MaterialCommunityIcons name="close-circle" size={20} color="#FF5252" />
-                ) : null}
-              </View>
             </View>
-            {usernameValidation.message && (
-              <Text style={[
-                styles.validationText,
-                usernameValidation.isValid ? styles.validationTextSuccess : styles.validationTextError
-              ]}>
-                {usernameValidation.message}
-              </Text>
-            )}
-            </View>{/* end suBasicRef */}
 
-            <View ref={suContactRef} collapsable={false}>
-            {/* Teléfono (obligatorio) */}
-            <Text style={[styles.label, hasFieldError('phone') && styles.labelError]}>
-              {t.form.phoneLabel}<Text style={styles.requiredStar}> *</Text>
-            </Text>
-            <TextInput
-              style={styles.input}
-              value={formData.phone}
-              onChangeText={(text) => {
-                const startsWithPlus = text.startsWith('+');
-                let digits = text.replace(/\D/g, '');
-                if (digits.length > 16) digits = digits.slice(0, 16);
-                const filtered = startsWithPlus ? '+' + digits : digits;
-                updateFormData('phone', filtered);
-              }}
-              placeholder={t.form.phonePlaceholder}
-              placeholderTextColor={theme.colors.onSurfaceVariant}
-              keyboardType="phone-pad"
-            />
-
-            {/* Email (opcional) */}
-            <Text style={styles.label}>{t.form.emailLabel}</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.email}
-              onChangeText={(text) => updateFormData('email', text.toLowerCase().replace(/\s/g, ''))}
-              placeholder={t.form.emailPlaceholder}
-              placeholderTextColor={theme.colors.onSurfaceVariant}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            </View>{/* end suContactRef */}
-
-            <View ref={suPasswordRef} collapsable={false}>
-            {/* Checkbox para usuario sin contraseña */}
-            <TouchableOpacity 
-              style={styles.checkboxContainer}
-              onPress={() => updateFormData('skipPassword', !formData.skipPassword)}
-            >
-              <MaterialCommunityIcons
-                name={formData.skipPassword ? "checkbox-marked" : "checkbox-blank-outline"}
-                size={24}
-                color={theme.colors.primary}
-              />
-              <Text style={styles.checkboxText}>{t.form.skipPasswordLabel}</Text>
-            </TouchableOpacity>
-
-            {!formData.skipPassword && (
-              <>
-                {/* Contraseña */}
-                <Text style={[styles.label, hasFieldError('password') && styles.labelError]}>
-                  {t.form.passwordLabel}<Text style={styles.requiredStar}> *</Text>
-                </Text>
-                <View style={styles.passwordContainer}>
-                  <TextInput
-                    style={styles.passwordInput}
-                    value={formData.password}
-                    onChangeText={(text) => updateFormData('password', text)}
-                    placeholder={t.form.passwordPlaceholder}
-                    placeholderTextColor={theme.colors.onSurfaceVariant}
-                    secureTextEntry={!showPassword}
-                  />
-                  <TouchableOpacity
-                    style={styles.eyeButton}
-                    onPress={() => setShowPassword(!showPassword)}
-                  >
-                    <MaterialCommunityIcons
-                      name={showPassword ? "eye-off" : "eye"}
-                      size={24}
-                      color={theme.colors.onSurfaceVariant}
-                    />
-                  </TouchableOpacity>
+            {/* ── Card: Información Básica ─────────────────── */}
+            <View ref={suBasicRef} collapsable={false}>
+              <Card style={[styles.card, styles.cardBasic]}>
+                <View style={styles.cardHeaderRow}>
+                  <MaterialCommunityIcons name="account-outline" size={20} color="#2196F3" />
+                  <Text style={styles.cardHeaderTitle}>{t.form.basicSectionTitle || 'Información Básica'}</Text>
                 </View>
 
-                {/* Indicador de fortaleza de contraseña */}
-                {formData.password && (
-                  <View style={styles.passwordStrengthContainer}>
-                    <View style={styles.passwordStrengthBar}>
-                      <View 
-                        style={[
-                          styles.passwordStrengthFill,
-                          { 
-                            width: `${(passwordStrength.score / 5) * 100}%`,
-                            backgroundColor: passwordStrength.color
-                          }
-                        ]}
-                      />
-                    </View>
-                    <Text style={[styles.passwordStrengthText, { color: passwordStrength.color }]}>
-                      {passwordStrength.label}
-                    </Text>
+                <Input
+                  label={t.form.nameLabel}
+                  required
+                  value={formData.name}
+                  onChangeText={(text) => updateFormData('name', text)}
+                  placeholder={t.form.namePlaceholder}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  error={hasFieldError('name') ? t.errors.nameRequired : undefined}
+                  icon="account-outline"
+                />
+
+                <View style={styles.inputSpacer} />
+
+                <View style={styles.usernameWrapper}>
+                  <Input
+                    label={t.form.usernameLabel}
+                    required
+                    value={formData.username}
+                    onChangeText={(text) => updateFormData('username', text)}
+                    placeholder={t.form.usernamePlaceholder}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    error={hasFieldError('username') ? (usernameValidation.message || t.errors.usernameRequired) : undefined}
+                    success={usernameValidation.isValid}
+                    icon="at"
+                    containerStyle={{ paddingRight: 36 }}
+                  />
+                  <View style={styles.usernameIndicator}>
+                    {usernameValidation.isChecking ? (
+                      <MaterialCommunityIcons name="loading" size={20} color={theme.colors.primary} />
+                    ) : usernameValidation.isValid ? (
+                      <MaterialCommunityIcons name="check-circle" size={20} color="#4CAF50" />
+                    ) : usernameValidation.message ? (
+                      <MaterialCommunityIcons name="close-circle" size={20} color="#FF5252" />
+                    ) : null}
                   </View>
-                )}
-
-                {/* Confirmar contraseña */}
-                <Text style={[styles.label, hasFieldError('confirmPassword') && styles.labelError]}>
-                  {t.form.confirmPasswordLabel}<Text style={styles.requiredStar}> *</Text>
-                </Text>
-                <View style={styles.passwordContainer}>
-                  <TextInput
-                    style={styles.passwordInput}
-                    value={formData.confirmPassword}
-                    onChangeText={(text) => updateFormData('confirmPassword', text)}
-                    placeholder={t.form.confirmPasswordPlaceholder}
-                    placeholderTextColor={theme.colors.onSurfaceVariant}
-                    secureTextEntry={!showConfirmPassword}
-                  />
-                  <TouchableOpacity
-                    style={styles.eyeButton}
-                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    <MaterialCommunityIcons
-                      name={showConfirmPassword ? "eye-off" : "eye"}
-                      size={24}
-                      color={theme.colors.onSurfaceVariant}
-                    />
-                  </TouchableOpacity>
                 </View>
-                {passwordsMatch === false && formData.confirmPassword && (
-                  <Text style={styles.validationTextError}>
-                    {t.errors.passwordMismatch}
+                {usernameValidation.message && !hasFieldError('username') && (
+                  <Text style={[
+                    styles.validationText,
+                    usernameValidation.isValid ? styles.validationTextSuccess : styles.validationTextError,
+                  ]}>
+                    {usernameValidation.message}
                   </Text>
                 )}
-              </>
-            )}
-            </View>{/* end suPasswordRef */}
+              </Card>
+            </View>
 
+            {/* ── Card: Contacto ───────────────────────────── */}
+            <View ref={suContactRef} collapsable={false}>
+              <Card style={[styles.card, styles.cardContact]}>
+                <View style={styles.cardHeaderRow}>
+                  <MaterialCommunityIcons name="phone-outline" size={20} color="#4CAF50" />
+                  <Text style={styles.cardHeaderTitle}>{t.form.contactSectionTitle || 'Contacto'}</Text>
+                </View>
+
+                <Input
+                  label={t.form.phoneLabel}
+                  required
+                  value={formData.phone}
+                  onChangeText={(text) => {
+                    const startsWithPlus = text.startsWith('+');
+                    let digits = text.replace(/\D/g, '');
+                    if (digits.length > 16) digits = digits.slice(0, 16);
+                    const filtered = startsWithPlus ? '+' + digits : digits;
+                    updateFormData('phone', filtered);
+                  }}
+                  placeholder={t.form.phonePlaceholder}
+                  keyboardType="phone-pad"
+                  error={hasFieldError('phone') ? t.errors.phoneRequired : undefined}
+                  icon="phone-outline"
+                />
+
+                <View style={styles.inputSpacer} />
+
+                <Input
+                  label={t.form.emailLabel}
+                  value={formData.email}
+                  onChangeText={(text) => updateFormData('email', text.toLowerCase().replace(/\s/g, ''))}
+                  placeholder={t.form.emailPlaceholder}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  icon="email-outline"
+                />
+              </Card>
+            </View>
+
+            {/* ── Card: Seguridad ──────────────────────────── */}
+            <View ref={suPasswordRef} collapsable={false}>
+              <Card style={[styles.card, styles.cardSecurity]}>
+                <View style={styles.cardHeaderRow}>
+                  <MaterialCommunityIcons name="shield-lock-outline" size={20} color="#FF9800" />
+                  <Text style={styles.cardHeaderTitle}>{t.form.securitySectionTitle || 'Seguridad'}</Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.noPasswordTile, formData.skipPassword && styles.noPasswordTileActive]}
+                  onPress={() => updateFormData('skipPassword', !formData.skipPassword)}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons
+                    name={formData.skipPassword ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                    size={22}
+                    color={formData.skipPassword ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                  />
+                  <Text style={[styles.noPasswordTileText, formData.skipPassword && styles.noPasswordTileTextActive]}>
+                    {t.form.skipPasswordLabel}
+                  </Text>
+                </TouchableOpacity>
+
+                {!formData.skipPassword && (
+                  <>
+                    <Input
+                      label={t.form.passwordLabel}
+                      required
+                      type="password"
+                      value={formData.password}
+                      onChangeText={(text) => updateFormData('password', text)}
+                      placeholder={t.form.passwordPlaceholder}
+                      error={hasFieldError('password') ? t.errors.passwordRequired : undefined}
+                      icon="lock-outline"
+                    />
+
+                    {formData.password ? (
+                      <View style={styles.strengthContainer}>
+                        <View style={styles.strengthBarBg}>
+                          <View
+                            style={[
+                              styles.strengthBarFill,
+                              { width: `${(passwordStrength.score / 5) * 100}%`, backgroundColor: passwordStrength.color },
+                            ]}
+                          />
+                        </View>
+                        <Text style={[styles.strengthText, { color: passwordStrength.color }]}>
+                          {passwordStrength.label}
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    <View style={styles.inputSpacer} />
+
+                    <Input
+                      label={t.form.confirmPasswordLabel}
+                      required
+                      type="password"
+                      value={formData.confirmPassword}
+                      onChangeText={(text) => updateFormData('confirmPassword', text)}
+                      placeholder={t.form.confirmPasswordPlaceholder}
+                      error={
+                        hasFieldError('confirmPassword')
+                          ? t.errors.passwordMismatch
+                          : passwordsMatch === false && formData.confirmPassword
+                          ? t.errors.passwordMismatch
+                          : undefined
+                      }
+                      success={passwordsMatch === true}
+                      icon="lock-check-outline"
+                    />
+                  </>
+                )}
+              </Card>
+            </View>
+          </ScrollView>
+
+          {/* ── Footer fijo ─────────────────────────────────── */}
+          <View ref={suButtonRef} collapsable={false} style={styles.footer}>
+            <View style={styles.footerButtonFlex}>
+              <Button
+                title={t.links.backToLogin}
+                variant="outlined"
+                onPress={() => navigation.navigate('Login')}
+                fullWidth
+              />
+            </View>
+            <View style={styles.footerButtonFlex}>
+              <Button
+                title={t.form.signUpButton}
+                variant="filled"
+                onPress={handleSignUp}
+                loading={loading}
+                disabled={loading}
+                fullWidth
+              />
+            </View>
           </View>
-        </ScrollView>
-
-        {/* Footer fijo con botón de registro */}
-        <View ref={suButtonRef} collapsable={false} style={styles.fixedFooter}>
-          <TouchableOpacity 
-            style={[styles.button, loading && styles.buttonDisabled]} 
-            onPress={handleSignUp}
-            disabled={loading}
-          >
-            <Text style={styles.buttonText}>
-              {loading ? t.form.signUpButtonLoading : t.form.signUpButton}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.linkButton}
-            onPress={() => navigation.navigate('Login')}
-          >
-            <Text style={styles.linkText}>{t.links.backToLogin}</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+        </SafeAreaView>
       </KeyboardAvoidingView>
 
+      {/* ── Tour guiado ─────────────────────────────────────── */}
       <TutorialOverlay
         visible={suTourVisible}
         steps={[

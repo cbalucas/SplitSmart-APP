@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, Modal, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Modal, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -7,9 +7,9 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
-import { HeaderBar } from '../../components';
-import { LoginFormData, LoginFormErrors } from './types';
-import { createStyles } from './styles';
+import { HeaderBar, Card, Button, Input } from '../../components';
+import { LoginFormData } from './types';
+import { createLoginStyles } from './LoginScreen.styles';
 import { loginLanguage } from './language';
 import { RootStackParamList } from '../../types/navigation';
 import { showAlert } from '../../services/alertService';
@@ -29,7 +29,7 @@ export default function LoginScreen() {
   const { language } = useLanguage();
   const navigation = useNavigation<NavigationProp>();
   
-  const styles = createStyles(theme);
+  const styles = createLoginStyles(theme);
   const t = loginLanguage[language as keyof typeof loginLanguage] || loginLanguage.es;
 
   const hasFieldError = (field: 'credential'): boolean => {
@@ -53,7 +53,45 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header with theme and language controls only */}
+
+      {/* ── Modal: datos demo ────────────────────────────── */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showDemoModal}
+        onRequestClose={() => setShowDemoModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeaderRow}>
+              <MaterialCommunityIcons name="information-outline" size={22} color={theme.colors.primary} />
+              <Text style={styles.modalTitle}>{t.demo.title}</Text>
+              <TouchableOpacity style={styles.modalCloseButton} onPress={() => setShowDemoModal(false)}>
+                <MaterialCommunityIcons name="close" size={22} color={theme.colors.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalDataRow}>
+              <Text style={styles.modalDataLabel}>Usuario</Text>
+              <Text style={styles.modalDataValue}>Demo</Text>
+            </View>
+            <View style={styles.modalDataRow}>
+              <Text style={styles.modalDataLabel}>Email</Text>
+              <Text style={styles.modalDataValue}>demo@splitsmart.com</Text>
+            </View>
+            <View style={styles.modalDataRow}>
+              <Text style={styles.modalDataLabel}>Contraseña</Text>
+              <Text style={styles.modalDataValue}>{t.demo.passwordNote}</Text>
+            </View>
+
+            <TouchableOpacity style={styles.modalButton} onPress={() => setShowDemoModal(false)} activeOpacity={0.8}>
+              <Text style={styles.modalButtonText}>Entendido</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Header ────────────────────────────────────────── */}
       <HeaderBar
         title={t.title}
         titleAlignment="left"
@@ -65,144 +103,100 @@ export default function LoginScreen() {
         elevation={true}
         showLogo={false}
       />
-      
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
-      <SafeAreaView style={{ flex: 1 }} edges={['bottom', 'left', 'right']}>
-        <ScrollView
-          contentContainerStyle={styles.safeContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-        {/* Ícono de la aplicación */}
-        <View style={styles.iconSection}>
-          <Image 
-            source={require('../../../assets/splitsmart/adaptive-icon.png')}
-            style={styles.appIcon}
-            resizeMode="contain"
-          />
-        </View>
-        
-        <View style={styles.form}>
-        <Text style={[styles.label, hasFieldError('credential') && styles.labelError]}>
-          {t.form.credentialLabel}<Text style={styles.requiredStar}> *</Text>
-        </Text>
-        <TextInput
-          style={styles.input}
-          value={formData.credential}
-          onChangeText={(text) => setFormData(prev => ({ ...prev, credential: text }))}
-          placeholder={t.form.credentialPlaceholder}
-          placeholderTextColor={theme.colors.onSurfaceVariant}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
 
-        {/* Enlace de datos de prueba */}
-        <TouchableOpacity 
-          style={styles.demoLinkButton}
-          onPress={() => setShowDemoModal(true)}
-        >
-          <Text style={styles.demoLinkText}>{t.demo.title}</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.label}>{t.form.passwordLabel}</Text>
-        <View style={styles.passwordContainer}>
-          <TextInput
-            style={styles.passwordInput}
-            value={formData.password}
-            onChangeText={(text) => setFormData(prev => ({ ...prev, password: text }))}
-            placeholder={t.form.passwordPlaceholder}
-            placeholderTextColor={theme.colors.onSurfaceVariant}
-            secureTextEntry={!showPassword}
-          />
-          <TouchableOpacity
-            style={styles.eyeButton}
-            onPress={() => setShowPassword(!showPassword)}
+      {/* ── Contenido principal ───────────────────────────── */}
+      <KeyboardAvoidingView style={styles.keyboardWrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            <MaterialCommunityIcons
-              name={showPassword ? "eye-off" : "eye"}
-              size={24}
-              color={theme.colors.onSurfaceVariant}
-            />
-          </TouchableOpacity>
-        </View>
+            {/* Logo */}
+            <View style={styles.logoSection}>
+              <Image
+                source={require('../../../assets/splitsmart/adaptive-icon.png')}
+                style={styles.appIcon}
+                resizeMode="contain"
+              />
+            </View>
 
-
-        <View style={styles.linksContainer}>
-          <TouchableOpacity 
-            style={styles.linkButton}
-            onPress={() => navigation.navigate('ForgotPassword')}
-          >
-            <Text style={styles.linkText}>{t.links.forgotPassword}</Text>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity 
-          style={[styles.button, loading && styles.buttonDisabled]} 
-          onPress={handleLogin}
-          disabled={loading ? true : false}
-        >
-          <Text style={styles.buttonText}>
-            {loading ? t.form.loginButtonLoading : t.form.loginButton}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Enlaces de navegación */}
-        <View style={styles.linksContainer}>
-          <TouchableOpacity 
-            style={styles.linkButton}
-            onPress={() => navigation.navigate('SignUp')}
-          >
-            <Text style={styles.linkText}>{t.links.signUp}</Text>
-          </TouchableOpacity>
-
-          {/* <TouchableOpacity 
-            style={styles.linkButton}
-            onPress={() => navigation.navigate('ForgotPassword')}
-          >
-            <Text style={styles.linkText}>{t.links.forgotPassword}</Text>
-          </TouchableOpacity> */}
-        </View>
-        </View>
-        
-        {/* Modal para información demo */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={showDemoModal}
-          onRequestClose={() => setShowDemoModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>{t.demo.title}</Text>
-                <TouchableOpacity
-                  style={styles.modalCloseButton}
-                  onPress={() => setShowDemoModal(false)}
-                >
-                  <MaterialCommunityIcons
-                    name="close"
-                    size={24}
-                    color={theme.colors.onSurface}
-                  />
+            {/* ── Card: Credencial ─────────────────────────── */}
+            <Card style={styles.cardCredential}>
+              {/* Header de card */}
+              <View style={styles.cardHeaderRow}>
+                <MaterialCommunityIcons name="account-outline" size={20} color="#2196F3" />
+                <Text style={styles.cardHeaderTitle}>{t.form.credentialLabel}</Text>
+                {/* Chip de datos demo */}
+                <TouchableOpacity style={styles.demoChip} onPress={() => setShowDemoModal(true)} activeOpacity={0.7}>
+                  <MaterialCommunityIcons name="flask-outline" size={13} color={theme.colors.onSurfaceVariant} />
+                  <Text style={styles.demoChipText}>{t.demo.title}</Text>
                 </TouchableOpacity>
               </View>
-              <View style={styles.modalBody}>
-                <Text style={styles.demoText}>{t.demo.username}</Text>
-                <Text style={styles.demoText}>{t.demo.email}</Text>
-                <Text style={styles.demoText}>{t.demo.passwordNote}</Text>
+
+              <Input
+                label={t.form.credentialLabel}
+                required
+                value={formData.credential}
+                onChangeText={(text) => setFormData(prev => ({ ...prev, credential: text }))}
+                placeholder={t.form.credentialPlaceholder}
+                autoCapitalize="none"
+                autoCorrect={false}
+                error={hasFieldError('credential') ? t.errors.credentialRequired : undefined}
+                icon="account-circle-outline"
+              />
+            </Card>
+
+            {/* ── Card: Contraseña ─────────────────────────── */}
+            <Card style={styles.cardPassword}>
+              {/* Header de card */}
+              <View style={styles.cardHeaderRow}>
+                <MaterialCommunityIcons name="lock-outline" size={20} color="#FF9800" />
+                <Text style={styles.cardHeaderTitle}>{t.form.passwordLabel}</Text>
               </View>
+
+              <Input
+                label={t.form.passwordLabel}
+                type="password"
+                value={formData.password}
+                onChangeText={(text) => setFormData(prev => ({ ...prev, password: text }))}
+                placeholder={t.form.passwordPlaceholder}
+                icon="lock-outline"
+              />
+
+              {/* Link ¿Olvidaste tu contraseña? */}
               <TouchableOpacity
-                style={styles.modalButton}
-                onPress={() => setShowDemoModal(false)}
+                style={styles.forgotPasswordRow}
+                onPress={() => navigation.navigate('ForgotPassword')}
               >
-                <Text style={styles.modalButtonText}>Entendido</Text>
+                <Text style={styles.forgotPasswordText}>{t.links.forgotPassword}</Text>
               </TouchableOpacity>
+            </Card>
+
+            {/* Link ¿No tienes cuenta? */}
+            <TouchableOpacity
+              style={styles.linkRow}
+              onPress={() => navigation.navigate('SignUp')}
+            >
+              <Text style={styles.linkText}>{t.links.signUp}</Text>
+            </TouchableOpacity>
+          </ScrollView>
+
+          {/* ── Footer fijo ─────────────────────────────────── */}
+          <View style={styles.footer}>
+            <View style={styles.footerButtonFlex}>
+              <Button
+                title={loading ? t.form.loginButtonLoading : t.form.loginButton}
+                variant="filled"
+                onPress={handleLogin}
+                loading={loading}
+                disabled={loading}
+                fullWidth
+              />
             </View>
           </View>
-        </Modal>
-
-        </ScrollView>
-      </SafeAreaView>
+        </SafeAreaView>
       </KeyboardAvoidingView>
     </View>
   );
