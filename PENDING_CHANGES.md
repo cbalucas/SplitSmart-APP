@@ -12,19 +12,36 @@
 
 ### 🚀 Nuevas Funcionalidades
 
-_(ninguna aún)_
+- **ProfileScreen — diseño de cards unificado**: todas las secciones del perfil ahora utilizan el mismo sistema de tarjetas (`infoNavCard` / `statCardWide`) con altura fija de 82 px, borde de color superior/izquierdo y grid de 2 columnas (`statsGrid`)
+- **Estadísticas — card Amigos**: color actualizado a `#E91E63` (unificado con el color de Tema en Preferencias)
+- **Información Personal (vista)**: rediseñada con grid de cards — Nombre `#4CAF50` + Usuario `#2196F3` en fila, Email `#FF9800` y Teléfono `#9C27B0` como `statCardWide`
+- **Seguridad**: rediseñada con fila de 2 `infoNavCard` — Cambiar Contraseña `#E91E63` (tap abre modal) + Omitir Contraseña con texto `ACTIVO`/`DESACTIVADO` y borde dinámico
+- **Preferencias — Inicio Automático**: texto `ACTIVADO`/`DESACTIVADO` en lugar del ícono toggle; subtítulo descriptivo restaurado
 
 ### 🔧 Correcciones de Bugs
 
-_(ninguna aún)_
+- **Cards de altura desigual (Preferencias)**: corregido el problema donde `alignItems: stretch` de Yoga/RN estiraba las cards envueltas por `CurrencySelector` / `LanguageSelector`. Fix: wrapper `<View style={{ flex: 1, height: 82 }}>` explícito en todas las cards de la grilla + `overflow: 'hidden'` en `infoNavCard`
+- **Card Tema sin wrapper de altura**: la card Tema era un `TouchableOpacity` directo sin `<View height:82>`, causando que se estirara al alto del par. Corregido añadiendo el mismo wrapper que Idioma, Moneda y Cierre
+- **Cierre Aut. con `flex:1` inline**: el `flex: 1` estaba en el `infoNavCard` en vez del wrapper, alterando el comportamiento de layout. Movido al `<View>` contenedor
+- **Traducciones no actualizadas en runtime**: las claves de i18n se resuelven desde `LanguageContext.tsx` (no desde los archivos `.json`). Los textos de `autoLogout` y `currency` fueron corregidos directamente en el contexto
 
 ### ✨ Mejoras
 
-_(ninguna aún)_
+- **Etiquetas de Preferencias abreviadas** (`LanguageContext.tsx` + `localization/*.json`):
+  - `"Moneda Preferida"` → `"Moneda"` / `"Preferred Currency"` → `"Currency"`
+  - `"Cierre Automático"` → `"Cierre Aut."` / `"Auto Logout"` → `"Auto Close"`
+  - `"5 minutos"` → `"5 min."` / `"15 minutos"` → `"15 min."` / `"30 minutos"` → `"30 min."`
+- **Cambiar Contraseña**: eliminados los `••••••••` junto al ícono; solo queda el ícono `lock-reset` centrado + título
+- **`numberOfLines={1}`** aplicado a todos los labels de valor en las cards para evitar desbordamiento de texto
+- **Sección Seguridad**: eliminado el componente `<Switch>` nativo de Omitir Contraseña; reemplazado por `TouchableOpacity` que alterna el estado directamente, con texto `ACTIVO`/`DESACTIVADO`
 
 ### 📁 Archivos Modificados
 
-_(ninguno aún)_
+- `src/screens/ProfileScreen/index.tsx` — rediseño completo de secciones Estadísticas, Información Personal, Seguridad y Preferencias
+- `src/screens/ProfileScreen/styles.ts` — `infoNavCard`: añadido `overflow: 'hidden'`; ajustes de `height`, `justifyContent`
+- `src/context/LanguageContext.tsx` — claves `profile.currency`, `profile.autoLogout`, `profile.autoLogout5/15/30min` actualizadas (ES + EN)
+- `src/localization/es.json` — ídem (para coherencia)
+- `src/localization/en.json` — ídem (para coherencia)
 
 ---
 
