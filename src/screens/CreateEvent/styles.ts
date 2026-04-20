@@ -18,6 +18,7 @@ export const createStyles = (theme: Theme, insets: EdgeInsets) => StyleSheet.cre
   } as ViewStyle,
 
   scrollViewContent: {
+    paddingTop: 16,
     paddingBottom: 32,
   } as ViewStyle,
 
@@ -26,6 +27,36 @@ export const createStyles = (theme: Theme, insets: EdgeInsets) => StyleSheet.cre
     marginHorizontal: 16,
     marginBottom: 16,
   } as ViewStyle,
+
+  cardInfo: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderTopWidth: 4,
+    borderTopColor: '#2196F3',
+    overflow: 'hidden',
+  } as ViewStyle,
+
+  cardConfig: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderTopWidth: 4,
+    borderTopColor: '#FF9800',
+    overflow: 'hidden',
+  } as ViewStyle,
+
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  } as ViewStyle,
+
+  cardHeaderTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.colors.onSurface,
+    flex: 1,
+  } as TextStyle,
 
   cardTitle: {
     fontSize: 18,
@@ -143,6 +174,100 @@ export const createStyles = (theme: Theme, insets: EdgeInsets) => StyleSheet.cre
   radioRow: {
     marginBottom: 16,
   } as ViewStyle,
+
+  radioTileRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+    marginBottom: 16,
+  } as ViewStyle,
+
+  radioTile: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: theme.colors.outline,
+    backgroundColor: theme.colors.surface,
+    gap: 4,
+  } as ViewStyle,
+
+  radioTileActive: {
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryContainer,
+  } as ViewStyle,
+
+  radioTileText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.onSurface,
+    textAlign: 'center',
+  } as TextStyle,
+
+  radioTileDesc: {
+    fontSize: 10,
+    color: theme.colors.onSurfaceVariant,
+    textAlign: 'center',
+    lineHeight: 14,
+  } as TextStyle,
+
+  // Config card — collapsed summary
+  configSummaryRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 8,
+  } as ViewStyle,
+
+  configSummaryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: theme.colors.surfaceVariant,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+  } as ViewStyle,
+
+  configSummaryText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.colors.onSurfaceVariant,
+  } as TextStyle,
+
+  configSummaryFlag: {
+    fontSize: 16,
+  } as TextStyle,
+
+  // Config card — cards cíclicas al estilo ProfileScreen infoNavCard
+  prefGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 10,
+    marginBottom: 4,
+  } as ViewStyle,
+
+  prefCard: {
+    flex: 1,
+    height: 82,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.surfaceVariant,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    borderTopWidth: 3,
+    gap: 5,
+    overflow: 'hidden',
+  } as ViewStyle,
+
+  prefCardTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: theme.colors.onSurface,
+    textAlign: 'center',
+  } as TextStyle,
 
   radioButtons: {
     marginTop: 8,

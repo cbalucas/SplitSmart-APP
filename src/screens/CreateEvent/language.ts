@@ -6,9 +6,9 @@ export const createEventLanguage = {
     },
     
     form: {
-      basicInformation: 'Información Básica',
+      basicInformation: 'Información',
       datesAndLocation: 'Fechas y Ubicación',
-      financialConfiguration: 'Configuración Financiera',
+      financialConfiguration: 'Opciones',
       privacyConfiguration: 'Configuración de Privacidad',
       
       // Form fields
@@ -74,9 +74,9 @@ export const createEventLanguage = {
     },
     
     form: {
-      basicInformation: 'Basic Information',
+      basicInformation: 'Information',
       datesAndLocation: 'Dates and Location',
-      financialConfiguration: 'Financial Configuration',
+      financialConfiguration: 'Options',
       privacyConfiguration: 'Privacy Configuration',
       
       eventName: 'Event Name',
@@ -139,9 +139,9 @@ export const createEventLanguage = {
     },
     
     form: {
-      basicInformation: 'Informações Básicas',
+      basicInformation: 'Informações',
       datesAndLocation: 'Datas e Localização',
-      financialConfiguration: 'Configuração Financeira',
+      financialConfiguration: 'Opções',
       privacyConfiguration: 'Configuração de Privacidade',
       
       eventName: 'Nome do Evento',

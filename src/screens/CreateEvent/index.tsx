@@ -9,7 +9,8 @@ import {
   TextStyle,
   BackHandler,
   Platform,
-  KeyboardAvoidingView
+  KeyboardAvoidingView,
+  Linking
 } from 'react-native';
 import TutorialOverlay from '../../components/TutorialOverlay';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -64,6 +65,10 @@ const CreateEventScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [submittedOnce, setSubmittedOnce] = useState(false);
+  const [isConfigExpanded, setIsConfigExpanded] = useState(false);
+
+  // Cambiar a true cuando la funcionalidad de compartir esté lista
+  const SHOW_SHARE_CARD = true;
 
   // ── Tour guiado ───────────────────────────────────────────
   const [cevTourVisible, setCevTourVisible] = useState(false);
@@ -71,8 +76,6 @@ const CreateEventScreen: React.FC = () => {
   const cevScrollRef    = useRef<ScrollView>(null);
   const cevBasicRef     = useRef<View>(null);
   const cevDatesRef     = useRef<View>(null);
-  const cevFinanceRef   = useRef<View>(null);
-  const cevPrivacyRef   = useRef<View>(null);
 
   const cevScrollTo = (ref: React.RefObject<View>) => {
     if (ref.current && cevScrollRef.current) {
@@ -366,6 +369,18 @@ const CreateEventScreen: React.FC = () => {
     return icons[category as keyof typeof icons] || 'calendar';
   };
 
+  const getCategoryLabel = (category: string): string => {
+    const labels: Record<string, string> = {
+      viaje: t.form.categories.travel,
+      casa: t.form.categories.home,
+      cena: t.form.categories.dinner,
+      trabajo: t.form.categories.work,
+      evento: t.form.categories.event,
+      otro: t.form.categories.other,
+    };
+    return labels[category] || category;
+  };
+
   const getCategoryColor = (category: string, isActive: boolean = false): string => {
     const colors = {
       viaje: '#2196F3', // Azul para viajes
@@ -388,6 +403,11 @@ const CreateEventScreen: React.FC = () => {
     if (selectedDate) {
       handleInputChange('startDate', selectedDate);
     }
+  };
+
+  const handleOpenMaps = (address: string) => {
+    const url = `https://maps.google.com/?q=${encodeURIComponent(address)}`;
+    Linking.openURL(url);
   };
 
 
@@ -417,11 +437,14 @@ const CreateEventScreen: React.FC = () => {
           contentContainerStyle={styles.scrollViewContent}
           keyboardShouldPersistTaps="handled"
         >
-        {/* Información Básica */}
+        {/* Card 1 — Información del Evento */}
         <View ref={cevBasicRef} collapsable={false}>
-        <Card style={StyleSheet.flatten([styles.card])}>
-          <Text style={styles.cardTitle}>{t.form.basicInformation}</Text>
-          
+        <Card style={styles.cardInfo}>
+          <View style={styles.cardHeaderRow}>
+            <MaterialCommunityIcons name="calendar-edit" size={20} color="#2196F3" />
+            <Text style={styles.cardHeaderTitle}>{t.form.basicInformation}</Text>
+          </View>
+
           <Input
             label={t.form.eventName}
             placeholder={t.form.eventNamePlaceholder}
@@ -434,25 +457,6 @@ const CreateEventScreen: React.FC = () => {
             containerStyle={styles.input}
           />
 
-          <Input
-            label={t.form.description}
-            placeholder={t.form.descriptionPlaceholder}
-            value={formData.description}
-            onChangeText={(text) => handleInputChange('description', text)}
-            multiline
-            numberOfLines={3}
-            maxLength={200}
-            error={errors.description}
-            containerStyle={styles.input}
-          />
-        </Card>
-        </View>
-
-        {/* Fechas y Ubicación */}
-        <View ref={cevDatesRef} collapsable={false}>
-        <Card style={StyleSheet.flatten([styles.card])}>
-          <Text style={styles.cardTitle}>{t.form.datesAndLocation}</Text>
-          
           <TouchableOpacity
             style={styles.dateInput}
             onPress={handleDatePress}
@@ -487,125 +491,179 @@ const CreateEventScreen: React.FC = () => {
             value={formData.location}
             onChangeText={(text) => handleInputChange('location', text)}
             icon="map-marker-outline"
+            rightIcon={formData.location.trim() ? 'map-search-outline' : undefined}
+            onRightIconPress={() => handleOpenMaps(formData.location)}
+            containerStyle={styles.input}
+          />
+
+          <Input
+            label={t.form.description}
+            placeholder={t.form.descriptionPlaceholder}
+            value={formData.description}
+            onChangeText={(text) => handleInputChange('description', text)}
+            multiline
+            numberOfLines={3}
+            maxLength={200}
+            error={errors.description}
             containerStyle={styles.input}
           />
         </Card>
         </View>
 
-        {/* Configuración Financiera */}
-        <View ref={cevFinanceRef} collapsable={false}>
-        <Card style={StyleSheet.flatten([styles.card])}>
-          <Text style={styles.cardTitle}>{t.form.financialConfiguration}</Text>
-          
-          <View style={styles.currencyRow}>
-            <Text style={styles.inputLabel}>{t.form.currency}</Text>
-            <View style={styles.currencyButtons}>
-              {(['ARS', 'USD', 'EUR', 'BRL'] as const).map((curr) => (
-                <TouchableOpacity
-                  key={curr}
-                  style={[
-                    styles.currencyButton,
-                    formData.currency === curr && styles.currencyButtonActive
-                  ]}
-                  onPress={() => handleInputChange('currency', curr)}
-                >
-                  <View style={styles.currencyContent}>
-                    <Text style={styles.currencyFlag}>
-                      {getCurrencyFlag(curr)}
-                    </Text>
-                    <Text style={[
-                      styles.currencyText,
-                      formData.currency === curr && styles.currencyTextActive
-                    ]}>
-                      {curr}
-                    </Text>
+        {/* Card 2 — Configuración */}
+        <View ref={cevDatesRef} collapsable={false}>
+        <Card style={styles.cardConfig}>
+          {/* Header colapsable */}
+          <TouchableOpacity
+            style={[styles.cardHeaderRow, { marginBottom: isConfigExpanded ? 0 : 4 }]}
+            onPress={() => setIsConfigExpanded(p => !p)}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="cog-outline" size={20} color="#FF9800" />
+            <Text style={styles.cardHeaderTitle}>{t.form.financialConfiguration}</Text>
+            <MaterialCommunityIcons
+              name={isConfigExpanded ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={theme.colors.onSurfaceVariant}
+            />
+          </TouchableOpacity>
+
+          {/* Resumen contraído */}
+          {!isConfigExpanded && (
+            <View style={styles.configSummaryRow}>
+              <View style={styles.configSummaryChip}>
+                <Text style={styles.configSummaryFlag}>{getCurrencyFlag(formData.currency)}</Text>
+                <Text style={styles.configSummaryText}>{formData.currency}</Text>
+              </View>
+              <View style={styles.configSummaryChip}>
+                <MaterialCommunityIcons
+                  name={formData.eventType === 'public' ? 'earth' : 'lock'}
+                  size={16}
+                  color={formData.eventType === 'public' ? '#2196F3' : '#FFC107'}
+                />
+                <Text style={[styles.configSummaryText, { color: formData.eventType === 'public' ? '#2196F3' : '#F44336' }]}>
+                  {formData.eventType === 'public' ? t.form.publicEvent.replace(/^\S+\s/, '') : t.form.privateEvent.replace(/^\S+\s/, '')}
+                </Text>
+              </View>
+              {SHOW_SHARE_CARD && (
+                <View style={styles.configSummaryChip}>
+                  <MaterialCommunityIcons name="share-variant" size={16} color="#607D8B" />
+                  <Text style={[styles.configSummaryText, { color: '#607D8B' }]}>Compartir</Text>
+                </View>
+              )}
+              <View style={styles.configSummaryChip}>
+                <MaterialCommunityIcons
+                  name={getCategoryIcon(formData.category) as any}
+                  size={16}
+                  color={getCategoryColor(formData.category)}
+                />
+                <Text style={[styles.configSummaryText, { color: getCategoryColor(formData.category) }]}>
+                  {getCategoryLabel(formData.category)}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Contenido expandido */}
+          {isConfigExpanded && (
+            <>
+              {/* Moneda + Tipo (+ Compartir oculto) — cards cíclicas */}
+              <View style={styles.prefGrid}>
+                {/* Card Moneda — cicla al presionar */}
+                <View style={{ flex: 1, height: 82 }}>
+                  <TouchableOpacity
+                    style={[styles.prefCard, { borderTopColor: '#FF9800' }]}
+                    onPress={() => {
+                      const currencies = ['ARS', 'USD', 'EUR', 'BRL'] as const;
+                      const nextIdx = (currencies.indexOf(formData.currency) + 1) % currencies.length;
+                      handleInputChange('currency', currencies[nextIdx]);
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                      <Text style={{ fontSize: 18 }}>{getCurrencyFlag(formData.currency)}</Text>
+                      <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '700', color: '#FF9800' }}>
+                        {formData.currency}
+                      </Text>
+                    </View>
+                    <Text numberOfLines={1} style={styles.prefCardTitle}>{t.form.currency.replace(' *', '')}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Card Tipo — alterna al presionar */}
+                <View style={{ flex: 1, height: 82 }}>
+                  <TouchableOpacity
+                    style={[styles.prefCard, { borderTopColor: formData.eventType === 'public' ? '#2196F3' : '#F44336' }]}
+                    onPress={() => handleInputChange('eventType', formData.eventType === 'public' ? 'private' : 'public')}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                      <MaterialCommunityIcons
+                        name={formData.eventType === 'public' ? 'earth' : 'lock'}
+                        size={18}
+                        color={formData.eventType === 'public' ? '#2196F3' : '#FFC107'}
+                      />
+                      <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '700', color: formData.eventType === 'public' ? '#2196F3' : '#F44336' }}>
+                        {formData.eventType === 'public' ? t.form.publicEvent.replace(/^\S+\s/, '') : t.form.privateEvent.replace(/^\S+\s/, '')}
+                      </Text>
+                    </View>
+                    <Text numberOfLines={1} style={styles.prefCardTitle}>{t.form.eventType}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Card Compartir — OCULTA hasta que la funcionalidad esté lista */}
+                {SHOW_SHARE_CARD && (
+                  <View style={{ flex: 1, height: 82 }}>
+                    <TouchableOpacity
+                      style={[styles.prefCard, { borderTopColor: '#607D8B' }]}
+                      onPress={() => {}}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                        <MaterialCommunityIcons name="share-variant-outline" size={18} color="#607D8B" />
+                      </View>
+                      <Text numberOfLines={1} style={styles.prefCardTitle}>Compartir</Text>
+                    </TouchableOpacity>
                   </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+                )}
+              </View>
 
-
+              {/* Categoría — debajo */}
+              <View style={styles.categoryRow}>
+                <Text style={styles.inputLabel}>{t.form.category}</Text>
+                <View style={styles.categoryButtons}>
+                  {([
+                    { key: 'viaje', label: t.form.categories.travel, icon: 'airplane' },
+                    { key: 'casa', label: t.form.categories.home, icon: 'home' },
+                    { key: 'cena', label: t.form.categories.dinner, icon: 'food' },
+                    { key: 'trabajo', label: t.form.categories.work, icon: 'briefcase' },
+                    { key: 'evento', label: t.form.categories.event, icon: 'calendar' },
+                    { key: 'otro', label: t.form.categories.other, icon: 'dots-horizontal' }
+                  ] as const).map((cat) => (
+                    <TouchableOpacity
+                      key={cat.key}
+                      style={[
+                        styles.categoryButton,
+                        formData.category === cat.key && styles.categoryButtonActive
+                      ]}
+                      onPress={() => handleInputChange('category', cat.key)}
+                    >
+                      <MaterialCommunityIcons
+                        name={cat.icon as any}
+                        size={16}
+                        color={getCategoryColor(cat.key, formData.category === cat.key)}
+                      />
+                      <Text style={[
+                        styles.categoryButtonText,
+                        formData.category === cat.key && styles.categoryButtonTextActive
+                      ]}>
+                        {cat.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </>
+          )}
         </Card>
         </View>
-
-        {/* Configuración de Privacidad */}
-        <View ref={cevPrivacyRef} collapsable={false}>
-        <Card style={StyleSheet.flatten([styles.card])}>
-          <Text style={styles.cardTitle}>{t.form.privacyConfiguration}</Text>
-          
-          <View style={styles.radioRow}>
-            <Text style={styles.inputLabel}>{t.form.eventType}</Text>
-            
-            <TouchableOpacity
-              style={styles.radioOption}
-              onPress={() => handleInputChange('eventType', 'public')}
-            >
-              <MaterialCommunityIcons
-                name={formData.eventType === 'public' ? 'radiobox-marked' : 'radiobox-blank'}
-                size={20}
-                color={theme.colors.primary}
-              />
-              <View style={styles.radioContent}>
-                <Text style={styles.radioTitle}>{t.form.publicEvent}</Text>
-                <Text style={styles.radioDescription}>{t.form.publicEventDescription}</Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.radioOption}
-              onPress={() => handleInputChange('eventType', 'private')}
-            >
-              <MaterialCommunityIcons
-                name={formData.eventType === 'private' ? 'radiobox-marked' : 'radiobox-blank'}
-                size={20}
-                color={theme.colors.primary}
-              />
-              <View style={styles.radioContent}>
-                <Text style={styles.radioTitle}>{t.form.privateEvent}</Text>
-                <Text style={styles.radioDescription}>{t.form.privateEventDescription}</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.categoryRow}>
-            <Text style={styles.inputLabel}>{t.form.category}</Text>
-            <View style={styles.categoryButtons}>
-              {([
-                { key: 'viaje', label: t.form.categories.travel, icon: 'airplane' },
-                { key: 'casa', label: t.form.categories.home, icon: 'home' },
-                { key: 'cena', label: t.form.categories.dinner, icon: 'food' },
-                { key: 'trabajo', label: t.form.categories.work, icon: 'briefcase' },
-                { key: 'evento', label: t.form.categories.event, icon: 'calendar' },
-                { key: 'otro', label: t.form.categories.other, icon: 'dots-horizontal' }
-              ] as const).map((cat) => (
-                <TouchableOpacity
-                  key={cat.key}
-                  style={[
-                    styles.categoryButton,
-                    formData.category === cat.key && styles.categoryButtonActive
-                  ]}
-                  onPress={() => handleInputChange('category', cat.key)}
-                >
-                  <MaterialCommunityIcons
-                    name={cat.icon as any}
-                    size={16}
-                    color={getCategoryColor(cat.key, formData.category === cat.key)}
-                  />
-                  <Text style={[
-                    styles.categoryButtonText,
-                    formData.category === cat.key && styles.categoryButtonTextActive
-                  ]}>
-                    {cat.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </Card>
-        </View>
-
-
 
         {/* Espacio para los botones footer */}
         <View style={styles.footerSpace} />
@@ -645,10 +703,8 @@ const CreateEventScreen: React.FC = () => {
       <TutorialOverlay
         visible={cevTourVisible}
         steps={[
-          { ref: cevBasicRef,   titleKey: 'tour.createEvent.basic.title',   descKey: 'tour.createEvent.basic.desc',   popupPosition: 'below' },
-          { ref: cevDatesRef,   titleKey: 'tour.createEvent.dates.title',   descKey: 'tour.createEvent.dates.desc',   popupPosition: 'below',  onBeforeShow: () => cevScrollTo(cevDatesRef),   delay: 500 },
-          { ref: cevFinanceRef, titleKey: 'tour.createEvent.finance.title', descKey: 'tour.createEvent.finance.desc', popupPosition: 'center', onBeforeShow: () => cevScrollTo(cevFinanceRef), delay: 500 },
-          { ref: cevPrivacyRef, titleKey: 'tour.createEvent.privacy.title', descKey: 'tour.createEvent.privacy.desc', popupPosition: 'above',  onBeforeShow: () => cevScrollTo(cevPrivacyRef), delay: 500 },
+          { ref: cevBasicRef,  titleKey: 'tour.createEvent.basic.title',   descKey: 'tour.createEvent.basic.desc',   popupPosition: 'below' },
+          { ref: cevDatesRef,  titleKey: 'tour.createEvent.finance.title', descKey: 'tour.createEvent.finance.desc', popupPosition: 'above', onBeforeShow: () => cevScrollTo(cevDatesRef), delay: 500 },
         ]}
         currentStep={cevTourStep}
         onNext={() => setCevTourStep(p => p + 1)}
