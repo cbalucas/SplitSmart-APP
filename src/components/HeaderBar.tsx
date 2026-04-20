@@ -330,126 +330,78 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
       onRequestClose={() => setOverflowVisible(false)}
     >
       <Pressable style={styles.overflowOverlay} onPress={() => setOverflowVisible(false)}>
-        <View style={[styles.overflowMenu, { backgroundColor: theme.colors.surfaceContainer }]}>
+        <Pressable style={[styles.dropdownMenu, { backgroundColor: theme.colors.surfaceContainer }]} onPress={() => {}}>
           {/* Items antes del bloque estándar */}
           {(overflowBeforeItems || []).map((item, i) => (
-            <TouchableOpacity
-              key={`before-${i}`}
-              style={styles.overflowItem}
-              onPress={() => { setOverflowVisible(false); item.onPress(); }}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons name={item.icon as any} size={22} color={theme.colors.onSurface} />
-              <Text style={[styles.overflowItemLabel, { color: theme.colors.onSurface }]}>{item.label}</Text>
+            <TouchableOpacity key={`before-${i}`} style={[styles.sheetItem, { borderLeftColor: '#9C27B0', backgroundColor: theme.colors.surfaceVariant }]} onPress={() => { setOverflowVisible(false); item.onPress(); }} activeOpacity={0.7}>
+              <MaterialCommunityIcons name={item.icon as any} size={22} color="#9C27B0" />
+              <Text style={[styles.sheetItemLabel, { color: theme.colors.onSurface }]}>{item.label}</Text>
             </TouchableOpacity>
           ))}
 
           {showThemeToggle && (
-            <TouchableOpacity
-              style={styles.overflowItem}
-              onPress={() => { toggleTheme(); setOverflowVisible(false); }}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name={getThemeIcon() as any}
-                size={22}
-                color={theme.colors.onSurface}
-              />
-              <Text style={[styles.overflowItemLabel, { color: theme.colors.onSurface }]}>
-                {getThemeLabel()}
-              </Text>
+            <TouchableOpacity style={[styles.sheetItem, { borderLeftColor: '#FF9800', backgroundColor: theme.colors.surfaceVariant }]} onPress={() => { toggleTheme(); setOverflowVisible(false); }} activeOpacity={0.7}>
+              <MaterialCommunityIcons name={getThemeIcon() as any} size={22} color="#FF9800" />
+              <Text style={[styles.sheetItemLabel, { color: theme.colors.onSurface }]}>{getThemeLabel()}</Text>
             </TouchableOpacity>
           )}
 
           {showLanguageSelector && (
-            <TouchableOpacity
-              style={styles.overflowItem}
-              onPress={() => { setOverflowVisible(false); setTimeout(() => setLanguageModalVisible(true), 300); }}
-              activeOpacity={0.7}
-            >
-              <Text style={{ fontSize: 20 }}>{getLanguageFlag()}</Text>
-              <Text style={[styles.overflowItemLabel, { color: theme.colors.onSurface }]}>
-                {ml.language}
-              </Text>
+            <TouchableOpacity style={[styles.sheetItem, { borderLeftColor: '#2196F3', backgroundColor: theme.colors.surfaceVariant }]} onPress={() => { setOverflowVisible(false); setTimeout(() => setLanguageModalVisible(true), 300); }} activeOpacity={0.7}>
+              <Text style={{ fontSize: 20, lineHeight: 26 }}>{getLanguageFlag()}</Text>
+              <Text style={[styles.sheetItemLabel, { color: theme.colors.onSurface }]}>{ml.language}</Text>
             </TouchableOpacity>
           )}
 
           {showHelp && (
-            <TouchableOpacity
-              style={styles.overflowItem}
-              onPress={() => {
-                setOverflowVisible(false);
-                onHelpPress?.();
-              }}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons name="help-circle-outline" size={22} color={theme.colors.onSurface} />
-              <Text style={[styles.overflowItemLabel, { color: theme.colors.onSurface }]}>{ml.help}</Text>
+            <TouchableOpacity style={[styles.sheetItem, { borderLeftColor: '#4CAF50', backgroundColor: theme.colors.surfaceVariant }]} onPress={() => { setOverflowVisible(false); onHelpPress?.(); }} activeOpacity={0.7}>
+              <MaterialCommunityIcons name="help-circle-outline" size={22} color="#4CAF50" />
+              <Text style={[styles.sheetItemLabel, { color: theme.colors.onSurface }]}>{ml.help}</Text>
             </TouchableOpacity>
           )}
 
           {rightIcon && (
-            <TouchableOpacity
-              style={styles.overflowItem}
-              onPress={() => { setOverflowVisible(false); handleRightPress(); }}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons name={rightIcon as any} size={22} color={theme.colors.onSurface} />
-              <Text style={[styles.overflowItemLabel, { color: theme.colors.onSurface }]}>
-                {rightIconLabel || rightIcon}
-              </Text>
+            <TouchableOpacity style={[styles.sheetItem, { borderLeftColor: '#9C27B0', backgroundColor: theme.colors.surfaceVariant }]} onPress={() => { setOverflowVisible(false); handleRightPress(); }} activeOpacity={0.7}>
+              <MaterialCommunityIcons name={rightIcon as any} size={22} color="#9C27B0" />
+              <Text style={[styles.sheetItemLabel, { color: theme.colors.onSurface }]}>{rightIconLabel || rightIcon}</Text>
             </TouchableOpacity>
           )}
 
           {rightText && (
-            <TouchableOpacity
-              style={styles.overflowItem}
-              onPress={() => { setOverflowVisible(false); handleRightPress(); }}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons name="text" size={22} color={theme.colors.onSurface} />
-              <Text style={[styles.overflowItemLabel, { color: theme.colors.onSurface }]}>{rightText}</Text>
+            <TouchableOpacity style={[styles.sheetItem, { borderLeftColor: '#9C27B0', backgroundColor: theme.colors.surfaceVariant }]} onPress={() => { setOverflowVisible(false); handleRightPress(); }} activeOpacity={0.7}>
+              <MaterialCommunityIcons name="text" size={22} color="#9C27B0" />
+              <Text style={[styles.sheetItemLabel, { color: theme.colors.onSurface }]}>{rightText}</Text>
             </TouchableOpacity>
           )}
 
-          {/* Items después del bloque estándar */}
           {(overflowAfterItems || []).map((item, i) => (
-            <TouchableOpacity
-              key={`after-${i}`}
-              style={styles.overflowItem}
-              onPress={() => { setOverflowVisible(false); item.onPress(); }}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons name={item.icon as any} size={22} color={theme.colors.onSurface} />
-              <Text style={[styles.overflowItemLabel, { color: theme.colors.onSurface }]}>{item.label}</Text>
+            <TouchableOpacity key={`after-${i}`} style={[styles.sheetItem, { borderLeftColor: '#607D8B', backgroundColor: theme.colors.surfaceVariant }]} onPress={() => { setOverflowVisible(false); item.onPress(); }} activeOpacity={0.7}>
+              <MaterialCommunityIcons name={item.icon as any} size={22} color="#607D8B" />
+              <Text style={[styles.sheetItemLabel, { color: theme.colors.onSurface }]}>{item.label}</Text>
             </TouchableOpacity>
           ))}
 
           {showLogout && (
             <>
               <View style={{ height: 1, backgroundColor: theme.colors.outline + '40', marginVertical: 4 }} />
-              <TouchableOpacity
-                style={styles.overflowItem}
-                onPress={() => {
-                  setOverflowVisible(false);
-                  showAlert({
-                    type: 'destructive',
-                    title: ml.logoutTitle,
-                    message: ml.logoutMessage,
-                    buttons: [
-                      { text: language === 'en' ? 'Cancel' : 'Cancelar', style: 'cancel' },
-                      { text: ml.logoutButton, style: 'destructive', onPress: () => logout() }
-                    ]
-                  });
-                }}
-                activeOpacity={0.7}
-              >
+              <TouchableOpacity style={[styles.sheetItem, { borderLeftColor: '#F44336', backgroundColor: theme.colors.surfaceVariant }]} onPress={() => {
+                setOverflowVisible(false);
+                showAlert({
+                  type: 'destructive',
+                  title: ml.logoutTitle,
+                  message: ml.logoutMessage,
+                  buttons: [
+                    { text: language === 'en' ? 'Cancel' : 'Cancelar', style: 'cancel' },
+                    { text: ml.logoutButton, style: 'destructive', onPress: () => logout() }
+                  ]
+                });
+              }} activeOpacity={0.7}>
                 <MaterialCommunityIcons name="logout" size={22} color="#F44336" />
-                <Text style={[styles.overflowItemLabel, { color: '#F44336' }]}>{ml.logout}</Text>
+                <Text style={[styles.sheetItemLabel, { color: '#F44336', fontWeight: '700' }]}>{ml.logout}</Text>
               </TouchableOpacity>
             </>
           )}
-        </View>
+        </Pressable>
       </Pressable>
     </Modal>
   );
@@ -617,31 +569,36 @@ const createStyles = (theme: Theme, titleAlignment: 'left' | 'center' = 'center'
       backgroundColor: 'rgba(0,0,0,0.2)',
     } as ViewStyle,
 
-    overflowMenu: {
+    dropdownMenu: {
       position: 'absolute',
-      top: 88,
-      right: 12,
-      borderRadius: 12,
+      top: (isModal ? 0 : topInset) + 56 + 4,
+      right: 8,
+      borderRadius: 14,
       paddingVertical: 8,
-      minWidth: 200,
-      elevation: 8,
+      paddingHorizontal: 8,
+      minWidth: 210,
+      gap: 4,
+      elevation: 10,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.2,
-      shadowRadius: 8,
+      shadowOpacity: 0.18,
+      shadowRadius: 10,
     } as ViewStyle,
 
-    overflowItem: {
+    sheetItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 14,
-      paddingHorizontal: 18,
-      gap: 14,
+      borderRadius: 10,
+      paddingVertical: 11,
+      paddingHorizontal: 12,
+      gap: 12,
+      borderLeftWidth: 4,
     } as ViewStyle,
 
-    overflowItemLabel: {
-      fontSize: 15,
-      fontWeight: '500',
+    sheetItemLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      flex: 1,
     } as TextStyle,
   });
 };

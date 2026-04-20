@@ -9,21 +9,56 @@
 ## 🗂️ Versión en desarrollo: v1.9.1
 
 > Cambios realizados después del build de v1.9.0
+> Commits locales: `b1c0a73` → `014dcec` (5 commits, no pusheados a origin)
+
+---
 
 ### 🚀 Nuevas Funcionalidades
 
-- **ProfileScreen — diseño de cards unificado**: todas las secciones del perfil ahora utilizan el mismo sistema de tarjetas (`infoNavCard` / `statCardWide`) con altura fija de 82 px, borde de color superior/izquierdo y grid de 2 columnas (`statsGrid`)
-- **Estadísticas — card Amigos**: color actualizado a `#E91E63` (unificado con el color de Tema en Preferencias)
-- **Información Personal (vista)**: rediseñada con grid de cards — Nombre `#4CAF50` + Usuario `#2196F3` en fila, Email `#FF9800` y Teléfono `#9C27B0` como `statCardWide`
-- **Seguridad**: rediseñada con fila de 2 `infoNavCard` — Cambiar Contraseña `#E91E63` (tap abre modal) + Omitir Contraseña con texto `ACTIVO`/`DESACTIVADO` y borde dinámico
-- **Preferencias — Inicio Automático**: texto `ACTIVADO`/`DESACTIVADO` en lugar del ícono toggle; subtítulo descriptivo restaurado
+#### ProfileScreen — Rediseño completo de UI
+- **Sistema de cards unificado**: todas las secciones usan `infoNavCard` (grid 2 col, altura 82 px, borde superior de color) y `statCardWide` (fila completa, borde izquierdo de color), consistentes con el design language de la app
+- **Estadísticas — card Amigos**: color `#9C27B0` → `#E91E63`
+- **Información Personal (vista)**: grid de 2 cards — Nombre `#4CAF50` + Usuario `#2196F3` en fila; Email `#FF9800` y Teléfono `#9C27B0` como `statCardWide`
+- **Seguridad**: fila de 2 `infoNavCard` — Cambiar Contraseña `#E91E63` (sin texto de contraseña `••••••••`) + Omitir Contraseña con indicador `ACTIVO`/`DESACTIVADO` y borde dinámico
+- **Preferencias**: todas las cards con wrapper `height:82` explícito; Auto Login como `statCardWide` con `ACTIVADO`/`DESACTIVADO` + subtítulo descriptivo
+- **Sección Error Guide**: rediseñada como grid 4×2 de `infoNavCard` (8 pantallas); un único `Modal` reutilizable muestra la lista de errores de la pantalla seleccionada con `ScrollView`
+- **Sección Próximamente**: rediseñada con 3 `statCardWide` (Notificaciones de Pago `#4CAF50` · Login Biométrico `#9C27B0` · Compartir Evento `#2196F3`) y ícono `rocket-launch` a la derecha como indicador visual
+
+#### HeaderBar — Menú overflow rediseñado
+- **Dropdown con borde de color**: el menú kebab (`⋮`) ahora despliega un dropdown posicionado debajo del header (`top: insets.top + 56 + 4, right: 8`) con ítems tipo `sheetItem` — cada uno con `borderLeftWidth:4` y color semántico:
+  - Modo claro/oscuro → `#FF9800` naranja
+  - Idioma → `#2196F3` azul
+  - Ayuda → `#4CAF50` verde
+  - Acciones custom (`overflowBeforeItems` / `overflowAfterItems`) → `#9C27B0` violeta / `#607D8B` gris
+  - Cerrar sesión → `#F44336` rojo (con separador visual)
+- **Overlay más oscuro** (`rgba(0,0,0,0.2)`) y sombra mejorada (`elevation:10`)
+- Propagación automática a todas las pantallas que usan `HeaderBar` con overflow activo (Home, EventDetail, CreateEvent, CreateExpense, ProfileScreen, ManageFriends, SignUp)
+
+#### CustomAlert — Modal de acción
+- **Soporte de íconos en botones**: nueva prop `icon?: string` en `AlertButton` — muestra un `MaterialCommunityIcons` a la izquierda del texto del botón
+- **Nuevo layout para 2+ botones regulares**: modo columna con botones destructivos y cancelar en filas separadas (Eliminar fila completa roja + Cancelar fila completa gris al final)
+- **Separación entre botones**: `gap:8` en `buttonsColumn`
+
+#### Modal cambio de imagen de perfil
+- Botones rediseñados con íconos: `📷 Foto` · `🖼 Galería` · `🗑 Eliminar` · `Cancelar`
+- Tipo de alert cambiado a `'info'` (borde azul) en lugar de `'destructive'` (rojo)
+
+---
 
 ### 🔧 Correcciones de Bugs
 
-- **Cards de altura desigual (Preferencias)**: corregido el problema donde `alignItems: stretch` de Yoga/RN estiraba las cards envueltas por `CurrencySelector` / `LanguageSelector`. Fix: wrapper `<View style={{ flex: 1, height: 82 }}>` explícito en todas las cards de la grilla + `overflow: 'hidden'` en `infoNavCard`
-- **Card Tema sin wrapper de altura**: la card Tema era un `TouchableOpacity` directo sin `<View height:82>`, causando que se estirara al alto del par. Corregido añadiendo el mismo wrapper que Idioma, Moneda y Cierre
-- **Cierre Aut. con `flex:1` inline**: el `flex: 1` estaba en el `infoNavCard` en vez del wrapper, alterando el comportamiento de layout. Movido al `<View>` contenedor
-- **Traducciones no actualizadas en runtime**: las claves de i18n se resuelven desde `LanguageContext.tsx` (no desde los archivos `.json`). Los textos de `autoLogout` y `currency` fueron corregidos directamente en el contexto
+- **Cards de altura desigual (Preferencias)**: `alignItems:'stretch'` de Yoga/RN estiraba las cards sin altura explícita. Fix: wrapper `<View style={{ flex:1, height:82 }}>` en todas las cards de grilla + `overflow:'hidden'` en `infoNavCard`
+- **Card Tema sin wrapper**: era un `TouchableOpacity` directo sin wrapper de altura. Corregido con el mismo patrón que las otras cards
+- **`flex:1` inline en Cierre Aut.**: estaba en el `infoNavCard` en vez del wrapper. Movido al `<View>` contenedor
+- **Traducciones no actualizadas en runtime**: la fuente de verdad de i18n es `LanguageContext.tsx`, no los archivos `.json`. Claves `autoLogout` y `currency` corregidas directamente en el contexto
+- **Emojis corruptos (`?`) en títulos de alertas de éxito** (`ProfileScreen`): 4 alertas de éxito tenían `? ${t('success')}` en lugar de `✅ ${t('success')}` por pérdida de encoding del emoji al editar el archivo
+- **Tipo de alert incorrecto en mensajes de éxito**: `type:'error'` (rojo) en "Contraseña actualizada" y "Omitir contraseña actualizada" — corregido a `type:'success'` (verde) + emoji `✅`
+- **Botón Eliminar foto no funcionaba**: `updateUserProfile(user.id, { avatar: undefined })` no ejecutaba el UPDATE en la DB porque la condición `updates.avatar !== undefined` era `false`. Fix: pasar `{ avatar: null }` — la firma de `updateUserProfile` actualizada a `avatar?: string | null`
+- **Botón fuera del recuadro en `CustomAlert` con 3+ botones**: `flex:1` en modo columna sin altura fija en el padre causaba desborde. Fix: `btnColumnItem` con `flex:0, alignSelf:'stretch'`
+- **`} extra` en JSX de `SignUpScreen`**: comentario `{/* ... */}}` con `}` extra se renderizaba como string literal, disparando "Text strings must be rendered within a `<Text>` component" al navegar a Crear Cuenta
+- **`SyntaxError` en `HeaderBar.tsx`**: `onPress={() => {}>` le faltaba un `}` para cerrar la función flecha. Corregido a `onPress={() => {}}}>`
+
+---
 
 ### ✨ Mejoras
 
@@ -31,17 +66,28 @@
   - `"Moneda Preferida"` → `"Moneda"` / `"Preferred Currency"` → `"Currency"`
   - `"Cierre Automático"` → `"Cierre Aut."` / `"Auto Logout"` → `"Auto Close"`
   - `"5 minutos"` → `"5 min."` / `"15 minutos"` → `"15 min."` / `"30 minutos"` → `"30 min."`
-- **Cambiar Contraseña**: eliminados los `••••••••` junto al ícono; solo queda el ícono `lock-reset` centrado + título
-- **`numberOfLines={1}`** aplicado a todos los labels de valor en las cards para evitar desbordamiento de texto
-- **Sección Seguridad**: eliminado el componente `<Switch>` nativo de Omitir Contraseña; reemplazado por `TouchableOpacity` que alterna el estado directamente, con texto `ACTIVO`/`DESACTIVADO`
+- **`numberOfLines={1}`** en todos los labels de valor de cards para evitar desbordamiento
+- **`MaterialCommunityIcons` importado en `CustomAlert`** para soporte nativo de íconos en botones
+
+---
 
 ### 📁 Archivos Modificados
 
-- `src/screens/ProfileScreen/index.tsx` — rediseño completo de secciones Estadísticas, Información Personal, Seguridad y Preferencias
-- `src/screens/ProfileScreen/styles.ts` — `infoNavCard`: añadido `overflow: 'hidden'`; ajustes de `height`, `justifyContent`
-- `src/context/LanguageContext.tsx` — claves `profile.currency`, `profile.autoLogout`, `profile.autoLogout5/15/30min` actualizadas (ES + EN)
-- `src/localization/es.json` — ídem (para coherencia)
-- `src/localization/en.json` — ídem (para coherencia)
+| Archivo | Cambios |
+|---|---|
+| `src/screens/ProfileScreen/index.tsx` | Rediseño completo: Error Guide grid+modal, Próximamente statCardWide, corrección emojis y tipos de alert |
+| `src/screens/ProfileScreen/styles.ts` | `infoNavCard`: `overflow:'hidden'`; nuevos estilos `statsGrid`, `infoNavCardTitle`, etc. |
+| `src/screens/ProfileScreen/types.ts` | Ajustes de tipos |
+| `src/components/CustomAlert/index.tsx` | Soporte `icon` en botones, layout columna corregido, `MaterialCommunityIcons` importado |
+| `src/components/HeaderBar.tsx` | Menú overflow rediseñado: dropdown con borde de color por ítem, posición bajo header |
+| `src/context/LanguageContext.tsx` | Claves abreviadas de Preferencias (ES + EN) |
+| `src/context/DataContext.tsx` | Ajustes menores |
+| `src/localization/es.json` | Ídem (para coherencia, no usado en runtime) |
+| `src/localization/en.json` | Ídem |
+| `src/services/alertService.ts` | `AlertButton.icon?: string` agregado |
+| `src/services/database.ts` | `updateUserProfile`: `avatar?: string \| null`; fix columna `is_locked` |
+| `src/screens/Auth/SignUpScreen.tsx` | Fix `}` extra en JSX (bug preexistente) |
+| `src/screens/EventDetail/index.tsx` | Ajustes menores |
 
 ---
 

@@ -544,7 +544,7 @@ export default function SignUpScreen() {
             </View>{/* end suContactRef */}
 
             <View ref={suPasswordRef} collapsable={false}>
-            {/* Checkbox para usuario sin contraseña */}}
+            {/* Checkbox para usuario sin contraseña */}
             <TouchableOpacity 
               style={styles.checkboxContainer}
               onPress={() => updateFormData('skipPassword', !formData.skipPassword)}
