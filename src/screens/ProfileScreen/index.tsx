@@ -44,11 +44,15 @@ import TutorialOverlay from '../../components/TutorialOverlay';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const appVersion: string = require('../../../app.json').expo?.version ?? require('../../../app.json').version ?? '0.0.0';
 
-const ProfileSection: React.FC<ProfileSectionProps> = ({ title, icon, children, onPress, rightAction, collapsible }) => {
+const ProfileSection: React.FC<ProfileSectionProps> = ({ title, icon, children, onPress, rightAction, collapsible, isOpen, onToggle }) => {
   const { theme } = useTheme();
   const { t } = useLanguage();
   const styles = createStyles(theme);
-  const [collapsed, setCollapsed] = useState(collapsible === true);
+
+  // Si recibe control externo (isOpen/onToggle), úsalo; si no, maneja estado interno
+  const [internalCollapsed, setInternalCollapsed] = useState(collapsible === true);
+  const isControlled = isOpen !== undefined && onToggle !== undefined;
+  const collapsed = isControlled ? !isOpen : internalCollapsed;
 
   // Special handling for logout section
   const isLogout = title === t('logout');
@@ -56,7 +60,11 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ title, icon, children, 
 
   const handleHeaderPress = () => {
     if (collapsible) {
-      setCollapsed(prev => !prev);
+      if (isControlled) {
+        onToggle!();
+      } else {
+        setInternalCollapsed(prev => !prev);
+      }
     }
     onPress?.();
   };
@@ -200,6 +208,11 @@ const ProfileScreen: React.FC = () => {
 
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [openSection, setOpenSection] = useState<string | null>(null);
+
+  const toggleSection = (id: string) => {
+    setOpenSection(prev => (prev === id ? null : id));
+  };
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -217,9 +230,6 @@ const ProfileScreen: React.FC = () => {
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [showDatabaseStatsModal, setShowDatabaseStatsModal] = useState(false);
-  const [showTechInfo, setShowTechInfo] = useState(false);
-  const [showMainTables, setShowMainTables] = useState(false);
-  const [showRelationTables, setShowRelationTables] = useState(false);
   const [versionInfo, setVersionInfo] = useState<RemoteVersionInfo | null>(null);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [databaseStats, setDatabaseStats] = useState<{
@@ -227,11 +237,16 @@ const ProfileScreen: React.FC = () => {
     totalRecords: number;
     databaseSize: string;
   } | null>(null);
+  const [deviceStorage, setDeviceStorage] = useState<{
+    free: string;
+    total: string;
+    freePercent: number;
+  } | null>(null);
   const [stats, setStats] = useState<ProfileStats>({
     totalEvents: 0,
     activeEvents: 0,
-    completedEvents: 0,
-    archivedEvents: 0,
+    lockedEvents: 0,
+    closedEvents: 0,
     friendsCount: 0
   });
   const autoLogoutDropdownRef = useRef<View>(null);
@@ -372,16 +387,16 @@ const ProfileScreen: React.FC = () => {
 
   const calculateStats = () => {
     const totalEvents = events.length;
-    const activeEvents = events.filter(e => e.status === 'active').length;
-    const completedEvents = events.filter(e => e.status === 'completed').length;
-    const archivedEvents = events.filter(e => e.status === 'archived').length;
-    const friendsCount = participants.filter(p => p.participantType === 'friend').length; // Solo amigos permanentes
+    const activeEvents = events.filter(e => e.status === 'active' && !e.isLocked).length;
+    const lockedEvents = events.filter(e => e.status === 'active' && e.isLocked).length;
+    const closedEvents = events.filter(e => e.status === 'archived' || e.status === 'closed').length;
+    const friendsCount = participants.filter(p => p.participantType === 'friend').length;
 
     setStats({
       totalEvents,
       activeEvents,
-      completedEvents,
-      archivedEvents,
+      lockedEvents,
+      closedEvents,
       friendsCount
     });
   };
@@ -579,16 +594,34 @@ const ProfileScreen: React.FC = () => {
 
   const handleShowDatabaseStats = async () => {
     try {
-      console.log('?? Loading database statistics...');
-      
-      // Ejecutar diagnóstico para identificar problemas
+      console.log('📊 Loading database statistics...');
       await databaseService.diagnoseTables();
-      
-      const stats = await databaseService.getDatabaseStats();
-      setDatabaseStats(stats);
+      const dbStats = await databaseService.getDatabaseStats();
+      setDatabaseStats(dbStats);
+
+      // Espacio en el dispositivo
+      try {
+        const [freeBytes, totalBytes] = await Promise.all([
+          FileSystem.getFreeDiskStorageAsync(),
+          FileSystem.getTotalDiskCapacityAsync()
+        ]);
+        const fmtBytes = (bytes: number): string => {
+          if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
+          return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+        };
+        setDeviceStorage({
+          free: fmtBytes(freeBytes),
+          total: fmtBytes(totalBytes),
+          freePercent: Math.round((freeBytes / totalBytes) * 100)
+        });
+      } catch (storageErr) {
+        console.warn('⚠️ No se pudo leer espacio del dispositivo:', storageErr);
+        setDeviceStorage(null);
+      }
+
       setShowDatabaseStatsModal(true);
     } catch (error) {
-      console.error('? Error loading database stats:', error);
+      console.error('❌ Error loading database stats:', error);
       showAlert({ type: 'error', title: t('error'), message: 'No se pudieron cargar las estadísticas de la base de datos' });
     }
   };
@@ -941,28 +974,42 @@ const ProfileScreen: React.FC = () => {
               style={styles.avatarContainer}
               onPress={handleChangeAvatar}
             >
-              {user?.avatar ? (
-                <Image 
-                  source={{ uri: user.avatar }} 
-                  style={styles.avatarImage}
-                />
-              ) : (
-                <View style={[styles.avatar, { backgroundColor: '#4ECDC4' }]}>
-                  <Text style={styles.avatarText}>
-                    {getUserInitials(profileData.name)}
-                  </Text>
-                </View>
-              )}
+              <View style={styles.avatarRing}>
+                {user?.avatar ? (
+                  <Image 
+                    source={{ uri: user.avatar }} 
+                    style={styles.avatarImage}
+                  />
+                ) : (
+                  <View style={[styles.avatar, { backgroundColor: '#4ECDC4' }]}>
+                    <Text style={styles.avatarText}>
+                      {getUserInitials(profileData.name)}
+                    </Text>
+                  </View>
+                )}
+              </View>
               <View style={styles.avatarEditOverlay}>
-                <MaterialCommunityIcons name="camera" size={20} color="#FFFFFF" />
+                <MaterialCommunityIcons name="camera" size={14} color="#FFFFFF" />
               </View>
             </TouchableOpacity>
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>{profileData.name || 'Usuario Sin Nombre'}</Text>
-              <Text style={styles.profileEmail}>{profileData.email || 'Sin email configurado'}</Text>
-              {profileData.username && (
-                <Text style={styles.profileUsername}>@{profileData.username}</Text>
-              )}
+              {profileData.username ? (
+                <View style={styles.profileDetailRow}>
+                  <MaterialCommunityIcons name="at" size={13} color={theme.colors.primary} />
+                  <Text style={styles.profileUsername}>{profileData.username}</Text>
+                </View>
+              ) : null}
+              <View style={styles.profileDetailRow}>
+                <MaterialCommunityIcons name="email-outline" size={13} color={theme.colors.onSurfaceVariant} />
+                <Text style={styles.profileEmail}>{profileData.email || 'Sin email configurado'}</Text>
+              </View>
+              {profileData.phone ? (
+                <View style={styles.profileDetailRow}>
+                  <MaterialCommunityIcons name="phone-outline" size={13} color={theme.colors.onSurfaceVariant} />
+                  <Text style={styles.profileEmail}>{profileData.phone}</Text>
+                </View>
+              ) : null}
             </View>
           </View>
         </Card>
@@ -973,26 +1020,45 @@ const ProfileScreen: React.FC = () => {
         <View ref={pfStatsRef} collapsable={false}
           onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, stats: y })); }}>
         <ProfileSection title={t('profile.stats')} icon="chart-line" onPress={closeAutoLogoutDropdown}>
-          <View style={styles.statsContainer}>
-            <View style={styles.statRow}>
-              <MaterialCommunityIcons name="account-group" size={20} color="#9C27B0" />
-              <Text style={styles.statNumber}>{stats.friendsCount}</Text>
-              <Text style={styles.statDescription}>{t('profile.friendsCount')}</Text>
+          {/* Fila superior: Amigos + Total */}
+          <View style={styles.statsTopRow}>
+            <View style={[styles.statCardWide, { borderLeftColor: '#9C27B0' }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <MaterialCommunityIcons name="account-group-outline" size={22} color="#9C27B0" />
+                <Text style={[styles.statCardNumber, { color: '#9C27B0' }]}>{stats.friendsCount}</Text>
+              </View>
+              <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant }]}>{t('profile.friendsCount')}</Text>
             </View>
-            <View style={styles.statRow}>
-              <MaterialCommunityIcons name="calendar-check" size={20} color="#4CAF50" />
-              <Text style={styles.statNumber}>{stats.activeEvents}</Text>
-              <Text style={styles.statDescription}>{t('profile.activeEvents')}</Text>
+            <View style={[styles.statCardWide, { borderLeftColor: theme.colors.primary }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <MaterialCommunityIcons name="calendar-multiple" size={22} color={theme.colors.primary} />
+                <Text style={[styles.statCardNumber, { color: theme.colors.primary }]}>{stats.totalEvents}</Text>
+              </View>
+              <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant }]}>{t('profile.totalEvents')}</Text>
             </View>
-            <View style={styles.statRow}>
-              <MaterialCommunityIcons name="calendar-check-outline" size={20} color="#2196F3" />
-              <Text style={styles.statNumber}>{stats.completedEvents}</Text>
-              <Text style={styles.statDescription}>{t('profile.completedEvents')}</Text>
+          </View>
+          {/* Fila inferior: Activos / Bloqueados / Cerrados */}
+          <View style={styles.statsGrid}>
+            <View style={[styles.statCard, { borderTopColor: '#4CAF50' }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <MaterialCommunityIcons name="play-circle-outline" size={18} color="#4CAF50" />
+                <Text style={[styles.statCardNumber, { color: '#4CAF50' }]}>{stats.activeEvents}</Text>
+              </View>
+              <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant }]}>{t('profile.activeEvents')}</Text>
             </View>
-            <View style={styles.statRow}>
-              <MaterialCommunityIcons name="archive" size={20} color="#FF9800" />
-              <Text style={styles.statNumber}>{stats.archivedEvents}</Text>
-              <Text style={styles.statDescription}>{t('profile.archivedEvents')}</Text>
+            <View style={[styles.statCard, { borderTopColor: '#FF9800' }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <MaterialCommunityIcons name="lock-outline" size={18} color="#FF9800" />
+                <Text style={[styles.statCardNumber, { color: '#FF9800' }]}>{stats.lockedEvents}</Text>
+              </View>
+              <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant }]}>{t('profile.lockedEvents')}</Text>
+            </View>
+            <View style={[styles.statCard, { borderTopColor: '#607D8B' }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <MaterialCommunityIcons name="archive-outline" size={18} color="#607D8B" />
+                <Text style={[styles.statCardNumber, { color: '#607D8B' }]}>{stats.closedEvents}</Text>
+              </View>
+              <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant }]}>{t('profile.closedEvents')}</Text>
             </View>
           </View>
         </ProfileSection>
@@ -1130,7 +1196,7 @@ const ProfileScreen: React.FC = () => {
         {!isEditing && (
         <View ref={pfSettingsRef} collapsable={false}
           onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, settings: y })); }}>
-        <ProfileSection title={t('profile.security')} icon="lock" onPress={closeAutoLogoutDropdown} collapsible>
+        <ProfileSection title={t('profile.security')} icon="lock" onPress={closeAutoLogoutDropdown} collapsible isOpen={openSection === 'security'} onToggle={() => toggleSection('security')}>
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => {
@@ -1196,7 +1262,7 @@ const ProfileScreen: React.FC = () => {
         {/* Preferencias */}
         <View ref={pfPreferencesRef} collapsable={false}
           onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, preferences: y })); }}>
-        <ProfileSection title={t('profile.preferences')} icon="cog" collapsible>
+        <ProfileSection title={t('profile.preferences')} icon="cog" collapsible isOpen={openSection === 'preferences'} onToggle={() => toggleSection('preferences')}>
              {/* Auto Login Section */}
           <View style={styles.settingItem}>
             <View style={styles.settingIcon}>
@@ -1403,7 +1469,7 @@ const ProfileScreen: React.FC = () => {
         {!isEditing && (
         <View ref={pfDataBackupRef} collapsable={false}
           onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, dataBackup: y })); }}>
-        <ProfileSection title={t('profile.dataBackup')} icon="database" onPress={closeAutoLogoutDropdown} collapsible>
+        <ProfileSection title={t('profile.dataBackup')} icon="database" onPress={closeAutoLogoutDropdown} collapsible isOpen={openSection === 'dataBackup'} onToggle={() => toggleSection('dataBackup')}>
           <SettingItem
             title={t('profile.dataStats')}
             subtitle={t('profile.dataStatsDesc')}
@@ -1438,7 +1504,7 @@ const ProfileScreen: React.FC = () => {
         {!isEditing && (
         <View ref={pfInfoRef} collapsable={false}
           onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, info: y })); }}>
-        <ProfileSection title={t('profile.information')} icon="information" onPress={closeAutoLogoutDropdown} collapsible>
+        <ProfileSection title={t('profile.information')} icon="information" onPress={closeAutoLogoutDropdown} collapsible isOpen={openSection === 'information'} onToggle={() => toggleSection('information')}>
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => setShowChangelogModal(true)}
@@ -1487,7 +1553,7 @@ const ProfileScreen: React.FC = () => {
         {!isEditing && (
         <View ref={pfErrorGuideRef} collapsable={false}
           onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, errorGuide: y })); }}>
-        <ProfileSection title="Guía de Errores" icon="alert-circle-outline" onPress={closeAutoLogoutDropdown} collapsible>
+        <ProfileSection title="Guía de Errores" icon="alert-circle-outline" onPress={closeAutoLogoutDropdown} collapsible isOpen={openSection === 'errorGuide'} onToggle={() => toggleSection('errorGuide')}>
           {[
             { screen: 'Inicio de Sesión', errors: [
               { title: 'Credencial requerida', desc: 'No ingresaste usuario o email antes de tocar Ingresar.' },
@@ -1568,7 +1634,7 @@ const ProfileScreen: React.FC = () => {
         {!isEditing && (
         <View ref={pfComingSoonRef} collapsable={false}
           onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, comingSoon: y })); }}>
-        <ProfileSection title={t('profile.comingSoon')} icon="rocket-launch" onPress={closeAutoLogoutDropdown} collapsible>
+        <ProfileSection title={t('profile.comingSoon')} icon="rocket-launch" onPress={closeAutoLogoutDropdown} collapsible isOpen={openSection === 'comingSoon'} onToggle={() => toggleSection('comingSoon')}>
           <View style={styles.settingItem}>
             <View style={styles.settingIcon}>
               <MaterialCommunityIcons name="cash-check" size={20} color={theme.colors.onSurfaceVariant} />
@@ -1626,69 +1692,84 @@ const ProfileScreen: React.FC = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{t('profile.changePassword')}</Text>
+            {/* Header con ícono */}
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderIconWrap}>
+                <MaterialCommunityIcons name="lock-reset" size={22} color={theme.colors.primary} />
+              </View>
+              <Text style={styles.modalTitle}>{t('profile.changePassword')}</Text>
+            </View>
+            <View style={styles.modalDivider} />
 
             {/* Contraseña actual */}
-            <View style={styles.modalPasswordRow}>
-              <TextInput
-                style={styles.modalPasswordInput}
-                placeholder={t('profile.currentPassword')}
-                placeholderTextColor={theme.colors.onSurfaceVariant}
-                secureTextEntry={!showCurrentPassword}
-                value={currentPassword}
-                onChangeText={setCurrentPassword}
-                autoFocus
-              />
-              <TouchableOpacity style={styles.modalEyeButton} onPress={() => setShowCurrentPassword(v => !v)}>
-                <MaterialCommunityIcons name={showCurrentPassword ? 'eye-off' : 'eye'} size={22} color={theme.colors.onSurfaceVariant} />
-              </TouchableOpacity>
+            <View style={styles.modalFieldGroup}>
+              <Text style={styles.modalFieldLabel}>{t('profile.currentPassword')}</Text>
+              <View style={styles.modalPasswordRow}>
+                <TextInput
+                  style={styles.modalPasswordInput}
+                  placeholder=""
+                  placeholderTextColor={theme.colors.onSurfaceVariant}
+                  secureTextEntry={!showCurrentPassword}
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  autoFocus
+                />
+                <TouchableOpacity style={styles.modalEyeButton} onPress={() => setShowCurrentPassword(v => !v)}>
+                  <MaterialCommunityIcons name={showCurrentPassword ? 'eye-off' : 'eye'} size={22} color={theme.colors.onSurfaceVariant} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Nueva contraseña */}
-            <View style={styles.modalPasswordRow}>
-              <TextInput
-                style={styles.modalPasswordInput}
-                placeholder={t('profile.newPassword')}
-                placeholderTextColor={theme.colors.onSurfaceVariant}
-                secureTextEntry={!showNewPassword}
-                value={newPassword}
-                onChangeText={setNewPassword}
-              />
-              <TouchableOpacity style={styles.modalEyeButton} onPress={() => setShowNewPassword(v => !v)}>
-                <MaterialCommunityIcons name={showNewPassword ? 'eye-off' : 'eye'} size={22} color={theme.colors.onSurfaceVariant} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Indicador de fortaleza */}
-            {newPassword.length > 0 && (() => {
-              const ps = calculatePasswordStrength(newPassword);
-              return (
-                <View style={styles.passwordStrengthContainer}>
-                  <View style={styles.passwordStrengthBar}>
-                    <View style={[styles.passwordStrengthFill, { width: `${(ps.score / 5) * 100}%` as any, backgroundColor: ps.color }]} />
+            <View style={styles.modalFieldGroup}>
+              <Text style={styles.modalFieldLabel}>{t('profile.newPassword')}</Text>
+              <View style={styles.modalPasswordRow}>
+                <TextInput
+                  style={styles.modalPasswordInput}
+                  placeholder=""
+                  placeholderTextColor={theme.colors.onSurfaceVariant}
+                  secureTextEntry={!showNewPassword}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                />
+                <TouchableOpacity style={styles.modalEyeButton} onPress={() => setShowNewPassword(v => !v)}>
+                  <MaterialCommunityIcons name={showNewPassword ? 'eye-off' : 'eye'} size={22} color={theme.colors.onSurfaceVariant} />
+                </TouchableOpacity>
+              </View>
+              {/* Indicador de fortaleza */}
+              {newPassword.length > 0 && (() => {
+                const ps = calculatePasswordStrength(newPassword);
+                return (
+                  <View style={styles.passwordStrengthContainer}>
+                    <View style={styles.passwordStrengthBar}>
+                      <View style={[styles.passwordStrengthFill, { width: `${(ps.score / 5) * 100}%` as any, backgroundColor: ps.color }]} />
+                    </View>
+                    <Text style={[styles.passwordStrengthText, { color: ps.color }]}>{ps.label}</Text>
                   </View>
-                  <Text style={[styles.passwordStrengthText, { color: ps.color }]}>{ps.label}</Text>
-                </View>
-              );
-            })()}
+                );
+              })()}
+            </View>
 
             {/* Confirmar nueva contraseña */}
-            <View style={styles.modalPasswordRow}>
-              <TextInput
-                style={styles.modalPasswordInput}
-                placeholder={t('profile.confirmPassword')}
-                placeholderTextColor={theme.colors.onSurfaceVariant}
-                secureTextEntry={!showConfirmPasswordVis}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-              />
-              <TouchableOpacity style={styles.modalEyeButton} onPress={() => setShowConfirmPasswordVis(v => !v)}>
-                <MaterialCommunityIcons name={showConfirmPasswordVis ? 'eye-off' : 'eye'} size={22} color={theme.colors.onSurfaceVariant} />
-              </TouchableOpacity>
+            <View style={styles.modalFieldGroup}>
+              <Text style={styles.modalFieldLabel}>{t('profile.confirmPassword')}</Text>
+              <View style={styles.modalPasswordRow}>
+                <TextInput
+                  style={styles.modalPasswordInput}
+                  placeholder=""
+                  placeholderTextColor={theme.colors.onSurfaceVariant}
+                  secureTextEntry={!showConfirmPasswordVis}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                />
+                <TouchableOpacity style={styles.modalEyeButton} onPress={() => setShowConfirmPasswordVis(v => !v)}>
+                  <MaterialCommunityIcons name={showConfirmPasswordVis ? 'eye-off' : 'eye'} size={22} color={theme.colors.onSurfaceVariant} />
+                </TouchableOpacity>
+              </View>
+              {confirmPassword.length > 0 && newPassword !== confirmPassword && (
+                <Text style={styles.modalPasswordMismatch}>{t('profile.message.passwordMismatch')}</Text>
+              )}
             </View>
-            {confirmPassword.length > 0 && newPassword !== confirmPassword && (
-              <Text style={styles.modalPasswordMismatch}>{t('profile.message.passwordMismatch')}</Text>
-            )}
             
             <View style={styles.modalButtons}>
               <TouchableOpacity
@@ -1747,7 +1828,7 @@ const ProfileScreen: React.FC = () => {
                   }
                 }}
               >
-                <Text style={styles.modalButtonTextConfirm}>{t('profile.updatePassword')}</Text>
+                <Text style={styles.modalButtonTextConfirm}>{t('profile.update')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -2467,12 +2548,17 @@ const ProfileScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.changelogModalContent}>
             <View style={styles.changelogHeader}>
-              <Text style={styles.modalTitle}>{t('profile.about.title')}</Text>
+              <View style={styles.infoModalHeaderLeft}>
+                <View style={[styles.infoModalHeaderIcon, { backgroundColor: theme.colors.primary }]}>
+                  <MaterialCommunityIcons name="information-outline" size={18} color="#FFF" />
+                </View>
+                <Text style={styles.modalTitle}>{t('profile.about.title')}</Text>
+              </View>
               <TouchableOpacity
                 style={styles.closeButton}
                 onPress={() => setShowAboutModal(false)}
               >
-                <MaterialCommunityIcons name="close" size={24} color={theme.colors.onSurface} />
+                <MaterialCommunityIcons name="close" size={18} color={theme.colors.onSurfaceVariant} />
               </TouchableOpacity>
             </View>
             
@@ -2581,188 +2667,96 @@ const ProfileScreen: React.FC = () => {
         onRequestClose={() => setShowDatabaseStatsModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.databaseStatsModalContent}>
-            <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: theme.colors.onSurface }}>📊 Estadísticas Datos</Text>
-              <TouchableOpacity
-                onPress={() => setShowDatabaseStatsModal(false)}
-              >
-                <MaterialCommunityIcons name="close" size={26} color={theme.colors.onSurface} />
-              </TouchableOpacity>
+          <View style={styles.changelogModalContent}>
+            <View style={styles.changelogHeader}>
+              <View style={styles.infoModalHeaderLeft}>
+                <View style={[styles.infoModalHeaderIcon, { backgroundColor: '#607D8B' }]}>
+                  <MaterialCommunityIcons name="chart-bar" size={18} color="#FFF" />
+                </View>
+                <Text style={styles.modalTitle}>{t('profile.dataStats')}</Text>
+              </View>
             </View>
-            
+
             <ScrollView
-              style={[styles.changelogContent]} 
+              style={styles.changelogContent}
               showsVerticalScrollIndicator={true}
-              contentContainerStyle={{ padding: 20, paddingTop: 10, flexGrow: 1 }}
+              contentContainerStyle={{ paddingBottom: 8, flexGrow: 1 }}
               nestedScrollEnabled={true}
             >
               {databaseStats ? (
                 <>
-                  {/* Resumen */}
-                  <View style={{ backgroundColor: theme.colors.surface, borderRadius: 8, padding: 12, marginBottom: 16 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}>
-                      <Text style={{ color: theme.colors.onSurface, ...theme.typography.bodyMedium }}>Total de registros:</Text>
-                      <Text style={{ color: theme.colors.primary, ...theme.typography.bodyLarge, fontWeight: 'bold' }}>{databaseStats.totalRecords.toLocaleString()}</Text>
-                    </View>
-                    <View style={{ height: 1, backgroundColor: theme.colors.outline, marginVertical: 8, opacity: 0.3 }} />
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}>
-                      <Text style={{ color: theme.colors.onSurface, ...theme.typography.bodyMedium }}>Tamaño de base de datos:</Text>
-                      <Text style={{ color: theme.colors.primary, ...theme.typography.bodyLarge, fontWeight: 'bold' }}>{databaseStats.databaseSize}</Text>
+                  {/* Grid: Registros / Usuarios / Promedio */}
+                  {(() => {
+                    let avg = '—';
+                    if (events.length > 0) {
+                      const dates = events
+                        .map(e => new Date((e as any).createdAt || (e as any).created_at || Date.now()).getTime())
+                        .filter(ms => !isNaN(ms));
+                      if (dates.length > 0) {
+                        const oldest = new Date(Math.min(...dates));
+                        const now = new Date();
+                        const months = Math.max(1, (now.getFullYear() - oldest.getFullYear()) * 12 + (now.getMonth() - oldest.getMonth()) + 1);
+                        avg = (events.length / months).toFixed(1);
+                      }
+                    }
+                    return (
+                      <View style={[styles.statsGrid, { marginBottom: 12 }]}>
+                        <View style={[styles.statCard, { borderTopColor: '#FF9800' }]}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <MaterialCommunityIcons name="format-list-numbered" size={18} color="#FF9800" />
+                            <Text style={[styles.statCardNumber, { color: '#FF9800' }]}>{databaseStats.totalRecords.toLocaleString()}</Text>
+                          </View>
+                          <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant }]}>Registros</Text>
+                        </View>
+                        <View style={[styles.statCard, { borderTopColor: '#9C27B0' }]}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <MaterialCommunityIcons name="account-multiple" size={18} color="#9C27B0" />
+                            <Text style={[styles.statCardNumber, { color: '#9C27B0' }]}>{databaseStats.tables['users'] || 0}</Text>
+                          </View>
+                          <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant }]}>Usuarios</Text>
+                        </View>
+                        <View style={[styles.statCard, { borderTopColor: '#4CAF50' }]}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <MaterialCommunityIcons name="chart-timeline-variant" size={18} color="#4CAF50" />
+                            <Text style={[styles.statCardNumber, { color: '#4CAF50' }]}>{avg}</Text>
+                          </View>
+                          <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant }]}>Ev/mes</Text>
+                        </View>
+                      </View>
+                    );
+                  })()}
+
+                  {/* Tamaño de la BD */}
+                  <View style={[styles.statCardWide, { borderLeftColor: '#607D8B', marginBottom: 10 }]}>
+                    <MaterialCommunityIcons name="database" size={24} color="#607D8B" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.statCardNumber, { color: '#607D8B', fontSize: 18 }]}>{databaseStats.databaseSize}</Text>
+                      <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant }]}>Tamaño de la base de datos</Text>
                     </View>
                   </View>
 
-                  {/* Tablas Principales */}
-                  <TouchableOpacity 
-                    onPress={() => setShowMainTables(!showMainTables)}
-                    style={{ 
-                      backgroundColor: theme.colors.surfaceVariant, 
-                      borderRadius: 8, 
-                      padding: 12,
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      marginBottom: 8
-                    }}
-                  >
-                    <Text style={{ color: theme.colors.onSurfaceVariant, ...theme.typography.labelLarge, fontWeight: '500' }}>📋 Tablas Principales</Text>
-                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 16 }}>{showMainTables ? '?' : '?'}</Text>
-                  </TouchableOpacity>
-                  
-                  {showMainTables && (
-                    <View style={{ backgroundColor: theme.colors.surface, borderRadius: 8, padding: 12, marginBottom: 16 }}>
-                      {Object.entries(databaseStats.tables)
-                        .filter(([tableName]) => {
-                          const mainTables = ['users', 'events', 'participants', 'expenses', 'settlements', 'splits', 'event_participants', 'app_versions', 'sqlite_sequence'];
-                          return mainTables.includes(tableName);
-                        })
-                        .sort((a, b) => b[1] - a[1])
-                        .map(([tableName, count], index, array) => {
-                          const friendlyNames: { [key: string]: string } = {
-                            'users': 'Usuarios',
-                            'events': 'Eventos', 
-                            'participants': 'Participantes',
-                            'expenses': 'Gastos',
-                            'settlements': 'Liquidaciones',
-                            'splits': 'Divisiones',
-                            'event_participants': 'Evento-Participantes',
-                            'app_versions': 'Versiones de App',
-                            'sqlite_sequence': 'Secuencias SQLite'
-                          };
-                          
-                          const displayName = friendlyNames[tableName] || `🗂️ ${tableName} (Desconocida)`;
-                          const percentage = databaseStats.totalRecords > 0 
-                            ? ((count / databaseStats.totalRecords) * 100).toFixed(1)
-                            : '0.0';
-                          
-                          return (
-                            <View key={tableName}>
-                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 }}>
-                                <Text style={{ color: theme.colors.onSurface, ...theme.typography.bodyMedium, flex: 1 }}>{displayName}</Text>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                  <Text style={{ color: theme.colors.primary, ...theme.typography.bodyMedium, fontWeight: 'bold' }}>{count.toLocaleString()}</Text>
-                                  <Text style={{ color: theme.colors.onSurfaceVariant, ...theme.typography.bodySmall, minWidth: 40, textAlign: 'right' }}>({percentage}%)</Text>
-                                </View>
-                              </View>
-                              {index < array.length - 1 && (
-                                <View style={{ height: 1, backgroundColor: theme.colors.outline, marginVertical: 4, opacity: 0.3 }} />
-                              )}
-                            </View>
-                          );
-                        })
-                      }
+                  {/* Espacio en dispositivo */}
+                  <View style={[styles.statCardWide, { borderLeftColor: '#2196F3' }]}>
+                    <MaterialCommunityIcons name="harddisk" size={24} color="#2196F3" />
+                    <View style={{ flex: 1 }}>
+                      {deviceStorage ? (
+                        <>
+                          <Text style={[styles.statCardNumber, { color: '#2196F3', fontSize: 18 }]}>{deviceStorage.free} libres</Text>
+                          <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant }]}>de {deviceStorage.total} — {deviceStorage.freePercent}% disponible</Text>
+                        </>
+                      ) : (
+                        <>
+                          <Text style={[styles.statCardNumber, { color: '#2196F3', fontSize: 16 }]}>No disponible</Text>
+                          <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant }]}>Espacio en dispositivo</Text>
+                        </>
+                      )}
                     </View>
-                  )}
-
-                  {/* Tablas de Relación */}
-                  <TouchableOpacity 
-                    onPress={() => setShowRelationTables(!showRelationTables)}
-                    style={{ 
-                      backgroundColor: theme.colors.surfaceVariant, 
-                      borderRadius: 8, 
-                      padding: 12,
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      marginBottom: 8
-                    }}
-                  >
-                    <Text style={{ color: theme.colors.onSurfaceVariant, ...theme.typography.labelLarge, fontWeight: '500' }}>🔗 Tablas de Relación</Text>
-                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 16 }}>{showRelationTables ? '▲' : '▼'}</Text>
-                  </TouchableOpacity>
-                  
-                  {showRelationTables && (
-                    <View style={{ backgroundColor: theme.colors.surface, borderRadius: 8, padding: 12, marginBottom: 16 }}>
-                      {Object.entries(databaseStats.tables)
-                        .filter(([tableName]) => {
-                          const relationTables = ['user_settings', 'user_preferences'];
-                          const mainTables = ['users', 'events', 'participants', 'expenses', 'settlements', 'splits', 'event_participants', 'app_versions', 'sqlite_sequence'];
-                          return relationTables.includes(tableName) || (!mainTables.includes(tableName));
-                        })
-                        .sort((a, b) => b[1] - a[1])
-                        .map(([tableName, count], index, array) => {
-                          const friendlyNames: { [key: string]: string } = {
-                            'user_settings': 'Configuración de Usuario',
-                            'user_preferences': 'Preferencias de Usuario'
-                          };
-                          
-                          const displayName = friendlyNames[tableName] || `🔗 ${tableName} (Relacional)`;
-                          const percentage = databaseStats.totalRecords > 0 
-                            ? ((count / databaseStats.totalRecords) * 100).toFixed(1)
-                            : '0.0';
-                          
-                          return (
-                            <View key={tableName}>
-                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 }}>
-                                <Text style={{ color: theme.colors.onSurface, ...theme.typography.bodyMedium, flex: 1 }}>{displayName}</Text>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                  <Text style={{ color: theme.colors.primary, ...theme.typography.bodyMedium, fontWeight: 'bold' }}>{count.toLocaleString()}</Text>
-                                  <Text style={{ color: theme.colors.onSurfaceVariant, ...theme.typography.bodySmall, minWidth: 40, textAlign: 'right' }}>({percentage}%)</Text>
-                                </View>
-                              </View>
-                              {index < array.length - 1 && (
-                                <View style={{ height: 1, backgroundColor: theme.colors.outline, marginVertical: 4, opacity: 0.3 }} />
-                              )}
-                            </View>
-                          );
-                        })
-                      }
-                    </View>
-                  )}
-
-                  {/* Información Técnica */}
-                  <TouchableOpacity 
-                    onPress={() => setShowTechInfo(!showTechInfo)}
-                    style={{ 
-                      backgroundColor: theme.colors.surfaceVariant, 
-                      borderRadius: 8, 
-                      padding: 12,
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}
-                  >
-                    <Text style={{ color: theme.colors.onSurfaceVariant, ...theme.typography.labelLarge }}>ℹ️ Información técnica</Text>
-                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 16 }}>{showTechInfo ? '▲' : '▼'}</Text>
-                  </TouchableOpacity>
-                  
-                  {showTechInfo && (
-                    <View style={{ backgroundColor: theme.colors.surface, borderRadius: 8, padding: 12, marginTop: 8 }}>
-                      <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 12, lineHeight: 16 }}>
-                        • Datos del estado actual local{"\n"}
-                        • Tablas "Legacy" del sistema anterior{"\n"}
-                        • "Transacciones" unifica el nuevo sistema{"\n"}
-                        • Porcentajes calculados sobre el total
-                      </Text>
-                    </View>
-                  )}
+                  </View>
                 </>
               ) : (
-                <View style={[styles.aboutSection, { alignItems: 'center', paddingVertical: 40 }]}>
-                  <MaterialCommunityIcons name="loading" size={48} color={theme.colors.primary} />
-                  <Text style={[styles.aboutDescription, { marginTop: 16, textAlign: 'center' }]}>
-                    Cargando estadísticas...
-                  </Text>
+                <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+                  <MaterialCommunityIcons name="database-clock" size={48} color={theme.colors.primary} />
+                  <Text style={[styles.profileEmail, { marginTop: 16, textAlign: 'center' }]}>Cargando estadísticas...</Text>
                 </View>
               )}
             </ScrollView>
@@ -2780,12 +2774,17 @@ const ProfileScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.changelogModalContent}>
             <View style={styles.changelogHeader}>
-              <Text style={styles.modalTitle}>{t('profile.terms.title')}</Text>
+              <View style={styles.infoModalHeaderLeft}>
+                <View style={[styles.infoModalHeaderIcon, { backgroundColor: '#2196F3' }]}>
+                  <MaterialCommunityIcons name="file-document-outline" size={18} color="#FFF" />
+                </View>
+                <Text style={styles.modalTitle}>{t('profile.terms.title')}</Text>
+              </View>
               <TouchableOpacity
                 style={styles.closeButton}
                 onPress={() => setShowTermsModal(false)}
               >
-                <MaterialCommunityIcons name="close" size={24} color={theme.colors.onSurface} />
+                <MaterialCommunityIcons name="close" size={18} color={theme.colors.onSurfaceVariant} />
               </TouchableOpacity>
             </View>
             
@@ -2857,12 +2856,17 @@ const ProfileScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.changelogModalContent}>
             <View style={styles.changelogHeader}>
-              <Text style={styles.modalTitle}>{t('profile.privacy.title')}</Text>
+              <View style={styles.infoModalHeaderLeft}>
+                <View style={[styles.infoModalHeaderIcon, { backgroundColor: '#4CAF50' }]}>
+                  <MaterialCommunityIcons name="shield-lock-outline" size={18} color="#FFF" />
+                </View>
+                <Text style={styles.modalTitle}>{t('profile.privacy.title')}</Text>
+              </View>
               <TouchableOpacity
                 style={styles.closeButton}
                 onPress={() => setShowPrivacyModal(false)}
               >
-                <MaterialCommunityIcons name="close" size={24} color={theme.colors.onSurface} />
+                <MaterialCommunityIcons name="close" size={18} color={theme.colors.onSurfaceVariant} />
               </TouchableOpacity>
             </View>
             
@@ -2941,12 +2945,17 @@ const ProfileScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.changelogModalContent}>
             <View style={styles.changelogHeader}>
-              <Text style={styles.modalTitle}>{t('profile.support.title')}</Text>
+              <View style={styles.infoModalHeaderLeft}>
+                <View style={[styles.infoModalHeaderIcon, { backgroundColor: '#FF9800' }]}>
+                  <MaterialCommunityIcons name="headset" size={18} color="#FFF" />
+                </View>
+                <Text style={styles.modalTitle}>{t('profile.support.title')}</Text>
+              </View>
               <TouchableOpacity
                 style={styles.closeButton}
                 onPress={() => setShowSupportModal(false)}
               >
-                <MaterialCommunityIcons name="close" size={24} color={theme.colors.onSurface} />
+                <MaterialCommunityIcons name="close" size={18} color={theme.colors.onSurfaceVariant} />
               </TouchableOpacity>
             </View>
             

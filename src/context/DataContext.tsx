@@ -799,6 +799,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               creator_id: event.creatorId || event.creator_id || event.created_by || '',
               closed_at: event.closedAt || event.closed_at || null,
               completed_at: event.completedAt || event.completed_at || null,
+              is_locked: event.isLocked !== undefined ? (event.isLocked ? 1 : 0) : (event.is_locked !== undefined ? (event.is_locked ? 1 : 0) : 0),
               created_at: event.createdAt || event.created_at || new Date().toISOString(),
               updated_at: event.updatedAt || event.updated_at || new Date().toISOString()
             };
@@ -807,13 +808,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
               `INSERT OR REPLACE INTO events (
                 id, name, description, start_date, location, currency, 
                 total_amount, status, type, category, creator_id, 
-                closed_at, completed_at, created_at, updated_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                closed_at, completed_at, is_locked, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
                 eventData.id, eventData.name, eventData.description, eventData.start_date,
                 eventData.location, eventData.currency, eventData.total_amount, eventData.status,
                 eventData.type, eventData.category, eventData.creator_id, eventData.closed_at,
-                eventData.completed_at, eventData.created_at, eventData.updated_at
+                eventData.completed_at, eventData.is_locked, eventData.created_at, eventData.updated_at
               ]
             );
           } catch (eventError) {

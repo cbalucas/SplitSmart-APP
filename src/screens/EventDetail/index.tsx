@@ -1089,6 +1089,15 @@ export default function EventDetailScreen() {
       message += `━━━━━━━\n`;
     }
 
+    // Mostrar información de consolidación antes de las liquidaciones
+    if (consolidationAssignments.length > 0 && !showOriginalView) {
+      message += `👤 *${t('eventDetail.shareAssignments')}*\n`;
+      consolidationAssignments.forEach(assignment => {
+        message += `• ${assignment.payerName} ${t('eventDetail.sharePaysWith')} ${assignment.debtorName}\n`;
+      });
+      message += `━━━━━━━\n`;
+    }
+
     message += `💸 ${t('eventDetail.shareSettlementsLabel')}\n\n`;
     if (currentSettlements.length > 0) {
       // Agrupar liquidaciones por destinatario (quien recibe el dinero)
@@ -1121,18 +1130,6 @@ export default function EventDetailScreen() {
       message += `━━━━━━━\n`;
     } else {
       message += `${t('eventDetail.shareSettled')}\n`;
-      message += `━━━━━━━\n`;
-    }
-
-    // Mostrar información de consolidación después de las liquidaciones
-    if (consolidationAssignments.length > 0 && !showOriginalView) {
-      message += `🔄 *${t('eventDetail.shareConsolidatedView')}*\n\n`;
-      
-      // Mostrar quién paga por quién
-      message += `👤 *${t('eventDetail.shareAssignments')}*\n`;
-      consolidationAssignments.forEach(assignment => {
-        message += `• ${assignment.payerName} ${t('eventDetail.sharePaysWith')} ${assignment.debtorName}\n`;
-      });
       message += `━━━━━━━\n`;
     }
 
@@ -1204,6 +1201,15 @@ export default function EventDetailScreen() {
       message += `━━━━━━━\n`;
     }
 
+    // Mostrar información de consolidación antes de las liquidaciones
+    if (consolidationAssignments.length > 0 && !showOriginalView) {
+      message += `👤 ${t('eventDetail.shareAssignments')}\n`;
+      consolidationAssignments.forEach(assignment => {
+        message += `• ${assignment.payerName} ${t('eventDetail.sharePaysWith')} ${assignment.debtorName}\n`;
+      });
+      message += `━━━━━━━\n`;
+    }
+
     message += `💸 ${t('eventDetail.shareSettlementLabel')}\n\n`;
     
     if (currentSettlements.length > 0) {
@@ -1240,18 +1246,6 @@ export default function EventDetailScreen() {
       message += `━━━━━━━\n`;
     }
 
-    // Mostrar información de consolidación después de las liquidaciones
-    if (consolidationAssignments.length > 0 && !showOriginalView) {
-      message += `🔄 ${t('eventDetail.shareConsolidatedView')}\n\n`;
-      
-      // Mostrar quién paga por quién
-      message += `👤 ${t('eventDetail.shareAssignments')}\n`;
-      consolidationAssignments.forEach(assignment => {
-        message += `• ${assignment.payerName} ${t('eventDetail.sharePaysWith')} ${assignment.debtorName}\n`;
-      });
-      message += `━━━━━━━\n`;
-    }
-    
     message += `📝 ${t('eventDetail.shareExpensesLabel')} (${eventExpenses.length}):\n\n`;
     
     if (eventExpenses.length > 0) {

@@ -2398,12 +2398,12 @@ class DatabaseService {
       const exportData = {
         version: '2.0',
         exportDate: new Date().toISOString(),
-        appVersion: '1.4.1',
+        appVersion: '1.9.0',
         metadata: {
           exportedBy: 'SplitSmart',
           version: '2.0',
           exportDate: new Date().toISOString(),
-          appVersion: '1.4.1'
+          appVersion: '1.9.0'
         },
         data: {
           // Main entities
@@ -2432,8 +2432,9 @@ class DatabaseService {
           totalPayments: payments.length,
           totalAmount: totalAmount,
           friendsCount: participants.filter(p => p.participantType === 'friend').length,
-          activeEvents: events.filter(e => e.status === 'active').length,
-          completedEvents: events.filter(e => e.status === 'completed').length
+          activeEvents: events.filter(e => e.status === 'active' && !e.isLocked).length,
+          lockedEvents: events.filter(e => e.isLocked).length,
+          closedEvents: events.filter(e => e.status === 'archived' || e.status === 'closed').length
         },
         integrity: {
           recordCounts: {

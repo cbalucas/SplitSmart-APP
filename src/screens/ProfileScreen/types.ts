@@ -24,6 +24,8 @@ export interface ProfileSectionProps {
   onPress?: () => void;
   rightAction?: React.ReactNode;
   collapsible?: boolean;
+  isOpen?: boolean;
+  onToggle?: () => void;
 }
 
 export interface SettingItemProps {
@@ -39,8 +41,8 @@ export interface SettingItemProps {
 export interface ProfileStats {
   totalEvents: number;
   activeEvents: number;
-  completedEvents: number;
-  archivedEvents: number;
+  lockedEvents: number;
+  closedEvents: number;
   friendsCount: number;
 }
 

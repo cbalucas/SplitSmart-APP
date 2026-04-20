@@ -61,7 +61,10 @@ export const createStyles = (theme: Theme) =>
     } as ViewStyle,
 
     profileCard: {
-      marginBottom: 20,
+      marginBottom: 16,
+      borderTopWidth: 4,
+      borderTopColor: theme.colors.primary,
+      overflow: 'hidden',
     } as ViewStyle,
 
     profileHeader: {
@@ -91,59 +94,105 @@ export const createStyles = (theme: Theme) =>
       zIndex: 1,
     } as ViewStyle,
 
+    avatarRing: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      borderWidth: 2.5,
+      borderColor: theme.colors.primary,
+      padding: 2,
+      justifyContent: 'center',
+      alignItems: 'center',
+    } as ViewStyle,
+
     avatar: {
-      width: 60,
-      height: 60,
-      borderRadius: 30,
+      width: 63,
+      height: 63,
+      borderRadius: 32,
       alignItems: 'center',
       justifyContent: 'center',
     } as ViewStyle,
 
     avatarImage: {
-      width: 60,
-      height: 60,
-      borderRadius: 30,
+      width: 63,
+      height: 63,
+      borderRadius: 32,
     } as ImageStyle,
 
     avatarEditOverlay: {
       position: 'absolute',
       bottom: 0,
       right: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.6)',
-      borderRadius: 15,
-      width: 30,
-      height: 30,
+      backgroundColor: theme.colors.primary,
+      borderRadius: 12,
+      width: 24,
+      height: 24,
       justifyContent: 'center',
       alignItems: 'center',
+      borderWidth: 2,
+      borderColor: theme.colors.surface,
     } as ViewStyle,
 
     avatarText: {
-      fontSize: 20,
-      fontWeight: 'bold',
+      fontSize: 22,
+      fontWeight: '700',
       color: '#FFFFFF',
     } as TextStyle,
 
     profileInfo: {
       flex: 1,
+      gap: 4,
     } as ViewStyle,
 
     profileName: {
-      fontSize: 20,
-      fontWeight: '600',
+      fontSize: 18,
+      fontWeight: '700',
       color: theme.colors.onSurface,
+      lineHeight: 22,
     } as TextStyle,
 
+    profileDetailRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    } as ViewStyle,
+
     profileEmail: {
-      fontSize: 14,
+      fontSize: 13,
       color: theme.colors.onSurfaceVariant,
-      marginTop: 2,
+      flexShrink: 1,
     } as TextStyle,
 
     profileUsername: {
       fontSize: 12,
       color: theme.colors.primary,
-      marginTop: 1,
-      fontStyle: 'italic',
+      fontWeight: '600',
+    } as TextStyle,
+
+    profileCardFooter: {
+      flexDirection: 'row',
+      marginTop: 12,
+      paddingTop: 10,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.outline,
+      gap: 8,
+      flexWrap: 'wrap',
+    } as ViewStyle,
+
+    profileCurrencyChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: theme.colors.primaryContainer,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 20,
+    } as ViewStyle,
+
+    profileCurrencyChipText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.colors.primary,
     } as TextStyle,
 
     sectionHeader: {
@@ -178,29 +227,54 @@ export const createStyles = (theme: Theme) =>
 
     statsContainer: {
       paddingVertical: 8,
+      gap: 10,
     } as ViewStyle,
 
-    statRow: {
+    statsTopRow: {
+      flexDirection: 'row',
+      gap: 12,
+      marginBottom: 12,
+    } as ViewStyle,
+
+    statCardWide: {
+      flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 8,
-      paddingHorizontal: 4,
+      gap: 10,
+      backgroundColor: theme.colors.surfaceVariant,
+      borderRadius: 12,
+      paddingVertical: 16,
+      paddingHorizontal: 16,
+      borderLeftWidth: 4,
     } as ViewStyle,
 
-    statNumber: {
-      fontSize: 16,
-      fontWeight: '600',
+    statsGrid: {
+      flexDirection: 'row',
+      gap: 12,
+    } as ViewStyle,
+
+    statCard: {
+      flex: 1,
+      alignItems: 'center',
+      backgroundColor: theme.colors.surfaceVariant,
+      borderRadius: 12,
+      paddingVertical: 14,
+      paddingHorizontal: 8,
+      borderTopWidth: 3,
+      gap: 6,
+    } as ViewStyle,
+
+    statCardNumber: {
+      fontSize: 24,
+      fontWeight: '700',
       color: theme.colors.onSurface,
-      marginLeft: 12,
-      marginRight: 8,
-      minWidth: 24,
-      textAlign: 'center',
     } as TextStyle,
 
-    statDescription: {
-      fontSize: 14,
+    statCardLabel: {
+      fontSize: 11,
+      fontWeight: '500',
       color: theme.colors.onSurfaceVariant,
-      flex: 1,
+      textAlign: 'center',
     } as TextStyle,
 
     comingSoonBadge: {
@@ -303,6 +377,9 @@ export const createStyles = (theme: Theme) =>
       padding: 24,
       width: '100%',
       maxWidth: 400,
+      borderTopWidth: 4,
+      borderTopColor: theme.colors.primary,
+      overflow: 'hidden',
     } as ViewStyle,
 
     modalTitle: {
@@ -454,11 +531,14 @@ export const createStyles = (theme: Theme) =>
     // Estilos del Changelog Modal
     changelogModalContent: {
       backgroundColor: theme.colors.surface,
-      borderRadius: 16,
+      borderRadius: 20,
       padding: 20,
       width: '95%',
       maxHeight: '85%',
       minHeight: 400,
+      overflow: 'hidden',
+      borderTopWidth: 4,
+      borderTopColor: theme.colors.primary,
     } as ViewStyle,
 
     // Modal adaptativo para estadísticas de base de datos
@@ -497,6 +577,8 @@ export const createStyles = (theme: Theme) =>
       backgroundColor: theme.colors.surfaceVariant,
       justifyContent: 'center',
       alignItems: 'center',
+      borderWidth: 1,
+      borderColor: theme.colors.outline,
     } as ViewStyle,
 
     changelogContent: {
@@ -738,7 +820,6 @@ export const createStyles = (theme: Theme) =>
       borderWidth: 1,
       borderColor: theme.colors.outline,
       borderRadius: 12,
-      marginBottom: 12,
     } as ViewStyle,
 
     modalPasswordInput: {
@@ -777,4 +858,56 @@ export const createStyles = (theme: Theme) =>
       fontWeight: '500',
       textAlign: 'right',
     } as TextStyle,
+
+    // Modal con header icon
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 12,
+    } as ViewStyle,
+
+    modalHeaderIconWrap: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      backgroundColor: theme.colors.primaryContainer,
+      justifyContent: 'center',
+      alignItems: 'center',
+    } as ViewStyle,
+
+    modalDivider: {
+      height: 1,
+      backgroundColor: theme.colors.outline,
+      marginBottom: 16,
+    } as ViewStyle,
+
+    modalFieldGroup: {
+      marginBottom: 12,
+    } as ViewStyle,
+
+    modalFieldLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: theme.colors.onSurfaceVariant,
+      marginBottom: 6,
+      marginLeft: 2,
+      letterSpacing: 0.4,
+    } as TextStyle,
+
+    // Info modal header (About, Terms, Privacy, Support)
+    infoModalHeaderLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      flex: 1,
+    } as ViewStyle,
+
+    infoModalHeaderIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      justifyContent: 'center',
+      alignItems: 'center',
+    } as ViewStyle,
   });
