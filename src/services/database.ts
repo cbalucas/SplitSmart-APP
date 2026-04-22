@@ -1184,19 +1184,19 @@ class DatabaseService {
         fields.push('name = ?');
         values.push(updates.name);
       }
-      if (updates.email !== undefined) {
+      if ('email' in updates) {
         fields.push('email = ?');
         values.push(updates.email || null);
       }
-      if (updates.phone !== undefined) {
+      if ('phone' in updates) {
         fields.push('phone = ?');
         values.push(updates.phone || null);
       }
-      if (updates.alias_cbu !== undefined) {
+      if ('alias_cbu' in updates) {
         fields.push('alias_cbu = ?');
         values.push(updates.alias_cbu || null);
       }
-      if (updates.avatar !== undefined) {
+      if ('avatar' in updates) {
         fields.push('avatar = ?');
         values.push(updates.avatar || null);
       }

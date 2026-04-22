@@ -675,7 +675,8 @@ const CreateEventScreen: React.FC = () => {
             value={formData.startDate || new Date()}
             mode="date"
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            minimumDate={new Date(new Date().setMonth(new Date().getMonth() - 6))}
+            minimumDate={new Date(new Date().setMonth(new Date().getMonth() - 3))}
+            maximumDate={new Date(new Date().setFullYear(new Date().getFullYear() + 2))}
             onChange={onDateChange}
           />
         )}

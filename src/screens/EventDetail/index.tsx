@@ -27,6 +27,7 @@ import { Event, Expense, Participant, EventParticipant, Split, Payment, Settleme
 import { AppColors } from '../../constants/colors';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
+import Avatar from '../../components/Avatar';
 import AddParticipantModal from '../../components/AddParticipantModal';
 import HeaderBar from '../../components/HeaderBar';
 import SearchBar from '../../components/SearchBar';
@@ -2258,16 +2259,25 @@ export default function EventDetailScreen() {
                       </View>
                     )}
                     <View style={styles.participantInfo}>
-                      <View style={[
-                        styles.participantAvatar,
-                        { backgroundColor: participant.participantType === 'friend' ? theme.colors.success : theme.colors.warning }
-                      ]}>
-                        <MaterialCommunityIcons
-                          name={participant.participantType === 'friend' ? 'heart' : 'clock'}
-                          size={20}
-                          color={participant.participantType === 'friend' ? theme.colors.onSuccess : theme.colors.onWarning}
+                      {participant.avatar ? (
+                        <Avatar
+                          name={participant.name}
+                          image={participant.avatar}
+                          size="small"
+                          style={styles.participantAvatar as any}
                         />
-                      </View>
+                      ) : (
+                        <View style={[
+                          styles.participantAvatar,
+                          { backgroundColor: participant.participantType === 'friend' ? theme.colors.success : theme.colors.warning }
+                        ]}>
+                          <MaterialCommunityIcons
+                            name={participant.participantType === 'friend' ? 'heart' : 'clock'}
+                            size={20}
+                            color={participant.participantType === 'friend' ? theme.colors.onSuccess : theme.colors.onWarning}
+                          />
+                        </View>
+                      )}
                       <View style={styles.participantDetails}>
                         <View style={styles.participantNameContainer}>
                           <Text style={styles.participantName}>{participant.name}</Text>
@@ -4043,23 +4053,32 @@ const ParticipantInfoModalContent: React.FC<{
         <Card>
           {/* Avatar y nombre */}
           <View style={{ alignItems: 'center', marginBottom: 24 }}>
-            <View style={[
-              { 
-                width: 80, 
-                height: 80, 
-                borderRadius: 40, 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                marginBottom: 12 
-              },
-              { backgroundColor: participant.participantType === 'friend' ? theme.colors.success : theme.colors.warning }
-            ]}>
-              <MaterialCommunityIcons 
-                name={participant.participantType === 'friend' ? 'heart' : 'clock'} 
-                size={40} 
-                color={theme.colors.onSuccess} 
+            {participant.avatar ? (
+              <Avatar
+                name={participant.name}
+                image={participant.avatar}
+                size="xlarge"
+                style={{ marginBottom: 12 } as any}
               />
-            </View>
+            ) : (
+              <View style={[
+                { 
+                  width: 80, 
+                  height: 80, 
+                  borderRadius: 40, 
+                  justifyContent: 'center', 
+                  alignItems: 'center', 
+                  marginBottom: 12 
+                },
+                { backgroundColor: participant.participantType === 'friend' ? theme.colors.success : theme.colors.warning }
+              ]}>
+                <MaterialCommunityIcons 
+                  name={participant.participantType === 'friend' ? 'heart' : 'clock'} 
+                  size={40} 
+                  color={theme.colors.onSuccess} 
+                />
+              </View>
+            )}
             <Text style={{ fontSize: 24, fontWeight: 'bold', color: theme.colors.onSurface, textAlign: 'center' }}>
               {participant.name}
             </Text>

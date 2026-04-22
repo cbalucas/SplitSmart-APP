@@ -11,6 +11,7 @@ export interface NewFriendData {
   email: string;
   phone: string;
   alias_cbu: string;
+  avatar?: string;
 }
 
 export type TabType = 'list' | 'new';

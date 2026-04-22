@@ -213,6 +213,7 @@ const createStyles = (theme: Theme) =>
       alignItems: 'center',
       justifyContent: 'center',
       position: 'relative',
+      overflow: 'hidden',
     } as ViewStyle,
     
     touchable: {

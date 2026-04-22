@@ -1,312 +1,259 @@
-import { StyleSheet, ViewStyle, TextStyle } from 'react-native';
+﻿import { StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { EdgeInsets } from 'react-native-safe-area-context';
 import { Theme } from '../../constants/theme';
-import { getAppColors } from '../../constants/colors';
 
-export const createStyles = (theme: Theme) => {
-  const isDarkMode = theme.colors.surface !== '#FFFFFF';
-  const appColors = getAppColors(isDarkMode);
+export const createStyles = (theme: Theme, insets: EdgeInsets) => StyleSheet.create({
 
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    } as ViewStyle,
+  // ── Contenedor raíz ──────────────────────────────────────
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  } as ViewStyle,
 
-    safeContent: {
-      flex: 1,
-    } as ViewStyle,
+  safeContent: {
+    flex: 1,
+  } as ViewStyle,
 
-    tabsContainer: {
-      flexDirection: 'row',
-      backgroundColor: appColors.surface,
-      marginHorizontal: 0,
-      marginTop: 0,
-      marginBottom: 8,
-      borderRadius: 0,
-      borderBottomWidth: 1,
-      borderColor: appColors.borderPrimary,
-      overflow: 'hidden',
-    } as ViewStyle,
+  // ── Tabs ─────────────────────────────────────────────────
+  tabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.outline,
+  } as ViewStyle,
 
-    tab: {
-      flex: 1,
-      paddingVertical: 12,
-      paddingHorizontal: 16,
-      alignItems: 'center',
-      justifyContent: 'center',
-    } as ViewStyle,
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  } as ViewStyle,
 
-    activeTab: {
-      backgroundColor: 'transparent',
-      borderBottomWidth: 3,
-      borderBottomColor: isDarkMode ? appColors.primary : appColors.primary,
-    } as ViewStyle,
+  activeTab: {
+    borderBottomWidth: 3,
+    borderBottomColor: theme.colors.primary,
+  } as ViewStyle,
 
-    inactiveTab: {
-      backgroundColor: 'transparent',
-      borderBottomWidth: 3,
-      borderBottomColor: 'transparent',
-    } as ViewStyle,
+  inactiveTab: {
+    borderBottomWidth: 3,
+    borderBottomColor: 'transparent',
+  } as ViewStyle,
 
-    tabText: {
-      ...theme.typography.labelLarge,
-      fontWeight: '600',
-    } as TextStyle,
+  tabText: {
+    ...theme.typography.labelLarge,
+    fontWeight: '600',
+  } as TextStyle,
 
-    activeTabText: {
-      ...theme.typography.labelLarge,
-      color: appColors.primary,
-      fontWeight: '600',
-    } as TextStyle,
+  activeTabText: {
+    ...theme.typography.labelLarge,
+    fontWeight: '600',
+    color: theme.colors.primary,
+  } as TextStyle,
 
-    inactiveTabText: {
-      ...theme.typography.labelLarge,
-      color: appColors.textSecondary,
-      fontWeight: '600',
-    } as TextStyle,
+  inactiveTabText: {
+    ...theme.typography.labelLarge,
+    fontWeight: '600',
+    color: theme.colors.onSurfaceVariant,
+  } as TextStyle,
 
-    tabContent: {
-      flex: 1,
-    } as ViewStyle,
+  tabContent: {
+    flex: 1,
+  } as ViewStyle,
 
+  // ── Lista de amigos ───────────────────────────────────────
+  listContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 24,
+  } as ViewStyle,
 
+  // ── FriendItem ────────────────────────────────────────────
+  friendItem: {
+    backgroundColor: theme.colors.surfaceVariant,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: theme.colors.primary,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  } as ViewStyle,
 
+  friendBody: {
+    flex: 1,
+  } as ViewStyle,
 
+  friendHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  } as ViewStyle,
 
-    newFriendContainer: {
-      flex: 1,
-      padding: 16,
-    } as ViewStyle,
+  friendMainInfo: {
+    flex: 1,
+  } as ViewStyle,
 
-    addFormCard: {
-      backgroundColor: appColors.surface,
-      borderRadius: 12,
-      padding: 20,
-      shadowColor: appColors.special.shadow,
-      shadowOffset: {
-        width: 0,
-        height: 4,
-      },
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      elevation: 4,
-      borderWidth: 1,
-      borderColor: appColors.borderPrimary,
-    } as ViewStyle,
+  friendName: {
+    ...theme.typography.titleMedium,
+    fontWeight: '600',
+    color: theme.colors.onSurface,
+    lineHeight: 20,
+  } as TextStyle,
 
-    addFormTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: appColors.textPrimary,
-      marginBottom: 16,
-      textAlign: 'center',
-    } as TextStyle,
+  aliasRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 0,
+    gap: 4,
+  } as ViewStyle,
 
-    inputGroup: {
-      marginBottom: 16,
-    } as ViewStyle,
+  contactRow: {
+    flexDirection: 'column',
+    marginTop: 2,
+    gap: 2,
+  } as ViewStyle,
 
-    inputLabel: {
-      ...theme.typography.labelLarge,
-      color: appColors.textPrimary,
-      marginBottom: 6,
-    } as TextStyle,
+  contactItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  } as ViewStyle,
 
-    inputLabelError: {
-      color: '#FF5252',
-    } as TextStyle,
+  contactSeparator: {
+    fontSize: 14,
+    color: theme.colors.onSurfaceVariant,
+    fontWeight: 'bold',
+  } as TextStyle,
 
-    errorText: {
-      color: '#FF5252',
-      ...theme.typography.bodySmall,
-      marginTop: 4,
-    } as TextStyle,
+  contactIcon: {
+    marginRight: 2,
+  } as ViewStyle,
 
-    inputWithIndicator: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      position: 'relative',
-    } as ViewStyle,
+  friendEmail: {
+    fontSize: 13,
+    color: theme.colors.onSurfaceVariant,
+  } as TextStyle,
 
-    inputValid: {
-      borderColor: '#4CAF50',
-    } as ViewStyle,
+  friendAlias: {
+    ...theme.typography.labelLarge,
+    color: theme.colors.primary,
+    fontWeight: '500',
+  } as TextStyle,
 
-    inputInvalid: {
-      borderColor: '#FF5252',
-    } as ViewStyle,
+  friendPhone: {
+    fontSize: 13,
+    color: theme.colors.onSurfaceVariant,
+  } as TextStyle,
 
-    validationIndicator: {
-      position: 'absolute',
-      right: 12,
-      height: '100%',
-      justifyContent: 'center',
-    } as ViewStyle,
+  actionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.errorContainer,
+  } as ViewStyle,
 
-    validationText: {
-      ...theme.typography.bodySmall,
-      marginTop: 4,
-      marginLeft: 2,
-    } as TextStyle,
+  // ── Formulario ────────────────────────────────────────────
+  newFriendScroll: {
+    flex: 1,
+  } as ViewStyle,
 
-    validationTextSuccess: {
-      color: '#4CAF50',
-    } as TextStyle,
+  newFriendScrollContent: {
+    paddingTop: 16,
+    paddingBottom: 16,
+  } as ViewStyle,
 
-    validationTextError: {
-      color: '#FF5252',
-    } as TextStyle,
+  formCard: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderTopWidth: 4,
+    borderTopColor: '#2196F3',
+    overflow: 'hidden',
+  } as ViewStyle,
 
-    requiredStar: {
-      color: '#FF5252',
-      fontWeight: '700',
-    } as TextStyle,
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  } as ViewStyle,
 
-    input: {
-      backgroundColor: appColors.surfaceSecondary,
-      borderWidth: 1,
-      borderColor: appColors.borderPrimary,
-      borderRadius: 8,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      fontSize: 16,
-      color: appColors.textPrimary,
-    } as ViewStyle,
+  cardHeaderTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.colors.onSurface,
+    flex: 1,
+  } as TextStyle,
 
-    formButtons: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginTop: 8,
-    } as ViewStyle,
+  inputGroup: {
+    marginBottom: 16,
+  } as ViewStyle,
 
-    cancelButton: {
-      flex: 0.48,
-    } as ViewStyle,
+  // ── Avatar picker ─────────────────────────────────────────
+  avatarPickerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    gap: 12,
+  } as ViewStyle,
 
-    saveButton: {
-      flex: 0.48,
-    } as ViewStyle,
+  validationText: {
+    ...theme.typography.bodySmall,
+    marginTop: 4,
+    marginLeft: 2,
+  } as TextStyle,
 
-    listContainer: {
-      paddingHorizontal: 16,
-    } as ViewStyle,
+  // ── Footer sticky ─────────────────────────────────────────
+  footer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingBottom: 16,
+    backgroundColor: theme.colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.outline,
+    gap: 12,
+  } as ViewStyle,
 
-    friendItem: {
-      backgroundColor: appColors.surface,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-      marginBottom: 12,
-      borderWidth: 1,
-      borderColor: appColors.borderPrimary,
-      shadowColor: appColors.special.shadow,
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.08,
-      shadowRadius: 4,
-      elevation: 2,
-    } as ViewStyle,
+  cancelButton: {
+    flex: 1,
+  } as ViewStyle,
 
-    friendHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    } as ViewStyle,
+  saveButton: {
+    flex: 1,
+  } as ViewStyle,
 
-    friendMainInfo: {
-      flex: 1,
-    } as ViewStyle,
+  // ── Estado vacío ──────────────────────────────────────────
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingTop: 48,
+  } as ViewStyle,
 
-    aliasRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginTop: 4,
-      marginLeft: 0,
-    } as ViewStyle,
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: theme.colors.onSurface,
+    marginTop: 16,
+    textAlign: 'center',
+  } as TextStyle,
 
-    contactRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginTop: 4,
-    } as ViewStyle,
+  emptySubtitle: {
+    ...theme.typography.bodyLarge,
+    color: theme.colors.onSurfaceVariant,
+    marginTop: 8,
+    textAlign: 'center',
+  } as TextStyle,
 
-    contactItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flex: 1,
-    } as ViewStyle,
-
-    contactSeparator: {
-      fontSize: 14,
-      color: appColors.textSecondary,
-      marginHorizontal: 12,
-      fontWeight: 'bold',
-    } as TextStyle,
-
-    contactIcon: {
-      marginRight: 6,
-    } as ViewStyle,
-
-    friendName: {
-      ...theme.typography.titleMedium,
-      fontWeight: '600',
-      color: appColors.textPrimary,
-    } as TextStyle,
-
-    friendEmail: {
-      fontSize: 13,
-      color: appColors.textSecondary,
-      flex: 1,
-    } as TextStyle,
-
-    friendAlias: {
-      ...theme.typography.labelLarge,
-      color: appColors.primary,
-      marginTop: 2,
-      fontWeight: '500',
-    } as TextStyle,
-
-    friendPhone: {
-      fontSize: 13,
-      color: appColors.textSecondary,
-      flex: 1,
-    } as TextStyle,
-
-    actionButton: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: appColors.surfaceSecondary,
-    } as ViewStyle,
-
-    emptyState: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 32,
-    } as ViewStyle,
-
-    emptyTitle: {
-      fontSize: 20,
-      fontWeight: '600',
-      color: appColors.textPrimary,
-      marginTop: 16,
-      textAlign: 'center',
-    } as TextStyle,
-
-    emptySubtitle: {
-      ...theme.typography.bodyLarge,
-      color: appColors.textSecondary,
-      marginTop: 8,
-      textAlign: 'center',
-    } as TextStyle,
-
-    emptyButton: {
-      marginTop: 24,
-    } as ViewStyle,
-  });
-};
+  emptyButton: {
+    marginTop: 24,
+  } as ViewStyle,
+});
