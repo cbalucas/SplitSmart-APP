@@ -1,12 +1,9 @@
 import { StyleSheet, ViewStyle, TextStyle } from 'react-native';
 import { Theme } from '../../constants/theme';
-import { getAppColors } from '../../constants/colors';
 
-export const createStyles = (theme: Theme) => {
-  const isDarkMode = theme.colors.surface !== '#FFFFFF';
-  const appColors = getAppColors(isDarkMode);
+export const createStyles = (theme: Theme) => StyleSheet.create({
 
-  return StyleSheet.create({
+  // ── Contenedor raíz ──────────────────────────────────────
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -16,53 +13,69 @@ export const createStyles = (theme: Theme) => {
     flex: 1,
   } as ViewStyle,
 
-
-
   scrollView: {
     flex: 1,
-    paddingHorizontal: 20,
   } as ViewStyle,
 
   scrollViewContent: {
-    paddingVertical: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
   } as ViewStyle,
 
+  // ── Cards con acento de color ─────────────────────────────
   card: {
-    backgroundColor: appColors.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: appColors.borderPrimary,
-    shadowColor: appColors.special.shadow,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderTopWidth: 4,
+    overflow: 'hidden',
   } as ViewStyle,
 
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: theme.colors.onSurface,
+  cardInfo: {
+    borderTopColor: '#2196F3',
+  } as ViewStyle,
+
+  cardPayer: {
+    borderTopColor: '#FF9800',
+  } as ViewStyle,
+
+  cardSplit: {
+    borderTopColor: '#4CAF50',
+  } as ViewStyle,
+
+  cardReceipt: {
+    borderTopColor: '#607D8B',
+  } as ViewStyle,
+
+  cardCategory: {
+    borderTopColor: '#9C27B0',
+  } as ViewStyle,
+
+  // ── Card header ───────────────────────────────────────────
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginBottom: 16,
+  } as ViewStyle,
+
+  cardHeaderTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.colors.onSurface,
+    flex: 1,
   } as TextStyle,
 
   cardSubtitle: {
-    ...theme.typography.bodyMedium,
+    ...theme.typography.bodySmall,
     color: theme.colors.onSurfaceVariant,
-    marginBottom: 16,
-    fontStyle: 'italic',
+    marginBottom: 12,
+    marginTop: -8,
   } as TextStyle,
 
+  // ── Inputs ────────────────────────────────────────────────
   input: {
     marginBottom: 16,
   } as ViewStyle,
-
-
 
   dateInput: {
     marginBottom: 16,
@@ -98,46 +111,96 @@ export const createStyles = (theme: Theme) => {
     color: theme.colors.onSurface,
   } as TextStyle,
 
-  sectionLabel: {
-    ...theme.typography.labelLarge,
-    fontWeight: '500',
-    color: theme.colors.onSurface,
-    marginBottom: 12,
-  } as TextStyle,
-
-  categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  // ── Calculadora inline ────────────────────────────────────
+  amountInputContainer: {
+    position: 'relative',
   } as ViewStyle,
 
-  categoryButton: {
+  currencySuffix: {
+    position: 'absolute',
+    right: 68,
+    top: 40,
+    fontSize: 16,
+    color: theme.colors.onSurfaceVariant,
+    fontWeight: '500',
+  } as TextStyle,
+
+  calcButton: {
+    position: 'absolute',
+    right: 12,
+    top: 32,
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: theme.colors.primaryContainer,
+  } as ViewStyle,
+
+  // ── Toggle multipagadores ─────────────────────────────────
+  multiPayerToggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: theme.colors.outline,
-    backgroundColor: theme.colors.surface,
-    minWidth: '45%',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.outline,
+    marginBottom: 12,
   } as ViewStyle,
 
-  categoryButtonActive: {
-    backgroundColor: theme.colors.primaryContainer,
-    borderColor: theme.colors.primaryContainer,
-  } as ViewStyle,
+  multiPayerToggleLabel: {
+    ...theme.typography.labelLarge,
+    fontWeight: '600',
+    color: theme.colors.onSurface,
+  } as TextStyle,
 
-  categoryButtonText: {
+  multiPayerToggleSubtitle: {
     ...theme.typography.bodySmall,
     color: theme.colors.onSurfaceVariant,
-    marginLeft: 6,
+    marginTop: 2,
   } as TextStyle,
 
-  categoryButtonTextActive: {
-    color: theme.colors.onPrimaryContainer,
+  multiPayerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.surfaceVariant,
+  } as ViewStyle,
+
+  multiPayerAmountBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surfaceVariant,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    minWidth: 90,
+  } as ViewStyle,
+
+  multiPayerAmountPrefix: {
+    color: theme.colors.onSurfaceVariant,
+    fontSize: 13,
+    marginRight: 4,
   } as TextStyle,
 
+  multiPayerAmountInput: {
+    ...theme.typography.bodyMedium,
+    color: theme.colors.onSurface,
+    minWidth: 60,
+    padding: 0,
+  } as TextStyle,
+
+  multiPayerSumBanner: {
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  } as ViewStyle,
+
+  multiPayerSumText: {
+    fontSize: 13,
+    fontWeight: '500',
+  } as TextStyle,
+
+  // ── Pagador único ─────────────────────────────────────────
   participantOption: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -157,99 +220,34 @@ export const createStyles = (theme: Theme) => {
     marginLeft: 12,
   } as TextStyle,
 
-  // Estilos para la vista previa de división
-  splitPreview: {
-    backgroundColor: theme.colors.surfaceVariant,
-    borderRadius: 8,
-    padding: 12,
-  } as ViewStyle,
-
-  splitPreviewTitle: {
+  // ── Participantes / split ─────────────────────────────────
+  sectionLabel: {
     ...theme.typography.labelLarge,
     fontWeight: '500',
-    color: theme.colors.onSurfaceVariant,
-    marginBottom: 8,
-  } as TextStyle,
-
-  splitItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 4,
-  } as ViewStyle,
-
-  splitParticipant: {
-    ...theme.typography.bodyMedium,
     color: theme.colors.onSurface,
+    marginBottom: 12,
   } as TextStyle,
 
-  splitParticipantInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  } as ViewStyle,
-
-  splitAmountInfo: {
-    alignItems: 'flex-end',
-  } as ViewStyle,
-
-  peopleCountBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.primaryContainer,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    gap: 2,
-  } as ViewStyle,
-
-  peopleCountBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: theme.colors.primary,
-  } as TextStyle,
-
-  peopleCountBadgeTextOverride: {
-    color: theme.colors.error,
-  } as TextStyle,
-
-  overrideButton: {
-    padding: 4,
-    borderRadius: 4,
-    backgroundColor: theme.colors.surfaceVariant,
-  } as ViewStyle,
-
-  splitAmount: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: theme.colors.onSurface,
-  } as TextStyle,
-
-  splitPercentage: {
-    fontSize: 12,
-    color: theme.colors.onSurfaceVariant,
-  } as TextStyle,
-
-  // Estilos para la selección unificada de participantes
   participantsList: {
-    marginTop: 16,
+    marginTop: 4,
   } as ViewStyle,
 
   unifiedParticipantRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.outline + '60',
-    backgroundColor: theme.colors.surface,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    backgroundColor: theme.colors.surfaceVariant,
     borderRadius: 8,
-    marginBottom: 2,
+    marginBottom: 4,
+    borderLeftWidth: 4,
+    borderLeftColor: theme.colors.primary,
   } as ViewStyle,
 
   unifiedParticipantRowExcluded: {
-    opacity: 0.7,
-    backgroundColor: theme.colors.surfaceVariant + '30',
+    opacity: 0.6,
+    borderLeftColor: theme.colors.outline,
   } as ViewStyle,
 
   participantToggle: {
@@ -261,7 +259,7 @@ export const createStyles = (theme: Theme) => {
   participantName: {
     ...theme.typography.bodyMedium,
     color: theme.colors.onSurfaceVariant,
-    marginLeft: 12,
+    marginLeft: 10,
     flex: 1,
   } as TextStyle,
 
@@ -291,11 +289,9 @@ export const createStyles = (theme: Theme) => {
     fontSize: 12,
     color: theme.colors.onErrorContainer,
     backgroundColor: theme.colors.errorContainer,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 6,
-    borderWidth: 1,
-    borderColor: theme.colors.error,
     fontWeight: '500',
   } as TextStyle,
 
@@ -308,20 +304,10 @@ export const createStyles = (theme: Theme) => {
   } as TextStyle,
 
   totalSummary: {
-    marginTop: 16,
-    padding: 14,
+    marginTop: 12,
+    padding: 12,
     backgroundColor: theme.colors.primaryContainer,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: theme.colors.primary + '40',
-    shadowColor: theme.colors.primary,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
   } as ViewStyle,
 
   totalSummaryText: {
@@ -331,19 +317,78 @@ export const createStyles = (theme: Theme) => {
     textAlign: 'center',
   } as TextStyle,
 
-  splitSummary: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.outline + '60',
+  // ── Categorías ────────────────────────────────────────────
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   } as ViewStyle,
 
-  splitSummaryText: {
+  categoryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: theme.colors.surfaceVariant,
+    borderLeftWidth: 4,
+    borderLeftColor: theme.colors.outline,
+    minWidth: '45%',
+    flex: 1,
+  } as ViewStyle,
+
+  categoryButtonActive: {
+    backgroundColor: theme.colors.primaryContainer,
+  } as ViewStyle,
+
+  categoryButtonText: {
     ...theme.typography.bodySmall,
     color: theme.colors.onSurfaceVariant,
-    textAlign: 'center',
+    marginLeft: 8,
+    flex: 1,
   } as TextStyle,
 
+  categoryButtonTextActive: {
+    color: theme.colors.onPrimaryContainer,
+    fontWeight: '600',
+  } as TextStyle,
+
+  // ── Comprobante ───────────────────────────────────────────
+  receiptActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+  } as ViewStyle,
+
+  receiptActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.surfaceVariant,
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 6,
+  } as ViewStyle,
+
+  receiptAttachBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.surfaceVariant,
+    paddingVertical: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: theme.colors.outline,
+    borderStyle: 'dashed',
+    gap: 8,
+  } as ViewStyle,
+
+  receiptBtnText: {
+    ...theme.typography.labelLarge,
+    fontWeight: '500',
+  } as TextStyle,
+
+  // ── Errores ───────────────────────────────────────────────
   errorText: {
     ...theme.typography.bodySmall,
     color: theme.colors.error,
@@ -354,10 +399,12 @@ export const createStyles = (theme: Theme) => {
     height: 16,
   } as ViewStyle,
 
+  // ── Footer sticky ─────────────────────────────────────────
   footer: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingBottom: 16,
     backgroundColor: theme.colors.surface,
     borderTopWidth: 1,
     borderTopColor: theme.colors.outline,
@@ -372,29 +419,7 @@ export const createStyles = (theme: Theme) => {
     flex: 1,
   } as ViewStyle,
 
-  amountInputContainer: {
-    position: 'relative',
-  } as ViewStyle,
-
-  currencySuffix: {
-    position: 'absolute',
-    right: 48,
-    top: 40,
-    fontSize: 16,
-    color: theme.colors.onSurfaceVariant,
-    fontWeight: '500',
-  } as TextStyle,
-
-  calcButton: {
-    position: 'absolute',
-    right: 12,
-    top: 32,
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: theme.colors.primaryContainer,
-  } as ViewStyle,
-
-  // ── Calculadora Modal ──────────────────────────────────────
+  // ── Calculadora Modal ─────────────────────────────────────
   calcOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.55)',
@@ -406,7 +431,6 @@ export const createStyles = (theme: Theme) => {
   calcModal: {
     width: '100%',
     maxWidth: 340,
-    backgroundColor: isDarkMode ? '#1E1E2E' : '#F5F5F5',
     borderRadius: 20,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -414,10 +438,11 @@ export const createStyles = (theme: Theme) => {
     shadowOpacity: 0.3,
     shadowRadius: 16,
     elevation: 12,
+    backgroundColor: theme.colors.surface,
   } as ViewStyle,
 
   calcDisplay: {
-    backgroundColor: isDarkMode ? '#13131F' : '#E8E8F0',
+    backgroundColor: theme.colors.surfaceVariant,
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 14,
@@ -426,7 +451,7 @@ export const createStyles = (theme: Theme) => {
 
   calcExpressionText: {
     fontSize: 16,
-    color: isDarkMode ? '#9999BB' : '#666688',
+    color: theme.colors.onSurfaceVariant,
     marginBottom: 4,
     minHeight: 22,
   } as TextStyle,
@@ -434,12 +459,12 @@ export const createStyles = (theme: Theme) => {
   calcResultText: {
     fontSize: 36,
     fontWeight: '700',
-    color: isDarkMode ? '#EEEEFF' : '#111133',
+    color: theme.colors.onSurface,
     letterSpacing: 1,
   } as TextStyle,
 
   calcResultError: {
-    color: '#FF5252',
+    color: theme.colors.error,
     fontSize: 28,
   } as TextStyle,
 
@@ -454,13 +479,9 @@ export const createStyles = (theme: Theme) => {
     flex: 1,
     aspectRatio: 1,
     borderRadius: 12,
-    backgroundColor: isDarkMode ? '#2A2A3E' : '#FFFFFF',
+    backgroundColor: theme.colors.surfaceVariant,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
     elevation: 2,
   } as ViewStyle,
 
@@ -475,21 +496,21 @@ export const createStyles = (theme: Theme) => {
   } as ViewStyle,
 
   calcKeyOperator: {
-    backgroundColor: isDarkMode ? theme.colors.primaryContainer : theme.colors.primaryContainer,
+    backgroundColor: theme.colors.primaryContainer,
   } as ViewStyle,
 
   calcKeyClear: {
-    backgroundColor: isDarkMode ? '#3E1E1E' : '#FFE5E5',
+    backgroundColor: theme.colors.errorContainer,
   } as ViewStyle,
 
   calcKeyBackspace: {
-    backgroundColor: isDarkMode ? '#2E2A1E' : '#FFF3E0',
+    backgroundColor: theme.colors.secondaryContainer,
   } as ViewStyle,
 
   calcKeyText: {
     fontSize: 22,
     fontWeight: '500',
-    color: isDarkMode ? '#EEEEFF' : '#111133',
+    color: theme.colors.onSurface,
   } as TextStyle,
 
   calcKeyTextOperator: {
@@ -498,7 +519,7 @@ export const createStyles = (theme: Theme) => {
   } as TextStyle,
 
   calcKeyTextClear: {
-    color: '#FF5252',
+    color: theme.colors.error,
     fontWeight: '700',
   } as TextStyle,
 
@@ -519,7 +540,7 @@ export const createStyles = (theme: Theme) => {
 
   calcFooterBtnBack: {
     flex: 1,
-    backgroundColor: isDarkMode ? '#2A2A3E' : '#E0E0E8',
+    backgroundColor: theme.colors.surfaceVariant,
   } as ViewStyle,
 
   calcFooterBtnUse: {
@@ -534,13 +555,12 @@ export const createStyles = (theme: Theme) => {
   calcFooterBtnBackText: {
     fontSize: 15,
     fontWeight: '600',
-    color: isDarkMode ? '#CCCCEE' : '#444466',
+    color: theme.colors.onSurfaceVariant,
   } as TextStyle,
 
   calcFooterBtnUseText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: theme.colors.onPrimary,
   } as TextStyle,
 });
-};

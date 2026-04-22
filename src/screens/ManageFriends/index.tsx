@@ -54,7 +54,7 @@ const FriendItem: React.FC<FriendItemProps> = ({ friend, onPress, onDelete }) =>
             <Text style={styles.friendName}>{friend.name}</Text>
           </View>
           <TouchableOpacity style={styles.actionButton} onPress={onDelete} activeOpacity={0.7}>
-            <MaterialCommunityIcons name="delete-outline" size={18} color={theme.colors.error} />
+            <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.error} />
           </TouchableOpacity>
         </View>
 
@@ -419,13 +419,15 @@ const ManageFriendsScreen: React.FC = () => {
       <TouchableOpacity
         style={[
           styles.tab,
-          activeTab === 'new' ? styles.activeTab : styles.inactiveTab
+          activeTab === 'new'
+            ? [styles.tab, { borderBottomWidth: 3, borderBottomColor: '#2196F3' }]
+            : styles.inactiveTab
         ]}
         onPress={() => setActiveTab('new')}
       >
         <Text style={[
           styles.tabText,
-          activeTab === 'new' ? styles.activeTabText : styles.inactiveTabText
+          activeTab === 'new' ? { color: '#2196F3', fontWeight: '600' } : styles.inactiveTabText
         ]}>
           {t.tabs.new}
         </Text>

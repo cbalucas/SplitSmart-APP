@@ -22,8 +22,10 @@ import { useLanguage } from '../../context/LanguageContext';
 import { Theme } from '../../constants/theme';
 import { Participant } from '../../types';
 import Button from '../Button';
+import Card from '../Card';
 import HeaderBar from '../HeaderBar';
 import SearchBar from '../SearchBar';
+import Avatar from '../Avatar';
 import { showAlert } from '../../services/alertService';
 
 interface AddParticipantModalProps {
@@ -50,21 +52,6 @@ const FriendSelectItem: React.FC<FriendSelectItemProps> = ({ friend, isSelected,
   const { theme } = useTheme();
   const styles = createStyles(theme);
 
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(word => word.charAt(0))
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
-  const getAvatarColor = (name: string) => {
-    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#FF9FF3', '#54A0FF', '#5F27CD'];
-    const index = name.charCodeAt(0) % colors.length;
-    return colors[index];
-  };
-
   return (
     <TouchableOpacity
       style={[
@@ -74,9 +61,12 @@ const FriendSelectItem: React.FC<FriendSelectItemProps> = ({ friend, isSelected,
       onPress={onSelect}
     >
       <View style={styles.friendSelectInfo}>
-        <View style={[styles.avatar, { backgroundColor: getAvatarColor(friend.name) }]}>
-          <Text style={styles.avatarText}>{getInitials(friend.name)}</Text>
-        </View>
+        <Avatar
+          name={friend.name}
+          image={friend.avatar}
+          size="small"
+          style={{ marginRight: 12 }}
+        />
         <View style={styles.friendSelectDetails}>
           <Text style={styles.friendSelectName}>{friend.name}</Text>
           {friend.alias_cbu && (
@@ -143,6 +133,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
   const [genericCount, setGenericCount] = useState(5);
   const [submittedOnce, setSubmittedOnce] = useState(false);
   const [bulkSubmittedOnce, setBulkSubmittedOnce] = useState(false);
+  const [isContactExpanded, setIsContactExpanded] = useState(false);
 
   // ── Tour guiado ───────────────────────────────────────────
   const [apTourVisible, setApTourVisible] = useState(false);
@@ -460,9 +451,9 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
           <MaterialCommunityIcons
             name="account-heart"
             size={20}
-            color={activeTab === 'friends' ? theme.colors.primary : theme.colors.onSurfaceVariant}
+            color={activeTab === 'friends' ? '#2196F3' : theme.colors.onSurfaceVariant}
           />
-          <Text style={[styles.tabText, activeTab === 'friends' && styles.activeTabText]}>
+          <Text style={[styles.tabText, activeTab === 'friends' && { color: '#2196F3', fontWeight: '600' }]}>
             {t('addParticipant.tabFriends')}
           </Text>
           {filteredFriends.length > 0 && (
@@ -471,7 +462,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
             </View>
           )}
         </View>
-        {activeTab === 'friends' && <View style={styles.tabIndicator} />}
+        {activeTab === 'friends' && <View style={[styles.tabIndicator, { backgroundColor: '#2196F3' }]} />}
       </TouchableOpacity>
       <TouchableOpacity
         style={[styles.tab, activeTab === 'new' && styles.activeTab]}
@@ -481,13 +472,13 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
           <MaterialCommunityIcons
             name="account-plus"
             size={20}
-            color={activeTab === 'new' ? theme.colors.primary : theme.colors.onSurfaceVariant}
+            color={activeTab === 'new' ? '#4CAF50' : theme.colors.onSurfaceVariant}
           />
-          <Text style={[styles.tabText, activeTab === 'new' && styles.activeTabText]}>
+          <Text style={[styles.tabText, activeTab === 'new' && { color: '#4CAF50', fontWeight: '600' }]}>
             {t('addParticipant.tabNew')}
           </Text>
         </View>
-        {activeTab === 'new' && <View style={styles.tabIndicator} />}
+        {activeTab === 'new' && <View style={[styles.tabIndicator, { backgroundColor: '#4CAF50' }]} />}
       </TouchableOpacity>
       <TouchableOpacity
         style={[
@@ -501,11 +492,11 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
           <MaterialCommunityIcons
             name="account-multiple-plus"
             size={20}
-            color={hasExpenses ? theme.colors.onSurfaceVariant : (activeTab === 'bulk' ? theme.colors.primary : theme.colors.onSurfaceVariant)}
+            color={hasExpenses ? theme.colors.onSurfaceVariant : (activeTab === 'bulk' ? '#FF9800' : theme.colors.onSurfaceVariant)}
           />
           <Text style={[
             styles.tabText, 
-            activeTab === 'bulk' && styles.activeTabText,
+            activeTab === 'bulk' && !hasExpenses && { color: '#FF9800', fontWeight: '600' },
             hasExpenses && styles.restrictedTabText
           ]}>
             {t('addParticipant.tabBulk')}
@@ -519,151 +510,121 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
             />
           )}
         </View>
-        {activeTab === 'bulk' && <View style={styles.tabIndicator} />}
+        {activeTab === 'bulk' && <View style={[styles.tabIndicator, { backgroundColor: '#FF9800' }]} />}
       </TouchableOpacity>
     </View>
   );
 
-  const renderSearchBar = () => {
-    if (activeTab !== 'friends') return null;
-
-    return (
-      <>
-        <SearchBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder={t('addParticipant.searchPlaceholder')}
-          showClearButton={true}
-          onClear={() => setSearchQuery('')}
-        />
-        
-        {filteredFriends.length > 0 && (
-          <View style={styles.bulkActionsBar}>
-            <TouchableOpacity
-              style={styles.bulkActionButton}
-              onPress={handleSelectAllFriends}
-            >
-              <MaterialCommunityIcons
-                name={selectedFriends.size === filteredFriends.length ? "checkbox-marked" : "checkbox-blank-outline"}
-                size={20}
-                color={theme.colors.primary}
-              />
-              <Text style={styles.bulkActionText}>
-                {selectedFriends.size === filteredFriends.length ? t('addParticipant.deselectAll') : t('addParticipant.selectAll')}
-              </Text>
-            </TouchableOpacity>
-            
-            {selectedFriends.size > 0 && (
-              <Text style={styles.selectionCounter}>
-                {t('addParticipant.selectionCounter', {
-                  selected: selectedFriends.size,
-                  total: filteredFriends.length
-                })}
-              </Text>
-            )}
-          </View>
-        )}
-      </>
-    );
-  };
+  const renderSearchBar = () => null;
 
   const renderFriendsTab = () => {
     if (activeTab !== 'friends') return null;
 
-    if (filteredFriends.length === 0 && !searchQuery) {
-      return (
-        <View style={styles.emptyState}>
-          <MaterialCommunityIcons
-            name="account-group-outline"
-            size={60}
-            color={theme.colors.onSurfaceVariant}
-          />
-          <Text style={styles.emptyTitle}>{t('addParticipant.noFriends')}</Text>
-          <Text style={styles.emptySubtitle}>
-            {t('addParticipant.noFriendsDesc')}
-          </Text>
-          <Button
-            title={t('addParticipant.createNewParticipant')}
-            variant="outlined"
-            size="medium"
-            onPress={() => setActiveTab('new')}
-            style={styles.emptyButton}
-          />
-        </View>
-      );
-    }
-
-    if (filteredFriends.length > 0 && selectedFriends.size === 0) {
-      return (
-        <View style={{ flex: 1 }}>
-          <View style={styles.hintBanner}>
-            <MaterialCommunityIcons
-              name="information"
-              size={20}
-              color={theme.colors.primary}
-            />
-            <Text style={styles.hintText}>
-              {t('addParticipant.selectHint')}
-            </Text>
-          </View>
-          <FlatList
-            data={filteredFriends}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <FriendSelectItem
-                friend={item}
-                isSelected={selectedFriends.has(item.id)}
-                onSelect={() => handleSelectFriend(item.id)}
-              />
-            )}
-            style={styles.friendsList}
-            showsVerticalScrollIndicator={false}
-          />
-        </View>
-      );
-    }
-
-    if (filteredFriends.length === 0 && searchQuery) {
-      return (
-        <View style={styles.emptyState}>
-          <MaterialCommunityIcons
-            name="account-search-outline"
-            size={60}
-            color={theme.colors.onSurfaceVariant}
-          />
-          <Text style={styles.emptyTitle}>{t('addParticipant.noSearchResults')}</Text>
-          <Text style={styles.emptySubtitle}>
-            {t('addParticipant.noSearchResultsDesc')}
-          </Text>
-        </View>
-      );
-    }
+    const showEmptyNoFriends = filteredFriends.length === 0 && !searchQuery;
+    const showEmptySearch   = filteredFriends.length === 0 && !!searchQuery;
 
     return (
-      <>
-        <FlatList
-          data={filteredFriends}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <FriendSelectItem
-              friend={item}
-              isSelected={selectedFriends.has(item.id)}
-              onSelect={() => handleSelectFriend(item.id)}
+      <View style={{ flex: 1 }}>
+
+        {/* Sección 1 ─ Buscador + Controles */}
+        <Card style={styles.friendsSearchCard} padding={0}>
+          <View style={styles.friendsCardPad}>
+            <View style={[styles.newTabCardHeader, { marginBottom: 12 }]}>
+              <MaterialCommunityIcons name="account-heart" size={20} color="#2196F3" />
+              <Text style={styles.newTabCardTitle}>{t('addParticipant.tabFriends')}</Text>
+              {filteredFriends.length > 0 && (
+                <View style={styles.tabBadge}>
+                  <Text style={styles.tabBadgeText}>{filteredFriends.length}</Text>
+                </View>
+              )}
+            </View>
+
+            <SearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={t('addParticipant.searchPlaceholder')}
+              showClearButton={true}
+              onClear={() => setSearchQuery('')}
+            />
+
+            {filteredFriends.length > 0 && (
+              <View style={[styles.hintSelectRow, { marginHorizontal: 0, marginBottom: 0, marginTop: 8 }]}>
+                <MaterialCommunityIcons name="information" size={16} color={theme.colors.primary} />
+                <Text style={styles.hintSelectText} numberOfLines={1}>
+                  {t('addParticipant.selectHint')}
+                </Text>
+                <TouchableOpacity
+                  style={styles.hintSelectAction}
+                  onPress={handleSelectAllFriends}
+                >
+                  <MaterialCommunityIcons
+                    name={selectedFriends.size === filteredFriends.length ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                    size={18}
+                    color={theme.colors.primary}
+                  />
+                  <Text style={styles.bulkActionText}>
+                    {selectedFriends.size === filteredFriends.length
+                      ? t('addParticipant.deselectAll')
+                      : t('addParticipant.selectAll')}
+                  </Text>
+                </TouchableOpacity>
+                {selectedFriends.size > 0 && (
+                  <Text style={styles.selectionCounter}>
+                    {t('addParticipant.selectionCounter', {
+                      selected: selectedFriends.size,
+                      total: filteredFriends.length
+                    })}
+                  </Text>
+                )}
+              </View>
+            )}
+          </View>
+        </Card>
+
+        {/* Sección 2 ─ Lista de amigos */}
+        <Card style={styles.friendsListCard} padding={0}>
+          {showEmptyNoFriends ? (
+            <View style={styles.emptyState}>
+              <MaterialCommunityIcons name="account-group-outline" size={60} color={theme.colors.onSurfaceVariant} />
+              <Text style={styles.emptyTitle}>{t('addParticipant.noFriends')}</Text>
+              <Text style={styles.emptySubtitle}>{t('addParticipant.noFriendsDesc')}</Text>
+              <Button
+                title={t('addParticipant.createNewParticipant')}
+                variant="outlined"
+                size="medium"
+                onPress={() => setActiveTab('new')}
+                style={styles.emptyButton}
+              />
+            </View>
+          ) : showEmptySearch ? (
+            <View style={styles.emptyState}>
+              <MaterialCommunityIcons name="account-search-outline" size={60} color={theme.colors.onSurfaceVariant} />
+              <Text style={styles.emptyTitle}>{t('addParticipant.noSearchResults')}</Text>
+              <Text style={styles.emptySubtitle}>{t('addParticipant.noSearchResultsDesc')}</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={filteredFriends}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <FriendSelectItem
+                  friend={item}
+                  isSelected={selectedFriends.has(item.id)}
+                  onSelect={() => handleSelectFriend(item.id)}
+                />
+              )}
+              contentContainerStyle={{ padding: 12 }}
+              showsVerticalScrollIndicator={false}
             />
           )}
-          style={styles.friendsList}
-          showsVerticalScrollIndicator={false}
-        />
-        
+        </Card>
+
+        {/* Footer sticky cuando hay selección */}
         {selectedFriends.size > 0 && (
           <View style={styles.bottomActions}>
             <View style={styles.bottomActionsHeader}>
               <View style={styles.selectionSummary}>
-                <MaterialCommunityIcons
-                  name="account-multiple-check"
-                  size={24}
-                  color={theme.colors.primary}
-                />
+                <MaterialCommunityIcons name="account-multiple-check" size={24} color={theme.colors.primary} />
                 <Text style={styles.selectedCount}>
                   {t('addParticipant.selectedCount', {
                     count: selectedFriends.size,
@@ -672,17 +633,14 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
                   })}
                 </Text>
               </View>
-              <TouchableOpacity
-                style={styles.clearSelectionButton}
-                onPress={() => setSelectedFriends(new Set())}
-              >
+              <TouchableOpacity style={styles.clearSelectionButton} onPress={() => setSelectedFriends(new Set())}>
                 <Text style={styles.clearSelectionText}>{t('addParticipant.clear')}</Text>
               </TouchableOpacity>
             </View>
             <Button
-              title={selectedFriends.size > 1 ? 
-                t('addParticipant.addFriends', { count: selectedFriends.size }) : 
-                t('addParticipant.addFriend')
+              title={selectedFriends.size > 1
+                ? t('addParticipant.addFriends', { count: selectedFriends.size })
+                : t('addParticipant.addFriend')
               }
               variant="filled"
               size="large"
@@ -690,7 +648,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
             />
           </View>
         )}
-      </>
+      </View>
     );
   };
 
@@ -699,149 +657,168 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
 
     return (
       <View ref={apBulkRef} collapsable={false} style={{ flex: 1 }}>
-      <KeyboardAvoidingView
-        style={styles.newParticipantContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
-          <Text style={styles.formTitle}>{t('addParticipant.bulkTitle')}</Text>
-          
-          {hasExpenses ? (
-            <View style={styles.restrictionContainer}>
-              <MaterialCommunityIcons
-                name="information-outline"
-                size={48}
-                color={theme.colors.onSurfaceVariant}
-                style={styles.restrictionIcon}
-              />
-              <Text style={styles.restrictionTitle}>{t('addParticipant.bulkRestricted')}</Text>
-              <Text style={styles.restrictionMessage}>
-                {t('addParticipant.bulkRestrictedMessage')}
-              </Text>
-              <Text style={styles.restrictionSuggestion}>
-                {t('addParticipant.bulkRestrictedSuggestion')}
-              </Text>
-            </View>
-          ) : (
-            <>
-              <Text style={styles.formSubtitle}>
-                {t('addParticipant.bulkSubtitle')}
-              </Text>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+        >
+        <ScrollView
+          style={{ flex: 1 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 8 }}
+        >
 
-          <View style={styles.bulkTypeSelector}>
-            <TouchableOpacity
-              style={[
-                styles.bulkTypeButton,
-                bulkType === 'custom' && styles.bulkTypeButtonActive
-              ]}
-              onPress={() => setBulkType('custom')}
-            >
-              <MaterialCommunityIcons
-                name="text-box-multiple"
-                size={20}
-                color={bulkType === 'custom' ? theme.colors.onPrimary : theme.colors.onSurfaceVariant}
-              />
-              <Text style={[
-                styles.bulkTypeButtonText,
-                bulkType === 'custom' && styles.bulkTypeButtonTextActive
-              ]}>
-                {t('addParticipant.customNames')}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.bulkTypeButton,
-                bulkType === 'generic' && styles.bulkTypeButtonActive
-              ]}
-              onPress={() => setBulkType('generic')}
-            >
-              <MaterialCommunityIcons
-                name="account-multiple"
-                size={20}
-                color={bulkType === 'generic' ? theme.colors.onPrimary : theme.colors.onSurfaceVariant}
-              />
-              <Text style={[
-                styles.bulkTypeButtonText,
-                bulkType === 'generic' && styles.bulkTypeButtonTextActive
-              ]}>
-                {t('addParticipant.generic')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {bulkType === 'custom' ? (
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, bulkSubmittedOnce && !bulkNames.trim() && styles.inputLabelError]}>
-                {t('addParticipant.namesLabel')}<Text style={styles.requiredStar}> *</Text>
-              </Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder={t('addParticipant.namesPlaceholder')}
-                placeholderTextColor={theme.colors.onSurfaceVariant}
-                value={bulkNames}
-                onChangeText={setBulkNames}
-                multiline
-                numberOfLines={8}
-                textAlignVertical="top"
-              />
-              <Text style={styles.inputHint}>
-                {t('addParticipant.namesHint')}
-              </Text>
+        {/* Sección 1 ─ Tipo de carga masiva */}
+        <Card style={styles.bulkTypeCard} padding={0}>
+          <View style={styles.friendsCardPad}>
+            <View style={[styles.newTabCardHeader, { marginBottom: 12 }]}>
+              <MaterialCommunityIcons name="account-multiple-plus" size={20} color="#FF9800" />
+              <Text style={styles.newTabCardTitle}>{t('addParticipant.bulkTitle')}</Text>
             </View>
-          ) : (
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>{t('addParticipant.quantityLabel')}</Text>
-              <View style={styles.peopleCountContainer}>
-                <TouchableOpacity
-                  style={styles.peopleCountButton}
-                  onPress={() => setGenericCount(Math.max(1, genericCount - 1))}
-                  disabled={genericCount <= 1}
-                >
-                  <MaterialCommunityIcons
-                    name="minus"
-                    size={24}
-                    color={genericCount <= 1 ? theme.colors.onSurfaceVariant : theme.colors.primary}
-                  />
-                </TouchableOpacity>
-                
-                <Text style={styles.peopleCountText}>{genericCount}</Text>
-                
-                <TouchableOpacity
-                  style={styles.peopleCountButton}
-                  onPress={() => setGenericCount(Math.min(50, genericCount + 1))}
-                  disabled={genericCount >= 50}
-                >
-                  <MaterialCommunityIcons
-                    name="plus"
-                    size={24}
-                    color={genericCount >= 50 ? theme.colors.onSurfaceVariant : theme.colors.primary}
-                  />
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.peopleCountHint}>
-                {t('addParticipant.genericPreview', { count: genericCount })}
-              </Text>
-              <Text style={styles.inputHint}>
-                {t('addParticipant.genericHint')}
-              </Text>
-            </View>
-          )}
-              <View style={styles.bottomActions}>
-                <Button
-                  title={bulkType === 'custom' ? 
-                    t('addParticipant.createParticipants') : 
-                    t('addParticipant.createGeneric', { count: genericCount })
-                  }
-                  variant="filled"
-                  size="large"
-                  onPress={handleCreateBulkParticipants}
+
+            {hasExpenses ? (
+              <View style={styles.restrictionContainer}>
+                <MaterialCommunityIcons
+                  name="information-outline"
+                  size={48}
+                  color={theme.colors.onSurfaceVariant}
+                  style={styles.restrictionIcon}
                 />
+                <Text style={styles.restrictionTitle}>{t('addParticipant.bulkRestricted')}</Text>
+                <Text style={styles.restrictionMessage}>
+                  {t('addParticipant.bulkRestrictedMessage')}
+                </Text>
+                <Text style={styles.restrictionSuggestion}>
+                  {t('addParticipant.bulkRestrictedSuggestion')}
+                </Text>
               </View>
-            </>
-          )}
+            ) : (
+              <>
+                <Text style={[styles.inputHint, { marginBottom: 12 }]}>
+                  {t('addParticipant.bulkSubtitle')}
+                </Text>
+                <View style={styles.bulkTypeSelector}>
+                  <TouchableOpacity
+                    style={[styles.bulkTypeButton, bulkType === 'custom' && styles.bulkTypeButtonActive]}
+                    onPress={() => setBulkType('custom')}
+                  >
+                    <MaterialCommunityIcons
+                      name="text-box-multiple"
+                      size={20}
+                      color={bulkType === 'custom' ? theme.colors.onPrimary : theme.colors.onSurfaceVariant}
+                    />
+                    <Text style={[styles.bulkTypeButtonText, bulkType === 'custom' && styles.bulkTypeButtonTextActive]}>
+                      {t('addParticipant.customNames')}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.bulkTypeButton, bulkType === 'generic' && styles.bulkTypeButtonActive]}
+                    onPress={() => setBulkType('generic')}
+                  >
+                    <MaterialCommunityIcons
+                      name="account-multiple"
+                      size={20}
+                      color={bulkType === 'generic' ? theme.colors.onPrimary : theme.colors.onSurfaceVariant}
+                    />
+                    <Text style={[styles.bulkTypeButtonText, bulkType === 'generic' && styles.bulkTypeButtonTextActive]}>
+                      {t('addParticipant.generic')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </Card>
+
+        {/* Sección 2 ─ Contenido según tipo */}
+        {!hasExpenses && (
+          <>
+            <Card style={styles.bulkContentCard} padding={0}>
+              <View style={styles.friendsCardPad}>
+                <View style={[styles.newTabCardHeader, { marginBottom: 12 }]}>
+                  <MaterialCommunityIcons
+                    name={bulkType === 'custom' ? 'format-list-bulleted' : 'numeric'}
+                    size={20}
+                    color="#4CAF50"
+                  />
+                  <Text style={styles.newTabCardTitle}>
+                    {bulkType === 'custom' ? t('addParticipant.customNames') : t('addParticipant.generic')}
+                  </Text>
+                </View>
+
+                {bulkType === 'custom' ? (
+                  <View style={[styles.inputGroup, { marginBottom: 0 }]}>
+                    <Text style={[styles.inputLabel, bulkSubmittedOnce && !bulkNames.trim() && styles.inputLabelError]}>
+                      {t('addParticipant.namesLabel')}<Text style={styles.requiredStar}> *</Text>
+                    </Text>
+                    <TextInput
+                      style={[styles.input, styles.textArea]}
+                      placeholder={t('addParticipant.namesPlaceholder')}
+                      placeholderTextColor={theme.colors.onSurfaceVariant}
+                      value={bulkNames}
+                      onChangeText={setBulkNames}
+                      multiline
+                      numberOfLines={8}
+                      textAlignVertical="top"
+                    />
+                    <Text style={styles.inputHint}>{t('addParticipant.namesHint')}</Text>
+                  </View>
+                ) : (
+                  <View style={[styles.inputGroup, { marginBottom: 0 }]}>
+                    <Text style={styles.inputLabel}>{t('addParticipant.quantityLabel')}</Text>
+                    <View style={styles.peopleCountContainer}>
+                      <TouchableOpacity
+                        style={styles.peopleCountButton}
+                        onPress={() => setGenericCount(Math.max(1, genericCount - 1))}
+                        disabled={genericCount <= 1}
+                      >
+                        <MaterialCommunityIcons
+                          name="minus"
+                          size={24}
+                          color={genericCount <= 1 ? theme.colors.onSurfaceVariant : theme.colors.primary}
+                        />
+                      </TouchableOpacity>
+                      <Text style={styles.peopleCountText}>{genericCount}</Text>
+                      <TouchableOpacity
+                        style={styles.peopleCountButton}
+                        onPress={() => setGenericCount(Math.min(50, genericCount + 1))}
+                        disabled={genericCount >= 50}
+                      >
+                        <MaterialCommunityIcons
+                          name="plus"
+                          size={24}
+                          color={genericCount >= 50 ? theme.colors.onSurfaceVariant : theme.colors.primary}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.peopleCountHint}>
+                      {t('addParticipant.genericPreview', { count: genericCount })}
+                    </Text>
+                    <Text style={styles.inputHint}>{t('addParticipant.genericHint')}</Text>
+                  </View>
+                )}
+              </View>
+            </Card>
+          </>
+        )}
         </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+
+        {!hasExpenses && (
+          <View style={styles.bottomActions}>
+            <Button
+              title={bulkType === 'custom'
+                ? t('addParticipant.createParticipants')
+                : t('addParticipant.createGeneric', { count: genericCount })
+              }
+              variant="filled"
+              size="large"
+              onPress={handleCreateBulkParticipants}
+            />
+          </View>
+        )}
       </View>
     );
   };
@@ -851,95 +828,124 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
 
     return (
       <View ref={apNewRef} collapsable={false} style={{ flex: 1 }}>
-      <KeyboardAvoidingView
-        style={styles.newParticipantContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
-          <Text style={styles.formTitle}>{t('addParticipant.newTitle')}</Text>
-          
-          <View style={styles.inputGroup}>
-            <Text style={[
-              styles.inputLabel,
-              (submittedOnce && !newParticipant.name.trim()) || (!nameValidation.isValid && !!nameValidation.message && !nameValidation.isChecking) ? styles.inputLabelError : undefined
-            ]}>
-              {t('addParticipant.fullNameLabel')}<Text style={styles.requiredStar}> *</Text>
-            </Text>
-            <View style={styles.inputWithIndicator}>
-              <TextInput
-                style={[
-                  styles.input,
-                  { flex: 1 },
-                  nameValidation.isValid && styles.inputValid,
-                  (!nameValidation.isValid && nameValidation.message && !nameValidation.isChecking) && styles.inputInvalid
-                ]}
-                placeholder={t('addParticipant.fullNamePlaceholder')}
-                placeholderTextColor={theme.colors.onSurfaceVariant}
-                value={newParticipant.name}
-                onChangeText={(text) => setNewParticipant(prev => ({ ...prev, name: text }))}
-              />
-              <View style={styles.validationIndicator}>
-                {nameValidation.isChecking ? (
-                  <MaterialCommunityIcons name="loading" size={20} color={theme.colors.primary} />
-                ) : nameValidation.isValid ? (
-                  <MaterialCommunityIcons name="check-circle" size={20} color="#4CAF50" />
-                ) : nameValidation.message ? (
-                  <MaterialCommunityIcons name="close-circle" size={20} color="#FF5252" />
-                ) : null}
-              </View>
+        <ScrollView
+          style={styles.formContainer}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 8 }}
+        >
+          {/* Card: Datos del participante */}
+          <Card style={styles.newTabCard}>
+            <View style={styles.newTabCardHeader}>
+              <MaterialCommunityIcons name="account-outline" size={20} color="#2196F3" />
+              <Text style={styles.newTabCardTitle}>{t('addParticipant.newTitle')}</Text>
             </View>
-            {nameValidation.message ? (
+
+            <View style={styles.inputGroup}>
               <Text style={[
-                styles.validationText,
-                nameValidation.isValid ? styles.validationTextSuccess : styles.validationTextError
+                styles.inputLabel,
+                (submittedOnce && !newParticipant.name.trim()) || (!nameValidation.isValid && !!nameValidation.message && !nameValidation.isChecking) ? styles.inputLabelError : undefined
               ]}>
-                {nameValidation.message}
+                {t('addParticipant.fullNameLabel')}<Text style={styles.requiredStar}> *</Text>
               </Text>
-            ) : null}
-          </View>
+              <View style={styles.inputWithIndicator}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    { flex: 1 },
+                    nameValidation.isValid && styles.inputValid,
+                    (!nameValidation.isValid && nameValidation.message && !nameValidation.isChecking) && styles.inputInvalid
+                  ]}
+                  placeholder={t('addParticipant.fullNamePlaceholder')}
+                  placeholderTextColor={theme.colors.onSurfaceVariant}
+                  value={newParticipant.name}
+                  onChangeText={(text) => setNewParticipant(prev => ({ ...prev, name: text }))}
+                />
+                <View style={styles.validationIndicator}>
+                  {nameValidation.isChecking ? (
+                    <MaterialCommunityIcons name="loading" size={20} color={theme.colors.primary} />
+                  ) : nameValidation.isValid ? (
+                    <MaterialCommunityIcons name="check-circle" size={20} color="#4CAF50" />
+                  ) : nameValidation.message ? (
+                    <MaterialCommunityIcons name="close-circle" size={20} color="#FF5252" />
+                  ) : null}
+                </View>
+              </View>
+              {nameValidation.message ? (
+                <Text style={[
+                  styles.validationText,
+                  nameValidation.isValid ? styles.validationTextSuccess : styles.validationTextError
+                ]}>
+                  {nameValidation.message}
+                </Text>
+              ) : null}
+            </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('addParticipant.cbuLabel')}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder={t('addParticipant.cbuPlaceholder')}
-              placeholderTextColor={theme.colors.onSurfaceVariant}
-              value={newParticipant.alias_cbu}
-              onChangeText={(text) => setNewParticipant(prev => ({ ...prev, alias_cbu: text }))}
-            />
-          </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>{t('addParticipant.cbuLabel')}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder={t('addParticipant.cbuPlaceholder')}
+                placeholderTextColor={theme.colors.onSurfaceVariant}
+                value={newParticipant.alias_cbu}
+                onChangeText={(text) => setNewParticipant(prev => ({ ...prev, alias_cbu: text }))}
+              />
+            </View>
+          </Card>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('addParticipant.phoneLabel')}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder={t('addParticipant.phonePlaceholder')}
-              placeholderTextColor={theme.colors.onSurfaceVariant}
-              value={newParticipant.phone}
-              onChangeText={(text) => {
-                const startsWithPlus = text.startsWith('+');
-                let digits = text.replace(/\D/g, '');
-                if (digits.length > 16) digits = digits.slice(0, 16);
-                const filtered = startsWithPlus ? '+' + digits : digits;
-                setNewParticipant(prev => ({ ...prev, phone: filtered }));
-              }}
-              keyboardType="phone-pad"
-            />
-          </View>
+          {/* Card: Contacto */}
+          <Card style={[styles.newTabCardContact, !isContactExpanded && { marginBottom: 12 }]}>
+            <TouchableOpacity
+              style={[styles.newTabCardHeader, !isContactExpanded && { marginBottom: 0 }]}
+              onPress={() => setIsContactExpanded(v => !v)}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="notebook-outline" size={20} color="#4CAF50" />
+              <Text style={styles.newTabCardTitle}>{t('addParticipant.optionalDataLabel')}</Text>
+              <MaterialCommunityIcons
+                name={isContactExpanded ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={theme.colors.onSurfaceVariant}
+              />
+            </TouchableOpacity>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t('addParticipant.emailLabel')}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder={t('addParticipant.emailPlaceholder')}
-              placeholderTextColor={theme.colors.onSurfaceVariant}
-              value={newParticipant.email}
-              onChangeText={(text) => setNewParticipant(prev => ({ ...prev, email: text.toLowerCase().replace(/\s/g, '') }))}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
+            {isContactExpanded && (
+              <>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>{t('addParticipant.phoneLabel')}</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder={t('addParticipant.phonePlaceholder')}
+                    placeholderTextColor={theme.colors.onSurfaceVariant}
+                    value={newParticipant.phone}
+                    onChangeText={(text) => {
+                      const startsWithPlus = text.startsWith('+');
+                      let digits = text.replace(/\D/g, '');
+                      if (digits.length > 16) digits = digits.slice(0, 16);
+                      const filtered = startsWithPlus ? '+' + digits : digits;
+                      setNewParticipant(prev => ({ ...prev, phone: filtered }));
+                    }}
+                    keyboardType="phone-pad"
+                  />
+                </View>
 
+                <View style={[styles.inputGroup, { marginBottom: 0 }]}>
+                  <Text style={styles.inputLabel}>{t('addParticipant.emailLabel')}</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder={t('addParticipant.emailPlaceholder')}
+                    placeholderTextColor={theme.colors.onSurfaceVariant}
+                    value={newParticipant.email}
+                    onChangeText={(text) => setNewParticipant(prev => ({ ...prev, email: text.toLowerCase().replace(/\s/g, '') }))}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                </View>
+              </>
+            )}
+          </Card>
+
+          {/* Toggle guardar como amigo */}
           <TouchableOpacity
             style={styles.toggleContainer}
             onPress={() => setSaveAsFriend(!saveAsFriend)}
@@ -974,7 +980,6 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
             onPress={handleCreateNewParticipant}
           />
         </View>
-      </KeyboardAvoidingView>
       </View>
     );
   };
@@ -1172,6 +1177,88 @@ const createStyles = (theme: Theme) =>
       color: theme.colors.onPrimaryContainer,
     } as TextStyle,
 
+    // Fila hint + seleccionar todos combinados
+    hintSelectRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      marginHorizontal: 16,
+      marginBottom: 8,
+      backgroundColor: theme.colors.primaryContainer,
+      borderRadius: 8,
+      gap: 6,
+    } as ViewStyle,
+
+    hintSelectText: {
+      flex: 1,
+      ...theme.typography.bodySmall,
+      color: theme.colors.onPrimaryContainer,
+    } as TextStyle,
+
+    hintSelectAction: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+      backgroundColor: theme.colors.primary + '22',
+    } as ViewStyle,
+
+    // Cards para tab Amigos
+    friendsSearchCard: {
+      marginHorizontal: 16,
+      marginBottom: 8,
+      marginTop: 12,
+      borderTopWidth: 4,
+      borderTopColor: '#2196F3',
+      overflow: 'hidden',
+    } as ViewStyle,
+
+    friendsListCard: {
+      marginHorizontal: 16,
+      marginBottom: 0,
+      flex: 1,
+      borderTopWidth: 4,
+      borderTopColor: '#2196F3',
+    } as ViewStyle,
+
+    friendsCardPad: {
+      padding: 14,
+    } as ViewStyle,
+
+    // Cards para tab Nuevo
+    newTabCard: {
+      marginHorizontal: 16,
+      marginBottom: 12,
+      borderTopWidth: 4,
+      borderTopColor: '#4CAF50',
+      overflow: 'hidden',
+    } as ViewStyle,
+
+    newTabCardContact: {
+      marginHorizontal: 16,
+      marginBottom: 12,
+      borderTopWidth: 4,
+      borderTopColor: '#4CAF50',
+      overflow: 'hidden',
+    } as ViewStyle,
+
+    newTabCardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 16,
+    } as ViewStyle,
+
+    newTabCardTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: theme.colors.onSurface,
+      flex: 1,
+    } as TextStyle,
+
     content: {
       flex: 1,
     } as ViewStyle,
@@ -1184,16 +1271,16 @@ const createStyles = (theme: Theme) =>
     friendSelectItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: theme.colors.surface,
+      backgroundColor: theme.colors.surfaceVariant,
       borderRadius: 12,
-      padding: 16,
+      padding: 14,
       marginBottom: 8,
-      borderWidth: 1,
-      borderColor: theme.colors.outline,
+      borderLeftWidth: 4,
+      borderLeftColor: theme.colors.outline,
     } as ViewStyle,
 
     friendSelectItemSelected: {
-      borderColor: theme.colors.primary,
+      borderLeftColor: theme.colors.primary,
       backgroundColor: theme.colors.primaryContainer,
     } as ViewStyle,
 
@@ -1290,8 +1377,7 @@ const createStyles = (theme: Theme) =>
 
     formContainer: {
       flex: 1,
-      paddingHorizontal: 20,
-      paddingTop: 20,
+      paddingTop: 16,
     } as ViewStyle,
 
     formTitle: {
@@ -1309,10 +1395,27 @@ const createStyles = (theme: Theme) =>
       textAlign: 'center',
     } as TextStyle,
 
+    bulkTypeCard: {
+      marginHorizontal: 16,
+      marginBottom: 8,
+      marginTop: 12,
+      borderTopWidth: 4,
+      borderTopColor: '#FF9800',
+      overflow: 'hidden',
+    } as ViewStyle,
+
+    bulkContentCard: {
+      marginHorizontal: 16,
+      marginBottom: 8,
+      borderTopWidth: 4,
+      borderTopColor: '#FF9800',
+      overflow: 'hidden',
+    } as ViewStyle,
+
     bulkTypeSelector: {
       flexDirection: 'row',
       gap: 8,
-      marginBottom: 20,
+      marginBottom: 4,
     } as ViewStyle,
 
     bulkTypeButton: {
@@ -1458,12 +1561,14 @@ const createStyles = (theme: Theme) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      backgroundColor: theme.colors.surface,
+      backgroundColor: theme.colors.surfaceVariant,
       borderRadius: 12,
       padding: 16,
       marginTop: 8,
-      borderWidth: 1,
-      borderColor: theme.colors.outline,
+      marginHorizontal: 16,
+      marginBottom: 16,
+      borderLeftWidth: 4,
+      borderLeftColor: theme.colors.primary,
     } as ViewStyle,
 
     toggleInfo: {

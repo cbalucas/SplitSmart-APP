@@ -91,6 +91,9 @@ const CreateExpenseScreen: React.FC = () => {
   const [isMultiplePayers, setIsMultiplePayers] = useState(false);
   const [multiPayers, setMultiPayers] = useState<MultiPayer[]>([]);
 
+  // ── Secciones colapsables ──────────────────────────────────
+  const [isCategoryExpanded, setIsCategoryExpanded] = useState(false);
+
   // ── Tour guiado ───────────────────────────────────────────
   const [ceTourVisible, setCeTourVisible] = useState(false);
   const [ceTourStep, setCeTourStep] = useState(0);
@@ -1028,8 +1031,11 @@ const CreateExpenseScreen: React.FC = () => {
       >
         {/* Información del Gasto */}
         <View ref={ceInfoRef} collapsable={false}>
-        <Card style={styles.card}>
-          <Text style={styles.cardTitle}>{t.expenseInfoCard.title}</Text>
+        <Card style={[styles.card, styles.cardInfo]}>
+          <View style={styles.cardHeaderRow}>
+            <MaterialCommunityIcons name="information-outline" size={20} color="#2196F3" />
+            <Text style={styles.cardHeaderTitle}>{t.expenseInfoCard.title}</Text>
+          </View>
           
           <Input
             label={t.expenseInfoCard.descriptionLabel}
@@ -1089,16 +1095,19 @@ const CreateExpenseScreen: React.FC = () => {
 
         {/* Pagador */}
         <View ref={cePayerRef} collapsable={false}>
-        <Card style={styles.card}>
-          <Text style={styles.cardTitle}>{t.payerCard.title}</Text>
+        <Card style={[styles.card, styles.cardPayer]}>
+          <View style={styles.cardHeaderRow}>
+            <MaterialCommunityIcons name="account-cash-outline" size={20} color="#FF9800" />
+            <Text style={styles.cardHeaderTitle}>{t.payerCard.title}</Text>
+          </View>
 
           {/* Toggle múltiples pagadores */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: theme.colors.outline, marginBottom: 12 }}>
+          <View style={styles.multiPayerToggleRow}>
             <View style={{ flex: 1, marginRight: 12 }}>
-              <Text style={{ ...theme.typography.labelLarge, fontWeight: '600', color: theme.colors.onSurface }}>
+              <Text style={styles.multiPayerToggleLabel}>
                 {t.multiplePayersCard.toggleLabel}
               </Text>
-              <Text style={{ ...theme.typography.bodySmall, color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
+              <Text style={styles.multiPayerToggleSubtitle}>
                 {t.multiplePayersCard.toggleSubtitle}
               </Text>
             </View>
@@ -1143,7 +1152,7 @@ const CreateExpenseScreen: React.FC = () => {
                 const mp = multiPayers.find(x => x.participantId === participant.id);
                 if (!mp) return null;
                 return (
-                  <View key={participant.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: theme.colors.surfaceVariant }}>
+                  <View key={participant.id} style={styles.multiPayerRow}>
                     <TouchableOpacity
                       style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
                       onPress={() => handleMultiPayerToggle(participant.id)}
@@ -1158,13 +1167,13 @@ const CreateExpenseScreen: React.FC = () => {
                       </Text>
                     </TouchableOpacity>
                     {mp.isSelected && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.surfaceVariant, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, minWidth: 90 }}>
-                        <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 13, marginRight: 4 }}>$</Text>
+                      <View style={styles.multiPayerAmountBox}>
+                        <Text style={styles.multiPayerAmountPrefix}>$</Text>
                         <TextInput
                           value={mp.amount}
                           onChangeText={(val) => handleMultiPayerAmountChange(participant.id, val)}
                           keyboardType="numeric"
-                        style={{ ...theme.typography.bodyMedium, color: theme.colors.onSurface, minWidth: 60, padding: 0 }}
+                          style={styles.multiPayerAmountInput}
                           placeholder="0.00"
                           placeholderTextColor={theme.colors.onSurfaceVariant}
                         />
@@ -1176,8 +1185,8 @@ const CreateExpenseScreen: React.FC = () => {
 
               {/* Indicador de suma */}
               {multiPayers.some(mp => mp.isSelected) && (
-                <View style={{ marginTop: 10, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: isMultiPayerSumValid() ? theme.colors.primary + '18' : theme.colors.error + '18' }}>
-                  <Text style={{ fontSize: 13, color: isMultiPayerSumValid() ? theme.colors.primary : theme.colors.error, fontWeight: '500' }}>
+                <View style={[styles.multiPayerSumBanner, { backgroundColor: isMultiPayerSumValid() ? theme.colors.primary + '18' : theme.colors.error + '18' }]}>
+                  <Text style={[styles.multiPayerSumText, { color: isMultiPayerSumValid() ? theme.colors.primary : theme.colors.error }]}>
                     {isMultiPayerSumValid()
                       ? t.multiplePayersCard.sumOk
                       : t.multiplePayersCard.sumMismatch
@@ -1198,8 +1207,11 @@ const CreateExpenseScreen: React.FC = () => {
 
         {/* División de Participantes Unificada */}
         <View ref={ceSplitRef} collapsable={false}>
-        <Card style={styles.card}>
-          <Text style={styles.cardTitle}>{t.participantsCard.title}</Text>
+        <Card style={[styles.card, styles.cardSplit]}>
+          <View style={styles.cardHeaderRow}>
+            <MaterialCommunityIcons name="account-group-outline" size={20} color="#4CAF50" />
+            <Text style={styles.cardHeaderTitle}>{t.participantsCard.title}</Text>
+          </View>
           <Text style={styles.cardSubtitle}>{t.participantsCard.subtitle}</Text>
 
           {/* Lista Unificada de Participantes */}
@@ -1273,32 +1285,35 @@ const CreateExpenseScreen: React.FC = () => {
 
         {/* Comprobante / Imagen */}
         <View ref={ceReceiptRef} collapsable={false}>
-        <Card style={styles.card}>
-          <Text style={styles.cardTitle}>{t.receiptCard.title}</Text>
+        <Card style={[styles.card, styles.cardReceipt]}>
+          <View style={styles.cardHeaderRow}>
+            <MaterialCommunityIcons name="receipt-outline" size={20} color="#607D8B" />
+            <Text style={styles.cardHeaderTitle}>{t.receiptCard.title}</Text>
+          </View>
           
           {receiptImage ? (
-            <View style={{ marginTop: 12 }}>
+            <View>
               <Image
                 source={{ uri: receiptImage }}
                 style={{ width: '100%', height: 200, borderRadius: 8, marginBottom: 12 }}
                 resizeMode="cover"
               />
-              <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={styles.receiptActionRow}>
                 <TouchableOpacity
-                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surfaceVariant, paddingVertical: 12, borderRadius: 8 }}
+                  style={styles.receiptActionBtn}
                   onPress={selectImageSource}
                 >
                   <MaterialCommunityIcons name="image-edit" size={20} color={theme.colors.primary} />
-                  <Text style={{ ...theme.typography.labelLarge, color: theme.colors.primary, fontWeight: '500' }}>
+                  <Text style={[styles.receiptBtnText, { color: theme.colors.primary }]}>
                     {t.receiptCard.changeButton}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surfaceVariant, paddingVertical: 12, borderRadius: 8 }}
+                  style={styles.receiptActionBtn}
                   onPress={removeImage}
                 >
                   <MaterialCommunityIcons name="delete" size={20} color={theme.colors.error} />
-                  <Text style={{ ...theme.typography.labelLarge, color: theme.colors.error, fontWeight: '500' }}>
+                  <Text style={[styles.receiptBtnText, { color: theme.colors.error }]}>
                     {t.receiptCard.deleteButton}
                   </Text>
                 </TouchableOpacity>
@@ -1306,11 +1321,11 @@ const CreateExpenseScreen: React.FC = () => {
             </View>
           ) : (
             <TouchableOpacity
-              style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surfaceVariant, paddingVertical: 16, borderRadius: 8, borderWidth: 2, borderColor: theme.colors.outline, borderStyle: 'dashed' }}
+              style={styles.receiptAttachBtn}
               onPress={selectImageSource}
             >
               <MaterialCommunityIcons name="camera-plus" size={24} color={theme.colors.onSurfaceVariant} />
-              <Text style={{ marginLeft: 8, ...theme.typography.labelLarge, color: theme.colors.onSurfaceVariant, fontWeight: '500' }}>
+              <Text style={[styles.receiptBtnText, { color: theme.colors.onSurfaceVariant }]}>
                 {t.receiptCard.attachButton}
               </Text>
             </TouchableOpacity>
@@ -1320,34 +1335,55 @@ const CreateExpenseScreen: React.FC = () => {
 
         {/* Categorización */}
         <View ref={ceCategoryRef} collapsable={false}>
-        <Card style={styles.card}>
-          <Text style={styles.cardTitle}>{t.categoryCard.title}</Text>
-          
-          <Text style={styles.sectionLabel}>{t.categoryCard.sectionLabel}</Text>
-          <View style={styles.categoryGrid}>
-            {CATEGORY_CONFIGS.map((cat) => (
-              <TouchableOpacity
-                key={cat.key}
-                style={[
-                  styles.categoryButton,
-                  formData.category === cat.key && styles.categoryButtonActive
-                ]}
-                onPress={() => handleInputChange('category', cat.key)}
-              >
-                <MaterialCommunityIcons
-                  name={cat.icon as any}
-                  size={20}
-                  color={formData.category === cat.key ? theme.colors.onPrimaryContainer : getCategoryColor(cat.key)}
-                />
-                <Text style={[
-                  styles.categoryButtonText,
-                  formData.category === cat.key && styles.categoryButtonTextActive
-                ]}>
-                  {t.categories[cat.key]}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+        <Card style={[styles.card, styles.cardCategory]}>
+          <TouchableOpacity
+            style={[styles.cardHeaderRow, !isCategoryExpanded && { marginBottom: 0 }]}
+            onPress={() => setIsCategoryExpanded(v => !v)}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="tag-outline" size={20} color="#9C27B0" />
+            <Text style={styles.cardHeaderTitle}>{t.categoryCard.title}</Text>
+            {formData.category ? (
+              <Text style={{ fontSize: 12, color: theme.colors.onSurfaceVariant, marginRight: 4 }}>
+                {t.categories[formData.category]}
+              </Text>
+            ) : null}
+            <MaterialCommunityIcons
+              name={isCategoryExpanded ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={theme.colors.onSurfaceVariant}
+            />
+          </TouchableOpacity>
+
+          {isCategoryExpanded && (
+            <>
+              <Text style={styles.sectionLabel}>{t.categoryCard.sectionLabel}</Text>
+              <View style={styles.categoryGrid}>
+                {CATEGORY_CONFIGS.map((cat) => (
+                  <TouchableOpacity
+                    key={cat.key}
+                    style={[
+                      styles.categoryButton,
+                      formData.category === cat.key && styles.categoryButtonActive
+                    ]}
+                    onPress={() => handleInputChange('category', cat.key)}
+                  >
+                    <MaterialCommunityIcons
+                      name={cat.icon as any}
+                      size={20}
+                      color={formData.category === cat.key ? theme.colors.onPrimaryContainer : getCategoryColor(cat.key)}
+                    />
+                    <Text style={[
+                      styles.categoryButtonText,
+                      formData.category === cat.key && styles.categoryButtonTextActive
+                    ]}>
+                      {t.categories[cat.key]}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          )}
         </Card>
         </View>
 

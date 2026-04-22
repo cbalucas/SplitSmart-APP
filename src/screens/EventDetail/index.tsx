@@ -2160,7 +2160,7 @@ export default function EventDetailScreen() {
                     <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 14 }}>{t('common.add')}</Text>
                   </TouchableOpacity>
                 )}
-                {isEditable && visiblePrimaries.length > 1 && (
+                {isEditable && visiblePrimaries.length > 0 && (
                   <TouchableOpacity
                     style={{ backgroundColor: theme.colors.error + '15', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 }}
                     onPress={() => { setIsParticipantSelectMode(true); setSelectedParticipantIds(new Set()); }}
