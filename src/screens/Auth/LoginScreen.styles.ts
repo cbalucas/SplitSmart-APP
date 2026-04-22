@@ -33,8 +33,8 @@ export const createLoginStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 8,
   },
   appIcon: {
-    width: 90,
-    height: 90,
+    width: 180,
+    height: 180,
   },
 
   // ── Card: credencial ─────────────────────────────────────

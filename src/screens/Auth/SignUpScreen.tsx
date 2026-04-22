@@ -372,15 +372,6 @@ export default function SignUpScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Logo */}
-            <View style={styles.logoSection}>
-              <Image
-                source={require('../../../assets/splitsmart/splash-icon-app_google.png')}
-                style={styles.appIcon}
-                resizeMode="contain"
-              />
-            </View>
-
             {/* ── Card: Información Básica ─────────────────── */}
             <View ref={suBasicRef} collapsable={false}>
               <Card style={[styles.card, styles.cardBasic]}>
@@ -415,7 +406,6 @@ export default function SignUpScreen() {
                     error={hasFieldError('username') ? (usernameValidation.message || t.errors.usernameRequired) : undefined}
                     success={usernameValidation.isValid}
                     icon="at"
-                    containerStyle={{ paddingRight: 36 }}
                   />
                   <View style={styles.usernameIndicator}>
                     {usernameValidation.isChecking ? (
@@ -435,16 +425,8 @@ export default function SignUpScreen() {
                     {usernameValidation.message}
                   </Text>
                 )}
-              </Card>
-            </View>
 
-            {/* ── Card: Contacto ───────────────────────────── */}
-            <View ref={suContactRef} collapsable={false}>
-              <Card style={[styles.card, styles.cardContact]}>
-                <View style={styles.cardHeaderRow}>
-                  <MaterialCommunityIcons name="phone-outline" size={20} color="#4CAF50" />
-                  <Text style={styles.cardHeaderTitle}>{t.form.contactSectionTitle || 'Contacto'}</Text>
-                </View>
+                <View style={styles.inputSpacer} />
 
                 <Input
                   label={t.form.phoneLabel}
@@ -481,16 +463,13 @@ export default function SignUpScreen() {
             {/* ── Card: Seguridad ──────────────────────────── */}
             <View ref={suPasswordRef} collapsable={false}>
               <Card style={[styles.card, styles.cardSecurity]}>
-                <View style={styles.cardHeaderRow}>
-                  <MaterialCommunityIcons name="shield-lock-outline" size={20} color="#FF9800" />
-                  <Text style={styles.cardHeaderTitle}>{t.form.securitySectionTitle || 'Seguridad'}</Text>
-                </View>
-
                 <TouchableOpacity
-                  style={[styles.noPasswordTile, formData.skipPassword && styles.noPasswordTileActive]}
+                  style={[styles.cardHeaderRow, { marginBottom: formData.skipPassword ? 0 : 16 }]}
                   onPress={() => updateFormData('skipPassword', !formData.skipPassword)}
                   activeOpacity={0.7}
                 >
+                  <MaterialCommunityIcons name="shield-lock-outline" size={20} color="#FF9800" />
+                  <Text style={[styles.cardHeaderTitle, { flex: 1 }]}>{t.form.securitySectionTitle || 'Seguridad'}</Text>
                   <MaterialCommunityIcons
                     name={formData.skipPassword ? 'checkbox-marked' : 'checkbox-blank-outline'}
                     size={22}
@@ -584,7 +563,6 @@ export default function SignUpScreen() {
         visible={suTourVisible}
         steps={[
           { ref: suBasicRef,    titleKey: 'tour.signUp.basic.title',    descKey: 'tour.signUp.basic.desc',    popupPosition: 'below' },
-          { ref: suContactRef,  titleKey: 'tour.signUp.contact.title',  descKey: 'tour.signUp.contact.desc',  popupPosition: 'below', onBeforeShow: () => suScrollTo(suContactRef),  delay: 400 },
           { ref: suPasswordRef, titleKey: 'tour.signUp.password.title', descKey: 'tour.signUp.password.desc', popupPosition: 'center', onBeforeShow: () => suScrollTo(suPasswordRef), delay: 400 },
           { ref: suButtonRef,   titleKey: 'tour.signUp.button.title',   descKey: 'tour.signUp.button.desc',   popupPosition: 'above' },
         ]}

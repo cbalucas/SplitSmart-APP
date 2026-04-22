@@ -142,15 +142,6 @@ export default function ForgotPasswordScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Logo */}
-            <View style={styles.logoSection}>
-              <Image
-                source={require('../../../assets/splitsmart/splash-icon-app_google.png')}
-                style={styles.appIcon}
-                resizeMode="contain"
-              />
-            </View>
-
             {/* ── Card: Recuperar contraseña ───────────────── */}
             <Card style={styles.card}>
               {/* Header de card */}

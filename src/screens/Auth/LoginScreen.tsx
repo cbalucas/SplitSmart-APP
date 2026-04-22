@@ -146,15 +146,16 @@ export default function LoginScreen() {
                 error={hasFieldError('credential') ? t.errors.credentialRequired : undefined}
                 icon="account-circle-outline"
               />
-            </Card>
 
-            {/* ── Card: Contraseña ─────────────────────────── */}
-            <Card style={styles.cardPassword}>
-              {/* Header de card */}
-              <View style={styles.cardHeaderRow}>
-                <MaterialCommunityIcons name="lock-outline" size={20} color="#FF9800" />
-                <Text style={styles.cardHeaderTitle}>{t.form.passwordLabel}</Text>
-              </View>
+              {/* Link ¿No tienes cuenta? */}
+              <TouchableOpacity
+                style={{ alignItems: 'flex-end', marginTop: 6 }}
+                onPress={() => navigation.navigate('SignUp')}
+              >
+                <Text style={styles.linkText}>{t.links.signUp}</Text>
+              </TouchableOpacity>
+
+              <View style={{ height: 16 }} />
 
               <Input
                 label={t.form.passwordLabel}
@@ -174,18 +175,8 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </Card>
 
-            {/* Link ¿No tienes cuenta? */}
-            <TouchableOpacity
-              style={styles.linkRow}
-              onPress={() => navigation.navigate('SignUp')}
-            >
-              <Text style={styles.linkText}>{t.links.signUp}</Text>
-            </TouchableOpacity>
-          </ScrollView>
-
-          {/* ── Footer fijo ─────────────────────────────────── */}
-          <View style={styles.footer}>
-            <View style={styles.footerButtonFlex}>
+            {/* ── Botón inicio de sesión ───────────────────── */}
+            <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
               <Button
                 title={loading ? t.form.loginButtonLoading : t.form.loginButton}
                 variant="filled"
@@ -195,7 +186,10 @@ export default function LoginScreen() {
                 fullWidth
               />
             </View>
-          </View>
+          </ScrollView>
+
+          {/* ── Footer fijo (vacío, solo SafeArea) ─────────── */}
+          <View style={{ height: 8 }} />
         </SafeAreaView>
       </KeyboardAvoidingView>
     </View>
