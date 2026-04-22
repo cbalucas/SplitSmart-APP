@@ -1033,7 +1033,7 @@ const CreateExpenseScreen: React.FC = () => {
         <View ref={ceInfoRef} collapsable={false}>
         <Card style={[styles.card, styles.cardInfo]}>
           <View style={styles.cardHeaderRow}>
-            <MaterialCommunityIcons name="information-outline" size={20} color="#2196F3" />
+            <MaterialCommunityIcons name="information-outline" size={20} color="#FF9800" />
             <Text style={styles.cardHeaderTitle}>{t.expenseInfoCard.title}</Text>
           </View>
           
@@ -1209,7 +1209,7 @@ const CreateExpenseScreen: React.FC = () => {
         <View ref={ceSplitRef} collapsable={false}>
         <Card style={[styles.card, styles.cardSplit]}>
           <View style={styles.cardHeaderRow}>
-            <MaterialCommunityIcons name="account-group-outline" size={20} color="#4CAF50" />
+            <MaterialCommunityIcons name="account-group-outline" size={20} color="#FF9800" />
             <Text style={styles.cardHeaderTitle}>{t.participantsCard.title}</Text>
           </View>
           <Text style={styles.cardSubtitle}>{t.participantsCard.subtitle}</Text>
@@ -1287,7 +1287,7 @@ const CreateExpenseScreen: React.FC = () => {
         <View ref={ceReceiptRef} collapsable={false}>
         <Card style={[styles.card, styles.cardReceipt]}>
           <View style={styles.cardHeaderRow}>
-            <MaterialCommunityIcons name="receipt-outline" size={20} color="#607D8B" />
+            <MaterialCommunityIcons name="receipt-outline" size={20} color="#FF9800" />
             <Text style={styles.cardHeaderTitle}>{t.receiptCard.title}</Text>
           </View>
           
@@ -1341,7 +1341,7 @@ const CreateExpenseScreen: React.FC = () => {
             onPress={() => setIsCategoryExpanded(v => !v)}
             activeOpacity={0.7}
           >
-            <MaterialCommunityIcons name="tag-outline" size={20} color="#9C27B0" />
+            <MaterialCommunityIcons name="tag-outline" size={20} color="#FF9800" />
             <Text style={styles.cardHeaderTitle}>{t.categoryCard.title}</Text>
             {formData.category ? (
               <Text style={{ fontSize: 12, color: theme.colors.onSurfaceVariant, marginRight: 4 }}>

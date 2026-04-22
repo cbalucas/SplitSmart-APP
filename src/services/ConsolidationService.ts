@@ -55,9 +55,21 @@ export class ConsolidationService {
       totalsByCreditor: { [creditorId: string]: number }
     }} = {};
 
+    // Resuelve la cadena completa de asignaciones: A→B→C = C paga por A y por B
+    // Con protección anti-ciclos mediante visited Set
+    const resolveActualPayer = (originalPayerId: string): string => {
+      let current = originalPayerId;
+      const visited = new Set<string>();
+      while (assignmentMap[current] && !visited.has(current)) {
+        visited.add(current);
+        current = assignmentMap[current];
+      }
+      return current;
+    };
+
     settlementsToProcess.forEach(settlement => {
-      // Determinar quién va a pagar realmente
-      const actualPayerId = assignmentMap[settlement.fromParticipantId] || settlement.fromParticipantId;
+      // Determinar quién va a pagar realmente (siguiendo la cadena completa de asignaciones)
+      const actualPayerId = resolveActualPayer(settlement.fromParticipantId);
       
       console.log(`🔍 Processing settlement: ${settlement.fromParticipantName} → ${settlement.toParticipantName} $${settlement.amount}`);
       console.log(`   Original payer: ${settlement.fromParticipantId}, Actual payer: ${actualPayerId}`);

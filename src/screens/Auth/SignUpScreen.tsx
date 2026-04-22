@@ -376,7 +376,7 @@ export default function SignUpScreen() {
             <View ref={suBasicRef} collapsable={false}>
               <Card style={[styles.card, styles.cardBasic]}>
                 <View style={styles.cardHeaderRow}>
-                  <MaterialCommunityIcons name="account-outline" size={20} color="#2196F3" />
+                  <MaterialCommunityIcons name="account-outline" size={20} color="#4CAF50" />
                   <Text style={styles.cardHeaderTitle}>{t.form.basicSectionTitle || 'Información Básica'}</Text>
                 </View>
 
@@ -468,7 +468,7 @@ export default function SignUpScreen() {
                   onPress={() => updateFormData('skipPassword', !formData.skipPassword)}
                   activeOpacity={0.7}
                 >
-                  <MaterialCommunityIcons name="shield-lock-outline" size={20} color="#FF9800" />
+                  <MaterialCommunityIcons name="shield-lock-outline" size={20} color="#4CAF50" />
                   <Text style={[styles.cardHeaderTitle, { flex: 1 }]}>{t.form.securitySectionTitle || 'Seguridad'}</Text>
                   <MaterialCommunityIcons
                     name={formData.skipPassword ? 'checkbox-marked' : 'checkbox-blank-outline'}

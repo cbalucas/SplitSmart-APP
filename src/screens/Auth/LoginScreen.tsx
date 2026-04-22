@@ -174,9 +174,11 @@ export default function LoginScreen() {
                 <Text style={styles.forgotPasswordText}>{t.links.forgotPassword}</Text>
               </TouchableOpacity>
             </Card>
+          </ScrollView>
 
-            {/* ── Botón inicio de sesión ───────────────────── */}
-            <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+          {/* ── Footer fijo ─────────────────────────────────── */}
+          <View style={styles.footer}>
+            <View style={styles.footerButtonFlex}>
               <Button
                 title={loading ? t.form.loginButtonLoading : t.form.loginButton}
                 variant="filled"
@@ -186,10 +188,7 @@ export default function LoginScreen() {
                 fullWidth
               />
             </View>
-          </ScrollView>
-
-          {/* ── Footer fijo (vacío, solo SafeArea) ─────────── */}
-          <View style={{ height: 8 }} />
+          </View>
         </SafeAreaView>
       </KeyboardAvoidingView>
     </View>

@@ -43,7 +43,7 @@ export const createForgotPasswordStyles = (theme: Theme) => StyleSheet.create({
     marginBottom: 16,
     overflow: 'hidden',
     borderTopWidth: 4,
-    borderTopColor: '#9C27B0',
+    borderTopColor: '#FF9800',
   },
 
   // ── Header de card ────────────────────────────────────────
@@ -68,7 +68,7 @@ export const createForgotPasswordStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.colors.surfaceVariant,
     borderRadius: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#9C27B0',
+    borderLeftColor: '#FF9800',
     padding: 14,
     marginBottom: 16,
   },

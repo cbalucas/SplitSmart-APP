@@ -74,10 +74,10 @@ const CreateEventScreen: React.FC = () => {
   const [cevTourVisible, setCevTourVisible] = useState(false);
   const [cevTourStep, setCevTourStep] = useState(0);
   const cevScrollRef    = useRef<ScrollView>(null);
-  const cevBasicRef     = useRef<View>(null);
-  const cevDatesRef     = useRef<View>(null);
+  const cevBasicRef     = useRef<View | null>(null);
+  const cevDatesRef     = useRef<View | null>(null);
 
-  const cevScrollTo = (ref: React.RefObject<View>) => {
+  const cevScrollTo = (ref: React.RefObject<View | null>) => {
     if (ref.current && cevScrollRef.current) {
       ref.current.measureLayout(
         cevScrollRef.current as any,
@@ -519,7 +519,7 @@ const CreateEventScreen: React.FC = () => {
             onPress={() => setIsConfigExpanded(p => !p)}
             activeOpacity={0.7}
           >
-            <MaterialCommunityIcons name="cog-outline" size={20} color="#FF9800" />
+            <MaterialCommunityIcons name="cog-outline" size={20} color="#2196F3" />
             <Text style={styles.cardHeaderTitle}>{t.form.financialConfiguration}</Text>
             <MaterialCommunityIcons
               name={isConfigExpanded ? 'chevron-up' : 'chevron-down'}
@@ -572,7 +572,7 @@ const CreateEventScreen: React.FC = () => {
                 {/* Card Moneda — cicla al presionar */}
                 <View style={{ flex: 1, height: 82 }}>
                   <TouchableOpacity
-                    style={[styles.prefCard, { borderTopColor: '#FF9800' }]}
+                    style={[styles.prefCard, { borderTopColor: '#2196F3' }]}
                     onPress={() => {
                       const currencies = ['ARS', 'USD', 'EUR', 'BRL'] as const;
                       const nextIdx = (currencies.indexOf(formData.currency) + 1) % currencies.length;
@@ -581,7 +581,7 @@ const CreateEventScreen: React.FC = () => {
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                       <Text style={{ fontSize: 18 }}>{getCurrencyFlag(formData.currency)}</Text>
-                      <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '700', color: '#FF9800' }}>
+                      <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '700', color: '#2196F3' }}>
                         {formData.currency}
                       </Text>
                     </View>

@@ -146,13 +146,13 @@ export default function ForgotPasswordScreen() {
             <Card style={styles.card}>
               {/* Header de card */}
               <View style={styles.cardHeaderRow}>
-                <MaterialCommunityIcons name="lock-reset" size={20} color="#9C27B0" />
+                <MaterialCommunityIcons name="lock-reset" size={20} color="#FF9800" />
                 <Text style={styles.cardHeaderTitle}>{t.form.sectionTitle || 'Recuperar Contraseña'}</Text>
               </View>
 
               {/* Info box */}
               <View style={styles.infoBox}>
-                <MaterialCommunityIcons name="information-outline" size={18} color="#9C27B0" />
+                <MaterialCommunityIcons name="information-outline" size={18} color="#FF9800" />
                 <Text style={styles.infoText}>{t.form.infoText}</Text>
               </View>
 

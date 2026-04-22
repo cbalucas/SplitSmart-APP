@@ -31,7 +31,7 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   } as ViewStyle,
 
   cardInfo: {
-    borderTopColor: '#2196F3',
+    borderTopColor: '#FF9800',
   } as ViewStyle,
 
   cardPayer: {
@@ -39,15 +39,15 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   } as ViewStyle,
 
   cardSplit: {
-    borderTopColor: '#4CAF50',
+    borderTopColor: '#FF9800',
   } as ViewStyle,
 
   cardReceipt: {
-    borderTopColor: '#607D8B',
+    borderTopColor: '#FF9800',
   } as ViewStyle,
 
   cardCategory: {
-    borderTopColor: '#9C27B0',
+    borderTopColor: '#FF9800',
   } as ViewStyle,
 
   // ── Card header ───────────────────────────────────────────

@@ -131,6 +131,9 @@ export default function EventDetailScreen() {
   const [allowUndoPayments, setAllowUndoPayments] = useState(false);
   const [selectedUndoIds, setSelectedUndoIds] = useState<Set<string>>(new Set());
   const [isOptimizationExpanded, setIsOptimizationExpanded] = useState(false);
+  const [isConsolidationSectionExpanded, setIsConsolidationSectionExpanded] = useState(false);
+  const [isParticipantStatsExpanded, setIsParticipantStatsExpanded] = useState(false);
+  const [isCategoryStatsExpanded, setIsCategoryStatsExpanded] = useState(false);
   const [showExpenseDetailModal, setShowExpenseDetailModal] = useState(false);
   const [selectedExpenseForDetail, setSelectedExpenseForDetail] = useState<any>(null);
   // Estado para manejar qué listas de pagadores están expandidas (inicia contraído por defecto)
@@ -210,14 +213,13 @@ export default function EventDetailScreen() {
       
       if (foundEvent) {
         // Load expenses, participants, splits, payments, settlements and consolidations from SQLite
-        const [expensesData, participantsData, splitsData, paymentsData, settlementsData, consolidationData] = await Promise.all([
-          getExpensesByEvent(eventId).catch(() => []), // Return empty array if fails
-          getEventParticipants(eventId).catch(() => []), // Return empty array if fails
-          getSplitsByEvent(eventId).catch(() => []), // Return empty array if fails
-          getPaymentsByEvent(eventId).catch(() => []), // Return empty array if fails
-          databaseService.getSettlementsByEvent(eventId).catch(() => []), // Return empty array if fails
-          databaseService.getConsolidationAssignments(eventId).catch(() => []) // Return empty array if fails
-        ]);
+        // NOTE: Sequential (not Promise.all) to avoid concurrent SQLite statement handle collisions
+        const expensesData = await getExpensesByEvent(eventId).catch(() => []);
+        const participantsData = await getEventParticipants(eventId).catch(() => []);
+        const splitsData = await getSplitsByEvent(eventId).catch(() => []);
+        const paymentsData = await getPaymentsByEvent(eventId).catch(() => []);
+        const settlementsData = await databaseService.getSettlementsByEvent(eventId).catch(() => []);
+        const consolidationData = await databaseService.getConsolidationAssignments(eventId).catch(() => []);
         
         setEventExpenses(expensesData);
         setEventParticipants(participantsData);
@@ -1570,36 +1572,36 @@ export default function EventDetailScreen() {
     return eventStats.averagePerPerson || 0;
   };
 
-  const renderTabBar = () => (
-    <View style={styles.tabBar}>
-      {[
-        { key: 'resumen', title: t('summary.title'), icon: 'chart-pie' as const },
-        { key: 'participantes', title: t('participants.title'), icon: 'account-group' as const },
-        { key: 'gastos', title: t('expenses.title'), icon: 'cash' as const }
-      ].map((tab) => (
-        <TouchableOpacity
-          key={tab.key}
-          style={[
-            styles.tabItem,
-            activeTab === tab.key && styles.activeTabItem
-          ]}
-          onPress={() => setActiveTab(tab.key)}
-        >
-          <MaterialCommunityIcons
-            name={tab.icon}
-            size={20}
-            color={activeTab === tab.key ? theme.colors.primary : theme.colors.onSurfaceVariant}
-          />
-          <Text style={[
-            styles.tabText,
-            activeTab === tab.key && styles.activeTabText
-          ]}>
-            {tab.title}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
+  const renderTabBar = () => {
+    const TABS = [
+      { key: 'resumen',       title: t('summary.title'),      icon: 'chart-pie'     as const, color: '#2196F3' },
+      { key: 'participantes', title: t('participants.title'), icon: 'account-group' as const, color: '#4CAF50' },
+      { key: 'gastos',        title: t('expenses.title'),     icon: 'cash'          as const, color: '#FF9800' },
+    ];
+    return (
+      <View style={styles.tabBar}>
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.key;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              style={[styles.tabItem, isActive && { borderBottomWidth: 3, borderBottomColor: tab.color }]}
+              onPress={() => setActiveTab(tab.key)}
+            >
+              <MaterialCommunityIcons
+                name={tab.icon}
+                size={20}
+                color={isActive ? tab.color : theme.colors.onSurfaceVariant}
+              />
+              <Text style={[styles.tabText, isActive && { color: tab.color, fontWeight: '600' }]}>
+                {tab.title}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    );
+  };
 
   // Filtrar y ordenar gastos
   const getFilteredAndSortedExpenses = () => {
@@ -1685,107 +1687,102 @@ export default function EventDetailScreen() {
     
     return (
       <View style={styles.tabContent}>
-        <View ref={edExpenseFiltersRef} collapsable={false}>
-        {/* Barra de búsqueda fija */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
-          <SearchBar
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder={t('expenses.search')}
-            showClearButton={true}
-            onClear={() => setSearchQuery('')}
-          />
+        {/* ══ Sección 1: Buscador + Encabezado ══ */}
+        <View ref={edExpenseFiltersRef} collapsable={false} style={{ marginHorizontal: 16, marginTop: 12 }}>
+          <Card style={{ borderTopWidth: 4, borderTopColor: '#FF9800', overflow: 'hidden', marginBottom: 8 }}>
+            <SearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={t('expenses.search')}
+              showClearButton={true}
+              onClear={() => setSearchQuery('')}
+            />
+            <View style={{ height: 1, backgroundColor: theme.colors.outline + '25', marginTop: 8, marginBottom: 10 }} />
+            {/* Fila título + botones */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              {isExpenseSelectMode ? (
+                <>
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                    onPress={() => {
+                      if (allExpensesSelected) {
+                        setSelectedExpenseIds(new Set());
+                      } else {
+                        setSelectedExpenseIds(new Set(filteredExpenses.map(e => e.id)));
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons
+                      name={allExpensesSelected ? 'checkbox-marked-circle' : selectedExpenseIds.size > 0 ? 'minus-circle-outline' : 'checkbox-blank-circle-outline'}
+                      size={22}
+                      color={theme.colors.primary}
+                      style={{ marginRight: 8 }}
+                    />
+                    <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
+                      {selectedExpenseIds.size > 0
+                        ? t('expenses.selectedCount', { count: selectedExpenseIds.size, plural: selectedExpenseIds.size !== 1 ? 's' : '' })
+                        : t('expenses.selectAll')}
+                    </Text>
+                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    {selectedExpenseIds.size > 0 && (
+                      <TouchableOpacity
+                        style={{ backgroundColor: theme.colors.error, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}
+                        onPress={handleRemoveSelectedExpenses}
+                      >
+                        <MaterialCommunityIcons name="delete-outline" size={20} color="#fff" />
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.outline + '25' }}
+                      onPress={() => { setIsExpenseSelectMode(false); setSelectedExpenseIds(new Set()); }}
+                    >
+                      <MaterialCommunityIcons name="close" size={20} color={theme.colors.onSurface} />
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                    <MaterialCommunityIcons name="cash" size={18} color="#FF9800" />
+                    <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
+                      {t('expenses.title')} ({filteredExpenses.length}{filteredExpenses.length !== eventExpenses.length ? ` de ${eventExpenses.length}` : ''})
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {isEditable && (
+                      <TouchableOpacity
+                        style={[
+                          { backgroundColor: theme.colors.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' },
+                          eventParticipants.length === 0 && { opacity: 0.4 }
+                        ]}
+                        onPress={eventParticipants.length === 0 ? undefined : handleAddExpense}
+                        activeOpacity={eventParticipants.length === 0 ? 1 : 0.7}
+                      >
+                        <MaterialCommunityIcons name="plus" size={16} color={theme.colors.onPrimary} style={{ marginRight: 6 }} />
+                        <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 14 }}>{t('add')}</Text>
+                      </TouchableOpacity>
+                    )}
+                    {isEditable && eventExpenses.length > 0 && (
+                      <TouchableOpacity
+                        style={{ backgroundColor: theme.colors.error + '15', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 }}
+                        onPress={() => { setIsExpenseSelectMode(true); setSelectedExpenseIds(new Set()); }}
+                      >
+                        <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.error} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </>
+              )}
+            </View>
+          </Card>
         </View>
 
-        {/* Barra de acciones fija */}
-        <View style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingHorizontal: 16,
-          paddingVertical: 8,
-          backgroundColor: theme.colors.surface,
-          borderBottomWidth: 1,
-          borderBottomColor: theme.colors.outline + '30',
-        }}>
-          {isExpenseSelectMode ? (
-            <>
-              <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
-                onPress={() => {
-                  if (allExpensesSelected) {
-                    setSelectedExpenseIds(new Set());
-                  } else {
-                    setSelectedExpenseIds(new Set(filteredExpenses.map(e => e.id)));
-                  }
-                }}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons
-                  name={allExpensesSelected ? 'checkbox-marked-circle' : selectedExpenseIds.size > 0 ? 'minus-circle-outline' : 'checkbox-blank-circle-outline'}
-                  size={22}
-                  color={theme.colors.primary}
-                  style={{ marginRight: 8 }}
-                />
-                <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
-                  {selectedExpenseIds.size > 0
-                    ? t('expenses.selectedCount', { count: selectedExpenseIds.size, plural: selectedExpenseIds.size !== 1 ? 's' : '' })
-                    : t('expenses.selectAll')}
-                </Text>
-              </TouchableOpacity>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                {selectedExpenseIds.size > 0 && (
-                  <TouchableOpacity
-                    style={{ backgroundColor: theme.colors.error, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}
-                    onPress={handleRemoveSelectedExpenses}
-                  >
-                    <MaterialCommunityIcons name="delete-outline" size={20} color="#fff" />
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity
-                  style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.outline + '25' }}
-                  onPress={() => { setIsExpenseSelectMode(false); setSelectedExpenseIds(new Set()); }}
-                >
-                  <MaterialCommunityIcons name="close" size={20} color={theme.colors.onSurface} />
-                </TouchableOpacity>
-              </View>
-            </>
-          ) : (
-            <>
-              <Text style={styles.sectionTitle}>
-                💸 {t('expenses.title')} ({filteredExpenses.length}{filteredExpenses.length !== eventExpenses.length ? ` de ${eventExpenses.length}` : ''})
-              </Text>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {isEditable && (
-                  <TouchableOpacity
-                    style={[
-                      { backgroundColor: theme.colors.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' },
-                      eventParticipants.length === 0 && { opacity: 0.4 }
-                    ]}
-                    onPress={eventParticipants.length === 0 ? undefined : handleAddExpense}
-                    activeOpacity={eventParticipants.length === 0 ? 1 : 0.7}
-                  >
-                    <MaterialCommunityIcons name="plus" size={16} color={theme.colors.onPrimary} style={{ marginRight: 6 }} />
-                    <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 14 }}>{t('add')}</Text>
-                  </TouchableOpacity>
-                )}
-                {isEditable && eventExpenses.length > 0 && (
-                  <TouchableOpacity
-                    style={{ backgroundColor: theme.colors.error + '15', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 }}
-                    onPress={() => { setIsExpenseSelectMode(true); setSelectedExpenseIds(new Set()); }}
-                  >
-                    <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.error} />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </>
-          )}
-        </View>
-        </View>
-
+        {/* ══ Sección 2: Lista de Gastos ══ */}
         <View ref={edExpensesRef} collapsable={false} style={{ flex: 1 }}>
         <ScrollView style={{ flex: 1 }}>
-          <Card>
+          <Card style={{ marginHorizontal: 16, marginTop: 0, marginBottom: 16, borderTopWidth: 4, borderTopColor: '#FF9800', overflow: 'hidden' }}>
             {filteredExpenses.length === 0 && eventExpenses.length === 0 ? (
               <View style={styles.emptyState}>
                 <MaterialCommunityIcons name="receipt" size={48} color={theme.colors.onSurfaceVariant} />
@@ -1956,16 +1953,6 @@ export default function EventDetailScreen() {
                           <MaterialCommunityIcons name="pencil" size={16} color={theme.colors.onSurfaceVariant} />
                           <Text style={styles.actionText}>{t('expenses.edit')}</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity 
-                          style={styles.actionButton}
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            handleDeleteExpense(item);
-                          }}
-                        >
-                          <MaterialCommunityIcons name="delete" size={16} color={theme.colors.error} />
-                          <Text style={[styles.actionText, { color: theme.colors.error }]}>{t('expenses.delete')}</Text>
-                        </TouchableOpacity>
                       </View>
                     )}
                   </View>
@@ -2081,102 +2068,98 @@ export default function EventDetailScreen() {
 
     return (
       <View style={styles.tabContent}>
-        <View ref={edParticipantActionsRef} collapsable={false}>
-        <View style={{ paddingHorizontal: 16 }}>
-          <SearchBar
-            value={participantSearchQuery}
-            onChangeText={setParticipantSearchQuery}
-            placeholder={t('participants.search')}
-            showClearButton={true}
-            onClear={() => setParticipantSearchQuery('')}
-          />
+        {/* ══ Sección 1: Buscador + Encabezado ══ */}
+        <View ref={edParticipantActionsRef} collapsable={false} style={{ marginHorizontal: 16, marginTop: 12 }}>
+          <Card style={{ borderTopWidth: 4, borderTopColor: '#4CAF50', overflow: 'hidden', marginBottom: 8 }}>
+            <SearchBar
+              value={participantSearchQuery}
+              onChangeText={setParticipantSearchQuery}
+              placeholder={t('participants.search')}
+              showClearButton={true}
+              onClear={() => setParticipantSearchQuery('')}
+            />
+            <View style={{ height: 1, backgroundColor: theme.colors.outline + '25', marginTop: 8, marginBottom: 10 }} />
+            {/* Fila título + botones */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              {isParticipantSelectMode ? (
+                <>
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                    onPress={() => {
+                      if (allParticipantsSelected) {
+                        setSelectedParticipantIds(new Set());
+                      } else {
+                        setSelectedParticipantIds(new Set(selectableParticipantIds));
+                      }
+                    }}
+                    activeOpacity={selectableParticipantIds.length > 0 ? 0.7 : 1}
+                  >
+                    <MaterialCommunityIcons
+                      name={allParticipantsSelected ? 'checkbox-marked-circle' : selectedParticipantIds.size > 0 ? 'minus-circle-outline' : 'checkbox-blank-circle-outline'}
+                      size={22}
+                      color={selectableParticipantIds.length > 0 ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                      style={{ marginRight: 8 }}
+                    />
+                    <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
+                      {selectedParticipantIds.size > 0
+                        ? t('participants.selectedCount', { count: selectedParticipantIds.size, plural: selectedParticipantIds.size !== 1 ? 's' : '' })
+                        : t('participants.selectAll')}
+                    </Text>
+                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    {selectedParticipantIds.size > 0 && (
+                      <TouchableOpacity
+                        style={{ backgroundColor: theme.colors.error, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}
+                        onPress={handleRemoveSelectedParticipants}
+                      >
+                        <MaterialCommunityIcons name="delete-outline" size={20} color="#fff" />
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.outline + '25' }}
+                      onPress={() => { setIsParticipantSelectMode(false); setSelectedParticipantIds(new Set()); }}
+                    >
+                      <MaterialCommunityIcons name="close" size={20} color={theme.colors.onSurface} />
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                    <MaterialCommunityIcons name="account-group" size={18} color="#4CAF50" />
+                    <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
+                      {t('participants.title')} ({visiblePrimaries.length}{visiblePrimaries.length !== primaryParticipants.length ? ` de ${primaryParticipants.length}` : ''})
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {isEditable && (
+                      <TouchableOpacity
+                        style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
+                        onPress={() => setShowAddParticipantModal(true)}
+                      >
+                        <MaterialCommunityIcons name="plus" size={16} color={theme.colors.onPrimary} style={{ marginRight: 6 }} />
+                        <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 14 }}>{t('common.add')}</Text>
+                      </TouchableOpacity>
+                    )}
+                    {isEditable && visiblePrimaries.length > 0 && (
+                      <TouchableOpacity
+                        style={{ backgroundColor: theme.colors.error + '15', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 }}
+                        onPress={() => { setIsParticipantSelectMode(true); setSelectedParticipantIds(new Set()); }}
+                      >
+                        <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.error} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </>
+              )}
+            </View>
+          </Card>
         </View>
 
-        {/* Barra de acciones fija */}
-        <View style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingHorizontal: 16,
-          paddingVertical: 8,
-          backgroundColor: theme.colors.surface,
-          borderBottomWidth: 1,
-          borderBottomColor: theme.colors.outline + '30',
-        }}>
-          {isParticipantSelectMode ? (
-            <>
-              <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
-                onPress={() => {
-                  if (allParticipantsSelected) {
-                    setSelectedParticipantIds(new Set());
-                  } else {
-                    setSelectedParticipantIds(new Set(selectableParticipantIds));
-                  }
-                }}
-                activeOpacity={selectableParticipantIds.length > 0 ? 0.7 : 1}
-              >
-                <MaterialCommunityIcons
-                  name={allParticipantsSelected ? 'checkbox-marked-circle' : selectedParticipantIds.size > 0 ? 'minus-circle-outline' : 'checkbox-blank-circle-outline'}
-                  size={22}
-                  color={selectableParticipantIds.length > 0 ? theme.colors.primary : theme.colors.onSurfaceVariant}
-                  style={{ marginRight: 8 }}
-                />
-                <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
-                  {selectedParticipantIds.size > 0
-                    ? t('participants.selectedCount', { count: selectedParticipantIds.size, plural: selectedParticipantIds.size !== 1 ? 's' : '' })
-                    : t('participants.selectAll')}
-                </Text>
-              </TouchableOpacity>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                {selectedParticipantIds.size > 0 && (
-                  <TouchableOpacity
-                    style={{ backgroundColor: theme.colors.error, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}
-                    onPress={handleRemoveSelectedParticipants}
-                  >
-                    <MaterialCommunityIcons name="delete-outline" size={20} color="#fff" />
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity
-                  style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.outline + '25' }}
-                  onPress={() => { setIsParticipantSelectMode(false); setSelectedParticipantIds(new Set()); }}
-                >
-                  <MaterialCommunityIcons name="close" size={20} color={theme.colors.onSurface} />
-                </TouchableOpacity>
-              </View>
-            </>
-          ) : (
-            <>
-              <Text style={styles.sectionTitle}>
-                👥 {t('participants.title')} ({visiblePrimaries.length}{visiblePrimaries.length !== primaryParticipants.length ? ` de ${primaryParticipants.length}` : ''})
-              </Text>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {isEditable && (
-                  <TouchableOpacity
-                    style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
-                    onPress={() => setShowAddParticipantModal(true)}
-                  >
-                    <MaterialCommunityIcons name="plus" size={16} color={theme.colors.onPrimary} style={{ marginRight: 6 }} />
-                    <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 14 }}>{t('common.add')}</Text>
-                  </TouchableOpacity>
-                )}
-                {isEditable && visiblePrimaries.length > 0 && (
-                  <TouchableOpacity
-                    style={{ backgroundColor: theme.colors.error + '15', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 }}
-                    onPress={() => { setIsParticipantSelectMode(true); setSelectedParticipantIds(new Set()); }}
-                  >
-                    <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.error} />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </>
-          )}
-        </View>
-        </View>
-
+        {/* ══ Sección 2: Lista de Participantes ══ */}
         <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
           <View ref={edParticipantsRef} collapsable={false}>
-          <Card style={{ marginHorizontal: 16, marginTop: 8, marginBottom: 16 }}>
+          <Card style={{ marginHorizontal: 16, marginTop: 0, marginBottom: 16, borderTopWidth: 4, borderTopColor: '#4CAF50', overflow: 'hidden' }}>
 
           {visiblePrimaries.length === 0 ? (
             <View style={styles.emptyState}>
@@ -2546,10 +2529,11 @@ export default function EventDetailScreen() {
     <View style={styles.tabContent}>
       <ScrollView style={{ flex: 1 }}>
       {/* Información del evento */}
-      <View ref={edInfoRef} collapsable={false} style={{ marginHorizontal: 16 }}>
-      <Card style={{ marginBottom: 16 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-          <Text style={styles.sectionTitle}>📋 {t('events.information')}</Text>
+      <View ref={edInfoRef} collapsable={false} style={{ marginHorizontal: 16, marginTop: 12 }}>
+      <Card style={{ marginBottom: 16, borderTopWidth: 4, borderTopColor: '#2196F3', overflow: 'hidden' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 }}>
+          <MaterialCommunityIcons name="information-outline" size={20} color="#2196F3" />
+          <Text style={[styles.sectionTitle, { marginBottom: 0, flex: 1 }]}>{t('events.information')}</Text>
           {event && (
             <View style={{ 
               backgroundColor: isClosed ? theme.colors.surfaceVariant :
@@ -2570,9 +2554,9 @@ export default function EventDetailScreen() {
                 fontSize: 12,
                 fontWeight: '600'
               }}>
-                {isClosed ? `📁 ${t('events.archived')}` :
-                 isLocked ? `🔒 ${t('events.locked')}` :
-                 `🟢 ${t('events.active')}`}
+                {isClosed ? t('events.archived') :
+                 isLocked ? t('events.locked') :
+                 t('events.active')}
               </Text>
             </View>
           )}
@@ -2626,89 +2610,83 @@ export default function EventDetailScreen() {
 
       {/* Acciones del evento */}
       <View ref={edEventActionsRef} collapsable={false} style={{ marginHorizontal: 16, marginBottom: 16 }}>
-      <Card>
-        {/* Fila superior: compartir */}
-        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+      <Card style={{ borderTopWidth: 4, borderTopColor: '#2196F3', overflow: 'hidden' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 }}>
+          <MaterialCommunityIcons name="cog-outline" size={20} color="#2196F3" />
+          <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>{t('events.actions')}</Text>
+        </View>
+        {/* 4 botones en una fila: ícono arriba + texto abajo */}
+        <View style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity
-            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: theme.colors.primary + '15', paddingVertical: 12, borderRadius: 10 }}
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF9800' + '18', paddingVertical: 12, borderRadius: 10, gap: 4 }}
             onPress={handleShareSummary}
             activeOpacity={0.7}
           >
-            <MaterialCommunityIcons name="clipboard-check" size={20} color={theme.colors.primary} />
-            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colors.primary }}>{t('eventDetail.shareSummaryLabel')}</Text>
+            <MaterialCommunityIcons name="clipboard-check" size={22} color="#FF9800" />
+            <Text style={{ fontSize: 11, fontWeight: '600', color: '#FF9800', textAlign: 'center' }}>{t('eventDetail.shareSummaryLabel')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: theme.colors.primary + '15', paddingVertical: 12, borderRadius: 10 }}
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF9800' + '18', paddingVertical: 12, borderRadius: 10, gap: 4 }}
             onPress={handleShareEvent}
             activeOpacity={0.7}
           >
-            <MaterialCommunityIcons name="file-document" size={20} color={theme.colors.primary} />
-            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colors.primary }}>{t('eventDetail.shareEventLabel')}</Text>
+            <MaterialCommunityIcons name="file-document" size={22} color="#FF9800" />
+            <Text style={{ fontSize: 11, fontWeight: '600', color: '#FF9800', textAlign: 'center' }}>{t('eventDetail.shareEventLabel')}</Text>
           </TouchableOpacity>
-        </View>
-
-        {/* Separador */}
-        <View style={{ height: 1, backgroundColor: theme.colors.outline + '30', marginBottom: 12 }} />
-
-        {/* Fila inferior: estado del evento */}
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          {isEditable ? (
-            <>
-              <TouchableOpacity
-                onPress={handleToggleLock}
-                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: theme.colors.primary, paddingVertical: 12, borderRadius: 10 }}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons name="lock" size={18} color={theme.colors.onPrimary} />
-                <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 13 }}>{t('events.lock')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleCloseEvent}
-                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: theme.colors.outline, paddingVertical: 12, borderRadius: 10 }}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons name="archive" size={18} color={theme.colors.onSurfaceVariant} />
-                <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 13 }}>{t('events.close')}</Text>
-              </TouchableOpacity>
-            </>
-          ) : isLocked ? (
-            <>
-              <TouchableOpacity
-                onPress={handleToggleLock}
-                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: theme.colors.primary, paddingVertical: 12, borderRadius: 10 }}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons name="lock-open" size={18} color={theme.colors.primary} />
-                <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 13 }}>{t('events.unlock')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleCloseEvent}
-                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: theme.colors.outline, paddingVertical: 12, borderRadius: 10 }}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons name="archive" size={18} color={theme.colors.onSurfaceVariant} />
-                <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 13 }}>{t('events.close')}</Text>
-              </TouchableOpacity>
-            </>
-          ) : isClosed ? (
+          {isEditable && (
             <TouchableOpacity
-              onPress={handleReactivateEvent}
-              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: theme.colors.primary, paddingVertical: 12, borderRadius: 10 }}
+              onPress={handleToggleLock}
+              style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.primary, paddingVertical: 12, borderRadius: 10, gap: 4 }}
               activeOpacity={0.8}
             >
-              <MaterialCommunityIcons name="lock-open" size={18} color={theme.colors.onPrimary} />
-              <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 13 }}>{t('events.reactivate')}</Text>
+              <MaterialCommunityIcons name="lock" size={22} color={theme.colors.onPrimary} />
+              <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 11, textAlign: 'center' }}>{t('events.lock')}</Text>
             </TouchableOpacity>
-          ) : null}
+          )}
+          {isLocked && (
+            <TouchableOpacity
+              onPress={handleToggleLock}
+              style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.colors.primary, paddingVertical: 12, borderRadius: 10, gap: 4 }}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="lock-open" size={22} color={theme.colors.primary} />
+              <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 11, textAlign: 'center' }}>{t('events.unlock')}</Text>
+            </TouchableOpacity>
+          )}
+          {isClosed && (
+            <TouchableOpacity
+              onPress={handleReactivateEvent}
+              style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.primary, paddingVertical: 12, borderRadius: 10, gap: 4 }}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="lock-open" size={22} color={theme.colors.onPrimary} />
+              <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 11, textAlign: 'center' }}>{t('events.reactivate')}</Text>
+            </TouchableOpacity>
+          )}
+          {!isClosed && (
+            <TouchableOpacity
+              onPress={handleCloseEvent}
+              style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.colors.outline, paddingVertical: 12, borderRadius: 10, gap: 4 }}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="archive" size={22} color={theme.colors.onSurfaceVariant} />
+              <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 11, textAlign: 'center' }}>{t('events.close')}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </Card>
       </View>
 
-      {/* Liquidación de cuentas */}
+      {/* Liquidaciones (Pendientes + Pagadas unificadas) */}
       <View ref={edSettlementsRef} collapsable={false}>
-      <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
+      <Card style={{ marginBottom: 16, marginHorizontal: 16, borderTopWidth: 4, borderTopColor: '#2196F3', overflow: 'hidden' }}>
+
+        {/* ── Header principal ── */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <Text style={styles.sectionTitle}>💸 {t('summary.settlements')}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+            <MaterialCommunityIcons name="swap-horizontal" size={20} color="#2196F3" />
+            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>{t('summary.settlements')}</Text>
+          </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             {settlements.length > 1 && !isClosed && (
               <TouchableOpacity
@@ -2719,266 +2697,188 @@ export default function EventDetailScreen() {
                 <Text style={{ fontSize: 12, fontWeight: '600', color: theme.colors.onPrimaryContainer }}>Consolidar</Text>
               </TouchableOpacity>
             )}
-            {!isClosed && getDisplaySettlements().length > 0 && (() => {
-            const displaySettlements = getDisplaySettlements();
-            const paidCount = displaySettlements.filter((s: Settlement) => s.isPaid).length;
-            const isAnyPaid = paidCount > 0;
-            return (
-              <View style={{ 
-                backgroundColor: isAnyPaid ? theme.colors.primary : theme.colors.warning, 
-                paddingHorizontal: 12, 
-                paddingVertical: 4, 
-                borderRadius: 12 
-              }}>
-                <Text style={{ 
-                  color: isAnyPaid ? theme.colors.onPrimary : theme.colors.onWarning, 
-                  fontSize: 12, 
-                  fontWeight: '600' 
-                }}>
-                  {paidCount}/{displaySettlements.length} {t('payments.paid')}
-                </Text>
-              </View>
-            );
-          })()}
+
           </View>
         </View>
-        
-        {/* Controles de Consolidación */}
+
+        {/* ── Controles de Consolidación ── */}
         {consolidationAssignments.length > 0 && settlements.length > 1 && !isClosed && (
           <View style={styles.consolidationControls}>
             <View style={styles.consolidationButtons}>
               <TouchableOpacity
-                style={[styles.consolidationButton, { 
+                style={[styles.consolidationButton, {
                   backgroundColor: showOriginalView ? theme.colors.primary : theme.colors.surface,
                   borderWidth: 1,
                   borderColor: theme.colors.outline
                 }]}
                 onPress={handleToggleView}
               >
-                <MaterialCommunityIcons 
-                  name={showOriginalView ? "eye-off" : "eye"} 
-                  size={16} 
-                  color={showOriginalView ? theme.colors.onPrimary : theme.colors.onSurface} 
+                <MaterialCommunityIcons
+                  name={showOriginalView ? "eye-off" : "eye"}
+                  size={16}
+                  color={showOriginalView ? theme.colors.onPrimary : theme.colors.onSurface}
                 />
-                <Text style={[styles.consolidationButtonText, { 
-                  color: showOriginalView ? theme.colors.onPrimary : theme.colors.onSurface 
+                <Text style={[styles.consolidationButtonText, {
+                  color: showOriginalView ? theme.colors.onPrimary : theme.colors.onSurface
                 }]}>
                   {showOriginalView ? t('eventDetail.viewConsolidated') : t('eventDetail.viewOriginal')}
                 </Text>
               </TouchableOpacity>
-
               <TouchableOpacity
                 style={[styles.consolidationButton, { backgroundColor: theme.colors.errorContainer }]}
                 onPress={handleClearConsolidations}
               >
-                <MaterialCommunityIcons 
-                  name="close" 
-                  size={16} 
-                  color={theme.colors.onErrorContainer} 
-                />
+                <MaterialCommunityIcons name="close" size={16} color={theme.colors.onErrorContainer} />
                 <Text style={[styles.consolidationButtonText, { color: theme.colors.onErrorContainer }]}>
                   {t('eventDetail.clear')}
                 </Text>
               </TouchableOpacity>
             </View>
             <View style={styles.consolidationSummary}>
-                <Text style={[styles.consolidationSummaryText, { color: theme.colors.onSurfaceVariant }]}>
-                  {t('eventDetail.consolidationSummary', { count: consolidationAssignments.length })} • 
-                  {showOriginalView ? t('eventDetail.viewOriginalLabel') : t('eventDetail.viewConsolidatedLabel')}
-                  {(() => {
-                    const forgivenCount = settlements.length - consolidatedSettlements.length;
-                    const totalOriginal = settlements.reduce((sum, s) => sum + s.amount, 0);
-                    const totalConsolidated = consolidatedSettlements.reduce((sum, s) => sum + s.amount, 0);
-                    const savings = totalOriginal - totalConsolidated;
-                    return forgivenCount > 0 ? `\n${t('eventDetail.forgivenPayments', { count: forgivenCount, plural: forgivenCount > 1 ? 's' : '', amount: savings.toLocaleString() })}` : '';
-                  })()}
-                </Text>
-              </View>
-          </View>
-        )}
-        
-        {getDisplaySettlements().length > 0 ? (
-          <View>
-            {getDisplaySettlements()
-              .sort((a, b) => {
-                if (frozenSettlementOrder.length > 0) {
-                  // Orden congelado: los ítems no saltan al marcarse como pagados
-                  const ai = frozenSettlementOrder.indexOf(a.id);
-                  const bi = frozenSettlementOrder.indexOf(b.id);
-                  return (ai === -1 ? 9999 : ai) - (bi === -1 ? 9999 : bi);
-                }
-                // Fallback (primer render antes de que corra el efecto)
-                const aIsPaid = a.isPaid || false;
-                const bIsPaid = b.isPaid || false;
-                if (aIsPaid !== bIsPaid) {
-                  return aIsPaid ? 1 : -1; // no pagados primero
-                }
-                const deudorComparison = a.fromParticipantName.localeCompare(b.fromParticipantName);
-                if (deudorComparison !== 0) {
-                  return deudorComparison;
-                }
-                const montoComparison = b.amount - a.amount;
-                if (montoComparison !== 0) {
-                  return montoComparison;
-                }
-                return a.toParticipantName.localeCompare(b.toParticipantName);
-              })
-              .map((settlement: Settlement, index: number) => {
-                // Log específico para cada settlement que se va a renderizar
-                console.log(`🎯 Rendering settlement ${index}:`, {
-                  from: settlement.fromParticipantName,
-                  to: settlement.toParticipantName,
-                  amount: settlement.amount,
-                  isPaid: settlement.isPaid,
-                  id: settlement.id
-                });
-                
-                return (
-              <SettlementItem
-                key={`${settlement.id}_${index}_${settlement.fromParticipantId}_${settlement.toParticipantId}`}
-                settlement={settlement}
-                currency={event?.currency || 'ARS'}
-                onTogglePaid={handleToggleSettlementPaid}
-                onUpdateReceipt={handleUpdateSettlementReceipt}
-                disabled={event?.status === 'archived'}
-              />
-                );
-              })}
-          </View>
-        ) : (
-          <View style={styles.noSettlementsContainer}>
-            <MaterialCommunityIcons 
-              name="check-circle" 
-              size={48} 
-              color={theme.colors.primary} 
-              style={styles.noSettlementsIcon}
-            />
-            <Text style={styles.noSettlementsTitle}>{t('eventDetail.settledTitle')}</Text>
-            <Text style={styles.noSettlementsText}>
-              {t('eventDetail.settledText')}
-            </Text>
+              <Text style={[styles.consolidationSummaryText, { color: theme.colors.onSurfaceVariant }]}>
+                {t('eventDetail.consolidationSummary', { count: consolidationAssignments.length })} •{' '}
+                {showOriginalView ? t('eventDetail.viewOriginalLabel') : t('eventDetail.viewConsolidatedLabel')}
+                {(() => {
+                  const forgivenCount = settlements.length - consolidatedSettlements.length;
+                  const totalOriginal = settlements.reduce((sum, s) => sum + s.amount, 0);
+                  const totalConsolidated = consolidatedSettlements.reduce((sum, s) => sum + s.amount, 0);
+                  const savings = totalOriginal - totalConsolidated;
+                  return forgivenCount > 0 ? `\n${t('eventDetail.forgivenPayments', { count: forgivenCount, plural: forgivenCount > 1 ? 's' : '', amount: savings.toLocaleString() })}` : '';
+                })()}
+              </Text>
+            </View>
           </View>
         )}
 
-        {/* Liquidaciones condonadas — auto-resueltas por consolidación */}
-        {consolidationAssignments.length > 0 && !showOriginalView && (() => {
-          const assignMap: { [debtorId: string]: string } = {};
-          consolidationAssignments.forEach((a: any) => { assignMap[a.debtorId] = a.payerId; });
-          const forgivenSettlements = dbSettlements.filter((s: any) => {
-            const actualPayer = assignMap[s.fromParticipantId] || s.fromParticipantId;
-            return actualPayer === s.toParticipantId && s.fromParticipantId !== s.toParticipantId;
-          });
-          if (forgivenSettlements.length === 0) return null;
+        {/* ══ Sub-sección PENDIENTES ══ */}
+        {(() => {
+          const pendingSettlements = getDisplaySettlements()
+            .filter((s: Settlement) => !s.isPaid)
+            .sort((a, b) => {
+              if (frozenSettlementOrder.length > 0) {
+                const ai = frozenSettlementOrder.indexOf(a.id);
+                const bi = frozenSettlementOrder.indexOf(b.id);
+                return (ai === -1 ? 9999 : ai) - (bi === -1 ? 9999 : bi);
+              }
+              const dc = a.fromParticipantName.localeCompare(b.fromParticipantName);
+              if (dc !== 0) return dc;
+              return b.amount - a.amount;
+            });
           return (
-            <View style={{ marginTop: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 }}>
-                <MaterialCommunityIcons name="cancel" size={16} color={theme.colors.onSurfaceVariant} />
-                <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colors.onSurfaceVariant }}>
-                  Condonadas automáticamente
-                </Text>
-              </View>
-              {forgivenSettlements.map((s: any, idx: number) => (
-                <View
-                  key={`forgiven_${s.id}_${idx}`}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    paddingVertical: 8,
-                    paddingHorizontal: 12,
-                    marginBottom: 6,
-                    backgroundColor: theme.colors.surfaceVariant + '60',
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: theme.colors.outline + '40',
-                    opacity: 0.75
-                  }}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 13, color: theme.colors.onSurfaceVariant, textDecorationLine: 'line-through' }}>
-                      {s.fromParticipantName} → {s.toParticipantName}
-                    </Text>
-                    <Text style={{ fontSize: 11, color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
-                      🚫 Deuda condonada por consolidación
-                    </Text>
-                  </View>
-                  <Text style={{ fontSize: 13, color: theme.colors.onSurfaceVariant, textDecorationLine: 'line-through', marginLeft: 8 }}>
-                    ${s.amount.toFixed(2)}
+            <>
+              {/* Separador + pill Pendientes */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: theme.colors.warning + '20', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                  <MaterialCommunityIcons name="clock-outline" size={13} color={theme.colors.warning} />
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: theme.colors.warning, letterSpacing: 0.3 }}>
+                    PENDIENTES{pendingSettlements.length > 0 ? ` · ${pendingSettlements.length}` : ''}
                   </Text>
                 </View>
-              ))}
-            </View>
+                <View style={{ flex: 1, height: 1, backgroundColor: theme.colors.outline + '30' }} />
+              </View>
+
+              {pendingSettlements.length > 0 ? (
+                <View>
+                  {pendingSettlements.map((settlement: Settlement, index: number) => (
+                    <SettlementItem
+                      key={`${settlement.id}_${index}_${settlement.fromParticipantId}_${settlement.toParticipantId}`}
+                      settlement={settlement}
+                      currency={event?.currency || 'ARS'}
+                      onTogglePaid={handleToggleSettlementPaid}
+                      onUpdateReceipt={handleUpdateSettlementReceipt}
+                      disabled={event?.status === 'archived'}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.noSettlementsContainer}>
+                  <MaterialCommunityIcons
+                    name="check-circle"
+                    size={48}
+                    color={theme.colors.primary}
+                    style={styles.noSettlementsIcon}
+                  />
+                  <Text style={styles.noSettlementsTitle}>{t('eventDetail.settledTitle')}</Text>
+                  <Text style={styles.noSettlementsText}>{t('eventDetail.settledText')}</Text>
+                </View>
+              )}
+
+              {/* Liquidaciones condonadas — auto-resueltas por consolidación */}
+              {consolidationAssignments.length > 0 && !showOriginalView && (() => {
+                const assignMap: { [debtorId: string]: string } = {};
+                consolidationAssignments.forEach((a: any) => { assignMap[a.debtorId] = a.payerId; });
+                const forgivenSettlements = dbSettlements.filter((s: any) => {
+                  const actualPayer = assignMap[s.fromParticipantId] || s.fromParticipantId;
+                  return actualPayer === s.toParticipantId && s.fromParticipantId !== s.toParticipantId;
+                });
+                if (forgivenSettlements.length === 0) return null;
+                return (
+                  <View style={{ marginTop: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 }}>
+                      <MaterialCommunityIcons name="cancel" size={16} color={theme.colors.onSurfaceVariant} />
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colors.onSurfaceVariant }}>
+                        Condonadas automáticamente
+                      </Text>
+                    </View>
+                    {forgivenSettlements.map((s: any, idx: number) => (
+                      <View
+                        key={`forgiven_${s.id}_${idx}`}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          paddingVertical: 8,
+                          paddingHorizontal: 12,
+                          marginBottom: 6,
+                          backgroundColor: theme.colors.surfaceVariant + '60',
+                          borderRadius: 8,
+                          borderWidth: 1,
+                          borderColor: theme.colors.outline + '40',
+                          opacity: 0.75
+                        }}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 13, color: theme.colors.onSurfaceVariant, textDecorationLine: 'line-through' }}>
+                            {s.fromParticipantName} → {s.toParticipantName}
+                          </Text>
+                          <Text style={{ fontSize: 11, color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
+                            🚫 Deuda condonada por consolidación
+                          </Text>
+                        </View>
+                        <Text style={{ fontSize: 13, color: theme.colors.onSurfaceVariant, textDecorationLine: 'line-through', marginLeft: 8 }}>
+                          ${s.amount.toFixed(2)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                );
+              })()}
+            </>
           );
         })()}
-      </Card>
 
-      {/* Liquidaciones Pagadas */}
-      {(() => {
-        if (isClosed) return null;
-        const paidSettlements = dbSettlements
-          .filter((s: any) => s.isPaid)
-          .sort((a: any, b: any) => {
-            if (a.paidAt && b.paidAt) return new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime();
-            return 0;
-          });
-        if (paidSettlements.length === 0) return null;
-        const allPaidSelected = paidSettlements.length > 0 && paidSettlements.every((s: any) => selectedUndoIds.has(s.id));
-        return (
-          <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
-            {/* Encabezado */}
-            {allowUndoPayments ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                <TouchableOpacity
-                  style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
-                  onPress={() => {
-                    if (allPaidSelected) {
-                      setSelectedUndoIds(new Set());
-                    } else {
-                      setSelectedUndoIds(new Set(paidSettlements.map((s: any) => s.id)));
-                    }
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <MaterialCommunityIcons
-                    name={allPaidSelected ? 'checkbox-marked-circle' : selectedUndoIds.size > 0 ? 'minus-circle-outline' : 'checkbox-blank-circle-outline'}
-                    size={22}
-                    color={theme.colors.primary}
-                    style={{ marginRight: 8 }}
-                  />
-                  <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
-                    {selectedUndoIds.size > 0
-                      ? `${selectedUndoIds.size} seleccionado${selectedUndoIds.size !== 1 ? 's' : ''}`
-                      : t('summary.paidSettlements')}
+        {/* ══ Sub-sección PAGADAS ══ */}
+        {!isClosed && (() => {
+          const paidSettlements = dbSettlements
+            .filter((s: any) => s.isPaid)
+            .sort((a: any, b: any) => {
+              if (a.paidAt && b.paidAt) return new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime();
+              return 0;
+            });
+          if (paidSettlements.length === 0) return null;
+          const allPaidSelected = paidSettlements.every((s: any) => selectedUndoIds.has(s.id));
+          return (
+            <>
+              {/* Separador + pill Todos + botón undo */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, marginBottom: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#4CAF50' + '20', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                  <MaterialCommunityIcons name="check-circle-outline" size={13} color="#4CAF50" />
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#4CAF50', letterSpacing: 0.3 }}>
+                    TODOS · {paidSettlements.length}
                   </Text>
-                </TouchableOpacity>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  {selectedUndoIds.size > 0 && (
-                    <TouchableOpacity
-                      style={{ backgroundColor: theme.colors.error, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}
-                      onPress={async () => {
-                        for (const id of selectedUndoIds) {
-                          await handleToggleSettlementPaid(id, false, true);
-                        }
-                        setSelectedUndoIds(new Set());
-                        setAllowUndoPayments(false);
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <MaterialCommunityIcons name="undo-variant" size={20} color="#fff" />
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity
-                    style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.outline + '25' }}
-                    onPress={() => { setAllowUndoPayments(false); setSelectedUndoIds(new Set()); }}
-                  >
-                    <MaterialCommunityIcons name="close" size={20} color={theme.colors.onSurface} />
-                  </TouchableOpacity>
                 </View>
-              </View>
-            ) : (
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <Text style={styles.sectionTitle}>✅ {t('summary.paidSettlements')}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ flex: 1, height: 1, backgroundColor: theme.colors.outline + '30' }} />
+                {!allowUndoPayments && (
                   <TouchableOpacity
                     style={{ backgroundColor: theme.colors.surfaceVariant, width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}
                     onPress={() => { setAllowUndoPayments(true); setSelectedUndoIds(new Set()); }}
@@ -2986,107 +2886,163 @@ export default function EventDetailScreen() {
                   >
                     <MaterialCommunityIcons name="undo-variant" size={14} color={theme.colors.onSurfaceVariant} />
                   </TouchableOpacity>
-                  <View style={{ backgroundColor: theme.colors.successContainer, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
-                    <Text style={{ color: theme.colors.onSuccessContainer, fontSize: 12, fontWeight: '600' }}>
-                      {paidSettlements.length} {t('payments.paid')}
-                    </Text>
-                  </View>
-                </View>
+                )}
               </View>
-            )}
-            {/* Ítems */}
-            {paidSettlements.map((s: any, idx: number) => {
-              const isSelected = selectedUndoIds.has(s.id);
-              return (
-                <TouchableOpacity
-                  key={`paid_${s.id}_${idx}`}
-                  activeOpacity={allowUndoPayments ? 0.7 : 1}
-                  onPress={() => {
-                    if (!allowUndoPayments) return;
-                    setSelectedUndoIds(prev => {
-                      const next = new Set(prev);
-                      if (next.has(s.id)) next.delete(s.id); else next.add(s.id);
-                      return next;
-                    });
-                  }}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    paddingVertical: 10,
-                    paddingHorizontal: 12,
-                    marginBottom: 6,
-                    backgroundColor: isSelected
-                      ? theme.colors.primary + '18'
-                      : theme.colors.successContainer + '25',
-                    borderRadius: 10,
-                    borderWidth: 1,
-                    borderColor: isSelected ? theme.colors.primary + '60' : theme.colors.success + '30',
-                  }}
-                >
-                  {/* Checkbox en modo selección */}
-                  {allowUndoPayments && (
+
+              {/* Controles de selección (modo undo) */}
+              {allowUndoPayments && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                    onPress={() => {
+                      if (allPaidSelected) {
+                        setSelectedUndoIds(new Set());
+                      } else {
+                        setSelectedUndoIds(new Set(paidSettlements.map((s: any) => s.id)));
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
                     <MaterialCommunityIcons
-                      name={isSelected ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'}
+                      name={allPaidSelected ? 'checkbox-marked-circle' : selectedUndoIds.size > 0 ? 'minus-circle-outline' : 'checkbox-blank-circle-outline'}
                       size={22}
                       color={theme.colors.primary}
-                      style={{ marginRight: 10 }}
+                      style={{ marginRight: 8 }}
                     />
-                  )}
-                  {/* Icono comprobante (solo fuera del modo selección) */}
-                  {!allowUndoPayments && (
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: theme.colors.onSurface, marginBottom: 0 }}>
+                      {selectedUndoIds.size > 0
+                        ? `${selectedUndoIds.size} seleccionado${selectedUndoIds.size !== 1 ? 's' : ''}`
+                        : 'Todo'}
+                    </Text>
+                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    {selectedUndoIds.size > 0 && (
+                      <TouchableOpacity
+                        style={{ backgroundColor: theme.colors.error, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}
+                        onPress={async () => {
+                          for (const id of selectedUndoIds) {
+                            await handleToggleSettlementPaid(id, false, true);
+                          }
+                          setSelectedUndoIds(new Set());
+                          setAllowUndoPayments(false);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <MaterialCommunityIcons name="undo-variant" size={20} color="#fff" />
+                      </TouchableOpacity>
+                    )}
                     <TouchableOpacity
-                      onPress={() => {
-                        if (s.receiptImage) {
-                          setSelectedImage(s.receiptImage);
-                          setShowImageModal(true);
-                        }
-                      }}
-                      disabled={!s.receiptImage}
-                      style={{ marginRight: 10 }}
+                      style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.outline + '25' }}
+                      onPress={() => { setAllowUndoPayments(false); setSelectedUndoIds(new Set()); }}
                     >
-                      <MaterialCommunityIcons
-                        name="file-image-outline"
-                        size={22}
-                        color={s.receiptImage ? theme.colors.primary : theme.colors.onSurfaceVariant + '50'}
-                      />
+                      <MaterialCommunityIcons name="close" size={20} color={theme.colors.onSurface} />
                     </TouchableOpacity>
-                  )}
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.onSurface }}>
-                        {s.fromParticipantName}
-                      </Text>
-                      <MaterialCommunityIcons name="arrow-right" size={14} color={theme.colors.onSurfaceVariant} />
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.onSurface }}>
-                        {s.toParticipantName}
-                      </Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
-                      <Text style={{ fontSize: 15, fontWeight: '700', color: theme.colors.success }}>
-                        ${s.amount.toFixed(2)}
-                      </Text>
-                      {s.paidAt && (
-                        <Text style={{ fontSize: 11, color: theme.colors.onSurfaceVariant }}>
-                          {t('summary.paidOn')} {new Date(s.paidAt).toLocaleDateString()}
-                        </Text>
-                      )}
-                    </View>
                   </View>
-                </TouchableOpacity>
-              );
-            })}
-          </Card>
-        );
-      })()}
+                </View>
+              )}
+
+              {/* Ítems pagados */}
+              {paidSettlements.map((s: any, idx: number) => {
+                const isSelected = selectedUndoIds.has(s.id);
+                return (
+                  <TouchableOpacity
+                    key={`paid_${s.id}_${idx}`}
+                    activeOpacity={allowUndoPayments ? 0.7 : 1}
+                    onPress={() => {
+                      if (!allowUndoPayments) return;
+                      setSelectedUndoIds(prev => {
+                        const next = new Set(prev);
+                        if (next.has(s.id)) next.delete(s.id); else next.add(s.id);
+                        return next;
+                      });
+                    }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingVertical: 10,
+                      paddingHorizontal: 12,
+                      marginBottom: 6,
+                      backgroundColor: isSelected ? theme.colors.primary + '18' : theme.colors.successContainer + '25',
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: isSelected ? theme.colors.primary + '60' : theme.colors.success + '30',
+                    }}
+                  >
+                    {allowUndoPayments && (
+                      <MaterialCommunityIcons
+                        name={isSelected ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'}
+                        size={22}
+                        color={theme.colors.primary}
+                        style={{ marginRight: 10 }}
+                      />
+                    )}
+                    {!allowUndoPayments && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          if (s.receiptImage) {
+                            setSelectedImage(s.receiptImage);
+                            setShowImageModal(true);
+                          }
+                        }}
+                        disabled={!s.receiptImage}
+                        style={{ marginRight: 10 }}
+                      >
+                        <MaterialCommunityIcons
+                          name="file-image-outline"
+                          size={22}
+                          color={s.receiptImage ? theme.colors.primary : theme.colors.onSurfaceVariant + '50'}
+                        />
+                      </TouchableOpacity>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.onSurface }}>
+                          {s.fromParticipantName}
+                        </Text>
+                        <MaterialCommunityIcons name="arrow-right" size={14} color={theme.colors.onSurfaceVariant} />
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.onSurface }}>
+                          {s.toParticipantName}
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                        <Text style={{ fontSize: 15, fontWeight: '700', color: theme.colors.success }}>
+                          ${s.amount.toFixed(2)}
+                        </Text>
+                        {s.paidAt && (
+                          <Text style={{ fontSize: 11, color: theme.colors.onSurfaceVariant }}>
+                            {t('summary.paidOn')} {new Date(s.paidAt).toLocaleDateString()}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </>
+          );
+        })()}
+
+      </Card>
       </View>
 
       {/* Consolidaciones Aplicadas - Solo mostrar cuando hay consolidaciones */}
       {consolidationAssignments.length > 0 && (
-        <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <Text style={styles.sectionTitle}>{t('consolidation.title')}</Text>
-          </View>
-          
+        <Card style={{ marginBottom: 16, marginHorizontal: 16, borderTopWidth: 4, borderTopColor: '#2196F3', overflow: 'hidden' }}>
+          <TouchableOpacity
+            onPress={() => setIsConsolidationSectionExpanded(v => !v)}
+            activeOpacity={0.7}
+            style={{ flexDirection: 'row', alignItems: 'center', marginBottom: isConsolidationSectionExpanded ? 12 : 0, gap: 8 }}
+          >
+            <MaterialCommunityIcons name="link-variant" size={20} color="#2196F3" />
+            <Text style={[styles.sectionTitle, { marginBottom: 0, flex: 1 }]}>{t('consolidation.title')}</Text>
+            <MaterialCommunityIcons
+              name={isConsolidationSectionExpanded ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color="#2196F3"
+            />
+          </TouchableOpacity>
+
+          {isConsolidationSectionExpanded && (
           <View style={{ paddingBottom: 8 }}>
             <Text style={{ 
               fontSize: 14, 
@@ -3144,12 +3100,12 @@ export default function EventDetailScreen() {
               return Object.values(groupedByPayer).map((group) => {
                 const typedGroup = group as {payerId: string, payerName: string, debtors: {debtorId: string, debtorName: string, amount: number}[]};
                 const isExpanded = expandedPayerLists.has(typedGroup.payerId);
-                const hasMultipleDebtors = typedGroup.debtors.length > 0; //Se modifica el 1 por 0 para que considere toda la lista contraible, sin importar la cantidad de personas que pague.
+                const debtorCount = typedGroup.debtors.length;
 
                 return (
-                  <View 
+                  <View
                     key={typedGroup.payerId}
-                    style={{ 
+                    style={{
                       paddingVertical: 12,
                       paddingHorizontal: 14,
                       backgroundColor: theme.colors.primaryContainer + '15',
@@ -3159,126 +3115,77 @@ export default function EventDetailScreen() {
                       marginBottom: 10
                     }}
                   >
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <View style={{ flex: 1 }}>
-                        {/* Nombre del Pagador */}
-                        <View style={{ marginBottom: 8 }}>
-                          <Text style={{ 
-                            fontSize: 16, 
-                            fontWeight: '700', 
-                            color: theme.colors.onSurface
-                          }}>
-                            {typedGroup.payerName}
-                          </Text>
-                        </View>
-                        
-                        {/* Lista de personas a las que paga */}
-                        <View>
-                          {hasMultipleDebtors ? (
-                            // Lista colapsible para múltiples deudores
-                            <>
-                              <TouchableOpacity 
-                                onPress={() => togglePayerList(typedGroup.payerId)}
-                                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}
-                              >
-                                <MaterialCommunityIcons 
-                                  name="arrow-right" 
-                                  size={14} 
-                                  color={theme.colors.onSurfaceVariant}
-                                  style={{ marginRight: 4 }}
-                                />
-                                <Text style={{ 
-                                  fontSize: 14, 
-                                  color: theme.colors.onSurfaceVariant 
-                                }}>
-                                  {t('consolidation.paysToMultiple', { count: typedGroup.debtors.length })}
-                                </Text>
-                                <MaterialCommunityIcons 
-                                  name={isExpanded ? "chevron-up" : "chevron-down"} 
-                                  size={16} 
-                                  color={theme.colors.onSurfaceVariant}
-                                  style={{ marginLeft: 4 }}
-                                />
-                              </TouchableOpacity>
-                              
-                              {isExpanded && (
-                                <View style={{ paddingLeft: 18 }}>
-                                  {typedGroup.debtors.map((debtor: {debtorId: string, debtorName: string, amount: number}, index: number) => (
-                                    <View key={debtor.debtorId} style={{ 
-                                      flexDirection: 'row', 
-                                      alignItems: 'center', 
-                                      marginBottom: index < typedGroup.debtors.length - 1 ? 4 : 0
-                                    }}>
-                                      <Text style={{ 
-                                        fontSize: 14,
-                                        color: theme.colors.primary,
-                                        fontWeight: '600'
-                                      }}>
-                                        • {debtor.debtorName} 
-                                      </Text>
-                                      {debtor.amount > 0 && (
-                                        <Text style={{ 
-                                          fontSize: 14,
-                                          color: theme.colors.onSurfaceVariant,
-                                          marginLeft: 8
-                                        }}>
-                                          =&gt; ${formatCurrency(debtor.amount)}
-                                        </Text>
-                                      )}
-                                    </View>
-                                  ))}
-                                </View>
-                              )}
-                            </>
-                          ) : (
-                            // Vista simple para un solo deudor
-                            <>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                                <MaterialCommunityIcons 
-                                  name="arrow-right" 
-                                  size={14} 
-                                  color={theme.colors.onSurfaceVariant}
-                                  style={{ marginRight: 4 }}
-                                />
-                                <Text style={{ 
-                                  fontSize: 14, 
-                                  color: theme.colors.onSurfaceVariant 
-                                }}>
-                                  {t('consolidation.paysTo')}
-                                </Text>
-                              </View>
-                              
-                              <View style={{ paddingLeft: 18 }}>
-                                <Text style={{ 
-                                  fontSize: 14,
-                                  color: theme.colors.primary,
-                                  fontWeight: '600'
-                                }}>
-                                  • {typedGroup.debtors[0].debtorName}
-                                </Text>
-                              </View>
-                            </>
-                          )}
-                        </View>
-                      </View>
-                      
-                      <View style={{ alignItems: 'center' }}>
-                        <View style={{ 
-                          backgroundColor: theme.colors.successContainer,
-                          borderRadius: 14,
-                          paddingHorizontal: 10,
-                          paddingVertical: 6
+                    {/* Fila principal: nombre pagador + badge cantidad + chevron */}
+                    <TouchableOpacity
+                      onPress={() => togglePayerList(typedGroup.payerId)}
+                      activeOpacity={0.7}
+                      style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+                    >
+                      <Text style={{
+                        fontSize: 16,
+                        fontWeight: '700',
+                        color: theme.colors.onSurface,
+                        flex: 1,
+                      }}>
+                        {typedGroup.payerName}
+                      </Text>
+
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        {/* Badge con cantidad de deudores */}
+                        <View style={{
+                          backgroundColor: theme.colors.primary + '20',
+                          borderRadius: 12,
+                          paddingHorizontal: 8,
+                          paddingVertical: 3,
                         }}>
-                          <Text style={{ 
-                            fontSize: 11, 
-                            color: theme.colors.onSuccessContainer,
-                            fontWeight: '700'
+                          <Text style={{
+                            fontSize: 12,
+                            fontWeight: '700',
+                            color: theme.colors.primary,
                           }}>
-                            ✓ ACTIVA
+                            {debtorCount} {debtorCount === 1 ? t('consolidation.debtor') : t('consolidation.debtors')}
                           </Text>
                         </View>
+                        <MaterialCommunityIcons
+                          name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                          size={18}
+                          color={theme.colors.onSurfaceVariant}
+                        />
                       </View>
-                    </View>
+                    </TouchableOpacity>
+
+                    {/* Lista desplegable de deudores */}
+                    {isExpanded && (
+                      <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: theme.colors.primary + '20' }}>
+                        {typedGroup.debtors.map((debtor: {debtorId: string, debtorName: string, amount: number}, index: number) => (
+                          <View
+                            key={debtor.debtorId}
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              marginBottom: index < debtorCount - 1 ? 6 : 0,
+                            }}
+                          >
+                            <Text style={{
+                              fontSize: 14,
+                              color: theme.colors.primary,
+                              fontWeight: '700',
+                              flex: 1,
+                            }}>
+                              • {debtor.debtorName}
+                            </Text>
+                            {debtor.amount > 0 && (
+                              <Text style={{
+                                fontSize: 14,
+                                color: theme.colors.onSurfaceVariant,
+                              }}>
+                                ${formatCurrency(debtor.amount)}
+                              </Text>
+                            )}
+                          </View>
+                        ))}
+                      </View>
+                    )}
                   </View>
                 );
               });
@@ -3371,6 +3278,7 @@ export default function EventDetailScreen() {
               return null;
             })()}
           </View>
+          )}
         </Card>
       )}
 
@@ -3393,8 +3301,22 @@ export default function EventDetailScreen() {
         }, {} as Record<string, {name: string, total: number, percentage: number}>);
 
         return Object.keys(participantExpenses).length > 0 && (
-          <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
-            <Text style={styles.sectionTitle}>👥 {t('expenses.byParticipant')}</Text>
+          <Card style={{ marginBottom: 16, marginHorizontal: 16, borderTopWidth: 4, borderTopColor: '#2196F3', overflow: 'hidden' }}>
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              onPress={() => setIsParticipantStatsExpanded(v => !v)}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="account-group" size={18} color="#2196F3" />
+              <Text style={[styles.sectionTitle, { marginBottom: 0, flex: 1 }]}>{t('expenses.byParticipant')}</Text>
+              <MaterialCommunityIcons
+                name={isParticipantStatsExpanded ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={theme.colors.onSurfaceVariant}
+              />
+            </TouchableOpacity>
+            {isParticipantStatsExpanded && (
+              <View style={{ marginTop: 12 }}>
             {Object.entries(participantExpenses)
               .sort(([,a], [,b]) => b.total - a.total)
               .map(([participantId, data]) => (
@@ -3414,14 +3336,30 @@ export default function EventDetailScreen() {
                   </View>
                 </React.Fragment>
               ))}
+              </View>
+            )}
           </Card>
         );
       })()}
 
       {/* Categorías de gastos */}
       {Object.keys(eventStats.categoryTotals).length > 0 && (
-        <Card style={{ marginBottom: 16, marginHorizontal: 16 }}>
-          <Text style={styles.sectionTitle}>📊 {t('expenses.byCategory')}</Text>
+        <Card style={{ marginBottom: 16, marginHorizontal: 16, borderTopWidth: 4, borderTopColor: '#2196F3', overflow: 'hidden' }}>
+          <TouchableOpacity
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+            onPress={() => setIsCategoryStatsExpanded(v => !v)}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="tag-outline" size={18} color="#2196F3" />
+            <Text style={[styles.sectionTitle, { marginBottom: 0, flex: 1 }]}>{t('expenses.byCategory')}</Text>
+            <MaterialCommunityIcons
+              name={isCategoryStatsExpanded ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={theme.colors.onSurfaceVariant}
+            />
+          </TouchableOpacity>
+          {isCategoryStatsExpanded && (
+            <View style={{ marginTop: 12 }}>
           {Object.entries(eventStats.categoryTotals).map(([category, total]) => (
             <React.Fragment key={category}>
               <View style={styles.categoryItem}>
@@ -3439,6 +3377,8 @@ export default function EventDetailScreen() {
               </View>
             </React.Fragment>
           ))}
+            </View>
+          )}
         </Card>
       )}
 

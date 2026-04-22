@@ -448,6 +448,15 @@ const additionalEsTranslations = {
   'tour.eventdetail.expenseFilters.desc': 'Buscá gastos por nombre, filtrá por categoría o por quién pagó. Podés agregar nuevos gastos o eliminar los existentes.',
   'tour.eventdetail.expensesList.title': 'Gastos del evento',
   'tour.eventdetail.expensesList.desc': 'Todos los gastos del evento. Tocá para ver el detalle, adjuntá comprobantes o expandí los pagadores múltiples.',
+  // ConsolidationModal tour
+  'tour.consolidation.instructions.title': 'Cómo funciona',
+  'tour.consolidation.instructions.desc': 'Expandí para leer las instrucciones. La barra de búsqueda filtra los deudores por nombre.',
+  'tour.consolidation.debtors.title': 'Deudores',
+  'tour.consolidation.debtors.desc': 'Cada participante con deuda aparece acá. Tocá para expandir y elegir quién pagará por él. Si ya es pagador de alguien, la card está bloqueada.',
+  'tour.consolidation.consolidated.title': 'Consolidadas',
+  'tour.consolidation.consolidated.desc': 'Asignaciones ya guardadas. Expandí la sección, marcá las que querés deshacer y aplicá los cambios.',
+  'tour.consolidation.apply.title': 'Aplicar cambios',
+  'tour.consolidation.apply.desc': 'Confirma las asignaciones nuevas y/o deshace las seleccionadas. Se activa en verde cuando hay cambios pendientes.',
   // ManageFriends tour
   'tour.friends.header.title': 'Menú de amigos',
   'tour.friends.header.desc': 'Cambiá el tema, el idioma o accedé a otras opciones desde el menú de arriba.',
@@ -672,6 +681,7 @@ const translations = {
     'events.unlock': 'Desbloquear',
     'events.close': 'Cerrar',
     'events.information': 'Información del Evento',
+    'events.actions': 'Acciones',
     'events.reactivate': 'Reactivar',
     
     // Expenses
@@ -871,10 +881,12 @@ const translations = {
     'message.confirmDelete': 'Confirmar eliminación',
     
     // Consolidation
-    'consolidation.title': '🔗 Pagos Consolidados',
+    'consolidation.title': 'Pagos Consolidados',
     'consolidation.description': '💡 Configuración de pagos simplificada para optimizar las liquidaciones:',
     'consolidation.active': 'activa',
     'consolidation.actives': 'activas',
+    'consolidation.debtor': 'deudor',
+    'consolidation.debtors': 'deudores',
     'consolidation.paysTo': 'Le Paga a:',
     'consolidation.paysToMultiple': 'Le Paga a {count} personas',
     'consolidation.payments': 'pagos',
@@ -890,6 +902,9 @@ const translations = {
     'consolidationModal.confirmation.title': '🔄 Confirmar Consolidación',
     'consolidationModal.confirmation.summary': '📋 Se configuraron {assignments} asignaciones:\n\n• {debtors} persona(s) serán pagadas por otros\n• {payers} persona(s) asumirán deudas adicionales\n\n💡 Si alguien terminaría pagándose a sí mismo, ese pago se cancela automáticamente.\n\n¿Confirmás aplicar la consolidación?',
     'consolidationModal.applyButton': 'Aplicar',
+    'consolidationModal.blockedPayer.title': 'Participante bloqueado',
+    'consolidationModal.blockedPayer.message': '{name} ya está asignado como pagador. Revisá en la sección Consolidadas.',
+    'consolidationModal.blockedPayer.ok': 'Entendido',
     // EventCard
     'eventCard.participant': 'participante',
     'eventCard.participants': 'participantes',
@@ -938,8 +953,8 @@ const translations = {
     'eventDetail.shareAssignments': '👤 ASIGNACIONES:',
     'eventDetail.sharePaysWith': 'paga por',
     'eventDetail.shareException': 'Excep:',
-    'eventDetail.shareSummaryLabel': 'Compartir Resumen',
-    'eventDetail.shareEventLabel': 'Detalle Completo',
+    'eventDetail.shareSummaryLabel': 'Resumen',
+    'eventDetail.shareEventLabel': 'Detalle',
     'eventDetail.shareSettlementsLabel': 'LIQUIDACIONES:',
     'eventDetail.shareExpensesLabel': 'GASTOS',
     'eventDetail.shareSettlementLabel': 'LIQUIDACIÓN:',
@@ -1073,6 +1088,7 @@ const translations = {
     'events.unlock': 'Unlock',
     'events.close': 'Close',
     'events.information': 'Event Information',
+    'events.actions': 'Actions',
     'events.reactivate': 'Reactivate',
     
     // Expenses
@@ -1274,6 +1290,15 @@ const translations = {
     'tour.eventdetail.expenseFilters.desc': 'Search expenses by name, filter by category or who paid. You can add new expenses or remove existing ones.',
     'tour.eventdetail.expensesList.title': 'Event expenses',
     'tour.eventdetail.expensesList.desc': 'All event expenses. Tap for details, attach receipts or expand multi-payer expenses.',
+    // ConsolidationModal tour
+    'tour.consolidation.instructions.title': 'How it works',
+    'tour.consolidation.instructions.desc': 'Expand to read the instructions. The search bar filters debtors by name.',
+    'tour.consolidation.debtors.title': 'Debtors',
+    'tour.consolidation.debtors.desc': 'Each participant with a debt appears here. Tap to expand and choose who will pay for them. If they are already a payer for someone, the card is locked.',
+    'tour.consolidation.consolidated.title': 'Consolidated',
+    'tour.consolidation.consolidated.desc': 'Already saved assignments. Expand the section, mark the ones you want to undo and apply the changes.',
+    'tour.consolidation.apply.title': 'Apply changes',
+    'tour.consolidation.apply.desc': 'Confirms new assignments and/or undoes selected ones. Turns green when there are pending changes.',
     // ManageFriends tour
     'tour.friends.header.title': 'Friends menu',
     'tour.friends.header.desc': 'Change theme, language or access other options from the top menu.',
@@ -1658,10 +1683,12 @@ const translations = {
     'profile.message.aboutComingSoon': 'Information coming soon',
     
     // Consolidation
-    'consolidation.title': '🔗 Consolidated Payments',
+    'consolidation.title': 'Consolidated Payments',
     'consolidation.description': '💡 Simplified payment configuration to optimize settlements:',
     'consolidation.active': 'active',
     'consolidation.actives': 'active',
+    'consolidation.debtor': 'debtor',
+    'consolidation.debtors': 'debtors',
     'consolidation.paysTo': 'Pays To:',
     'consolidation.paysToMultiple': 'Pays To {count} people',
     'consolidation.payments': 'payments',
@@ -1677,6 +1704,9 @@ const translations = {
     'consolidationModal.confirmation.title': '🔄 Confirm Consolidation',
     'consolidationModal.confirmation.summary': '📋 {assignments} assignment(s) configured:\n\n• {debtors} person(s) will be paid by others\n• {payers} person(s) will assume additional debts\n\n💡 If someone would end up paying themselves, that payment is automatically cancelled.\n\nConfirm applying this consolidation?',
     'consolidationModal.applyButton': 'Apply',
+    'consolidationModal.blockedPayer.title': 'Blocked participant',
+    'consolidationModal.blockedPayer.message': '{name} is already assigned as a payer. Check the Consolidated section.',
+    'consolidationModal.blockedPayer.ok': 'Got it',
     // EventDetail - Textos hardcodeados en UI
     'eventDetail.consolidate': 'Consolidate',
     'eventDetail.viewConsolidated': 'View Consolidated',
@@ -1718,8 +1748,8 @@ const translations = {
     'eventDetail.shareAssignments': '👤 ASSIGNMENTS:',
     'eventDetail.sharePaysWith': 'pays for',
     'eventDetail.shareException': 'Excl:',
-    'eventDetail.shareSummaryLabel': 'Share Summary',
-    'eventDetail.shareEventLabel': 'Full Detail',
+    'eventDetail.shareSummaryLabel': 'Summary',
+    'eventDetail.shareEventLabel': 'Detail',
     'eventDetail.shareSettlementsLabel': 'SETTLEMENTS:',
     'eventDetail.shareExpensesLabel': 'EXPENSES',
     'eventDetail.shareSettlementLabel': 'SETTLEMENT:',
@@ -1867,6 +1897,7 @@ const translations = {
     'events.unlock': 'Desbloquear',
     'events.close': 'Fechar',
     'events.information': 'Informações do Evento',
+    'events.actions': 'Ações',
     'events.reactivate': 'Reativar',
     
     // Expenses

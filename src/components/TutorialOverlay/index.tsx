@@ -9,6 +9,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -58,6 +59,7 @@ export default function TutorialOverlay({
 }: TutorialOverlayProps) {
   const { theme } = useTheme();
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
   const [highlight, setHighlight] = useState<HighlightRect | null>(null);
   const [transitioning, setTransitioning] = useState(false);
   const { width: SW, height: SH } = Dimensions.get('window');
@@ -131,6 +133,9 @@ export default function TutorialOverlay({
   // Posición del popup
   const POPUP_MARGIN = 12;
   const POPUP_MAX_HEIGHT = 240;
+  // Margen seguro inferior: inset real de safe area + buffer de 8px
+  const BOTTOM_SAFE = insets.bottom + 8;
+  const TOP_SAFE = (StatusBar.currentHeight ?? 0) + 8;
 
   let popupTop: number | undefined;
   let popupBottom: number | undefined;
@@ -142,6 +147,19 @@ export default function TutorialOverlay({
   } else {
     // below
     popupTop = hy + hh + POPUP_MARGIN;
+  }
+
+  // Clamp: el popup nunca puede quedar debajo de la barra de navegación ni arriba del status bar
+  if (popupTop !== undefined) {
+    popupTop = Math.min(popupTop, SH - POPUP_MAX_HEIGHT - BOTTOM_SAFE);
+    popupTop = Math.max(popupTop, TOP_SAFE);
+  }
+  // Para 'above': si el valor de bottom lleva el popup demasiado arriba, lo corregimos
+  if (popupBottom !== undefined) {
+    // popupBottom = distancia desde el fondo; aseguramos que el popup no suba más allá del top seguro
+    popupBottom = Math.min(popupBottom, SH - TOP_SAFE - POPUP_MAX_HEIGHT);
+    // Y que tampoco quede debajo de la safe zone inferior
+    popupBottom = Math.max(popupBottom, BOTTOM_SAFE);
   }
 
   if (transitioning) {

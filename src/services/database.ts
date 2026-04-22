@@ -2794,6 +2794,18 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
+      // Eliminar primero todos los participantes secundarios vinculados a este primario en el evento
+      const secondaryParticipants = await this.db.getAllAsync(
+        `SELECT participant_id FROM event_participants 
+         WHERE event_id = ? AND parent_participant_id = ?`,
+        [eventId, participantId]
+      ) as Array<{ participant_id: string }>;
+
+      for (const secondary of secondaryParticipants) {
+        console.log(`🗑️ Removing secondary participant ${secondary.participant_id} linked to primary ${participantId}`);
+        await this.removeParticipantFromEvent(eventId, secondary.participant_id);
+      }
+
       // Check if participant has paid any expenses in THIS EVENT specifically
       const expenseCount = await this.db.getFirstAsync(
         'SELECT COUNT(*) as count FROM expenses WHERE payer_id = ? AND event_id = ?',

@@ -47,7 +47,7 @@ export const createSignUpStyles = (theme: Theme) => StyleSheet.create({
   // ── Acento superior por sección ───────────────────────────
   cardBasic: {
     borderTopWidth: 4,
-    borderTopColor: '#2196F3',
+    borderTopColor: '#4CAF50',
   },
   cardContact: {
     borderTopWidth: 4,
@@ -55,7 +55,7 @@ export const createSignUpStyles = (theme: Theme) => StyleSheet.create({
   },
   cardSecurity: {
     borderTopWidth: 4,
-    borderTopColor: '#FF9800',
+    borderTopColor: '#4CAF50',
   },
 
   // ── Header de card ────────────────────────────────────────

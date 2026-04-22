@@ -130,6 +130,11 @@
     "instructionsTitle": "💡 How does it work?",
     "description": "Select who will pay the debts of other participants. Payments where a person would pay themselves are <1>automatically forgiven</1>.",
     "example": "Example: If Ana pays for Bob, but Bob owed Ana, that debt is canceled.",
+    "blockedPayer": {
+      "title": "Blocked participant",
+      "message": "{name} is already assigned as a payer. Check the Consolidated section.",
+      "ok": "Got it"
+    },
     "confirmation": {
       "title": "🔄 Confirm Consolidation",
       "summary": "📋 Consolidation summary:\n\n• {assignments} assignment(s) configured\n• {debtors} debtor(s) will be paid by others\n• {payers} payer(s) will assume additional debts\n\n💡 Payments where a person would pay themselves will be automatically forgiven.\n\nConfirm applying this consolidation?"

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -87,8 +87,10 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   const { language } = useLanguage();
   const { logout } = useAuth();
   const insets = useSafeAreaInsets();
+  const containerRef = useRef<View>(null);
   const [overflowVisible, setOverflowVisible] = useState(false);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
+  const [menuTop, setMenuTop] = useState(0);
 
   // Determinar colores dinámicos
   const dynamicBackgroundColor = useDynamicColors 
@@ -114,6 +116,18 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
     + (overflowAfterItems?.length || 0);
 
   const useOverflow = rightCount > 2;
+
+  const openOverflow = () => {
+    if (containerRef.current) {
+      containerRef.current.measureInWindow((_x, y, _w, h) => {
+        setMenuTop(y + h + 4);
+        setOverflowVisible(true);
+      });
+    } else {
+      setMenuTop((isModal ? 0 : insets.top) + 56 + 4);
+      setOverflowVisible(true);
+    }
+  };
 
   const getLanguageFlag = () => {
     const flags: Record<string, string> = { es: '🇦🇷', en: '🇺🇸', pt: '🇧🇷' };
@@ -200,7 +214,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
       return (
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => setOverflowVisible(true)}
+          onPress={() => openOverflow()}
           activeOpacity={0.7}
         >
           <MaterialCommunityIcons
@@ -330,7 +344,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
       onRequestClose={() => setOverflowVisible(false)}
     >
       <Pressable style={styles.overflowOverlay} onPress={() => setOverflowVisible(false)}>
-        <Pressable style={[styles.dropdownMenu, { backgroundColor: theme.colors.surfaceContainer }]} onPress={() => {}}>
+        <Pressable style={[styles.dropdownMenu, { backgroundColor: theme.colors.surfaceContainer, top: menuTop }]} onPress={() => {}}>
           {/* Items antes del bloque estándar */}
           {(overflowBeforeItems || []).map((item, i) => (
             <TouchableOpacity key={`before-${i}`} style={[styles.sheetItem, { borderLeftColor: '#9C27B0', backgroundColor: theme.colors.surfaceVariant }]} onPress={() => { setOverflowVisible(false); item.onPress(); }} activeOpacity={0.7}>
@@ -413,6 +427,8 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
         backgroundColor={backgroundColor || theme.colors.surface}
       />
       <View
+        ref={containerRef}
+        collapsable={false}
         style={[
           styles.container,
           {
@@ -571,7 +587,7 @@ const createStyles = (theme: Theme, titleAlignment: 'left' | 'center' = 'center'
 
     dropdownMenu: {
       position: 'absolute',
-      top: (isModal ? 0 : topInset) + 56 + 4,
+      top: 0, // sobreescrito dinámicamente con menuTop
       right: 8,
       borderRadius: 14,
       paddingVertical: 8,
