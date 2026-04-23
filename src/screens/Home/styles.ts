@@ -88,6 +88,7 @@ export const createStyles = (theme: Theme, bottomInset: number = 0) => {
       bottom: bottomInset + 16,
       right: 20,
       zIndex: 1000,
+      alignItems: 'center',
     } as ViewStyle,
 
     fab: {
@@ -119,12 +120,73 @@ export const createStyles = (theme: Theme, bottomInset: number = 0) => {
 
     // Lista de eventos
     eventsList: {
-      paddingBottom: 140, // Más espacio para el FAB reposicionado
+      paddingBottom: 16,
     } as ViewStyle,
 
     // Refresh control
     refreshControl: {
       tintColor: theme.colors.primary,
     } as ViewStyle,
+
+    // ── Secciones verdes ─────────────────────────────────────
+    sectionCard: {
+      marginHorizontal: 12,
+      marginTop: 8,
+      borderRadius: 14,
+      borderTopWidth: 3,
+      borderTopColor: '#4CAF50',
+      backgroundColor: theme.colors.surface,
+      overflow: 'hidden',
+      elevation: 2,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.08,
+      shadowRadius: 3,
+    } as ViewStyle,
+
+    // Fila de botones de filtro
+    filterRow: {
+      flexDirection: 'row',
+      paddingHorizontal: 8,
+      paddingTop: 4,
+      paddingBottom: 12,
+      gap: 4,
+    } as ViewStyle,
+
+    filterBtn: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderRadius: 10,
+    } as ViewStyle,
+
+    filterIconWrap: {
+      position: 'relative',
+      marginBottom: 5,
+    } as ViewStyle,
+
+    filterBadge: {
+      position: 'absolute',
+      top: -5,
+      right: -10,
+      borderRadius: 8,
+      paddingHorizontal: 5,
+      paddingVertical: 1,
+      minWidth: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+    } as ViewStyle,
+
+    filterBadgeText: {
+      fontSize: 10,
+      fontWeight: '800',
+      color: '#fff',
+    } as TextStyle,
+
+    filterLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      textAlign: 'center',
+    } as TextStyle,
   });
 };

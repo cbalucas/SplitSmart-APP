@@ -590,10 +590,10 @@ const createStyles = (theme: Theme, titleAlignment: 'left' | 'center' = 'center'
       top: 0, // sobreescrito dinámicamente con menuTop
       right: 8,
       borderRadius: 14,
-      paddingVertical: 8,
+      paddingVertical: 11,
       paddingHorizontal: 8,
       minWidth: 210,
-      gap: 4,
+      gap: 10,
       elevation: 10,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },

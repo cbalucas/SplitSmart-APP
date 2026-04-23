@@ -13,6 +13,38 @@
 
 ---
 
+#### Home — Rediseño layout en dos secciones verdes (sin commit aún)
+
+Se eliminó el layout anterior (SearchBar suelto arriba + MetricsCards en header de FlatList) y se reemplazó por dos cards con borde superior verde `#4CAF50`.
+
+**Sección 1 — Buscador + Filtros** (`sectionCard`):
+- `SearchBar` integrado dentro de la card
+- 3 botones de filtro en fila (`filterRow`), cada uno con:
+  - Ícono grande centrado (`calendar-check` / `lock` / `archive`)
+  - Badge con el conteo N en esquina superior derecha (`filterBadge`, fondo del color del estado)
+  - Label del estado debajo del ícono (`filterLabel`)
+  - Al seleccionarse: fondo `color + '20'` y texto/ícono en el color del estado
+- Reemplaza el componente `MetricsCard` por botones nativos — misma funcionalidad de filtrado
+
+**Sección 2 — Lista de Eventos** (`sectionCard` con `flex:1`):
+- `FlatList` directo dentro de la card sin header
+- Pull-to-refresh con color verde `#4CAF50`
+
+**FABs mantenidos**: botón `+` (crear evento) y `UserAvatar` (perfil) sin cambios, posición `absolute` bottom-right.
+
+**Archivos modificados**:
+- `src/screens/Home/index.tsx`: `renderSearchBar` + `renderMetrics` reemplazados por `renderTopSection()`; `return` actualizado con las 2 secciones
+- `src/screens/Home/styles.ts`: estilos nuevos `sectionCard`, `filterRow`, `filterBtn`, `filterIconWrap`, `filterBadge`, `filterBadgeText`, `filterLabel`; `eventsList.paddingBottom` reducido de 140 a 16
+
+---
+
+#### HeaderBar — Ajuste de espaciado en menú desplegable (sin commit aún)
+
+- `dropdownMenu.gap`: `4` → `6` (separación entre ítems del menú)
+- Separador antes de "Cerrar sesión": `marginVertical: 4` → `6`
+
+---
+
 #### Auth — Rediseño completo de pantallas de autenticación (commit `de23faf`)
 
 Se unificó el lenguaje visual de las 3 pantallas de auth con el design system establecido por `ProfileScreen` y `CreateEvent`: cards con borde de color en el top, `Card`/`Button`/`Input` del sistema de componentes, footer fijo con botones de acción.
@@ -140,6 +172,9 @@ Se unificó el lenguaje visual de las 3 pantallas de auth con el design system e
 
 | Archivo | Cambios |
 |---|---|
+| `src/screens/Home/index.tsx` | Rediseño: 2 secciones verdes; `renderTopSection()` reemplaza `renderSearchBar`+`renderMetrics`; FABs conservados |
+| `src/screens/Home/styles.ts` | Nuevos estilos: `sectionCard`, `filterRow`, `filterBtn`, `filterIconWrap`, `filterBadge`, `filterBadgeText`, `filterLabel`; `eventsList.paddingBottom` 140→16 |
+| `src/components/HeaderBar.tsx` | Espaciado menú overflow: `gap` 4→6; separador logout `marginVertical` 4→6 |
 | `src/screens/Auth/SignUpScreen.styles.ts` | **NUEVO** — estilos dedicados con 3 cards de color, barra de fortaleza, modal accent |
 | `src/screens/Auth/SignUpScreen.tsx` | Rediseño completo: 3 cards con borde de color, `Card`/`Button`/`Input`, footer fijo, modal rediseñado |
 | `src/screens/Auth/ForgotPasswordScreen.styles.ts` | **NUEVO** — estilos dedicados con card violeta, infoBox, warningBox, modal éxito verde |

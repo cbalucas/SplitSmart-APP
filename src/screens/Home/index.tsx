@@ -362,28 +362,44 @@ const HomeScreen: React.FC = () => {
   };
 
   // Render functions
-  const renderSearchBar = () => (
-    <View ref={searchRef} collapsable={false}>
-      <SearchBar
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        placeholder={t.search.placeholder}
-      />
-    </View>
-  );
+  const renderTopSection = () => (
+    <View style={styles.sectionCard}>
+      {/* Buscador */}
+      <View ref={searchRef} collapsable={false}>
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder={t.search.placeholder}
+        />
+      </View>
 
-  const renderMetrics = () => (
-    <View style={styles.metricsSection}>
-      <View ref={metricsRef} collapsable={false} style={styles.metricsContainer}>
-        {metrics.map((metric, index) => (
-          <MetricsCard
-            key={index}
-            metric={metric}
-            style={StyleSheet.flatten([styles.metricCard])}
-            isSelected={statusFilter === metric.status}
-            onPress={() => setStatusFilter(prev => prev === metric.status ? null : metric.status)}
-          />
-        ))}
+      {/* Botones de filtro: Activos | Bloqueados | Cerrados */}
+      <View ref={metricsRef} collapsable={false} style={styles.filterRow}>
+        {metrics.map((metric, index) => {
+          const isSelected = statusFilter === metric.status;
+          return (
+            <TouchableOpacity
+              key={index}
+              style={[styles.filterBtn, isSelected && { backgroundColor: metric.color + '20' }]}
+              onPress={() => setStatusFilter(prev => prev === metric.status ? null : metric.status)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.filterIconWrap}>
+                <MaterialCommunityIcons
+                  name={metric.icon as any}
+                  size={28}
+                  color={isSelected ? metric.color : theme.colors.onSurfaceVariant}
+                />
+                <View style={[styles.filterBadge, { backgroundColor: metric.color }]}>
+                  <Text style={styles.filterBadgeText}>{metric.value}</Text>
+                </View>
+              </View>
+              <Text style={[styles.filterLabel, { color: isSelected ? metric.color : theme.colors.onSurfaceVariant }]}>
+                {metric.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );
@@ -446,9 +462,12 @@ const HomeScreen: React.FC = () => {
       </View>
       
       <SafeAreaView style={styles.safeContent} edges={['bottom', 'left', 'right']}>
-        {renderSearchBar()}
-        
-        <View ref={eventsRef} collapsable={false} style={{ flex: 1 }}>
+
+        {/* Sección 1: Buscador + Filtros */}
+        {renderTopSection()}
+
+        {/* Sección 2: Lista de eventos */}
+        <View ref={eventsRef} collapsable={false} style={[styles.sectionCard, { flex: 1, marginBottom: 8 }]}>
           <FlatList
             data={filteredEvents}
             renderItem={renderEventItem}
@@ -457,11 +476,10 @@ const HomeScreen: React.FC = () => {
               <RefreshControl
                 refreshing={refreshing || dbLoading}
                 onRefresh={onRefresh}
-                colors={[theme.colors.primary]}
-                tintColor={theme.colors.primary}
+                colors={['#4CAF50']}
+                tintColor={'#4CAF50'}
               />
             }
-            ListHeaderComponent={renderMetrics}
             ListEmptyComponent={renderEmptyState}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={
@@ -484,19 +502,20 @@ const HomeScreen: React.FC = () => {
               color={theme.colors.onPrimary}
             />
           </TouchableOpacity>
-          
+
           {/* Botón Perfil */}
           <TouchableOpacity
             style={[styles.fab, styles.profileFab]}
             onPress={handleProfilePress}
             activeOpacity={0.8}
           >
-            <UserAvatar 
+            <UserAvatar
               size={48}
               onPress={handleProfilePress}
             />
           </TouchableOpacity>
         </View>
+
       </SafeAreaView>
 
       {/* Tour guiado */}

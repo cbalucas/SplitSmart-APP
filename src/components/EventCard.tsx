@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   TouchableOpacity,
   View,
@@ -51,6 +51,7 @@ const EventCard: React.FC<EventCardProps> = ({
   const { theme } = useTheme();
   const { t } = useLanguage();
   const styles = createStyles(theme);
+  const [expanded, setExpanded] = useState(false);
 
   const getStatusColor = (status: string, isLocked?: boolean) => {
     if (status === 'active' && isLocked) return '#FF9800'; // Naranja - Bloqueado
@@ -149,6 +150,17 @@ const EventCard: React.FC<EventCardProps> = ({
               color={event.type === 'private' ? '#FFB000' : '#4285F4'}
               style={styles.privacyIcon}
             />
+            <TouchableOpacity
+              onPress={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.expandBtn}
+            >
+              <MaterialCommunityIcons
+                name={expanded ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={theme.colors.onSurfaceVariant}
+              />
+            </TouchableOpacity>
           </View>
 
           {/* Segunda fila: Fecha y Monto */}
@@ -167,7 +179,12 @@ const EventCard: React.FC<EventCardProps> = ({
               {formatCurrency(event.totalAmount, event.currency)}
             </Text>
           </View>
+        </View>
+      </TouchableOpacity>
 
+      {/* Filas colapsables */}
+      {expanded && (
+        <View style={styles.expandedContent}>
           {/* Tercera fila: Participantes y Gastos */}
           <View style={styles.statsMainRow}>
             <View style={styles.participantsContainer}>
@@ -234,7 +251,7 @@ const EventCard: React.FC<EventCardProps> = ({
             </View>
           )}
         </View>
-      </TouchableOpacity>
+      )}
     </Card>
   );
 };
@@ -365,6 +382,17 @@ const createStyles = (theme: Theme) =>
       marginLeft: 6,
       flex: 1,
     } as TextStyle,
+
+    expandBtn: {
+      marginLeft: 4,
+      padding: 2,
+    } as ViewStyle,
+
+    expandedContent: {
+      paddingHorizontal: 12,
+      paddingLeft: 16,
+      paddingBottom: 10,
+    } as ViewStyle,
   });
 
 export default EventCard;
