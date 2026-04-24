@@ -9,6 +9,7 @@ export type RootStackParamList = {
   CreateExpense: { eventId: string; expenseId?: string };
 
   ProfileScreen: undefined;
+  ExpressEvent: undefined;
 };
 
 declare global {

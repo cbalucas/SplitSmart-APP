@@ -32,7 +32,7 @@ export const createStyles = (theme: Theme, insets: EdgeInsets) => StyleSheet.cre
     marginHorizontal: 16,
     marginBottom: 16,
     borderTopWidth: 4,
-    borderTopColor: '#2196F3',
+    borderTopColor: '#4CAF50',
     overflow: 'hidden',
   } as ViewStyle,
 
@@ -40,7 +40,7 @@ export const createStyles = (theme: Theme, insets: EdgeInsets) => StyleSheet.cre
     marginHorizontal: 16,
     marginBottom: 16,
     borderTopWidth: 4,
-    borderTopColor: '#2196F3',
+    borderTopColor: '#4CAF50',
     overflow: 'hidden',
   } as ViewStyle,
 

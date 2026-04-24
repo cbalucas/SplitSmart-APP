@@ -430,7 +430,12 @@ const additionalEsTranslations = {
   'tour.home.events.title': 'Tus eventos',
   'tour.home.events.desc': 'Cada tarjeta es un evento. Tocá para ver el detalle, o usá los íconos para editar, cerrar o eliminar.',
   'tour.home.fabs.title': 'Acciones rápidas',
-  'tour.home.fabs.desc': 'El botón "+" crea un nuevo evento. El avatar te lleva a tu perfil personal.',
+  'tour.home.fabs.desc': 'El botón ⚡ abre Splitty, tu asistente para crear eventos express. El botón "+" crea un evento manual. El avatar te lleva a tu perfil.',
+  // Splitty chat tour
+  'tour.splitty.chat.title': 'Chat con Splitty',
+  'tour.splitty.chat.desc': 'Splitty te guía paso a paso para crear tu evento. Los mensajes aparecen acá a medida que avancés.',
+  'tour.splitty.input.title': 'Área de respuesta',
+  'tour.splitty.input.desc': 'Acá respondés las preguntas de Splitty. La sección cambia según el paso del asistente: texto, fecha, participantes, gastos y resumen final.',
   // EventDetail tour
   'tour.eventdetail.header.title': 'Menú del evento',
   'tour.eventdetail.header.desc': 'Cambiá el tema, el idioma, accedé a tus amigos, cerrá sesión o abrí este tour desde acá.',
@@ -1272,7 +1277,12 @@ const translations = {
     'tour.home.events.title': 'Your events',
     'tour.home.events.desc': 'Each card is an event. Tap to see details, or use the icons to edit, close or delete.',
     'tour.home.fabs.title': 'Quick actions',
-    'tour.home.fabs.desc': 'The "+" button creates a new event. The avatar takes you to your personal profile.',
+    'tour.home.fabs.desc': 'The ⚡ button opens Splitty, your assistant for creating express events. The "+" button creates a manual event. The avatar takes you to your profile.',
+    // Splitty chat tour
+    'tour.splitty.chat.title': 'Chat with Splitty',
+    'tour.splitty.chat.desc': 'Splitty guides you step by step to create your event. Messages appear here as you progress.',
+    'tour.splitty.input.title': 'Answer area',
+    'tour.splitty.input.desc': "Here you answer Splitty's questions. The section changes depending on the assistant step: text, date, participants, expenses and final summary.",
     // EventDetail tour
     'tour.eventdetail.header.title': 'Event menu',
     'tour.eventdetail.header.desc': 'Change theme, language, access friends, sign out or open this tour from here.',
@@ -2081,7 +2091,15 @@ const translations = {
     'tour.home.events.title': 'Seus eventos',
     'tour.home.events.desc': 'Cada cartão é um evento. Toque para ver os detalhes, ou use os ícones para editar, fechar ou excluir.',
     'tour.home.fabs.title': 'Ações rápidas',
-    'tour.home.fabs.desc': 'O botão "+" cria um novo evento. O avatar leva você ao seu perfil pessoal.',
+    'tour.home.fabs.desc': 'O botão ⚡ abre o Splitty, seu assistente para criar eventos express. O botão "+" cria um evento manual. O avatar leva você ao seu perfil.',
+    // Splitty chat tour
+    'tour.splitty.chat.title': 'Chat com Splitty',
+    'tour.splitty.chat.desc': 'O Splitty te guia passo a passo para criar seu evento. As mensagens aparecem aqui conforme você avança.',
+    'tour.splitty.input.title': 'Área de resposta',
+    'tour.splitty.input.desc': 'Aqui você responde às perguntas do Splitty. A seção muda conforme a etapa do assistente: texto, data, participantes, gastos e resumo final.',
+    // EventDetail tour
+    'tour.splitty.input.title': 'Área de resposta',
+    'tour.splitty.input.desc': 'Aqui você responde às perguntas do Splitty. A seção muda conforme a etapa do assistente: texto, data, participantes, gastos e resumo final.',
     // EventDetail tour
     'tour.eventdetail.header.title': 'Menu do evento',
     'tour.eventdetail.header.desc': 'Mude o tema, o idioma, acesse amigos, encerre a sessão ou abra este tour daqui.',

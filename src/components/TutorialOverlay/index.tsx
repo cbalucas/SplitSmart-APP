@@ -18,6 +18,8 @@ export interface TourStep {
   titleKey: string;
   descKey: string;
   popupPosition: 'above' | 'below' | 'center';
+  /** Contenido JSX personalizado para la descripción (reemplaza al texto de descKey) */
+  descContent?: React.ReactNode;
   /** Callback ejecutado ANTES de medir el elemento (ej: cambiar tab).
    *  Cuando está presente, se espera `delay` ms (default 300) para que el layout nativo renderice. */
   onBeforeShow?: () => void;
@@ -224,9 +226,11 @@ export default function TutorialOverlay({
           </Text>
 
           {/* Description */}
-          <Text style={[styles.desc, { color: theme.colors.onSurfaceVariant ?? theme.colors.onSurface }]}>
-            {desc}
-          </Text>
+          {step.descContent ?? (
+            <Text style={[styles.desc, { color: theme.colors.onSurfaceVariant ?? theme.colors.onSurface }]}>
+              {desc}
+            </Text>
+          )}
 
           {/* Buttons */}
           <View style={styles.buttons}>

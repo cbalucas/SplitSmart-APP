@@ -103,7 +103,7 @@ export const createStyles = (theme: Theme, bottomInset: number = 0) => {
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.3,
       shadowRadius: 4.65,
-      marginBottom: 16, // Espacio entre los FABs
+      marginBottom: 8, // Espacio entre los FABs
     } as ViewStyle,
 
     profileFab: {
@@ -112,6 +112,31 @@ export const createStyles = (theme: Theme, bottomInset: number = 0) => {
       borderColor: theme.colors.primary,
       marginBottom: 0, // El último FAB no necesita margen inferior
       padding: 4, // Reducir padding interno para que el avatar sea más prominente
+    } as ViewStyle,
+
+    expressEventFab: {
+      width: 88,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: '#FFFFFF',
+      overflow: 'hidden',
+    } as ViewStyle,
+
+    fabToggle: {
+      height: 36,
+      paddingHorizontal: 20,
+      borderRadius: 18,
+      backgroundColor: theme.colors.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 4,
+      marginTop: 6,
+      elevation: 4,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 2,
     } as ViewStyle,
 
     fabIcon: {

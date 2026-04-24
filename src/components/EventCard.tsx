@@ -6,7 +6,8 @@ import {
   StyleSheet,
   ViewStyle,
   TextStyle,
-  Alert
+  Alert,
+  Image
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -29,6 +30,7 @@ export interface EventData {
   description?: string;
   settlementCount?: number;
   paidSettlementCount?: number;
+  isExpress?: boolean;
 }
 
 export interface EventCardProps {
@@ -116,6 +118,12 @@ const EventCard: React.FC<EventCardProps> = ({
           {/* Primera fila: Título, Lápiz, Basura (si aplica) e Icono de Privacidad */}
           <View style={styles.titleRow}>
             <View style={styles.titleContainer}>
+              {event.isExpress && (
+                <Image
+                  source={require('../../assets/splitsmart/Splitty.png')}
+                  style={{ width: 36, height: 36, resizeMode: 'contain', marginRight: 3 }}
+                />
+              )}
               <Text style={styles.eventName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
                 {event.name}
               </Text>

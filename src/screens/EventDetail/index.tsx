@@ -1574,8 +1574,8 @@ export default function EventDetailScreen() {
 
   const renderTabBar = () => {
     const TABS = [
-      { key: 'resumen',       title: t('summary.title'),      icon: 'chart-pie'     as const, color: '#2196F3' },
-      { key: 'participantes', title: t('participants.title'), icon: 'account-group' as const, color: '#4CAF50' },
+      { key: 'resumen',       title: t('summary.title'),      icon: 'chart-pie'     as const, color: '#4CAF50' },
+      { key: 'participantes', title: t('participants.title'), icon: 'account-group' as const, color: '#2196F3' },
       { key: 'gastos',        title: t('expenses.title'),     icon: 'cash'          as const, color: '#FF9800' },
     ];
     return (
@@ -2070,7 +2070,7 @@ export default function EventDetailScreen() {
       <View style={styles.tabContent}>
         {/* ══ Sección 1: Buscador + Encabezado ══ */}
         <View ref={edParticipantActionsRef} collapsable={false} style={{ marginHorizontal: 16, marginTop: 12 }}>
-          <Card style={{ borderTopWidth: 4, borderTopColor: '#4CAF50', overflow: 'hidden', marginBottom: 8 }}>
+          <Card style={{ borderTopWidth: 4, borderTopColor: '#2196F3', overflow: 'hidden', marginBottom: 8 }}>
             <SearchBar
               value={participantSearchQuery}
               onChangeText={setParticipantSearchQuery}
@@ -2126,7 +2126,7 @@ export default function EventDetailScreen() {
               ) : (
                 <>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-                    <MaterialCommunityIcons name="account-group" size={18} color="#4CAF50" />
+                    <MaterialCommunityIcons name="account-group" size={18} color="#2196F3" />
                     <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
                       {t('participants.title')} ({visiblePrimaries.length}{visiblePrimaries.length !== primaryParticipants.length ? ` de ${primaryParticipants.length}` : ''})
                     </Text>
@@ -2159,7 +2159,7 @@ export default function EventDetailScreen() {
         {/* ══ Sección 2: Lista de Participantes ══ */}
         <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
           <View ref={edParticipantsRef} collapsable={false}>
-          <Card style={{ marginHorizontal: 16, marginTop: 0, marginBottom: 16, borderTopWidth: 4, borderTopColor: '#4CAF50', overflow: 'hidden' }}>
+          <Card style={{ marginHorizontal: 16, marginTop: 0, marginBottom: 16, borderTopWidth: 4, borderTopColor: '#2196F3', overflow: 'hidden' }}>
 
           {visiblePrimaries.length === 0 ? (
             <View style={styles.emptyState}>
@@ -2530,9 +2530,9 @@ export default function EventDetailScreen() {
       <ScrollView style={{ flex: 1 }}>
       {/* Información del evento */}
       <View ref={edInfoRef} collapsable={false} style={{ marginHorizontal: 16, marginTop: 12 }}>
-      <Card style={{ marginBottom: 16, borderTopWidth: 4, borderTopColor: '#2196F3', overflow: 'hidden' }}>
+      <Card style={{ marginBottom: 16, borderTopWidth: 4, borderTopColor: '#4CAF50', overflow: 'hidden' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 }}>
-          <MaterialCommunityIcons name="information-outline" size={20} color="#2196F3" />
+          <MaterialCommunityIcons name="information-outline" size={20} color="#4CAF50" />
           <Text style={[styles.sectionTitle, { marginBottom: 0, flex: 1 }]}>{t('events.information')}</Text>
           {event && (
             <View style={{ 
@@ -2610,9 +2610,9 @@ export default function EventDetailScreen() {
 
       {/* Acciones del evento */}
       <View ref={edEventActionsRef} collapsable={false} style={{ marginHorizontal: 16, marginBottom: 16 }}>
-      <Card style={{ borderTopWidth: 4, borderTopColor: '#2196F3', overflow: 'hidden' }}>
+      <Card style={{ borderTopWidth: 4, borderTopColor: '#4CAF50', overflow: 'hidden' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 }}>
-          <MaterialCommunityIcons name="cog-outline" size={20} color="#2196F3" />
+          <MaterialCommunityIcons name="cog-outline" size={20} color="#4CAF50" />
           <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>{t('events.actions')}</Text>
         </View>
         {/* 4 botones en una fila: ícono arriba + texto abajo */}
@@ -2679,12 +2679,12 @@ export default function EventDetailScreen() {
 
       {/* Liquidaciones (Pendientes + Pagadas unificadas) */}
       <View ref={edSettlementsRef} collapsable={false}>
-      <Card style={{ marginBottom: 16, marginHorizontal: 16, borderTopWidth: 4, borderTopColor: '#2196F3', overflow: 'hidden' }}>
+      <Card style={{ marginBottom: 16, marginHorizontal: 16, borderTopWidth: 4, borderTopColor: '#4CAF50', overflow: 'hidden' }}>
 
         {/* ── Header principal ── */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-            <MaterialCommunityIcons name="swap-horizontal" size={20} color="#2196F3" />
+            <MaterialCommunityIcons name="swap-horizontal" size={20} color="#4CAF50" />
             <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>{t('summary.settlements')}</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -3027,13 +3027,13 @@ export default function EventDetailScreen() {
 
       {/* Consolidaciones Aplicadas - Solo mostrar cuando hay consolidaciones */}
       {consolidationAssignments.length > 0 && (
-        <Card style={{ marginBottom: 16, marginHorizontal: 16, borderTopWidth: 4, borderTopColor: '#2196F3', overflow: 'hidden' }}>
+        <Card style={{ marginBottom: 16, marginHorizontal: 16, borderTopWidth: 4, borderTopColor: '#4CAF50', overflow: 'hidden' }}>
           <TouchableOpacity
             onPress={() => setIsConsolidationSectionExpanded(v => !v)}
             activeOpacity={0.7}
             style={{ flexDirection: 'row', alignItems: 'center', marginBottom: isConsolidationSectionExpanded ? 12 : 0, gap: 8 }}
           >
-            <MaterialCommunityIcons name="link-variant" size={20} color="#2196F3" />
+            <MaterialCommunityIcons name="link-variant" size={20} color="#4CAF50" />
             <Text style={[styles.sectionTitle, { marginBottom: 0, flex: 1 }]}>{t('consolidation.title')}</Text>
             <MaterialCommunityIcons
               name={isConsolidationSectionExpanded ? 'chevron-up' : 'chevron-down'}
@@ -3301,13 +3301,13 @@ export default function EventDetailScreen() {
         }, {} as Record<string, {name: string, total: number, percentage: number}>);
 
         return Object.keys(participantExpenses).length > 0 && (
-          <Card style={{ marginBottom: 16, marginHorizontal: 16, borderTopWidth: 4, borderTopColor: '#2196F3', overflow: 'hidden' }}>
+          <Card style={{ marginBottom: 16, marginHorizontal: 16, borderTopWidth: 4, borderTopColor: '#4CAF50', overflow: 'hidden' }}>
             <TouchableOpacity
               style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
               onPress={() => setIsParticipantStatsExpanded(v => !v)}
               activeOpacity={0.7}
             >
-              <MaterialCommunityIcons name="account-group" size={18} color="#2196F3" />
+              <MaterialCommunityIcons name="account-group" size={18} color="#4CAF50" />
               <Text style={[styles.sectionTitle, { marginBottom: 0, flex: 1 }]}>{t('expenses.byParticipant')}</Text>
               <MaterialCommunityIcons
                 name={isParticipantStatsExpanded ? 'chevron-up' : 'chevron-down'}
@@ -3344,13 +3344,13 @@ export default function EventDetailScreen() {
 
       {/* Categorías de gastos */}
       {Object.keys(eventStats.categoryTotals).length > 0 && (
-        <Card style={{ marginBottom: 16, marginHorizontal: 16, borderTopWidth: 4, borderTopColor: '#2196F3', overflow: 'hidden' }}>
+        <Card style={{ marginBottom: 16, marginHorizontal: 16, borderTopWidth: 4, borderTopColor: '#4CAF50', overflow: 'hidden' }}>
           <TouchableOpacity
             style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
             onPress={() => setIsCategoryStatsExpanded(v => !v)}
             activeOpacity={0.7}
           >
-            <MaterialCommunityIcons name="tag-outline" size={18} color="#2196F3" />
+            <MaterialCommunityIcons name="tag-outline" size={18} color="#4CAF50" />
             <Text style={[styles.sectionTitle, { marginBottom: 0, flex: 1 }]}>{t('expenses.byCategory')}</Text>
             <MaterialCommunityIcons
               name={isCategoryStatsExpanded ? 'chevron-up' : 'chevron-down'}

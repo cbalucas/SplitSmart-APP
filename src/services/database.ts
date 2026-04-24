@@ -390,6 +390,20 @@ class DatabaseService {
         console.error('❌ Error in is_locked migration:', error);
       }
 
+      // Migration: Add is_express column to events table
+      try {
+        const eventsInfo2 = await this.db.getAllAsync(`PRAGMA table_info(events)`);
+        const hasIsExpress = eventsInfo2.some((col: any) => col.name === 'is_express');
+        if (!hasIsExpress) {
+          await this.db.execAsync('ALTER TABLE events ADD COLUMN is_express INTEGER NOT NULL DEFAULT 0');
+          console.log('✅ Migration: Added is_express column to events table');
+        } else {
+          console.log('⚠️ Column is_express already exists in events table');
+        }
+      } catch (error: any) {
+        console.error('❌ Error in is_express migration:', error);
+      }
+
     } catch (error) {
       console.error('❌ Error running migrations:', error);
     }
@@ -576,6 +590,7 @@ class DatabaseService {
           closed_at TEXT,
           completed_at TEXT,
           is_locked INTEGER NOT NULL DEFAULT 0,
+          is_express INTEGER NOT NULL DEFAULT 0,
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL
         )
@@ -809,8 +824,8 @@ class DatabaseService {
 
     try {
       await this.db.runAsync(
-        `INSERT INTO events (id, name, description, start_date, location, currency, status, type, category, creator_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO events (id, name, description, start_date, location, currency, status, type, category, creator_id, is_express, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           event.id,
           event.name,
@@ -822,6 +837,7 @@ class DatabaseService {
           event.type,
           event.category || null,
           event.creatorId || null,
+          event.isExpress ? 1 : 0,
           event.createdAt,
           event.updatedAt
         ]
@@ -941,6 +957,7 @@ class DatabaseService {
         closedAt: row.closed_at,
         completedAt: row.completed_at,
         isLocked: row.is_locked === 1 || row.is_locked === true,
+        isExpress: row.is_express === 1 || row.is_express === true,
         createdAt: row.created_at,
         updatedAt: row.updated_at
       }));
@@ -983,6 +1000,7 @@ class DatabaseService {
         closedAt: result.closed_at,
         completedAt: result.completed_at,
         isLocked: result.is_locked === 1 || result.is_locked === true,
+        isExpress: result.is_express === 1 || result.is_express === true,
         createdAt: result.created_at,
         updatedAt: result.updated_at
       };

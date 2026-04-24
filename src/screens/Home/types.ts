@@ -8,6 +8,7 @@ export interface HomeEventData {
   currency: string;
   status: 'active' | 'closed' | 'completed' | 'archived';
   isLocked?: boolean;
+  isExpress?: boolean;
   settlementCount?: number;
   paidSettlementCount?: number;
 }

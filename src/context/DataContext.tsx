@@ -114,31 +114,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const initializeData = useCallback(async () => {
     setLoading(true);
     try {
-      console.log('🔄 DataContext: Initializing database service...');
+      console.log('ðŸ”„ DataContext: Initializing database service...');
       await databaseService.init();
-      console.log('✅ DataContext: Database service initialized');
+      console.log('âœ… DataContext: Database service initialized');
       
       // Load initial data
-      console.log('📥 DataContext: Loading initial data...');
+      console.log('ðŸ“¥ DataContext: Loading initial data...');
       const [eventsData, participantsData, expensesData, splitsData] = await Promise.all([
         databaseService.getEvents(),
         databaseService.getParticipants(),
         databaseService.getExpenses(),
         databaseService.getSplits().catch((error) => {
-          console.error('❌ Error loading initial splits, using empty array:', error);
+          console.error('âŒ Error loading initial splits, using empty array:', error);
           return [];
         })
       ]);
       
-      console.log(`✅ DataContext: Loaded ${eventsData.length} events, ${participantsData.length} participants, ${expensesData.length} expenses, ${splitsData.length} splits`);
+      console.log(`âœ… DataContext: Loaded ${eventsData.length} events, ${participantsData.length} participants, ${expensesData.length} expenses, ${splitsData.length} splits`);
       
       setEvents(eventsData);
       setParticipants(participantsData);
       setExpenses(expensesData);
       setSplits(splitsData);
-      console.log('✅ DataContext initialized with SQLite');
+      console.log('âœ… DataContext initialized with SQLite');
     } catch (error) {
-      console.error('❌ Error initializing DataContext:', error);
+      console.error('âŒ Error initializing DataContext:', error);
       // Set empty data on error to prevent crashes
       setEvents([]);
       setParticipants([]);
@@ -154,7 +154,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         databaseService.getParticipants(),
         databaseService.getExpenses(),
         databaseService.getSplits().catch((error) => {
-          console.error('❌ Error loading splits, using empty array:', error);
+          console.error('âŒ Error loading splits, using empty array:', error);
           return [];
         })
       ]);
@@ -164,9 +164,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setExpenses(expensesData);
       setSplits(splitsData);
       
-      console.log(`📊 Data refreshed: ${eventsData.length} events, ${participantsData.length} participants, ${expensesData.length} expenses, ${splitsData.length} splits`);
+      console.log(`ðŸ“Š Data refreshed: ${eventsData.length} events, ${participantsData.length} participants, ${expensesData.length} expenses, ${splitsData.length} splits`);
     } catch (error) {
-      console.error('❌ Error refreshing data:', error);
+      console.error('âŒ Error refreshing data:', error);
     }
   }, []);
 
@@ -184,15 +184,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
         type: eventData.type || 'private',
         category: eventData.category,
         creatorId: eventData.creatorId,
+        isExpress: eventData.isExpress === true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
 
       await databaseService.createEvent(newEvent);
       await refreshData();
-      console.log('✅ Event added successfully:', newEvent.name);
+      console.log('âœ… Event added successfully:', newEvent.name);
     } catch (error) {
-      console.error('❌ Error adding event:', error);
+      console.error('âŒ Error adding event:', error);
       throw error;
     }
   }, [refreshData]);
@@ -205,9 +206,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       };
       await databaseService.updateEvent(id, updatedData);
       await refreshData();
-      console.log('✅ Event updated successfully:', id);
+      console.log('âœ… Event updated successfully:', id);
     } catch (error) {
-      console.error('❌ Error updating event:', error);
+      console.error('âŒ Error updating event:', error);
       throw error;
     }
   }, [refreshData]);
@@ -216,9 +217,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       await databaseService.deleteEvent(id);
       await refreshData();
-      console.log('✅ Event deleted successfully:', id);
+      console.log('âœ… Event deleted successfully:', id);
     } catch (error) {
-      console.error('❌ Error deleting event:', error);
+      console.error('âŒ Error deleting event:', error);
       throw error;
     }
   }, [refreshData]);
@@ -228,15 +229,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       await databaseService.createParticipant(participant);
       await refreshData();
-      console.log('✅ Participant added successfully:', participant.name);
+      console.log('âœ… Participant added successfully:', participant.name);
     } catch (error: any) {
       // If it's a UNIQUE constraint error, the participant already exists
       if (error.message?.includes('UNIQUE constraint failed: participants.id')) {
-        console.log('⚠️ Participant already exists:', participant.name);
+        console.log('âš ï¸ Participant already exists:', participant.name);
         await refreshData(); // Still refresh to ensure data is up to date
         return;
       }
-      console.error('❌ Error adding participant:', error);
+      console.error('âŒ Error adding participant:', error);
       throw error;
     }
   }, [refreshData]);
@@ -251,7 +252,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (!participantError.message?.includes('UNIQUE constraint failed: participants.id')) {
           throw participantError;
         }
-        console.log('⚠️ Participant already exists, continuing with event association');
+        console.log('âš ï¸ Participant already exists, continuing with event association');
       }
       
       // Then create the event-participant relationship
@@ -271,7 +272,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (!relationError.message?.includes('UNIQUE constraint failed: event_participants')) {
           throw relationError;
         }
-        console.log('⚠️ Participant already associated with event, skipping');
+        console.log('âš ï¸ Participant already associated with event, skipping');
       }
 
       // Add participant to all existing expenses and recalculate splits
@@ -283,19 +284,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (expenses.length > 0) {
         const existingSettlements = await databaseService.getSettlementsByEvent(eventId);
         if (existingSettlements.length > 0) {
-          console.log('🔄 Clearing', existingSettlements.length, 'settlements due to new participant with existing expenses');
+          console.log('ðŸ”„ Clearing', existingSettlements.length, 'settlements due to new participant with existing expenses');
           await databaseService.deleteSettlementsByEvent(eventId);
         }
         
-        // 🔄 RECALCULAR LIQUIDACIONES CON EL NUEVO PARTICIPANTE
+        // ðŸ”„ RECALCULAR LIQUIDACIONES CON EL NUEVO PARTICIPANTE
         await databaseService.recalculateSettlementsForEvent(eventId);
-        console.log('✅ Settlements recalculated after adding participant');
+        console.log('âœ… Settlements recalculated after adding participant');
       }
       
       await refreshData();
-      console.log('✅ Participant added to event successfully:', participant.name);
+      console.log('âœ… Participant added to event successfully:', participant.name);
     } catch (error) {
-      console.error('❌ Error adding participant to event:', error);
+      console.error('âŒ Error adding participant to event:', error);
       throw error;
     }
   }, [refreshData]);
@@ -320,7 +321,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (!relationError.message?.includes('UNIQUE constraint failed: event_participants')) {
           throw relationError;
         }
-        console.log('⚠️ Participant already associated with event');
+        console.log('âš ï¸ Participant already associated with event');
         return; // Don't throw error, just return
       }
 
@@ -333,19 +334,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (expenses.length > 0) {
         const existingSettlements = await databaseService.getSettlementsByEvent(eventId);
         if (existingSettlements.length > 0) {
-          console.log('🔄 Clearing', existingSettlements.length, 'existing settlements due to existing participant');
+          console.log('ðŸ”„ Clearing', existingSettlements.length, 'existing settlements due to existing participant');
           await databaseService.deleteSettlementsByEvent(eventId);
         }
         
-        // 🔄 RECALCULAR LIQUIDACIONES CON EL PARTICIPANTE AGREGADO
+        // ðŸ”„ RECALCULAR LIQUIDACIONES CON EL PARTICIPANTE AGREGADO
         await databaseService.recalculateSettlementsForEvent(eventId);
-        console.log('✅ Settlements recalculated after adding existing participant');
+        console.log('âœ… Settlements recalculated after adding existing participant');
       }
       
       await refreshData();
-      console.log('✅ Existing participant added to event successfully:', participant.name);
+      console.log('âœ… Existing participant added to event successfully:', participant.name);
     } catch (error) {
-      console.error('❌ Error adding existing participant to event:', error);
+      console.error('âŒ Error adding existing participant to event:', error);
       throw error;
     }
   }, [refreshData]);
@@ -354,7 +355,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       return await databaseService.getEventParticipants(eventId);
     } catch (error) {
-      console.error('❌ Error getting event participants:', error);
+      console.error('âŒ Error getting event participants:', error);
       return [];
     }
   }, []);
@@ -363,7 +364,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       return await databaseService.getFriends();
     } catch (error) {
-      console.error('❌ Error getting friends:', error);
+      console.error('âŒ Error getting friends:', error);
       return [];
     }
   }, []);
@@ -372,9 +373,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       await databaseService.updateParticipantType(id, type);
       await refreshData();
-      console.log(`✅ Participant type updated: ${type}`);
+      console.log(`âœ… Participant type updated: ${type}`);
     } catch (error) {
-      console.error('❌ Error updating participant type:', error);
+      console.error('âŒ Error updating participant type:', error);
       throw error;
     }
   }, [refreshData]);
@@ -389,9 +390,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
       
       await refreshData();
-      console.log(`✅ Participant updated successfully`);
+      console.log(`âœ… Participant updated successfully`);
     } catch (error) {
-      console.error('❌ Error updating participant:', error);
+      console.error('âŒ Error updating participant:', error);
       throw error;
     }
   }, [refreshData]);
@@ -400,9 +401,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       await databaseService.deleteParticipant(id);
       await refreshData();
-      console.log(`✅ Participant deleted successfully`);
+      console.log(`âœ… Participant deleted successfully`);
     } catch (error) {
-      console.error('❌ Error deleting participant:', error);
+      console.error('âŒ Error deleting participant:', error);
       throw error;
     }
   }, [refreshData]);
@@ -412,7 +413,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       return await databaseService.getUserProfile(userId);
     } catch (error) {
-      console.error('❌ Error getting user profile:', error);
+      console.error('âŒ Error getting user profile:', error);
       return null;
     }
   }, []);
@@ -421,7 +422,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       return await databaseService.getUserByCredential(credential);
     } catch (error) {
-      console.error('❌ Error getting user by credential:', error);
+      console.error('âŒ Error getting user by credential:', error);
       return null;
     }
   }, []);
@@ -429,9 +430,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const createUser = useCallback(async (user: any) => {
     try {
       await databaseService.createUser(user);
-      console.log('✅ User created successfully');
+      console.log('âœ… User created successfully');
     } catch (error) {
-      console.error('❌ Error creating user:', error);
+      console.error('âŒ Error creating user:', error);
       throw error;
     }
   }, []);
@@ -439,9 +440,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateUserProfile = useCallback(async (userId: string, updates: any) => {
     try {
       await databaseService.updateUserProfile(userId, updates);
-      console.log('✅ User profile updated successfully');
+      console.log('âœ… User profile updated successfully');
     } catch (error) {
-      console.error('❌ Error updating user profile:', error);
+      console.error('âŒ Error updating user profile:', error);
       throw error;
     }
   }, []);
@@ -450,7 +451,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       return await databaseService.verifyUserPassword(userId, password);
     } catch (error) {
-      console.error('❌ Error verifying user password:', error);
+      console.error('âŒ Error verifying user password:', error);
       return false;
     }
   }, []);
@@ -458,9 +459,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateUserPassword = useCallback(async (userId: string, newPassword: string) => {
     try {
       await databaseService.updateUserPassword(userId, newPassword);
-      console.log('✅ User password updated successfully');
+      console.log('âœ… User password updated successfully');
     } catch (error) {
-      console.error('❌ Error updating user password:', error);
+      console.error('âŒ Error updating user password:', error);
       throw error;
     }
   }, []);
@@ -468,9 +469,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateUserNotifications = useCallback(async (userId: string, notifications: any) => {
     try {
       await databaseService.updateUserNotifications(userId, notifications);
-      console.log('✅ User notifications updated successfully');
+      console.log('âœ… User notifications updated successfully');
     } catch (error) {
-      console.error('❌ Error updating user notifications:', error);
+      console.error('âŒ Error updating user notifications:', error);
       throw error;
     }
   }, []);
@@ -478,9 +479,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateUserPrivacy = useCallback(async (userId: string, privacy: any) => {
     try {
       await databaseService.updateUserPrivacy(userId, privacy);
-      console.log('✅ User privacy settings updated successfully');
+      console.log('âœ… User privacy settings updated successfully');
     } catch (error) {
-      console.error('❌ Error updating user privacy:', error);
+      console.error('âŒ Error updating user privacy:', error);
       throw error;
     }
   }, []);
@@ -488,26 +489,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Expense methods
   const addExpense = useCallback(async (expense: Expense, splits?: Split[]) => {
     try {
-      // Crear expense SIN recalculación automática (la haremos manualmente después)
+      // Crear expense SIN recalculaciÃ³n automÃ¡tica (la haremos manualmente despuÃ©s)
       await databaseService.createExpenseWithoutRecalculation(expense);
-      console.log('✅ Expense added successfully:', expense.description);
+      console.log('âœ… Expense added successfully:', expense.description);
       
       // Add splits if provided
       if (splits && splits.length > 0) {
         for (const split of splits) {
           await databaseService.createSplit(split);
         }
-        console.log(`✅ ${splits.length} splits added for expense ${expense.id}`);
+        console.log(`âœ… ${splits.length} splits added for expense ${expense.id}`);
         
-        // 🔄 RECALCULAR LIQUIDACIONES DESPUÉS DE CREAR TODOS LOS SPLITS
+        // ðŸ”„ RECALCULAR LIQUIDACIONES DESPUÃ‰S DE CREAR TODOS LOS SPLITS
         await databaseService.recalculateSettlementsForEvent(expense.eventId);
-        console.log('✅ Settlements recalculated after creating splits');
+        console.log('âœ… Settlements recalculated after creating splits');
       }
       
       // Refresh data to update UI
       await refreshData();
     } catch (error) {
-      console.error('❌ Error adding expense:', error);
+      console.error('âŒ Error adding expense:', error);
       throw error;
     }
   }, [refreshData]);
@@ -516,7 +517,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       return await databaseService.getExpensesByEvent(eventId);
     } catch (error) {
-      console.error('❌ Error getting expenses by event:', error);
+      console.error('âŒ Error getting expenses by event:', error);
       return [];
     }
   }, []);
@@ -525,7 +526,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       return await databaseService.getSplitsByEvent(eventId);
     } catch (error) {
-      console.error('❌ Error getting splits by event:', error);
+      console.error('âŒ Error getting splits by event:', error);
       return [];
     }
   }, []);
@@ -534,40 +535,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const createPayment = useCallback(async (payment: Payment) => {
     try {
       await databaseService.createPayment(payment);
-      console.log('✅ Payment created successfully');
+      console.log('âœ… Payment created successfully');
       
-      // Enviar notificación WhatsApp al acreedor (quien recibe el pago)
+      // Enviar notificaciÃ³n WhatsApp al acreedor (quien recibe el pago)
       try {
-        console.log('🔔 Checking payment notification for recipient:', payment.toParticipantId);
+        console.log('ðŸ”” Checking payment notification for recipient:', payment.toParticipantId);
         
         const recipient = await databaseService.getParticipantById(payment.toParticipantId);
         const payer = await databaseService.getParticipantById(payment.fromParticipantId);
         const event = await databaseService.getEventById(payment.eventId);
         
-        console.log('👤 Recipient:', recipient?.name, 'Phone:', recipient?.phone);
-        console.log('👤 Payer:', payer?.name);
-        console.log('📅 Event:', event?.name);
+        console.log('ðŸ‘¤ Recipient:', recipient?.name, 'Phone:', recipient?.phone);
+        console.log('ðŸ‘¤ Payer:', payer?.name);
+        console.log('ðŸ“… Event:', event?.name);
         
         if (recipient && payer && event) {
           // Verificar si el usuario ACTUAL (no el recipient) tiene notificaciones activadas
-          // La notificación se envía si el usuario actual quiere recibir notificaciones de pagos
+          // La notificaciÃ³n se envÃ­a si el usuario actual quiere recibir notificaciones de pagos
           let shouldNotify = false;
           
           try {
-            // Obtener el perfil del usuario que está logueado actualmente
+            // Obtener el perfil del usuario que estÃ¡ logueado actualmente
             const currentUserId = user?.id || 'demo-user';
             const currentUserProfile = await databaseService.getUserProfile(currentUserId);
-            console.log('🔔 Current user profile notification setting:', currentUserProfile?.notifications_payment_received);
-            console.log('👤 Logged user ID:', currentUserId);
+            console.log('ðŸ”” Current user profile notification setting:', currentUserProfile?.notifications_payment_received);
+            console.log('ðŸ‘¤ Logged user ID:', currentUserId);
             shouldNotify = currentUserProfile?.notifications_payment_received === 1;
           } catch (profileError) {
-            console.log('⚠️ Could not get logged user profile, assuming no notifications');
+            console.log('âš ï¸ Could not get logged user profile, assuming no notifications');
             shouldNotify = false;
           }
           
           if (shouldNotify) {
             if (recipient.phone) {
-              console.log('📲 Sending WhatsApp notification...');
+              console.log('ðŸ“² Sending WhatsApp notification...');
               await notificationService.notifyPaymentReceived({
                 payerName: payer.name,
                 amount: payment.amount,
@@ -575,22 +576,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 recipientPhone: recipient.phone,
                 receiptImage: payment.receiptImage
               });
-              console.log('✅ WhatsApp notification sent successfully');
+              console.log('âœ… WhatsApp notification sent successfully');
             } else {
-              console.log('⚠️ Recipient has no phone number for WhatsApp notification');
+              console.log('âš ï¸ Recipient has no phone number for WhatsApp notification');
             }
           } else {
-            console.log('🔕 Recipient notifications disabled or not applicable');
+            console.log('ðŸ”• Recipient notifications disabled or not applicable');
           }
         } else {
-          console.log('❌ Missing data for notification - Recipient:', !!recipient, 'Payer:', !!payer, 'Event:', !!event);
+          console.log('âŒ Missing data for notification - Recipient:', !!recipient, 'Payer:', !!payer, 'Event:', !!event);
         }
       } catch (notificationError) {
-        console.log('⚠️ Payment notification failed:', notificationError);
-        // No fallar si la notificación falla
+        console.log('âš ï¸ Payment notification failed:', notificationError);
+        // No fallar si la notificaciÃ³n falla
       }
     } catch (error) {
-      console.error('❌ Error creating payment:', error);
+      console.error('âŒ Error creating payment:', error);
       throw error;
     }
   }, []);
@@ -598,9 +599,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updatePayment = useCallback(async (paymentId: string, updates: Partial<Payment>) => {
     try {
       await databaseService.updatePayment(paymentId, updates);
-      console.log('✅ Payment updated successfully');
+      console.log('âœ… Payment updated successfully');
     } catch (error) {
-      console.error('❌ Error updating payment:', error);
+      console.error('âŒ Error updating payment:', error);
       throw error;
     }
   }, []);
@@ -609,7 +610,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       return await databaseService.getPaymentsByEvent(eventId);
     } catch (error) {
-      console.error('❌ Error getting payments by event:', error);
+      console.error('âŒ Error getting payments by event:', error);
       return [];
     }
   }, []);
@@ -621,9 +622,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setEvents([]);
       setParticipants([]);
       setExpenses([]);
-      console.log('✅ All data cleared successfully');
+      console.log('âœ… All data cleared successfully');
     } catch (error) {
-      console.error('❌ Error clearing data:', error);
+      console.error('âŒ Error clearing data:', error);
       throw error;
     }
   }, []);
@@ -634,9 +635,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setEvents([]);
       setParticipants([]);
       setExpenses([]);
-      console.log('✅ Database reset successfully');
+      console.log('âœ… Database reset successfully');
     } catch (error) {
-      console.error('❌ Error resetting database:', error);
+      console.error('âŒ Error resetting database:', error);
       throw error;
     }
   }, []);
@@ -647,9 +648,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setEvents([]);
       setParticipants([]);
       setExpenses([]);
-      console.log('✅ Database nuked successfully');
+      console.log('âœ… Database nuked successfully');
     } catch (error) {
-      console.error('❌ Error nuking database:', error);
+      console.error('âŒ Error nuking database:', error);
       throw error;
     }
   }, []);
@@ -657,24 +658,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const exportData = useCallback(async () => {
     try {
       const exportedData = await databaseService.exportData();
-      console.log('✅ Data exported successfully');
+      console.log('âœ… Data exported successfully');
       return exportedData;
     } catch (error) {
-      console.error('❌ Export error:', error);
+      console.error('âŒ Export error:', error);
       throw error;
     }
   }, []);
 
   const importData = useCallback(async (importDataPayload: any): Promise<boolean> => {
     try {
-      console.log('📥 Starting data import to database...');
+      console.log('ðŸ“¥ Starting data import to database...');
       
       const data = importDataPayload.data || {};
       
       // Import in the correct order due to foreign key constraints
       // 1. Users first (set skip_password = 1 for imported users)
       if (data.users && data.users.length > 0) {
-        console.log(`📥 Importing ${data.users.length} users...`);
+        console.log(`ðŸ“¥ Importing ${data.users.length} users...`);
         for (const user of data.users) {
           try {
             // Prepare required fields with safe defaults
@@ -702,7 +703,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               updated_at: user.updated_at || new Date().toISOString()
             };
             
-            console.log(`📥 Importing user: ${userData.username} (${userData.email})`);
+            console.log(`ðŸ“¥ Importing user: ${userData.username} (${userData.email})`);
             
             // First, check if username already exists and make it unique if needed
             let finalUsername = userData.username;
@@ -743,7 +744,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               ]
             );
             
-            console.log(`✅ User imported: ${userData.username}`);
+            console.log(`âœ… User imported: ${userData.username}`);
             
             // Import user notifications and privacy settings with separate updates
             const updates = [];
@@ -768,13 +769,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
                   [update.value, user.id]
                 );
               } catch (updateError) {
-                console.warn(`⚠️ Could not update ${update.field} for user ${user.id}:`, updateError);
+                console.warn(`âš ï¸ Could not update ${update.field} for user ${user.id}:`, updateError);
               }
             }
             
           } catch (userError) {
-            console.error(`❌ Error importing user ${user.id} (${user.email}):`, userError);
-            console.error('❌ User data:', user);
+            console.error(`âŒ Error importing user ${user.id} (${user.email}):`, userError);
+            console.error('âŒ User data:', user);
             throw new Error(`Failed to import user ${user.email}: ${userError.message}`);
           }
         }
@@ -782,7 +783,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       
       // 2. Events
       if (data.events && data.events.length > 0) {
-        console.log(`📥 Importing ${data.events.length} events...`);
+        console.log(`ðŸ“¥ Importing ${data.events.length} events...`);
         for (const event of data.events) {
           try {
             const eventData = {
@@ -818,7 +819,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               ]
             );
           } catch (eventError) {
-            console.error(`❌ Error importing event ${event.id}:`, eventError);
+            console.error(`âŒ Error importing event ${event.id}:`, eventError);
             throw new Error(`Failed to import event ${event.name || event.id}: ${eventError.message}`);
           }
         }
@@ -826,7 +827,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       
       // 3. Participants
       if (data.participants && data.participants.length > 0) {
-        console.log(`📥 Importing ${data.participants.length} participants...`);
+        console.log(`ðŸ“¥ Importing ${data.participants.length} participants...`);
         for (const participant of data.participants) {
           try {
             const participantData = {
@@ -853,7 +854,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               ]
             );
           } catch (participantError) {
-            console.error(`❌ Error importing participant ${participant.id}:`, participantError);
+            console.error(`âŒ Error importing participant ${participant.id}:`, participantError);
             throw new Error(`Failed to import participant ${participant.name || participant.id}: ${participantError.message}`);
           }
         }
@@ -861,7 +862,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       
       // 4. Event Participants
       if (data.event_participants && data.event_participants.length > 0) {
-        console.log(`📥 Importing ${data.event_participants.length} event participants...`);
+        console.log(`ðŸ“¥ Importing ${data.event_participants.length} event participants...`);
         for (const ep of data.event_participants) {
           try {
             const epData = {
@@ -880,7 +881,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               [epData.id, epData.event_id, epData.participant_id, epData.role, epData.balance, epData.joined_at]
             );
           } catch (epError) {
-            console.error(`❌ Error importing event participant ${ep.id}:`, epError);
+            console.error(`âŒ Error importing event participant ${ep.id}:`, epError);
             throw new Error(`Failed to import event participant ${ep.id}: ${epError.message}`);
           }
         }
@@ -888,7 +889,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       
       // 5. Expenses
       if (data.expenses && data.expenses.length > 0) {
-        console.log(`📥 Importing ${data.expenses.length} expenses...`);
+        console.log(`ðŸ“¥ Importing ${data.expenses.length} expenses...`);
         for (const expense of data.expenses) {
           try {
             const expenseData = {
@@ -918,7 +919,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               ]
             );
           } catch (expenseError) {
-            console.error(`❌ Error importing expense ${expense.id}:`, expenseError);
+            console.error(`âŒ Error importing expense ${expense.id}:`, expenseError);
             throw new Error(`Failed to import expense ${expense.description || expense.id}: ${expenseError.message}`);
           }
         }
@@ -926,7 +927,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       
       // 6. Splits
       if (data.splits && data.splits.length > 0) {
-        console.log(`📥 Importing ${data.splits.length} splits...`);
+        console.log(`ðŸ“¥ Importing ${data.splits.length} splits...`);
         for (const split of data.splits) {
           try {
             const splitData = {
@@ -952,7 +953,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               ]
             );
           } catch (splitError) {
-            console.error(`❌ Error importing split ${split.id}:`, splitError);
+            console.error(`âŒ Error importing split ${split.id}:`, splitError);
             throw new Error(`Failed to import split ${split.id}: ${splitError.message}`);
           }
         }
@@ -960,7 +961,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       
       // 7. Settlements (nueva tabla unificada)
       if (data.settlements && data.settlements.length > 0) {
-        console.log(`📥 Importing ${data.settlements.length} settlements...`);
+        console.log(`ðŸ“¥ Importing ${data.settlements.length} settlements...`);
         for (const settlement of data.settlements) {
           try {
             const settlementData = {
@@ -994,7 +995,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               ]
             );
           } catch (settlementError) {
-            console.error(`❌ Error importing settlement ${settlement.id}:`, settlementError);
+            console.error(`âŒ Error importing settlement ${settlement.id}:`, settlementError);
             throw new Error(`Failed to import settlement ${settlement.id}: ${settlementError.message}`);
           }
         }
@@ -1002,7 +1003,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       // 8. Handle legacy payments format by converting to settlements
       if (data.payments && data.payments.length > 0 && (!data.settlements || data.settlements.length === 0)) {
-        console.log(`📥 Converting ${data.payments.length} legacy payments to settlements...`);
+        console.log(`ðŸ“¥ Converting ${data.payments.length} legacy payments to settlements...`);
         for (const payment of data.payments) {
           try {
             const settlementData = {
@@ -1036,7 +1037,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               ]
             );
           } catch (paymentError) {
-            console.error(`❌ Error converting payment ${payment.id}:`, paymentError);
+            console.error(`âŒ Error converting payment ${payment.id}:`, paymentError);
             throw new Error(`Failed to convert payment ${payment.id}: ${paymentError.message}`);
           }
         }
@@ -1044,7 +1045,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       
       // 9. Import consolidations (consolidation_assignments)
       if (data.consolidations && data.consolidations.length > 0) {
-        console.log(`📥 Importing ${data.consolidations.length} consolidations...`);
+        console.log(`ðŸ“¥ Importing ${data.consolidations.length} consolidations...`);
         for (const consolidation of data.consolidations) {
           try {
             const consolidationData = {
@@ -1058,7 +1059,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               updated_at: consolidation.updatedAt || consolidation.updated_at || new Date().toISOString()
             };
 
-            console.log(`📥 Importing consolidation: ${consolidationData.payer_name} -> ${consolidationData.debtor_name}`);
+            console.log(`ðŸ“¥ Importing consolidation: ${consolidationData.payer_name} -> ${consolidationData.debtor_name}`);
 
             await databaseService.db!.runAsync(
               `INSERT OR REPLACE INTO consolidation_assignments (
@@ -1072,22 +1073,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
               ]
             );
 
-            console.log(`✅ Consolidation imported: ${consolidationData.payer_name} -> ${consolidationData.debtor_name}`);
+            console.log(`âœ… Consolidation imported: ${consolidationData.payer_name} -> ${consolidationData.debtor_name}`);
           } catch (consolidationError) {
-            console.error(`❌ Error importing consolidation ${consolidation.id}:`, consolidationError);
+            console.error(`âŒ Error importing consolidation ${consolidation.id}:`, consolidationError);
             throw new Error(`Failed to import consolidation ${consolidation.id}: ${consolidationError.message}`);
           }
         }
       }
       
-      console.log('✅ All data imported successfully');
+      console.log('âœ… All data imported successfully');
       
       // Refresh data after import
       await refreshData();
       
       return true;
     } catch (error) {
-      console.error('❌ Import error:', error);
+      console.error('âŒ Import error:', error);
       throw error;
     }
   }, [refreshData]);
@@ -1096,9 +1097,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       await databaseService.updateExpense(expenseId, expense, splits);
       await refreshData();
-      console.log('✅ Expense updated successfully');
+      console.log('âœ… Expense updated successfully');
     } catch (error) {
-      console.error('❌ Error updating expense:', error);
+      console.error('âŒ Error updating expense:', error);
       throw error;
     }
   }, [refreshData]);
@@ -1107,9 +1108,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       await databaseService.deleteExpense(expenseId);
       await refreshData();
-      console.log('✅ Expense deleted successfully');
+      console.log('âœ… Expense deleted successfully');
     } catch (error) {
-      console.error('❌ Error deleting expense:', error);
+      console.error('âŒ Error deleting expense:', error);
       throw error;
     }
   }, [refreshData]);
@@ -1124,19 +1125,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (expenses.length > 0) {
         const existingSettlements = await databaseService.getSettlementsByEvent(eventId);
         if (existingSettlements.length > 0) {
-          console.log('🔄 Clearing', existingSettlements.length, 'existing settlements due to participant removal');
+          console.log('ðŸ”„ Clearing', existingSettlements.length, 'existing settlements due to participant removal');
           await databaseService.deleteSettlementsByEvent(eventId);
         }
         
-        // 🔄 RECALCULAR LIQUIDACIONES DESPUÉS DE REMOVER PARTICIPANTE
+        // ðŸ”„ RECALCULAR LIQUIDACIONES DESPUÃ‰S DE REMOVER PARTICIPANTE
         await databaseService.recalculateSettlementsForEvent(eventId);
-        console.log('✅ Settlements recalculated after removing participant');
+        console.log('âœ… Settlements recalculated after removing participant');
       }
       
       await refreshData();
-      console.log('✅ Participant removed successfully');
+      console.log('âœ… Participant removed successfully');
     } catch (error) {
-      console.error('❌ Error removing participant:', error);
+      console.error('âŒ Error removing participant:', error);
       throw error;
     }
   }, [refreshData]);
@@ -1146,10 +1147,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const secondaryId = await databaseService.addSecondaryParticipant(eventId, primaryParticipantId, name);
       await databaseService.recalculateSettlementsForEvent(eventId);
       await refreshData();
-      console.log('✅ Secondary participant added:', name);
+      console.log('âœ… Secondary participant added:', name);
       return secondaryId;
     } catch (error) {
-      console.error('❌ Error adding secondary participant:', error);
+      console.error('âŒ Error adding secondary participant:', error);
       throw error;
     }
   }, [refreshData]);
@@ -1159,9 +1160,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await databaseService.removeSecondaryParticipant(eventId, secondaryParticipantId);
       await databaseService.recalculateSettlementsForEvent(eventId);
       await refreshData();
-      console.log('✅ Secondary participant removed');
+      console.log('âœ… Secondary participant removed');
     } catch (error) {
-      console.error('❌ Error removing secondary participant:', error);
+      console.error('âŒ Error removing secondary participant:', error);
       throw error;
     }
   }, [refreshData]);

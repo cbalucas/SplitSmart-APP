@@ -6,7 +6,9 @@ import {
   RefreshControl,
   TouchableOpacity,
   TextInput,
-  StyleSheet
+  Image,
+  StyleSheet,
+  Animated,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showAlert } from '../../services/alertService';
@@ -61,6 +63,22 @@ const HomeScreen: React.FC = () => {
   const metricsRef = useRef<View>(null);
   const eventsRef = useRef<View>(null);
   const fabRef = useRef<View>(null);
+  const [fabsExpanded, setFabsExpanded] = useState(true);
+  const [fabsVisible, setFabsVisible] = useState(true);
+  const fabsAnim = useRef(new Animated.Value(1)).current;
+
+  const toggleFabs = () => {
+    const expanding = !fabsExpanded;
+    if (expanding) setFabsVisible(true);
+    Animated.timing(fabsAnim, {
+      toValue: expanding ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished && !expanding) setFabsVisible(false);
+    });
+    setFabsExpanded(expanding);
+  };
 
   // Cargar participantes, gastos y liquidaciones para cada evento
   const loadEventCounts = useCallback(async () => {
@@ -155,6 +173,7 @@ const HomeScreen: React.FC = () => {
       currency: event.currency,
       status: event.status as 'active' | 'closed' | 'completed' | 'archived',
       isLocked: event.isLocked === true,
+      isExpress: event.isExpress === true,
       type: event.type as 'public' | 'private',
       participantCount: eventParticipants[event.id] || 0,
       expenseCount: eventExpenses[event.id] || 0,
@@ -353,6 +372,10 @@ const HomeScreen: React.FC = () => {
     (navigation as any).navigate('CreateEvent');
   };
 
+  const handleExpressEvent = () => {
+    (navigation as any).navigate('ExpressEvent');
+  };
+
   const handleProfilePress = () => {
     (navigation as any).navigate('ProfileScreen');
   };
@@ -490,29 +513,58 @@ const HomeScreen: React.FC = () => {
 
         {/* Floating Action Buttons */}
         <View ref={fabRef} collapsable={false} style={styles.fabContainer}>
-          {/* Botón Crear Evento */}
-          <TouchableOpacity
-            style={styles.fab}
-            onPress={handleCreateEvent}
-            activeOpacity={0.8}
-          >
+          {/* FABs secundarios (animados, se eliminan del layout al colapsar) */}
+          {fabsVisible && (
+            <Animated.View style={{ alignItems: 'center', gap: 6, opacity: fabsAnim, transform: [{ scaleY: fabsAnim }, { translateY: fabsAnim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }] }}>
+              {/* Botón SplitExpress */}
+              <TouchableOpacity
+                style={[styles.fab, styles.expressEventFab]}
+                onPress={handleExpressEvent}
+                activeOpacity={0.8}
+              >
+                <Image
+                  source={require('../../../assets/splitsmart/Splitty_Name.png')}
+                  style={{ width: 78, height: 78, resizeMode: 'contain' }}
+                />
+              </TouchableOpacity>
+
+              {/* Botón Crear Evento */}
+              <TouchableOpacity
+                style={styles.fab}
+                onPress={handleCreateEvent}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons
+                  name="plus"
+                  size={28}
+                  color={theme.colors.onPrimary}
+                />
+              </TouchableOpacity>
+
+              {/* Botón Perfil */}
+              <TouchableOpacity
+                style={[styles.fab, styles.profileFab]}
+                onPress={handleProfilePress}
+                activeOpacity={0.8}
+              >
+                <UserAvatar
+                  size={48}
+                  onPress={handleProfilePress}
+                />
+              </TouchableOpacity>
+            </Animated.View>
+          )}
+
+          {/* Botón Toggle — siempre abajo, forma de píldora */}
+          <TouchableOpacity style={styles.fabToggle} onPress={toggleFabs} activeOpacity={0.8}>
             <MaterialCommunityIcons
-              name="plus"
-              size={28}
+              name={fabsExpanded ? 'chevron-down' : 'chevron-up'}
+              size={18}
               color={theme.colors.onPrimary}
             />
-          </TouchableOpacity>
-
-          {/* Botón Perfil */}
-          <TouchableOpacity
-            style={[styles.fab, styles.profileFab]}
-            onPress={handleProfilePress}
-            activeOpacity={0.8}
-          >
-            <UserAvatar
-              size={48}
-              onPress={handleProfilePress}
-            />
+            <Text style={{ color: theme.colors.onPrimary, fontSize: 13, fontWeight: '600' }}>
+              {fabsExpanded ? 'Contraer' : 'Desplegar'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -525,8 +577,53 @@ const HomeScreen: React.FC = () => {
           { ref: headerRef,  titleKey: 'tour.home.header.title',  descKey: 'tour.home.header.desc',  popupPosition: 'below'  },
           { ref: searchRef,  titleKey: 'tour.home.search.title',  descKey: 'tour.home.search.desc',  popupPosition: 'below'  },
           { ref: metricsRef, titleKey: 'tour.home.metrics.title', descKey: 'tour.home.metrics.desc', popupPosition: 'below'  },
-          { ref: eventsRef, titleKey: 'tour.home.events.title', descKey: 'tour.home.events.desc', popupPosition: 'center' },
-          { ref: fabRef,     titleKey: 'tour.home.fabs.title',    descKey: 'tour.home.fabs.desc',    popupPosition: 'above'  },
+          { ref: eventsRef,  titleKey: 'tour.home.events.title',  descKey: 'tour.home.events.desc',  popupPosition: 'center' },
+          {
+            ref: fabRef,
+            titleKey: 'tour.home.fabs.title',
+            descKey: 'tour.home.fabs.desc',
+            popupPosition: 'above',
+            descContent: (
+              <View style={{ gap: 10, marginTop: 4 }}>
+                {/* Splitty */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Image
+                    source={require('../../../assets/splitsmart/Splitty.png')}
+                    style={{ width: 28, height: 28, resizeMode: 'contain' }}
+                  />
+                  <Text style={{ flex: 1, fontSize: 13, color: theme.colors.onSurfaceVariant ?? theme.colors.onSurface }}>
+                    {t.tourFabs.splitty}
+                  </Text>
+                </View>
+                {/* Agregar evento */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: theme.colors.primary, alignItems: 'center', justifyContent: 'center' }}>
+                    <MaterialCommunityIcons name="plus" size={18} color={theme.colors.onPrimary} />
+                  </View>
+                  <Text style={{ flex: 1, fontSize: 13, color: theme.colors.onSurfaceVariant ?? theme.colors.onSurface }}>
+                    {t.tourFabs.add}
+                  </Text>
+                </View>
+                {/* Avatar / perfil */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  {user?.avatar ? (
+                    <Image source={{ uri: user.avatar }} style={{ width: 28, height: 28, borderRadius: 14 }} />
+                  ) : (
+                    <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#4B89DC', alignItems: 'center', justifyContent: 'center' }}>
+                      {user?.name ? (
+                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>{user.name.charAt(0).toUpperCase()}</Text>
+                      ) : (
+                        <MaterialCommunityIcons name="account" size={18} color="#fff" />
+                      )}
+                    </View>
+                  )}
+                  <Text style={{ flex: 1, fontSize: 13, color: theme.colors.onSurfaceVariant ?? theme.colors.onSurface }}>
+                    {t.tourFabs.profile}
+                  </Text>
+                </View>
+              </View>
+            ),
+          },
         ]}
         currentStep={tourStep}
         onNext={handleTourNext}

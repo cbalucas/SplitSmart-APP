@@ -125,6 +125,10 @@
       "eliminated": "💚 {count} redundant transfer{plural} automatically eliminated"
     }
   },
+  "expressEvent": {
+    "screenTitle": "Express Event",
+    "fabTooltip": "Create quick event"
+  },
   "consolidationModal": {
     "title": "Consolidate Payments",
     "instructionsTitle": "💡 How does it work?",

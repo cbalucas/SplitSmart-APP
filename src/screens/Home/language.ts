@@ -59,6 +59,13 @@ export const homeLanguage = {
       title: 'Cerrar Sesión',
       message: '¿Estás seguro de que quieres cerrar sesión?',
       button: 'Cerrar Sesión'
+    },
+
+    // Tour FABs
+    tourFabs: {
+      splitty: 'Abre Splitty, tu asistente para crear eventos express.',
+      add: 'Crea un nuevo evento manualmente.',
+      profile: 'Accede a tu perfil y configuración.'
     }
   },
   
@@ -120,6 +127,13 @@ export const homeLanguage = {
       title: 'Sign Out',
       message: 'Are you sure you want to sign out?',
       button: 'Sign Out'
+    },
+
+    // Tour FABs
+    tourFabs: {
+      splitty: 'Opens Splitty, your assistant for creating express events.',
+      add: 'Creates a new event manually.',
+      profile: 'Access your profile and settings.'
     }
   },
   
@@ -183,6 +197,13 @@ export const homeLanguage = {
       title: 'Encerrar Sessão',
       message: 'Tem certeza que deseja encerrar a sessão?',
       button: 'Encerrar Sessão'
+    },
+
+    // Tour FABs
+    tourFabs: {
+      splitty: 'Abre o Splitty, seu assistente para criar eventos express.',
+      add: 'Cria um novo evento manualmente.',
+      profile: 'Acesse seu perfil e configurações.'
     }
   }
 };

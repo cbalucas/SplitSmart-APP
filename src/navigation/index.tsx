@@ -11,6 +11,7 @@ import ManageFriendsScreen from '../screens/ManageFriends';
 import CreateExpenseScreen from '../screens/CreateExpense';
 
 import ProfileScreen from '../screens/ProfileScreen';
+import ExpressEventScreen from '../screens/ExpressEvent';
 import { RootStackParamList } from '../types/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -95,6 +96,7 @@ export default function RootNavigator() {
           <Stack.Screen name="CreateExpense" component={CreateExpenseScreen} />
 
           <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
+          <Stack.Screen name="ExpressEvent" component={ExpressEventScreen} />
         </>
       )}
     </Stack.Navigator>

@@ -20,6 +20,7 @@ export interface Event {
   totalAmount: number;
   status: 'active' | 'closed' | 'completed' | 'archived';
   isLocked?: boolean;
+  isExpress?: boolean;
   type: 'public' | 'private';
   category?: string;
   creatorId?: string;
