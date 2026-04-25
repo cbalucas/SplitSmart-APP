@@ -73,6 +73,7 @@ interface ExpressTranslations {
   // Menú inicial
   askMode: string;
   modeExpress: string;
+  modeAdvanced: string;
   modeHelp: string;
   // Modo ayuda
   helpWelcome: string;
@@ -164,6 +165,7 @@ const es: ExpressTranslations = {
   timeoutMessage: '⏰ El chat estuvo inactivo por 5 minutos. Volvé a la pantalla principal e ingresá nuevamente para continuar.',
   askMode: '¿En qué te puedo ayudar hoy?',
   modeExpress: 'Crear evento express',
+  modeAdvanced: 'Evento express avanzado',
   modeHelp: 'Tengo una consulta',
   // Modo ayuda
   helpWelcome: '¡Claro! Preguntame lo que necesités sobre SplitSmart. Hago lo mejor que puedo 😊',
@@ -256,6 +258,7 @@ const en: ExpressTranslations = {
   timeoutMessage: '⏰ The chat has been inactive for 5 minutes. Return to the home screen and open Splitty again to continue.',
   askMode: 'How can I help you today?',
   modeExpress: 'Create express event',
+  modeAdvanced: 'Advanced express event',
   modeHelp: 'I have a question',
   // Help mode
   helpWelcome: 'Of course! Ask me anything about SplitSmart. I\'ll do my best 😊',
@@ -347,6 +350,7 @@ const pt: ExpressTranslations = {
   timeoutMessage: '⏰ O chat ficou inativo por 5 minutos. Volte à tela inicial e abra o Splitty novamente para continuar.',
   askMode: 'Como posso te ajudar hoje?',
   modeExpress: 'Criar evento express',
+  modeAdvanced: 'Evento express avançado',
   modeHelp: 'Tenho uma dúvida',
   // Modo ajuda
   helpWelcome: 'Claro! Pode me perguntar o que precisar sobre o SplitSmart. Farei o meu melhor 😊',

@@ -20,6 +20,10 @@ interface DataContextValue {
   addExistingParticipantToEvent: (eventId: string, participant: Participant) => Promise<void>;
   getEventParticipants: (eventId: string) => Promise<(Participant & { role: EventParticipant['role']; balance: number; joinedAt: string })[]>;
   getFriends: () => Promise<Participant[]>;
+  getFriendsByUser: (userId: string) => Promise<Participant[]>;
+  getUserPreference: (userId: string, key: string) => Promise<string | null>;
+  setUserPreference: (userId: string, key: string, value: string) => Promise<void>;
+  incrementParticipantUsage: (participantId: string) => Promise<void>;
   updateParticipantType: (id: string, type: 'friend' | 'temporary') => Promise<void>;
   updateParticipant: (id: string, updates: Partial<Participant>) => Promise<void>;
   deleteParticipant: (id: string) => Promise<void>;
@@ -69,6 +73,10 @@ const DataContext = createContext<DataContextValue>({
   addExistingParticipantToEvent: async () => {},
   getEventParticipants: async () => [],
   getFriends: async () => [],
+  getFriendsByUser: async () => [],
+  getUserPreference: async () => null,
+  setUserPreference: async () => {},
+  incrementParticipantUsage: async () => {},
   updateParticipantType: async () => {},
   updateParticipant: async () => {},
   deleteParticipant: async () => {},
@@ -368,6 +376,39 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return [];
     }
   }, []);
+
+  const getFriendsByUser = async (userId: string): Promise<Participant[]> => {
+    try {
+      return await databaseService.getFriendsByUser(userId);
+    } catch (error) {
+      console.error('Error getFriendsByUser:', error);
+      return [];
+    }
+  };
+
+  const getUserPreference = async (userId: string, key: string): Promise<string | null> => {
+    try {
+      return await databaseService.getUserPreference(userId, key);
+    } catch (error) {
+      return null;
+    }
+  };
+
+  const setUserPreference = async (userId: string, key: string, value: string): Promise<void> => {
+    try {
+      await databaseService.setUserPreference(userId, key, value);
+    } catch (error) {
+      console.error('Error setUserPreference:', error);
+    }
+  };
+
+  const incrementParticipantUsage = async (participantId: string): Promise<void> => {
+    try {
+      await databaseService.incrementParticipantUsage(participantId);
+    } catch (error) {
+      console.error('Error incrementParticipantUsage:', error);
+    }
+  };
 
   const updateParticipantType = useCallback(async (id: string, type: 'friend' | 'temporary') => {
     try {
@@ -1182,6 +1223,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addExistingParticipantToEvent,
       getEventParticipants,
       getFriends,
+      getFriendsByUser,
+      getUserPreference,
+      setUserPreference,
+      incrementParticipantUsage,
       updateParticipantType,
       updateParticipant,
       deleteParticipant,

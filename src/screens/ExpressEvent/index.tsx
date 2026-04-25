@@ -66,6 +66,7 @@ const ExpressEventScreen: React.FC = () => {
 
   // ── Estado del wizard ──────────────────────────────────────
   const [step, setStep] = useState<WizardStep>('menu');
+  const [chatMode, setChatMode] = useState<'standard' | 'advanced'>('standard');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [textInput, setTextInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -152,7 +153,15 @@ const ExpressEventScreen: React.FC = () => {
 
   // ── Menú inicial ───────────────────────────────────────────
   const goToExpressMode = () => {
+    setChatMode('standard');
     pushUser(t.modeExpress);
+    setTimeout(() => pushBot(t.askEventName), 300);
+    setStep('event_name');
+  };
+
+  const goToAdvancedExpressMode = () => {
+    setChatMode('advanced');
+    pushUser(t.modeAdvanced || 'Evento express avanzado');
     setTimeout(() => pushBot(t.askEventName), 300);
     setStep('event_name');
   };
@@ -365,6 +374,7 @@ const ExpressEventScreen: React.FC = () => {
     });
     setMessages([]);
     setTextInput('');
+    setChatMode('standard');
     setStep('menu');
     setTimeout(() => {
       pushBot(t.welcome);
@@ -739,6 +749,16 @@ const ExpressEventScreen: React.FC = () => {
             />
             <Text style={styles.actionChipText}>Evento express</Text>
           </TouchableOpacity>
+          {user?.chatModeAdvanced && (
+            <TouchableOpacity
+              style={[styles.actionChip, { flex: 1, justifyContent: 'center', paddingVertical: 14 }]}
+              onPress={goToAdvancedExpressMode}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="robot-outline" size={36} color={styles.actionChipText.color} style={{ marginRight: 8 }} />
+              <Text style={styles.actionChipText}>{t.modeAdvanced || 'Avanzado'}</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={[styles.actionChip, { flex: 1, justifyContent: 'center', paddingVertical: 14 }]}
             onPress={goToHelpMode}

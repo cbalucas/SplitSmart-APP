@@ -12,6 +12,7 @@ export interface NewFriendData {
   phone: string;
   alias_cbu: string;
   avatar?: string;
+  is_public: boolean;
 }
 
 export type TabType = 'list' | 'new';

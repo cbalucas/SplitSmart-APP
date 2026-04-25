@@ -14,6 +14,7 @@ interface AuthContextValue {
   refreshUser: () => Promise<void>;
   autoLoginIfEnabled: () => Promise<User | null>;
   toggleAutoLogin: (enabled: boolean) => Promise<void>;
+  toggleChatMode: (enabled: boolean) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -26,7 +27,8 @@ const AuthContext = createContext<AuthContextValue>({
   initializeAuth: async () => {},
   refreshUser: async () => {},
   autoLoginIfEnabled: async () => null,
-  toggleAutoLogin: async () => {}
+  toggleAutoLogin: async () => {},
+  toggleChatMode: async () => {}
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -129,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           avatar: dbUser.avatar,
           skipPassword: true,
           autoLogin: dbUser.auto_login === 1,
+          chatModeAdvanced: dbUser.chat_mode_advanced === 1,
           createdAt: dbUser.created_at,
           updatedAt: dbUser.updated_at
         };
@@ -160,6 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           avatar: dbUser.avatar,
           skipPassword: dbUser.skip_password === 1,
           autoLogin: dbUser.auto_login === 1,
+          chatModeAdvanced: dbUser.chat_mode_advanced === 1,
           createdAt: dbUser.created_at,
           updatedAt: dbUser.updated_at
         };
@@ -206,6 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           avatar: dbUser.avatar,
           skipPassword: dbUser.skip_password === 1,
           autoLogin: dbUser.auto_login === 1,
+          chatModeAdvanced: dbUser.chat_mode_advanced === 1,
           createdAt: dbUser.created_at,
           updatedAt: dbUser.updated_at
         };
@@ -340,6 +345,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         avatar: fullUserData.avatar,
         skipPassword: fullUserData.skip_password === 1,
         autoLogin: fullUserData.auto_login === 1,
+        chatModeAdvanced: fullUserData.chat_mode_advanced === 1,
         createdAt: fullUserData.created_at,
         updatedAt: fullUserData.updated_at
       };
@@ -374,6 +380,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const toggleChatMode = async (enabled: boolean): Promise<void> => {
+    if (!user) throw new Error('No user logged in');
+    try {
+      await databaseService.updateUserProfile(user.id, { chatModeAdvanced: enabled });
+      setUser(prev => prev ? { ...prev, chatModeAdvanced: enabled } : null);
+    } catch (error) {
+      console.error('❌ Error toggling chat mode:', error);
+      throw error;
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -385,7 +402,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       initializeAuth,
       refreshUser,
       autoLoginIfEnabled,
-      toggleAutoLogin
+      toggleAutoLogin,
+      toggleChatMode
     }}>
       {children}
     </AuthContext.Provider>

@@ -159,7 +159,7 @@ const SettingItem: React.FC<SettingItemProps> = ({
 const ProfileScreen: React.FC = () => {
   const navigation = useNavigation();
   const { theme, toggleTheme, isDarkMode } = useTheme();
-  const { user, logout, refreshUser, initializeAuth, toggleAutoLogin } = useAuth();
+  const { user, logout, refreshUser, initializeAuth, toggleAutoLogin, toggleChatMode } = useAuth();
   const { language, setLanguage, t } = useLanguage();
 
   // Helper function to get auto-logout options
@@ -192,15 +192,13 @@ const ProfileScreen: React.FC = () => {
     username: '', // NUEVO CAMPO
     email: user?.email || 'demo@splitsmart.com',
     phone: '',
-    // alias_cbu: '', // ELIMINADO
+    alias_cbu: '',
     preferredCurrency: 'ARS',
     autoLogout: 'never',
     notifications: {
       paymentReceived: false, // Por defecto desactivado
     },
     privacy: {
-      // shareEmail: false, // ELIMINADO
-      // sharePhone: false, // ELIMINADO
       shareEvent: true, // NUEVO CAMPO
       allowInvitations: true, // NUEVO CAMPO
     }
@@ -222,6 +220,7 @@ const ProfileScreen: React.FC = () => {
   const [submittedOnce, setSubmittedOnce] = useState(false);
   const [skipPassword, setSkipPassword] = useState(false);
   const [autoLogin, setAutoLogin] = useState(false);
+  const [chatModeAdvanced, setChatModeAdvanced] = useState(false);
   const [showAutoLogoutOptions, setShowAutoLogoutOptions] = useState(false);
   const [showChangelogModal, setShowChangelogModal] = useState(false);
   const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
@@ -373,21 +372,20 @@ const ProfileScreen: React.FC = () => {
           username: profile.username || '', // NUEVO CAMPO
           email: profile.email || user.email || 'demo@splitsmart.com',
           phone: profile.phone || '',
-          // alias_cbu: profile.alias_cbu || '', // ELIMINADO
+          alias_cbu: profile.alias_cbu || '',
           preferredCurrency: profile.preferred_currency || 'ARS',
           autoLogout: (profile.auto_logout as 'never' | '5min' | '15min' | '30min') || 'never',
           notifications: {
             paymentReceived: profile.notifications_payment_received === 1,
           },
           privacy: {
-            // shareEmail: profile.privacy_share_email === 1, // ELIMINADO
-            // sharePhone: profile.privacy_share_phone === 1, // ELIMINADO
-            shareEvent: profile.privacy_share_event === 1 || true, // NUEVO CAMPO (default true)
-            allowInvitations: profile.privacy_allow_invitations === 1 || true, // NUEVO CAMPO (default true)
+            shareEvent: profile.privacy_share_event === 1 || true,
+            allowInvitations: profile.privacy_allow_invitations === 1 || true,
           }
         });
         setSkipPassword(profile.skip_password === 1);
         setAutoLogin(profile.auto_login === 1);
+        setChatModeAdvanced(profile.chat_mode_advanced === 1);
       }
     } catch (error) {
       console.error('Error loading user profile:', error);
@@ -447,10 +445,10 @@ const ProfileScreen: React.FC = () => {
     try {
       await updateUserProfile(user.id, {
         name: profileData.name,
-        username: profileData.username || undefined, // NUEVO CAMPO
+        username: profileData.username || undefined,
         email: profileData.email,
         phone: profileData.phone || undefined,
-        // alias_cbu: profileData.alias_cbu || undefined, // ELIMINADO
+        alias_cbu: profileData.alias_cbu || undefined,
         preferred_currency: profileData.preferredCurrency
       });
 
@@ -1182,6 +1180,12 @@ const ProfileScreen: React.FC = () => {
                 keyboardType="phone-pad"
                 containerStyle={styles.editInput}
               />
+              <Input
+                label={`${t('profile.cbu')} (${t('optional')})`}
+                value={profileData.alias_cbu}
+                onChangeText={(value) => setProfileData(prev => ({ ...prev, alias_cbu: value }))}
+                containerStyle={styles.editInput}
+              />
               
               {/* Botones de acción en el pie */}
               <View style={styles.editButtonsContainer}>
@@ -1456,6 +1460,35 @@ const ProfileScreen: React.FC = () => {
             </View>
             <Text style={{ fontSize: 12, fontWeight: '700', color: autoLogin ? theme.colors.primary : theme.colors.onSurfaceVariant }}>
               {autoLogin ? 'ACTIVADO' : 'DESACTIVADO'}
+            </Text>
+          </TouchableOpacity>
+          {/* Modo Chat Avanzado (Splitty) - ancho completo */}
+          <TouchableOpacity
+            style={[styles.statCardWide, { borderLeftColor: chatModeAdvanced ? '#4CAF50' : theme.colors.outline, marginTop: 8 }]}
+            onPress={async () => {
+              try {
+                if (!user?.id) return;
+                const newValue = !chatModeAdvanced;
+                await toggleChatMode(newValue);
+                setChatModeAdvanced(newValue);
+                showAlert({ type: 'success', title: `✅ ${t('profile.chatModeAdvancedUpdated')}`, message: newValue ? t('profile.chatModeAdvancedOn') : t('profile.chatModeAdvancedOff') });
+              } catch (error) {
+                showAlert({ type: 'error', title: t('error'), message: t('profile.message.settingUpdateError') });
+              }
+            }}
+          >
+            <Image
+              source={require('../../../assets/splitsmart/Splitty.png')}
+              style={{ width: 36, height: 36, resizeMode: 'contain', opacity: chatModeAdvanced ? 1 : 0.4 }}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.statCardNumber, { color: chatModeAdvanced ? '#4CAF50' : theme.colors.onSurface, fontSize: 15 }]}>{t('profile.chatModeAdvanced')}</Text>
+              <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant, textAlign: 'left' }]}>
+                {chatModeAdvanced ? t('profile.chatModeAdvancedOn') : t('profile.chatModeAdvancedOff')}
+              </Text>
+            </View>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: chatModeAdvanced ? '#4CAF50' : theme.colors.onSurfaceVariant }}>
+              {chatModeAdvanced ? 'ACTIVADO' : 'DESACTIVADO'}
             </Text>
           </TouchableOpacity>
         </ProfileSection>

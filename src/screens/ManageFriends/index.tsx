@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   ScrollView,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Switch
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -14,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 import { useData } from '../../context/DataContext';
+import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { Participant } from '../../types';
 import { Card, Button, HeaderBar, Input } from '../../components';
@@ -53,9 +55,16 @@ const FriendItem: React.FC<FriendItemProps> = ({ friend, onPress, onDelete }) =>
           <View style={styles.friendMainInfo}>
             <Text style={styles.friendName}>{friend.name}</Text>
           </View>
-          <TouchableOpacity style={styles.actionButton} onPress={onDelete} activeOpacity={0.7}>
-            <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.error} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <MaterialCommunityIcons
+              name={friend.isPublic ? 'earth' : 'lock-outline'}
+              size={16}
+              color={friend.isPublic ? theme.colors.primary : theme.colors.onSurfaceVariant}
+            />
+            <TouchableOpacity style={styles.actionButton} onPress={onDelete} activeOpacity={0.7}>
+              <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.error} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {friend.alias_cbu && (
@@ -90,7 +99,8 @@ const ManageFriendsScreen: React.FC = () => {
   const navigation = useNavigation();
   const { theme } = useTheme();
   const { language } = useLanguage();
-  const { getFriends, addParticipant, updateParticipant, deleteParticipant, refreshData } = useData();
+  const { getFriends, getFriendsByUser, addParticipant, updateParticipant, deleteParticipant, refreshData } = useData();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const styles = createStyles(theme, insets);
   const t = manageFriendsLanguage[language] || manageFriendsLanguage.es;
@@ -115,7 +125,8 @@ const ManageFriendsScreen: React.FC = () => {
     email: '',
     phone: '',
     alias_cbu: '',
-    avatar: undefined
+    avatar: undefined,
+    is_public: false
   });
   const [submittedOnce, setSubmittedOnce] = useState(false);
   const [nameValidation, setNameValidation] = useState<NameValidation>({
@@ -130,7 +141,9 @@ const ManageFriendsScreen: React.FC = () => {
 
   const loadFriends = async () => {
     try {
-      const friendsList = await getFriends();
+      const friendsList = user?.id
+        ? await getFriendsByUser(user.id)
+        : await getFriends();
       setFriends(friendsList);
     } catch (error) {
       console.error('Error loading friends:', error);
@@ -296,7 +309,8 @@ const ManageFriendsScreen: React.FC = () => {
       email: friend.email || '',
       phone: friend.phone || '',
       alias_cbu: friend.alias_cbu || '',
-      avatar: friend.avatar || undefined
+      avatar: friend.avatar || undefined,
+      is_public: friend.isPublic || false
     });
     setActiveTab('new');
   };
@@ -341,6 +355,7 @@ const ManageFriendsScreen: React.FC = () => {
           phone: newFriend.phone.trim() || undefined,
           alias_cbu: newFriend.alias_cbu.trim() || undefined,
           avatar: newFriend.avatar || undefined,
+          isPublic: newFriend.is_public,
           updatedAt: new Date().toISOString()
         });
         showAlert({ type: 'success', title: t.alerts.success.updated });
@@ -355,6 +370,8 @@ const ManageFriendsScreen: React.FC = () => {
           avatar: newFriend.avatar || undefined,
           participantType: 'friend',
           isActive: true,
+          createdByUserId: user?.id,
+          isPublic: newFriend.is_public,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
@@ -365,7 +382,7 @@ const ManageFriendsScreen: React.FC = () => {
       await loadFriends();
       
       // Reset form and return to list
-      setNewFriend({ name: '', email: '', phone: '', alias_cbu: '', avatar: undefined });
+      setNewFriend({ name: '', email: '', phone: '', alias_cbu: '', avatar: undefined, is_public: false });
       setEditingFriend(null);
       setSubmittedOnce(false);
       setNameValidation({ isValid: false, isChecking: false, message: '' });
@@ -404,7 +421,7 @@ const ManageFriendsScreen: React.FC = () => {
           // Reset form when switching away from new tab
           if (activeTab === 'new') {
             setEditingFriend(null);
-            setNewFriend({ name: '', email: '', phone: '', alias_cbu: '', avatar: undefined });
+            setNewFriend({ name: '', email: '', phone: '', alias_cbu: '', avatar: undefined, is_public: false });
             setNameValidation({ isValid: false, isChecking: false, message: '' });
           }
         }}
@@ -509,6 +526,23 @@ const ManageFriendsScreen: React.FC = () => {
                 containerStyle={styles.inputGroup}
               />
 
+              {/* Visibilidad pública */}
+              <View style={[styles.inputGroup, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <MaterialCommunityIcons name={newFriend.is_public ? 'earth' : 'lock-outline'} size={20} color={newFriend.is_public ? theme.colors.primary : theme.colors.onSurfaceVariant} />
+                  <View>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.onSurface }}>{newFriend.is_public ? t.form.visibilityPublic || 'Público' : t.form.visibilityPrivate || 'Privado'}</Text>
+                    <Text style={{ fontSize: 12, color: theme.colors.onSurfaceVariant }}>{newFriend.is_public ? t.form.visibilityPublicDesc || 'Visible para todos los usuarios' : t.form.visibilityPrivateDesc || 'Solo visible para vos'}</Text>
+                  </View>
+                </View>
+                <Switch
+                  value={newFriend.is_public}
+                  onValueChange={(val) => setNewFriend(prev => ({ ...prev, is_public: val }))}
+                  trackColor={{ false: theme.colors.outline, true: theme.colors.primary }}
+                  thumbColor={newFriend.is_public ? theme.colors.onPrimary : theme.colors.onSurfaceVariant}
+                />
+              </View>
+
               {/* Teléfono */}
               <Input
                 label={`${t.form.phoneLabel} ${t.form.optional}`}
@@ -548,7 +582,7 @@ const ManageFriendsScreen: React.FC = () => {
           onPress={() => {
             setActiveTab('list');
             setEditingFriend(null);
-            setNewFriend({ name: '', email: '', phone: '', alias_cbu: '', avatar: undefined });
+            setNewFriend({ name: '', email: '', phone: '', alias_cbu: '', avatar: undefined, is_public: false });
             setSubmittedOnce(false);
             setNameValidation({ isValid: false, isChecking: false, message: '' });
           }}

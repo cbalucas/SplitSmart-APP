@@ -54,6 +54,7 @@ export default function SignUpScreen() {
   const [loading, setLoading] = useState(false);
   const [showFriendModal, setShowFriendModal] = useState(false);
   const [pendingCredentials, setPendingCredentials] = useState<{ username: string; password: string } | null>(null);
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   const [submittedOnce, setSubmittedOnce] = useState(false);
   const [usernameValidation, setUsernameValidation] = useState<UsernameValidation>({
     isValid: false,
@@ -254,6 +255,7 @@ export default function SignUpScreen() {
 
       // Guardar credenciales y mostrar modal de amigo (antes del auto-login)
       setPendingCredentials({ username: formData.username.toLowerCase(), password: formData.skipPassword ? '' : formData.password });
+      setPendingUserId(userId);
       setShowFriendModal(true);
 
     } catch (error) {
@@ -291,6 +293,9 @@ export default function SignUpScreen() {
           phone: formData.phone.trim() || undefined,
           isActive: true,
           participantType: 'friend',
+          userId: pendingUserId || undefined,
+          createdByUserId: pendingUserId || undefined,
+          isPublic: false,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         } as any);

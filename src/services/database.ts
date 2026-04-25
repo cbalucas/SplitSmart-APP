@@ -404,6 +404,65 @@ class DatabaseService {
         console.error('❌ Error in is_express migration:', error);
       }
 
+      // Migration: Add participants linking fields (user_id, created_by_user_id, is_public, times_used, last_used_at)
+      try {
+        const participantsInfo = await this.db.getAllAsync(`PRAGMA table_info(participants)`);
+        const colNames = participantsInfo.map((c: any) => c.name);
+        if (!colNames.includes('user_id')) {
+          await this.db.execAsync('ALTER TABLE participants ADD COLUMN user_id TEXT REFERENCES users(id)');
+          console.log('✅ Migration: Added user_id column to participants table');
+        }
+        if (!colNames.includes('created_by_user_id')) {
+          await this.db.execAsync('ALTER TABLE participants ADD COLUMN created_by_user_id TEXT REFERENCES users(id)');
+          console.log('✅ Migration: Added created_by_user_id column to participants table');
+        }
+        if (!colNames.includes('is_public')) {
+          await this.db.execAsync('ALTER TABLE participants ADD COLUMN is_public INTEGER DEFAULT 0');
+          console.log('✅ Migration: Added is_public column to participants table');
+        }
+        if (!colNames.includes('times_used')) {
+          await this.db.execAsync('ALTER TABLE participants ADD COLUMN times_used INTEGER DEFAULT 0');
+          console.log('✅ Migration: Added times_used column to participants table');
+        }
+        if (!colNames.includes('last_used_at')) {
+          await this.db.execAsync('ALTER TABLE participants ADD COLUMN last_used_at TEXT');
+          console.log('✅ Migration: Added last_used_at column to participants table');
+        }
+      } catch (error: any) {
+        console.error('❌ Error in participants linking migration:', error);
+      }
+
+      // Migration: Add chat_mode_advanced column to users table
+      try {
+        const usersInfo = await this.db.getAllAsync(`PRAGMA table_info(users)`);
+        const hasChatMode = usersInfo.some((col: any) => col.name === 'chat_mode_advanced');
+        if (!hasChatMode) {
+          await this.db.execAsync('ALTER TABLE users ADD COLUMN chat_mode_advanced INTEGER DEFAULT 0');
+          console.log('✅ Migration: Added chat_mode_advanced column to users table');
+        } else {
+          console.log('⚠️ Column chat_mode_advanced already exists in users table');
+        }
+      } catch (error: any) {
+        console.error('❌ Error in chat_mode_advanced migration:', error);
+      }
+
+      // Migration: Create user_preferences table if it doesn't exist
+      try {
+        await this.db.execAsync(`
+          CREATE TABLE IF NOT EXISTS user_preferences (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id),
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            updated_at TEXT,
+            UNIQUE(user_id, key)
+          )
+        `);
+        console.log('✅ Migration: user_preferences table ensured');
+      } catch (error: any) {
+        console.error('❌ Error creating user_preferences table:', error);
+      }
+
     } catch (error) {
       console.error('❌ Error running migrations:', error);
     }
@@ -607,6 +666,11 @@ class DatabaseService {
           avatar TEXT,
           is_active INTEGER DEFAULT 1,
           participant_type TEXT CHECK(participant_type IN ('friend', 'temporary')) DEFAULT 'temporary',
+          user_id TEXT REFERENCES users(id),
+          created_by_user_id TEXT REFERENCES users(id),
+          is_public INTEGER DEFAULT 0,
+          times_used INTEGER DEFAULT 0,
+          last_used_at TEXT,
           created_at TEXT,
           updated_at TEXT
         )
@@ -730,6 +794,7 @@ class DatabaseService {
           auto_logout TEXT DEFAULT 'never',
           skip_password INTEGER DEFAULT 0,
           auto_login INTEGER DEFAULT 0,
+          chat_mode_advanced INTEGER DEFAULT 0,
           notifications_expense_added INTEGER DEFAULT 1,
           notifications_payment_received INTEGER DEFAULT 0,
           notifications_event_updated INTEGER DEFAULT 0,
@@ -738,8 +803,21 @@ class DatabaseService {
           privacy_share_phone INTEGER DEFAULT 0,
           privacy_allow_invitations INTEGER DEFAULT 1,
           privacy_share_event INTEGER DEFAULT 1,
+          last_login TEXT,
           created_at TEXT,
           updated_at TEXT
+        )
+      `);
+
+      // User preferences table (key-value for dynamic preferences)
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS user_preferences (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES users(id),
+          key TEXT NOT NULL,
+          value TEXT NOT NULL,
+          updated_at TEXT,
+          UNIQUE(user_id, key)
         )
       `);
 
@@ -1016,8 +1094,8 @@ class DatabaseService {
 
     try {
       await this.db.runAsync(
-        `INSERT INTO participants (id, name, email, phone, alias_cbu, avatar, is_active, participant_type, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO participants (id, name, email, phone, alias_cbu, avatar, is_active, participant_type, user_id, created_by_user_id, is_public, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           participant.id,
           participant.name,
@@ -1027,6 +1105,9 @@ class DatabaseService {
           participant.avatar || null,
           participant.isActive ? 1 : 0,
           participant.participantType || 'temporary',
+          participant.userId || null,
+          participant.createdByUserId || null,
+          participant.isPublic ? 1 : 0,
           participant.createdAt || new Date().toISOString(),
           participant.updatedAt || new Date().toISOString()
         ]
@@ -1153,25 +1234,87 @@ class DatabaseService {
 
     try {
       const result = await this.db.getAllAsync(
-        'SELECT * FROM participants WHERE is_active = 1 AND participant_type = ? ORDER BY name ASC',
+        'SELECT * FROM participants WHERE is_active = 1 AND participant_type = ? ORDER BY times_used DESC, name ASC',
         ['friend']
       );
-      return result.map((row: any) => ({
-        id: row.id,
-        name: row.name,
-        email: row.email,
-        phone: row.phone,
-        alias_cbu: row.alias_cbu,
-        avatar: row.avatar,
-        isActive: row.is_active === 1,
-        participantType: row.participant_type,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at
-      }));
+      return result.map((row: any) => this._mapParticipantRow(row));
     } catch (error) {
       console.error('❌ Error getting friends:', error);
       throw error;
     }
+  }
+
+  // Get friends visible to a specific user: own friends + public friends of others
+  async getFriendsByUser(userId: string): Promise<Participant[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const result = await this.db.getAllAsync(
+        `SELECT * FROM participants
+         WHERE is_active = 1 AND participant_type = 'friend'
+           AND (created_by_user_id = ? OR is_public = 1)
+         ORDER BY
+           CASE WHEN created_by_user_id = ? THEN 0 ELSE 1 END,
+           times_used DESC,
+           name ASC`,
+        [userId, userId]
+      );
+      return result.map((row: any) => this._mapParticipantRow(row));
+    } catch (error) {
+      console.error('❌ Error getting friends by user:', error);
+      throw error;
+    }
+  }
+
+  // Find a participant that represents a registered user
+  async getParticipantByUserId(userId: string): Promise<Participant | null> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const row = await this.db.getFirstAsync(
+        `SELECT * FROM participants WHERE user_id = ? AND participant_type = 'friend' AND is_active = 1 LIMIT 1`,
+        [userId]
+      ) as any;
+      return row ? this._mapParticipantRow(row) : null;
+    } catch (error) {
+      console.error('❌ Error getting participant by userId:', error);
+      return null;
+    }
+  }
+
+  // Increment usage counter when a participant is added to an event
+  async incrementParticipantUsage(participantId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      await this.db.runAsync(
+        `UPDATE participants SET times_used = times_used + 1, last_used_at = ? WHERE id = ?`,
+        [new Date().toISOString(), participantId]
+      );
+    } catch (error) {
+      console.error('❌ Error incrementing participant usage:', error);
+    }
+  }
+
+  // Row mapper helper
+  private _mapParticipantRow(row: any): Participant {
+    return {
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      phone: row.phone,
+      alias_cbu: row.alias_cbu,
+      avatar: row.avatar,
+      isActive: row.is_active === 1,
+      participantType: row.participant_type,
+      userId: row.user_id || undefined,
+      createdByUserId: row.created_by_user_id || undefined,
+      isPublic: row.is_public === 1,
+      timesUsed: row.times_used || 0,
+      lastUsedAt: row.last_used_at || undefined,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
   }
 
   // Update participant type (convert temporary to friend or vice versa)
@@ -1221,6 +1364,18 @@ class DatabaseService {
       if (updates.participantType !== undefined) {
         fields.push('participant_type = ?');
         values.push(updates.participantType);
+      }
+      if ('isPublic' in updates) {
+        fields.push('is_public = ?');
+        values.push(updates.isPublic ? 1 : 0);
+      }
+      if ('userId' in updates) {
+        fields.push('user_id = ?');
+        values.push(updates.userId || null);
+      }
+      if ('createdByUserId' in updates) {
+        fields.push('created_by_user_id = ?');
+        values.push(updates.createdByUserId || null);
       }
 
       fields.push('updated_at = ?');
@@ -3126,7 +3281,10 @@ class DatabaseService {
     preferred_currency?: string;
     skipPassword?: boolean;
     autoLogin?: boolean;
+    chatModeAdvanced?: boolean;
     avatar?: string | null;
+    auto_logout?: string;
+    username?: string;
   }): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
@@ -3162,9 +3320,21 @@ class DatabaseService {
         fields.push('auto_login = ?');
         values.push(updates.autoLogin ? 1 : 0);
       }
+      if (updates.chatModeAdvanced !== undefined) {
+        fields.push('chat_mode_advanced = ?');
+        values.push(updates.chatModeAdvanced ? 1 : 0);
+      }
       if (updates.avatar !== undefined) {
         fields.push('avatar = ?');
         values.push(updates.avatar || null);
+      }
+      if (updates.auto_logout !== undefined) {
+        fields.push('auto_logout = ?');
+        values.push(updates.auto_logout);
+      }
+      if (updates.username !== undefined) {
+        fields.push('username = ?');
+        values.push(updates.username);
       }
 
       fields.push('updated_at = ?');
@@ -3176,10 +3346,63 @@ class DatabaseService {
         values
       );
 
+      // Sync name/email/phone/alias_cbu/avatar to linked participant (if exists)
+      const hasPersonalData = updates.name !== undefined || updates.email !== undefined ||
+        updates.phone !== undefined || updates.alias_cbu !== undefined || updates.avatar !== undefined;
+      if (hasPersonalData) {
+        try {
+          const linkedParticipant = await this.getParticipantByUserId(userId);
+          if (linkedParticipant) {
+            const participantUpdates: Partial<Participant> = {};
+            if (updates.name !== undefined) participantUpdates.name = updates.name;
+            if (updates.email !== undefined) participantUpdates.email = updates.email;
+            if (updates.phone !== undefined) participantUpdates.phone = updates.phone;
+            if (updates.alias_cbu !== undefined) participantUpdates.alias_cbu = updates.alias_cbu;
+            if (updates.avatar !== undefined) participantUpdates.avatar = updates.avatar ?? undefined;
+            await this.updateParticipant(linkedParticipant.id, participantUpdates);
+            console.log('✅ Synced profile data to linked participant');
+          }
+        } catch (syncError) {
+          // Non-fatal: log but don't throw
+          console.warn('⚠️ Could not sync profile to participant:', syncError);
+        }
+      }
+
       console.log('✅ User profile updated successfully');
     } catch (error) {
       console.error('❌ Error updating user profile:', error);
       throw error;
+    }
+  }
+
+  // ===== USER PREFERENCES (key-value) =====
+
+  async getUserPreference(userId: string, key: string): Promise<string | null> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const row = await this.db.getFirstAsync(
+        'SELECT value FROM user_preferences WHERE user_id = ? AND key = ?',
+        [userId, key]
+      ) as any;
+      return row ? row.value : null;
+    } catch (error) {
+      console.error('❌ Error getting user preference:', error);
+      return null;
+    }
+  }
+
+  async setUserPreference(userId: string, key: string, value: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    try {
+      const id = `pref_${userId}_${key}`;
+      await this.db.runAsync(
+        `INSERT OR REPLACE INTO user_preferences (id, user_id, key, value, updated_at) VALUES (?, ?, ?, ?, ?)`,
+        [id, userId, key, value, new Date().toISOString()]
+      );
+    } catch (error) {
+      console.error('❌ Error setting user preference:', error);
     }
   }
 

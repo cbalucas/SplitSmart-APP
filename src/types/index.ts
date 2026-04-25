@@ -6,6 +6,7 @@ export interface User {
   avatar?: string;
   skipPassword?: boolean;
   autoLogin?: boolean;
+  chatModeAdvanced?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -39,6 +40,11 @@ export interface Participant {
   avatar?: string;
   isActive: boolean;
   participantType: 'friend' | 'temporary';
+  userId?: string;            // FK a users.id — identifica qué usuario registrado ES este participante
+  createdByUserId?: string;   // FK a users.id — quién cargó este amigo
+  isPublic?: boolean;         // false = privado (default), true = visible para todos
+  timesUsed?: number;         // contador de uso para sugerencias
+  lastUsedAt?: string;        // última vez que fue seleccionado en un evento
   eventIds?: string[];
   createdAt?: string;
   updatedAt?: string;

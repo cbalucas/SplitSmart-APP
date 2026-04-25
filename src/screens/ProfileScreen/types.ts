@@ -1,18 +1,16 @@
 export interface UserProfileData {
   name: string;
-  username?: string; // Nuevo campo opcional
+  username?: string;
   email: string;
   phone: string;
-  // alias_cbu: string; // ELIMINADO
+  alias_cbu: string;
   preferredCurrency: 'ARS' | 'USD' | 'EUR' | 'BRL';
   autoLogout: 'never' | '5min' | '15min' | '30min';
   notifications: {
-    paymentReceived: boolean; // Solo notificaciones de pagos recibidos via WhatsApp
+    paymentReceived: boolean;
   };
   privacy: {
-    // shareEmail: boolean; // ELIMINADO
-    // sharePhone: boolean; // ELIMINADO
-    shareEvent: boolean; // NUEVO: Compartir Evento
+    shareEvent: boolean;
     allowInvitations: boolean;
   };
 }
