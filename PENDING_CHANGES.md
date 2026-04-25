@@ -13,6 +13,67 @@
 
 ---
 
+#### Agente Splitty — Rediseño completo del flujo de chat (commit `e1df3ac`)
+
+Se rediseñó la pantalla `ExpressEvent` (Agente Splitty) con menú de selección inicial, modo ayuda con preguntas numeradas, botones de navegación durante la creación y timeout de inactividad.
+
+**Nuevos pasos en `WizardStep`**:
+- `'menu'`: pantalla inicial con selección de modo
+- `'help'`: modo consulta con preguntas predefinidas numeradas
+- `'timeout'`: estado tras 5 minutos de inactividad
+
+**Menú de selección inicial**:
+- Al abrir el chat, Splitty muestra dos botones: "Evento express" (ícono Splitty.png 36×36) y "Consulta" (ícono `help-circle-outline` 36×36)
+- El flujo de evento express arranca desde `step: 'event_name'` como antes
+- El modo ayuda muestra 5 preguntas predefinidas en el chat como lista numerada
+
+**Modo ayuda (step `'help'`)**:
+- Splitty muestra las 5 preguntas y pide que el usuario ingrese un número (1–5)
+- Input con `keyboardType="number-pad"` y `maxLength={1}`
+- Respuestas detalladas para: amigos, crear evento, cargar gastos, participantes, liquidaciones
+- Número fuera de rango → respuesta por defecto
+- Botón "← Volver al menú" debajo del input
+- `handleHelpSubmit()` gestiona la lógica de respuesta
+
+**Navegación durante creación de evento**:
+- Dos chips debajo del input en todos los pasos express: "← Paso anterior" (borde primary) y "✗ Cancelar carga" (borde error rojo)
+- `goBackStep()` mapea cada paso al anterior: `event_date→event_name`, `participants→event_date`, `ask_expenses→participants`, etc.; desde `event_name` vuelve al menú
+- `isExpressFlowStep()` helper determina si mostrar los chips
+- `goBackToMenu()` muestra `t.askMode` y setea `step: 'menu'`
+
+**Timeout de inactividad**:
+- `INACTIVITY_MS = 5 * 60 * 1000` — 5 minutos
+- `inactivityTimer` via `useRef<ReturnType<typeof setTimeout>>`
+- `resetInactivityTimer()` llamado en `pushBot`, `pushUser`, `pushWarning`, `pushSummary` y en el `init useEffect`
+- Al expirar: `setStep('timeout')` + mensaje tipo `'timeout'` en el chat renderizado con burbuja Splitty
+- En estado `timeout`: solo se muestra el botón "Reiniciar" — el input queda deshabilitado
+- Cleanup del timer en `useEffect` de desmontaje
+
+**HeaderBar**:
+- Eliminado `showBackButton` y `onLeftPress` — la flecha de atrás no corresponde en el chat de Splitty
+
+**`TutorialOverlay` — nuevo prop `descContent`**:
+- Agregado `descContent?: React.ReactNode` a la interfaz `TourStep`
+- Cuando presente, se renderiza en lugar del `<Text>` de descripción
+
+**Tour del FAB en Home**:
+- El paso del FAB usa `descContent` con 3 filas visuales:
+  - Ícono Splitty.png 28×28 + texto descriptivo
+  - Círculo con "+" (color primary) 28×28 + texto descriptivo
+  - Avatar del usuario (imagen / inicial / ícono genérico) 28×28 + texto descriptivo
+- Nuevas claves en `Home/language.ts`: `tourFabs.splitty`, `tourFabs.add`, `tourFabs.profile` en ES/EN/PT
+
+**Archivos modificados**:
+- `src/components/TutorialOverlay/index.tsx`: `descContent?: React.ReactNode` en `TourStep`; render condicional en popup
+- `src/screens/Home/index.tsx`: step FAB con `descContent` visual; `user` de `useAuth()` para avatar
+- `src/screens/Home/language.ts`: claves `tourFabs` en ES/EN/PT
+- `src/screens/ExpressEvent/types.ts`: `WizardStep` → `'menu' | 'help' | 'timeout'`; `ChatMessage.type` → `'timeout'`
+- `src/screens/ExpressEvent/language.ts`: 15+ claves nuevas en los 3 idiomas (menú, ayuda, timeout, cancelar, paso anterior)
+- `src/screens/ExpressEvent/styles.ts`: `actionChip` con `flexDirection: 'row'` y `alignItems: 'center'`
+- `src/screens/ExpressEvent/index.tsx`: flujo menú/ayuda, `goBackStep`, `goToExpressMode`, `goToHelpMode`, `handleHelpSubmit`, timer de inactividad, `renderInputArea` extendido, `renderMessage` tipo timeout, `getSectionMeta` actualizado
+
+---
+
 #### Home — Rediseño layout en dos secciones verdes (sin commit aún)
 
 Se eliminó el layout anterior (SearchBar suelto arriba + MetricsCards en header de FlatList) y se reemplazó por dos cards con borde superior verde `#4CAF50`.
@@ -146,6 +207,8 @@ Se unificó el lenguaje visual de las 3 pantallas de auth con el design system e
 - **Botón fuera del recuadro en `CustomAlert` con 3+ botones**: `flex:1` en modo columna sin altura fija en el padre causaba desborde. Fix: `btnColumnItem` con `flex:0, alignSelf:'stretch'`
 - **`} extra` en JSX de `SignUpScreen`**: comentario `{/* ... */}}` con `}` extra se renderizaba como string literal, disparando "Text strings must be rendered within a `<Text>` component" al navegar a Crear Cuenta
 - **`SyntaxError` en `HeaderBar.tsx`**: `onPress={() => {}>` le faltaba un `}` para cerrar la función flecha. Corregido a `onPress={() => {}}}>`
+- **`actionChip` íconos desalineados**: faltaba `flexDirection:'row'` y `alignItems:'center'` — los íconos y texto se renderizaban en columna. Corregido en `ExpressEvent/styles.ts`
+- **Flecha de back en Splitty chat**: `showBackButton` y `onLeftPress` eliminados de `HeaderBar` en `ExpressEvent` — no correspondía mostrar navegación de stack en el chat
 
 ---
 
@@ -165,6 +228,9 @@ Se unificó el lenguaje visual de las 3 pantallas de auth con el design system e
   - `"5 minutos"` → `"5 min."` / `"15 minutos"` → `"15 min."` / `"30 minutos"` → `"30 min."`
 - **`numberOfLines={1}`** en todos los labels de valor de cards para evitar desbordamiento
 - **`MaterialCommunityIcons` importado en `CustomAlert`** para soporte nativo de íconos en botones
+- **Textos de ayuda de Splitty** (`ExpressEvent/language.ts`) revisados y corregidos por el usuario para amigos, crear evento, cargar gastos, participantes y liquidaciones — ahora son precisos respecto al flujo real de la app
+- **`pushBot/pushUser/pushWarning/pushSummary`**: todos llaman `resetInactivityTimer()` — el timer se reinicia con cada interacción real
+- **`handleRestart` e `init useEffect`**: arrancan desde `step:'menu'` con `t.askMode` en lugar de ir directo a `event_name` — flujo coherente con el nuevo menú inicial
 
 ---
 
@@ -197,6 +263,13 @@ Se unificó el lenguaje visual de las 3 pantallas de auth con el design system e
 | `src/screens/EventDetail/index.tsx` | Ajustes menores |
 | `src/localization/es.json` | Claves Preferencias abreviadas (coherencia, no usado en runtime) |
 | `src/localization/en.json` | Ídem |
+| `src/components/TutorialOverlay/index.tsx` | `descContent?: React.ReactNode` en `TourStep`; render condicional en popup |
+| `src/screens/Home/index.tsx` | Step FAB del tour con `descContent` visual (Splitty.png, círculo +, avatar) |
+| `src/screens/Home/language.ts` | Nuevas claves `tourFabs.splitty/add/profile` en ES/EN/PT |
+| `src/screens/ExpressEvent/types.ts` | `WizardStep`: `'menu' \| 'help' \| 'timeout'`; `ChatMessage.type`: `'timeout'` |
+| `src/screens/ExpressEvent/language.ts` | 15+ claves nuevas: menú, modo ayuda, preguntas, respuestas, timeout, nav buttons (ES/EN/PT) |
+| `src/screens/ExpressEvent/styles.ts` | `actionChip`: `flexDirection:'row'` + `alignItems:'center'` |
+| `src/screens/ExpressEvent/index.tsx` | Flujo menú/ayuda, goBackStep, timer inactividad, renderInputArea/renderMessage extendidos, HeaderBar sin back |
 
 ---
 
