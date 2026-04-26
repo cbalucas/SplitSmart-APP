@@ -420,6 +420,9 @@ class DatabaseService {
           await this.db.execAsync('ALTER TABLE participants ADD COLUMN is_public INTEGER DEFAULT 0');
           console.log('✅ Migration: Added is_public column to participants table');
         }
+        // Ensure legacy friends (no created_by_user_id) have is_public = 0
+        await this.db.execAsync(`UPDATE participants SET is_public = 0 WHERE is_public IS NULL`);
+        console.log('✅ Migration: Ensured legacy friends have is_public = 0');
         if (!colNames.includes('times_used')) {
           await this.db.execAsync('ALTER TABLE participants ADD COLUMN times_used INTEGER DEFAULT 0');
           console.log('✅ Migration: Added times_used column to participants table');
@@ -1252,9 +1255,11 @@ class DatabaseService {
       const result = await this.db.getAllAsync(
         `SELECT * FROM participants
          WHERE is_active = 1 AND participant_type = 'friend'
-           AND (created_by_user_id = ? OR is_public = 1)
+           AND (created_by_user_id = ? OR is_public = 1 OR created_by_user_id IS NULL)
          ORDER BY
-           CASE WHEN created_by_user_id = ? THEN 0 ELSE 1 END,
+           CASE WHEN created_by_user_id = ? THEN 0
+                WHEN created_by_user_id IS NULL THEN 1
+                ELSE 2 END,
            times_used DESC,
            name ASC`,
         [userId, userId]

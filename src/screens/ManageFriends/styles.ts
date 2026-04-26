@@ -63,6 +63,22 @@ export const createStyles = (theme: Theme, insets: EdgeInsets) => StyleSheet.cre
     flex: 1,
   } as ViewStyle,
 
+  // ── Secciones verdes (igual que Home) ──────────────────────
+  sectionCard: {
+    marginHorizontal: 12,
+    marginTop: 8,
+    borderRadius: 14,
+    borderTopWidth: 3,
+    borderTopColor: '#4CAF50',
+    backgroundColor: theme.colors.surface,
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+  } as ViewStyle,
+
   // ── Lista de amigos ───────────────────────────────────────
   listContainer: {
     paddingHorizontal: 16,
@@ -256,4 +272,49 @@ export const createStyles = (theme: Theme, insets: EdgeInsets) => StyleSheet.cre
   emptyButton: {
     marginTop: 24,
   } as ViewStyle,
+
+  // ── Filtros de visibilidad ────────────────────────────────
+  filterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 8,
+    paddingTop: 4,
+    paddingBottom: 8,
+    gap: 4,
+  } as ViewStyle,
+
+  filterBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+  } as ViewStyle,
+
+  filterIconWrap: {
+    position: 'relative',
+    marginBottom: 5,
+  } as ViewStyle,
+
+  filterBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -10,
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    minWidth: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+
+  filterBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#fff',
+  } as TextStyle,
+
+  filterLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+  } as TextStyle,
 });

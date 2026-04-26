@@ -232,6 +232,8 @@ const ProfileScreen: React.FC = () => {
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [showDatabaseStatsModal, setShowDatabaseStatsModal] = useState(false);
   const [showErrorGuideModal, setShowErrorGuideModal] = useState(false);
+  const [showDeleteDataModal, setShowDeleteDataModal] = useState(false);
+  const [deleteIncludeUsers, setDeleteIncludeUsers] = useState(false);
   const [selectedErrorScreen, setSelectedErrorScreen] = useState<{ title: string; icon: string; color: string; errors: { title: string; desc: string }[] } | null>(null);
   const [versionInfo, setVersionInfo] = useState<RemoteVersionInfo | null>(null);
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -827,26 +829,26 @@ const ProfileScreen: React.FC = () => {
   };
 
   const handleClearData = () => {
-    showAlert({ type: 'destructive', title: t('profile.message.deleteAllDataTitle'), message: t('profile.message.deleteAllDataMessage'), buttons: [
-        { text: t('cancel'), style: 'cancel' },
-        {
-          text: t('profile.message.deleteAll'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('??? Starting complete data deletion...');
-              await nukeDatabase();
-              await initializeAuth();
-              await refreshUser();
-              await loadUserProfile();
-              showAlert({ type: 'success', title: t('success'), message: t('profile.message.deleteCompleted') });
-            } catch (error) {
-              console.error('❌ Error during reset:', error);
-              showAlert({ type: 'error', title: t('error'), message: `${t('profile.message.deleteError')}\n\nDetalle: ${error instanceof Error ? error.message : 'Error desconocido'}` });
-            }
-          }
-        }
-      ] });
+    setDeleteIncludeUsers(false);
+    setShowDeleteDataModal(true);
+  };
+
+  const handleConfirmDeleteData = async () => {
+    setShowDeleteDataModal(false);
+    try {
+      if (deleteIncludeUsers) {
+        await nukeDatabase();
+        logout();
+      } else {
+        await clearAllData(false);
+        await refreshUser();
+        await loadUserProfile();
+        showAlert({ type: 'success', title: t('success'), message: t('profile.message.deleteDataOnlyCompleted') });
+      }
+    } catch (error) {
+      console.error('❌ Error during delete:', error);
+      showAlert({ type: 'error', title: t('error'), message: t('profile.message.deleteError') });
+    }
   };
 
   const handleLogout = () => {
@@ -1464,7 +1466,7 @@ const ProfileScreen: React.FC = () => {
           </TouchableOpacity>
           {/* Modo Chat Avanzado (Splitty) - ancho completo */}
           <TouchableOpacity
-            style={[styles.statCardWide, { borderLeftColor: chatModeAdvanced ? '#4CAF50' : theme.colors.outline, marginTop: 8 }]}
+            style={[styles.statCardWide, { borderLeftColor: chatModeAdvanced ? theme.colors.primary : theme.colors.outline, marginTop: 8 }]}
             onPress={async () => {
               try {
                 if (!user?.id) return;
@@ -1482,12 +1484,12 @@ const ProfileScreen: React.FC = () => {
               style={{ width: 36, height: 36, resizeMode: 'contain', opacity: chatModeAdvanced ? 1 : 0.4 }}
             />
             <View style={{ flex: 1 }}>
-              <Text style={[styles.statCardNumber, { color: chatModeAdvanced ? '#4CAF50' : theme.colors.onSurface, fontSize: 15 }]}>{t('profile.chatModeAdvanced')}</Text>
+              <Text style={[styles.statCardNumber, { color: chatModeAdvanced ? theme.colors.primary : theme.colors.onSurface, fontSize: 15 }]}>{t('profile.chatModeAdvanced')}</Text>
               <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant, textAlign: 'left' }]}>
                 {chatModeAdvanced ? t('profile.chatModeAdvancedOn') : t('profile.chatModeAdvancedOff')}
               </Text>
             </View>
-            <Text style={{ fontSize: 12, fontWeight: '700', color: chatModeAdvanced ? '#4CAF50' : theme.colors.onSurfaceVariant }}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: chatModeAdvanced ? theme.colors.primary : theme.colors.onSurfaceVariant }}>
               {chatModeAdvanced ? 'ACTIVADO' : 'DESACTIVADO'}
             </Text>
           </TouchableOpacity>
@@ -3040,6 +3042,102 @@ const ProfileScreen: React.FC = () => {
                 </View>
               ))}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Eliminar Datos */}
+      <Modal
+        visible={showDeleteDataModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDeleteDataModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {/* Header */}
+            <View style={styles.modalHeader}>
+              <View style={[styles.modalHeaderIconWrap, { backgroundColor: '#F4433620' }]}>
+                <MaterialCommunityIcons name="delete-alert" size={22} color="#F44336" />
+              </View>
+              <Text style={styles.modalTitle}>{t('profile.message.deleteAllDataTitle')}</Text>
+            </View>
+            <View style={styles.modalDivider} />
+
+            {/* Descripción */}
+            <Text style={[styles.modalFieldLabel, { marginBottom: 16, lineHeight: 20 }]}>
+              {deleteIncludeUsers
+                ? t('profile.message.deleteWithUsersDesc')
+                : t('profile.message.deleteDataOnlyDesc')}
+            </Text>
+
+            {/* Toggle: incluir usuarios */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setDeleteIncludeUsers(v => !v)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: deleteIncludeUsers ? '#F4433615' : theme.colors.surfaceVariant,
+                borderRadius: 12,
+                padding: 14,
+                marginBottom: 8,
+                borderWidth: 1.5,
+                borderColor: deleteIncludeUsers ? '#F44336' : theme.colors.outline,
+              }}
+            >
+              <MaterialCommunityIcons
+                name={deleteIncludeUsers ? 'account-remove' : 'account-check'}
+                size={22}
+                color={deleteIncludeUsers ? '#F44336' : theme.colors.onSurfaceVariant}
+                style={{ marginRight: 12 }}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: deleteIncludeUsers ? '#F44336' : theme.colors.onSurface }}>
+                  {t('profile.message.deleteIncludeUsers')}
+                </Text>
+                <Text style={{ fontSize: 12, color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
+                  {t('profile.message.deleteIncludeUsersDesc')}
+                </Text>
+              </View>
+              <Switch
+                value={deleteIncludeUsers}
+                onValueChange={setDeleteIncludeUsers}
+                trackColor={{ false: theme.colors.outline, true: '#F44336' }}
+                thumbColor={deleteIncludeUsers ? '#fff' : theme.colors.surface}
+              />
+            </TouchableOpacity>
+
+            {/* Botones */}
+            <View style={[styles.modalDivider, { marginTop: 16 }]} />
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+              <TouchableOpacity
+                onPress={() => setShowDeleteDataModal(false)}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                  backgroundColor: theme.colors.surfaceVariant,
+                  borderWidth: 1,
+                  borderColor: theme.colors.outline,
+                }}
+              >
+                <Text style={{ fontWeight: '600', color: theme.colors.onSurface }}>{t('cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleConfirmDeleteData}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                  backgroundColor: '#F44336',
+                }}
+              >
+                <Text style={{ fontWeight: '700', color: '#fff' }}>{t('profile.message.deleteConfirm')}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

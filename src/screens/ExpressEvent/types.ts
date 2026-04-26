@@ -12,6 +12,8 @@ export type WizardStep =
   | 'expense_amount'
   | 'expense_date'
   | 'expense_payer'
+  | 'expense_split_type'
+  | 'expense_split_values'
   | 'expense_more'
   | 'summary'
   | 'done'
@@ -30,6 +32,8 @@ export interface ExpenseEntry {
   date: string;
   payerId: string;
   payerName: string;
+  splitType?: 'equal' | 'percentage' | 'custom';
+  customSplits?: { participantId: string; participantName: string; amount: number; percentage: number }[];
 }
 
 export interface ExpressEventState {

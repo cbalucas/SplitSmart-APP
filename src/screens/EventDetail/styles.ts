@@ -249,9 +249,9 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     flex: 1
   },
   participantAvatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',

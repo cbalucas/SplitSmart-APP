@@ -40,6 +40,8 @@ export interface EventCardProps {
   onArchive?: (event: EventData) => void;
   onDelete?: (event: EventData) => void;
   style?: ViewStyle;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
 }
 
 const EventCard: React.FC<EventCardProps> = ({
@@ -48,12 +50,24 @@ const EventCard: React.FC<EventCardProps> = ({
   onEdit,
   onArchive,
   onDelete,
-  style
+  style,
+  isExpanded: isExpandedProp,
+  onToggleExpand
 }) => {
   const { theme } = useTheme();
   const { t } = useLanguage();
   const styles = createStyles(theme);
-  const [expanded, setExpanded] = useState(false);
+  const [internalExpanded, setInternalExpanded] = useState(false);
+
+  // Modo controlado si se pasan props, modo interno si no
+  const expanded = isExpandedProp !== undefined ? isExpandedProp : internalExpanded;
+  const toggleExpanded = () => {
+    if (onToggleExpand) {
+      onToggleExpand();
+    } else {
+      setInternalExpanded(v => !v);
+    }
+  };
 
   const getStatusColor = (status: string, isLocked?: boolean) => {
     if (status === 'active' && isLocked) return '#FF9800'; // Naranja - Bloqueado
@@ -159,7 +173,7 @@ const EventCard: React.FC<EventCardProps> = ({
               style={styles.privacyIcon}
             />
             <TouchableOpacity
-              onPress={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
+              onPress={(e) => { e.stopPropagation(); toggleExpanded(); }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={styles.expandBtn}
             >

@@ -36,12 +36,14 @@ interface NameValidation {
 
 
 
-const FriendItem: React.FC<FriendItemProps> = ({ friend, onPress, onDelete }) => {
+const FriendItem: React.FC<FriendItemProps> = ({ friend, onPress, onDelete, canEdit }) => {
   const { theme } = useTheme();
   const styles = createStyles(theme);
 
+  const borderColor = canEdit ? '#4CAF50' : '#2196F3';
+
   return (
-    <TouchableOpacity style={styles.friendItem} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity style={[styles.friendItem, { borderLeftColor: borderColor }]} onPress={onPress} activeOpacity={0.7}>
       {/* Avatar: foto si tiene, iniciales si no */}
       <Avatar
         name={friend.name}
@@ -61,9 +63,11 @@ const FriendItem: React.FC<FriendItemProps> = ({ friend, onPress, onDelete }) =>
               size={16}
               color={friend.isPublic ? theme.colors.primary : theme.colors.onSurfaceVariant}
             />
-            <TouchableOpacity style={styles.actionButton} onPress={onDelete} activeOpacity={0.7}>
-              <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.error} />
-            </TouchableOpacity>
+            {canEdit && (
+              <TouchableOpacity style={styles.actionButton} onPress={onDelete} activeOpacity={0.7}>
+                <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.error} />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -111,12 +115,14 @@ const ManageFriendsScreen: React.FC = () => {
   const mfHeaderRef = useRef<View>(null);
   const mfTabsRef = useRef<View>(null);
   const mfSearchRef = useRef<View>(null);
+  const mfFilterRef = useRef<View>(null);
   const mfListRef = useRef<View>(null);
   const mfListAnchorRef = useRef<View>(null);
   const mfFormRef = useRef<View>(null);
   const mfFormInputsRef = useRef<View>(null);
   const mfFormButtonsRef = useRef<View>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [friendFilter, setFriendFilter] = useState<'all' | 'own' | 'public' | 'private'>('all');
   const [friends, setFriends] = useState<Participant[]>([]);
   const [filteredFriends, setFilteredFriends] = useState<Participant[]>([]);
   const [editingFriend, setEditingFriend] = useState<Participant | null>(null);
@@ -151,18 +157,27 @@ const ManageFriendsScreen: React.FC = () => {
   };
 
   useEffect(() => {
-    // Filter friends based on search query
-    if (!searchQuery.trim()) {
-      setFilteredFriends(friends);
-    } else {
-      const filtered = friends.filter(participant =>
+    // Filter friends based on search query and visibility filter
+    let result = friends;
+
+    if (friendFilter === 'own') {
+      result = result.filter(p => !p.createdByUserId || p.createdByUserId === user?.id);
+    } else if (friendFilter === 'public') {
+      result = result.filter(p => p.isPublic);
+    } else if (friendFilter === 'private') {
+      result = result.filter(p => !p.isPublic);
+    }
+
+    if (searchQuery.trim()) {
+      result = result.filter(participant =>
         participant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (participant.email && participant.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (participant.phone && participant.phone.includes(searchQuery))
       );
-      setFilteredFriends(filtered);
     }
-  }, [friends, searchQuery]);
+
+    setFilteredFriends(result);
+  }, [friends, searchQuery, friendFilter, user?.id]);
 
   const handleMfTourNext = () => {
     if (mfTourStep < 3) setMfTourStep(s => s + 1);
@@ -303,6 +318,8 @@ const ManageFriendsScreen: React.FC = () => {
   };
 
   const handleFriendPress = (friend: Participant) => {
+    // Amigos públicos de otros usuarios: solo lectura
+    if (friend.createdByUserId && friend.createdByUserId !== user?.id) return;
     setEditingFriend(friend);
     setNewFriend({
       name: friend.name,
@@ -347,10 +364,14 @@ const ManageFriendsScreen: React.FC = () => {
     }
 
     try {
+      const capitalizeName = (name: string) => {
+        const trimmed = name.trim();
+        return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+      };
       if (editingFriend) {
         // Editar amigo existente
         await updateParticipant(editingFriend.id, {
-          name: newFriend.name.trim(),
+          name: capitalizeName(newFriend.name),
           email: newFriend.email.trim() || undefined,
           phone: newFriend.phone.trim() || undefined,
           alias_cbu: newFriend.alias_cbu.trim() || undefined,
@@ -363,7 +384,7 @@ const ManageFriendsScreen: React.FC = () => {
         // Agregar nuevo amigo
         const friend: Participant = {
           id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          name: newFriend.name.trim(),
+          name: capitalizeName(newFriend.name),
           email: newFriend.email.trim() || undefined,
           phone: newFriend.phone.trim() || undefined,
           alias_cbu: newFriend.alias_cbu.trim() || undefined,
@@ -459,6 +480,48 @@ const ManageFriendsScreen: React.FC = () => {
       placeholder={t.screen.searchPlaceholder}
     />
   );
+
+  const renderFilterRow = () => {
+    const ownCount = friends.filter(p => !p.createdByUserId || p.createdByUserId === user?.id).length;
+    const publicCount = friends.filter(p => p.isPublic).length;
+    const privateCount = friends.filter(p => !p.isPublic).length;
+
+    const filters: { key: 'all' | 'own' | 'public' | 'private'; label: string; count: number; icon: string; color: string }[] = [
+      { key: 'own',     label: t.filter.own,     count: ownCount,       icon: 'account-outline',       color: '#2196F3' },
+      { key: 'public',  label: t.filter.public,  count: publicCount,    icon: 'earth',                 color: '#4CAF50' },
+      { key: 'private', label: t.filter.private, count: privateCount,   icon: 'lock-outline',          color: '#FF9800' },
+    ];
+
+    return (
+      <View ref={mfFilterRef} collapsable={false} style={styles.filterRow}>
+        {filters.map(f => {
+          const isSelected = friendFilter === f.key;
+          return (
+            <TouchableOpacity
+              key={f.key}
+              style={[styles.filterBtn, isSelected && { backgroundColor: f.color + '20' }]}
+              onPress={() => setFriendFilter(prev => prev === f.key ? 'all' : f.key)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.filterIconWrap}>
+                <MaterialCommunityIcons
+                  name={f.icon as any}
+                  size={26}
+                  color={isSelected ? f.color : theme.colors.onSurfaceVariant}
+                />
+                <View style={[styles.filterBadge, { backgroundColor: f.color }]}>
+                  <Text style={styles.filterBadgeText}>{f.count}</Text>
+                </View>
+              </View>
+              <Text style={[styles.filterLabel, { color: isSelected ? f.color : theme.colors.onSurfaceVariant }]}>
+                {f.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    );
+  };
 
   const renderNewFriendTab = () => (
     <View style={{ flex: 1 }}>
@@ -621,10 +684,11 @@ const ManageFriendsScreen: React.FC = () => {
 
   const renderListTab = () => (
     <View style={styles.tabContent}>
-      <View ref={mfSearchRef} collapsable={false}>
+      <View ref={mfSearchRef} collapsable={false} style={styles.sectionCard}>
         {renderSearchBar()}
+        {renderFilterRow()}
       </View>
-      <View ref={mfListRef} collapsable={false} style={{ flex: 1 }}>
+      <View ref={mfListRef} collapsable={false} style={[styles.sectionCard, { flex: 1, marginBottom: 8 }]}>
       {filteredFriends.length === 0 && !searchQuery ? (
         <View>
           <View ref={mfListAnchorRef} collapsable={false} />
@@ -639,6 +703,7 @@ const ManageFriendsScreen: React.FC = () => {
               friend={item}
               onPress={() => handleFriendPress(item)}
               onDelete={() => handleDeleteFriend(item)}
+              canEdit={!item.createdByUserId || item.createdByUserId === user?.id}
             />
           )}
           ListHeaderComponent={<View ref={mfListAnchorRef} collapsable={false} />}
@@ -662,10 +727,10 @@ const ManageFriendsScreen: React.FC = () => {
       <TutorialOverlay
         visible={mfTourVisible}
         steps={[
-          { ref: mfTabsRef, titleKey: 'tour.friends.tabs.title', descKey: 'tour.friends.tabs.desc', popupPosition: 'below' },
-          { ref: mfSearchRef, titleKey: 'tour.friends.search.title', descKey: 'tour.friends.search.desc', popupPosition: 'below' },
-          { ref: mfListRef, titleKey: 'tour.friends.list.title', descKey: 'tour.friends.list.desc', popupPosition: 'center' },
-          { ref: mfFormInputsRef, titleKey: 'tour.friends.form.title', descKey: 'tour.friends.form.desc', popupPosition: 'below', onBeforeShow: () => setActiveTab('new'), delay: 350 },
+          { ref: mfTabsRef,     titleKey: 'tour.friends.tabs.title',    descKey: 'tour.friends.tabs.desc',    popupPosition: 'below' },
+          { ref: mfSearchRef,   titleKey: 'tour.friends.search.title',  descKey: 'tour.friends.search.desc',  popupPosition: 'below' },
+          { ref: mfListRef,     titleKey: 'tour.friends.list.title',    descKey: 'tour.friends.list.desc',    popupPosition: 'center' },
+          { ref: mfFormInputsRef, titleKey: 'tour.friends.form.title',  descKey: 'tour.friends.form.desc',    popupPosition: 'below', onBeforeShow: () => setActiveTab('new'), delay: 350 },
         ]}
         currentStep={mfTourStep}
         onNext={handleMfTourNext}

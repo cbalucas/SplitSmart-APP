@@ -65,6 +65,7 @@ const HomeScreen: React.FC = () => {
   const fabRef = useRef<View>(null);
   const [fabsExpanded, setFabsExpanded] = useState(true);
   const [fabsVisible, setFabsVisible] = useState(true);
+  const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const fabsAnim = useRef(new Animated.Value(1)).current;
 
   const toggleFabs = () => {
@@ -429,11 +430,20 @@ const HomeScreen: React.FC = () => {
 
   const renderEventItem = ({ item }: { item: HomeEventData }) => (
     <EventCard
-      event={item as any} // EventCard usa EventData, compatible con HomeEventData
+      event={item as any}
       onPress={handleEventPress}
       onEdit={handleEventEdit}
       onArchive={handleEventArchive}
       onDelete={handleEventDelete}
+      isExpanded={expandedEventId === item.id}
+      onToggleExpand={() => {
+        const isCurrentlyExpanded = expandedEventId === item.id;
+        setExpandedEventId(isCurrentlyExpanded ? null : item.id);
+        // Colapsar FABs al expandir una card
+        if (!isCurrentlyExpanded && fabsExpanded) {
+          toggleFabs();
+        }
+      }}
     />
   );
 

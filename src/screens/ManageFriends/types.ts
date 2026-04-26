@@ -4,6 +4,7 @@ export interface FriendItemProps {
   friend: Participant;
   onPress: () => void;
   onDelete: () => void;
+  canEdit: boolean;
 }
 
 export interface NewFriendData {

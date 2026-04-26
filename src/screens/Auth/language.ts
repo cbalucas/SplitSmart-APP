@@ -149,7 +149,7 @@ export const signUpLanguage = {
       phoneLabel: 'Teléfono',
       noEmail: 'Sin email',
       noPhone: 'Sin teléfono',
-      note: 'ℹ️ Este amigo es independiente de tu perfil. Los cambios al perfil no lo actualizarán. Podés editarlo desde Amigos.',
+      note: 'ℹ️ Este amigo está vinculado a tu perfil. Si actualizás tus datos en Perfil, se sincronizarán automáticamente aquí.',
       confirmButton: 'Sí, agregarme como Amigo',
       skipButton: 'Ahora no'
     },
@@ -226,7 +226,7 @@ export const signUpLanguage = {
       phoneLabel: 'Phone',
       noEmail: 'No email',
       noPhone: 'No phone',
-      note: 'ℹ️ This friend is independent from your profile. Profile changes won\'t update it. You can edit it from Friends.',
+      note: 'ℹ️ This friend is linked to your profile. If you update your data in Profile, it will automatically sync here.',
       confirmButton: 'Yes, add me as a Friend',
       skipButton: 'Not now'
     },
@@ -303,7 +303,7 @@ export const signUpLanguage = {
       phoneLabel: 'Telefone',
       noEmail: 'Sem email',
       noPhone: 'Sem telefone',
-      note: 'ℹ️ Este amigo é independente do seu perfil. Alterações no perfil não o atualizarão. Você pode editá-lo em Amigos.',
+      note: 'ℹ️ Este amigo está vinculado ao seu perfil. Se você atualizar seus dados no Perfil, será sincronizado automaticamente aqui.',
       confirmButton: 'Sim, me adicionar como Amigo',
       skipButton: 'Agora não'
     },

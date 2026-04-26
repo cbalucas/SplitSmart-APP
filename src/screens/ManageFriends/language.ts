@@ -20,6 +20,16 @@ export interface ManageFriendsLanguage {
     emailPlaceholder: string;
     optional: string;
     required: string;
+    visibilityPublic: string;
+    visibilityPrivate: string;
+    visibilityPublicDesc: string;
+    visibilityPrivateDesc: string;
+  };
+  filter: {
+    all: string;
+    own: string;
+    public: string;
+    private: string;
   };
   nameValidation: {
     tooShort: string;
@@ -95,6 +105,16 @@ export const manageFriendsLanguage: Record<string, ManageFriendsLanguage> = {
       emailPlaceholder: 'correo@ejemplo.com',
       optional: '(opcional)',
       required: '*',
+      visibilityPublic: 'Público',
+      visibilityPrivate: 'Privado',
+      visibilityPublicDesc: 'Visible para todos los usuarios',
+      visibilityPrivateDesc: 'Solo visible para vos',
+    },
+    filter: {
+      all: 'Todos',
+      own: 'Propios',
+      public: 'Públicos',
+      private: 'Privados',
     },
     buttons: {
       add: 'Agregar',
@@ -162,6 +182,16 @@ export const manageFriendsLanguage: Record<string, ManageFriendsLanguage> = {
       emailPlaceholder: 'email@example.com',
       optional: '(optional)',
       required: '*',
+      visibilityPublic: 'Public',
+      visibilityPrivate: 'Private',
+      visibilityPublicDesc: 'Visible to all users',
+      visibilityPrivateDesc: 'Only visible to you',
+    },
+    filter: {
+      all: 'All',
+      own: 'Own',
+      public: 'Public',
+      private: 'Private',
     },
     buttons: {
       add: 'Add',
@@ -229,6 +259,16 @@ export const manageFriendsLanguage: Record<string, ManageFriendsLanguage> = {
       emailPlaceholder: 'email@exemplo.com',
       optional: '(opcional)',
       required: '*',
+      visibilityPublic: 'Público',
+      visibilityPrivate: 'Privado',
+      visibilityPublicDesc: 'Visível para todos os usuários',
+      visibilityPrivateDesc: 'Visível apenas para você',
+    },
+    filter: {
+      all: 'Todos',
+      own: 'Próprios',
+      public: 'Públicos',
+      private: 'Privados',
     },
     buttons: {
       add: 'Adicionar',

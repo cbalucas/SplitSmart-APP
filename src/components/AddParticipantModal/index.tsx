@@ -64,7 +64,7 @@ const FriendSelectItem: React.FC<FriendSelectItemProps> = ({ friend, isSelected,
         <Avatar
           name={friend.name}
           image={friend.avatar}
-          size="small"
+          size="medium"
           style={{ marginRight: 12 }}
         />
         <View style={styles.friendSelectDetails}>
@@ -283,7 +283,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
     try {
       const participant: Participant = {
         id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        name: newParticipant.name.trim(),
+        name: (() => { const n = newParticipant.name.trim(); return n.charAt(0).toUpperCase() + n.slice(1); })(),
         email: newParticipant.email.trim() || undefined,
         phone: newParticipant.phone.trim() || undefined,
         alias_cbu: newParticipant.alias_cbu.trim() || undefined,
@@ -341,7 +341,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
 
         participantsToAdd = names.map((name, index) => ({
           id: `${baseTimestamp}_${index}_${Math.random().toString(36).substr(2, 9)}`,
-          name: name,
+          name: name.charAt(0).toUpperCase() + name.slice(1),
           participantType: 'temporary' as const,
           isActive: true,
           createdAt: new Date().toISOString(),

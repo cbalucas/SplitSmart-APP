@@ -93,6 +93,17 @@ interface ExpressTranslations {
   helpQ3: string;
   helpQ4: string;
   helpQ5: string;
+  // Modo avanzado - split
+  askSplitType: string;
+  splitTypeEqual: string;
+  splitTypePercentage: string;
+  splitTypeCustom: string;
+  askSplitValues: string;
+  splitPercentageError: string;
+  splitAmountError: string;
+  sectionLabelSplitType: string;
+  sectionLabelSplitValues: string;
+  summaryCustomSplitLabel: string;
 }
 
 const es: ExpressTranslations = {
@@ -184,6 +195,17 @@ const es: ExpressTranslations = {
   helpQ3: '¿Cómo cargo gastos?',
   helpQ4: '¿Cómo agrego participantes?',
   helpQ5: '¿Cómo funciona la liquidación?',
+  // Modo avanzado - split
+  askSplitType: '¿Cómo querés dividir este gasto entre los participantes?',
+  splitTypeEqual: 'Partes iguales',
+  splitTypePercentage: 'Por porcentaje',
+  splitTypeCustom: 'Por monto fijo',
+  askSplitValues: 'Ingresá el valor para cada participante:',
+  splitPercentageError: '⚠️ Los porcentajes deben sumar exactamente 100%. Revisá los valores.',
+  splitAmountError: '⚠️ Los montos deben sumar $\{amount\}. Revisá los valores.',
+  sectionLabelSplitType: 'Tipo de división',
+  sectionLabelSplitValues: 'División personalizada',
+  summaryCustomSplitLabel: 'División',
 };
 
 const en: ExpressTranslations = {
@@ -276,6 +298,17 @@ const en: ExpressTranslations = {
   helpQ3: 'How do I add expenses?',
   helpQ4: 'How do I add participants?',
   helpQ5: 'How does settlement work?',
+  // Advanced mode - split
+  askSplitType: 'How do you want to split this expense among participants?',
+  splitTypeEqual: 'Equal shares',
+  splitTypePercentage: 'By percentage',
+  splitTypeCustom: 'By fixed amount',
+  askSplitValues: 'Enter the value for each participant:',
+  splitPercentageError: '⚠️ Percentages must add up to exactly 100%. Please review the values.',
+  splitAmountError: '⚠️ Amounts must add up to $\{amount\}. Please review the values.',
+  sectionLabelSplitType: 'Split type',
+  sectionLabelSplitValues: 'Custom split',
+  summaryCustomSplitLabel: 'Split',
 };
 
 const pt: ExpressTranslations = {
@@ -368,6 +401,17 @@ const pt: ExpressTranslations = {
   helpQ3: 'Como adiciono despesas?',
   helpQ4: 'Como adiciono participantes?',
   helpQ5: 'Como funciona a liquidação?',
+  // Modo avançado - split
+  askSplitType: 'Como você quer dividir esta despesa entre os participantes?',
+  splitTypeEqual: 'Partes iguais',
+  splitTypePercentage: 'Por porcentagem',
+  splitTypeCustom: 'Por valor fixo',
+  askSplitValues: 'Insira o valor para cada participante:',
+  splitPercentageError: '⚠️ As porcentagens devem somar exatamente 100%. Revise os valores.',
+  splitAmountError: '⚠️ Os valores devem somar $\{amount\}. Revise os valores.',
+  sectionLabelSplitType: 'Tipo de divisão',
+  sectionLabelSplitValues: 'Divisão personalizada',
+  summaryCustomSplitLabel: 'Divisão',
 };
 
 export const expressLanguage: Record<ExpressLanguage, ExpressTranslations> = { es, en, pt };

@@ -85,6 +85,9 @@ const ExpressEventScreen: React.FC = () => {
   const [datePickerTarget, setDatePickerTarget] = useState<'event' | 'expense'>('event');
   const [datePickerValue, setDatePickerValue] = useState(new Date());
 
+  // Split values (modo avanzado)
+  const [splitInputValues, setSplitInputValues] = useState<Record<string, string>>({});
+
   // Ref para detectar cambio real de idioma (ignorar mount)
   const prevLanguageRef = useRef<string>(language);
 
@@ -201,7 +204,11 @@ const ExpressEventScreen: React.FC = () => {
       case 'expense_amount':    setStep('expense_title'); setTimeout(() => pushBot(t.askExpenseTitle), 200); break;
       case 'expense_date':      setStep('expense_amount'); setTimeout(() => pushBot(t.askExpenseAmount), 200); break;
       case 'expense_payer':     setStep('expense_date'); setTimeout(() => pushBot(t.askExpenseDate), 200); break;
-      case 'expense_more':      setStep('expense_payer'); setTimeout(() => pushBot(t.askExpensePayer), 200); break;
+      case 'expense_split_type':    setStep('expense_payer'); setTimeout(() => pushBot(t.askExpensePayer), 200); break;
+      case 'expense_split_values':   setStep('expense_split_type'); setTimeout(() => pushBot(t.askSplitType), 200); break;
+      case 'expense_more':
+        setStep('expense_payer'); setTimeout(() => pushBot(t.askExpensePayer), 200);
+        break;
       case 'summary':           setStep('expense_more'); setTimeout(() => pushBot(t.askMoreExpenses), 200); break;
       default: break;
     }
@@ -210,7 +217,8 @@ const ExpressEventScreen: React.FC = () => {
   // Pasos que son parte del flujo de creación (tienen botón volver/cancelar)
   const isExpressFlowStep = (s: WizardStep) =>
     ['event_name','event_date','participants','bulk_participants','ask_expenses',
-     'expense_title','expense_amount','expense_date','expense_payer','expense_more','summary'].includes(s);
+     'expense_title','expense_amount','expense_date','expense_payer','expense_split_type',
+     'expense_split_values','expense_more','summary'].includes(s);
 
 
   const getHelpResponse = (text: string): string => {
@@ -433,6 +441,71 @@ const ExpressEventScreen: React.FC = () => {
       },
     }));
     pushUser(payer.name);
+    // TODO: activar flujo avanzado cuando CreateExpense soporte splits por % y monto fijo
+    setTimeout(() => pushBot(t.askMoreExpenses), 300);
+    setStep('expense_more');
+  };
+
+  const goToExpenseSplitValues = (splitType: 'percentage' | 'custom') => {
+    const count = state.selectedParticipants.length;
+    const initVals: Record<string, string> = {};
+    if (splitType === 'percentage') {
+      const equalPct = count > 0 ? (100 / count).toFixed(1) : '0';
+      state.selectedParticipants.forEach(p => { initVals[p.id] = equalPct; });
+    } else {
+      const equalAmt = count > 0 ? (state.currentExpense.amount! / count).toFixed(2) : '0';
+      state.selectedParticipants.forEach(p => { initVals[p.id] = equalAmt; });
+    }
+    setSplitInputValues(initVals);
+    setState(prev => ({ ...prev, currentExpense: { ...prev.currentExpense, splitType } }));
+    setTimeout(() => pushBot(t.askSplitValues), 300);
+    setStep('expense_split_values');
+  };
+
+  const handleConfirmSplitValues = () => {
+    const splitType = state.currentExpense.splitType as 'percentage' | 'custom';
+    const participants = state.selectedParticipants;
+    const values = participants.map(p => ({
+      participantId: p.id,
+      participantName: p.name,
+      raw: parseFloat((splitInputValues[p.id] || '0').replace(',', '.')),
+    }));
+    if (values.some(v => isNaN(v.raw) || v.raw < 0)) {
+      pushWarning(t.splitPercentageError);
+      return;
+    }
+    const total = values.reduce((s, v) => s + v.raw, 0);
+    if (splitType === 'percentage') {
+      if (Math.abs(total - 100) > 0.5) {
+        pushWarning(t.splitPercentageError);
+        return;
+      }
+      const customSplits = values.map(v => ({
+        participantId: v.participantId,
+        participantName: v.participantName,
+        amount: Math.round((state.currentExpense.amount! * v.raw / 100) * 100) / 100,
+        percentage: v.raw,
+      }));
+      setState(prev => ({ ...prev, currentExpense: { ...prev.currentExpense, customSplits, splitType: 'percentage' } }));
+      const summary = values.map(v => `${v.participantName}: ${v.raw.toFixed(1)}%`).join(', ');
+      pushUser(summary);
+    } else {
+      const expenseAmt = state.currentExpense.amount!;
+      if (Math.abs(total - expenseAmt) > 0.01) {
+        pushWarning(t.splitAmountError.replace('{amount}', expenseAmt.toFixed(2)));
+        return;
+      }
+      const customSplits = values.map(v => ({
+        participantId: v.participantId,
+        participantName: v.participantName,
+        amount: v.raw,
+        percentage: Math.round((v.raw / expenseAmt * 100) * 100) / 100,
+      }));
+      setState(prev => ({ ...prev, currentExpense: { ...prev.currentExpense, customSplits, splitType: 'custom' } }));
+      const summary = values.map(v => `${v.participantName}: $${v.raw.toFixed(2)}`).join(', ');
+      pushUser(summary);
+    }
+    setSplitInputValues({});
     setTimeout(() => pushBot(t.askMoreExpenses), 300);
     setStep('expense_more');
   };
@@ -467,9 +540,18 @@ const ExpressEventScreen: React.FC = () => {
       ? s.selectedParticipants.map(p => p.name).join(', ')
       : t.summaryNoParticipants;
     const expensesLines = s.expenses.length > 0
-      ? s.expenses.map(e =>
-          `${t.summaryExpenseItem.replace('{title}', e.title).replace('{amount}', e.amount.toFixed(2))} (${t.summaryPaidBy.replace('{name}', e.payerName)})`
-        )
+      ? s.expenses.flatMap(e => {
+          const mainLine = `${t.summaryExpenseItem.replace('{title}', e.title).replace('{amount}', e.amount.toFixed(2))} (${t.summaryPaidBy.replace('{name}', e.payerName)})`;
+          if (e.splitType && e.splitType !== 'equal' && e.customSplits && e.customSplits.length > 0) {
+            const splitLines = e.customSplits.map(cs =>
+              e.splitType === 'percentage'
+                ? `    • ${cs.participantName}: ${cs.percentage.toFixed(1)}% ($${cs.amount.toFixed(2)})`
+                : `    • ${cs.participantName}: $${cs.amount.toFixed(2)}`
+            );
+            return [mainLine, `  ${t.summaryCustomSplitLabel}:`, ...splitLines];
+          }
+          return [mainLine];
+        })
       : [t.summaryNoExpenses];
     const lines = [
       `${t.summaryEvent} **${s.eventName}**`,
@@ -517,24 +599,39 @@ const ExpressEventScreen: React.FC = () => {
         }
       }
 
-      // Agregar gastos con splits equitativos entre todos los participantes
+      // Agregar gastos con splits (iguales o personalizados)
       const splitCount = state.selectedParticipants.length;
       for (const e of state.expenses) {
         const expenseId = generateId();
-        const splitAmount = splitCount > 0
-          ? Math.round((e.amount / splitCount) * 100) / 100
-          : e.amount;
-        const splits = state.selectedParticipants.map(p => ({
-          id: generateId(),
-          expenseId,
-          participantId: p.id,
-          amount: splitAmount,
-          percentage: splitCount > 0 ? Math.round((100 / splitCount) * 100) / 100 : 100,
-          type: 'equal' as const,
-          isPaid: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }));
+        let splits;
+        if ((e.splitType === 'percentage' || e.splitType === 'custom') && e.customSplits && e.customSplits.length > 0) {
+          splits = e.customSplits.map(cs => ({
+            id: generateId(),
+            expenseId,
+            participantId: cs.participantId,
+            amount: cs.amount,
+            percentage: cs.percentage,
+            type: e.splitType === 'percentage' ? 'percentage' as const : 'custom' as const,
+            isPaid: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }));
+        } else {
+          const splitAmount = splitCount > 0
+            ? Math.round((e.amount / splitCount) * 100) / 100
+            : e.amount;
+          splits = state.selectedParticipants.map(p => ({
+            id: generateId(),
+            expenseId,
+            participantId: p.id,
+            amount: splitAmount,
+            percentage: splitCount > 0 ? Math.round((100 / splitCount) * 100) / 100 : 100,
+            type: 'equal' as const,
+            isPaid: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }));
+        }
         await addExpense({
           id: expenseId,
           eventId,
@@ -716,20 +813,22 @@ const ExpressEventScreen: React.FC = () => {
   // ── Metadatos de sección por step (igual que EventDetail) ──
   const getSectionMeta = (): { icon: string; label: string } => {
     switch (step) {
-      case 'menu':              return { icon: 'hand-wave',            label: '¿Cómo puedo ayudarte?' };
-      case 'help':              return { icon: 'help-circle-outline',  label: t.helpSectionLabel };
-      case 'event_name':        return { icon: 'calendar-edit',        label: t.sectionLabelEventName };
-      case 'event_date':        return { icon: 'calendar',             label: t.sectionLabelEventDate };
-      case 'participants':      return { icon: 'account-group',        label: t.sectionLabelParticipants };
-      case 'bulk_participants': return { icon: 'account-multiple-plus', label: t.sectionLabelBulkParticipants };
-      case 'ask_expenses':      return { icon: 'currency-usd',         label: t.sectionLabelExpenses };
-      case 'expense_title':     return { icon: 'receipt',              label: t.sectionLabelExpenseTitle };
-      case 'expense_amount':    return { icon: 'cash',                 label: t.sectionLabelExpenseAmount };
-      case 'expense_date':      return { icon: 'calendar-clock',       label: t.sectionLabelExpenseDate };
-      case 'expense_payer':     return { icon: 'account-cash',         label: t.sectionLabelExpensePayer };
-      case 'expense_more':      return { icon: 'plus-circle-outline',  label: t.sectionLabelMoreExpenses };
-      case 'summary':           return { icon: 'check-circle-outline', label: t.sectionLabelSummary };
-      default:                  return { icon: 'chat-outline',         label: '' };
+      case 'menu':                return { icon: 'hand-wave',            label: '¿Cómo puedo ayudarte?' };
+      case 'help':                return { icon: 'help-circle-outline',  label: t.helpSectionLabel };
+      case 'event_name':          return { icon: 'calendar-edit',        label: t.sectionLabelEventName };
+      case 'event_date':          return { icon: 'calendar',             label: t.sectionLabelEventDate };
+      case 'participants':        return { icon: 'account-group',        label: t.sectionLabelParticipants };
+      case 'bulk_participants':   return { icon: 'account-multiple-plus', label: t.sectionLabelBulkParticipants };
+      case 'ask_expenses':        return { icon: 'currency-usd',         label: t.sectionLabelExpenses };
+      case 'expense_title':       return { icon: 'receipt',              label: t.sectionLabelExpenseTitle };
+      case 'expense_amount':      return { icon: 'cash',                 label: t.sectionLabelExpenseAmount };
+      case 'expense_date':        return { icon: 'calendar-clock',       label: t.sectionLabelExpenseDate };
+      case 'expense_payer':       return { icon: 'account-cash',         label: t.sectionLabelExpensePayer };
+      case 'expense_split_type':  return { icon: 'chart-pie',            label: t.sectionLabelSplitType };
+      case 'expense_split_values':return { icon: 'percent',              label: t.sectionLabelSplitValues };
+      case 'expense_more':        return { icon: 'plus-circle-outline',  label: t.sectionLabelMoreExpenses };
+      case 'summary':             return { icon: 'check-circle-outline', label: t.sectionLabelSummary };
+      default:                    return { icon: 'chat-outline',         label: '' };
     }
   };
 
@@ -738,24 +837,29 @@ const ExpressEventScreen: React.FC = () => {
     if (step === 'menu') {
       return (
         <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={[styles.actionChip, { flex: 1, justifyContent: 'center', paddingVertical: 14 }]}
-            onPress={goToExpressMode}
-            activeOpacity={0.8}
-          >
-            <Image
-              source={require('../../../assets/splitsmart/Splitty.png')}
-              style={{ width: 36, height: 36, resizeMode: 'contain', marginRight: 8 }}
-            />
-            <Text style={styles.actionChipText}>Evento express</Text>
-          </TouchableOpacity>
+          {!user?.chatModeAdvanced && (
+            <TouchableOpacity
+              style={[styles.actionChip, { flex: 1, justifyContent: 'center', paddingVertical: 14 }]}
+              onPress={goToExpressMode}
+              activeOpacity={0.8}
+            >
+              <Image
+                source={require('../../../assets/splitsmart/Splitty.png')}
+                style={{ width: 36, height: 36, resizeMode: 'contain', marginRight: 8 }}
+              />
+              <Text style={styles.actionChipText}>Evento express</Text>
+            </TouchableOpacity>
+          )}
           {user?.chatModeAdvanced && (
             <TouchableOpacity
               style={[styles.actionChip, { flex: 1, justifyContent: 'center', paddingVertical: 14 }]}
               onPress={goToAdvancedExpressMode}
               activeOpacity={0.8}
             >
-              <MaterialCommunityIcons name="robot-outline" size={36} color={styles.actionChipText.color} style={{ marginRight: 8 }} />
+              <Image
+                source={require('../../../assets/splitsmart/Splitty.png')}
+                style={{ width: 36, height: 36, resizeMode: 'contain', marginRight: 8 }}
+              />
               <Text style={styles.actionChipText}>{t.modeAdvanced || 'Avanzado'}</Text>
             </TouchableOpacity>
           )}
@@ -970,6 +1074,88 @@ const ExpressEventScreen: React.FC = () => {
           >
             <MaterialCommunityIcons name="send" size={20} color="#FFFFFF" />
           </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (step === 'expense_split_type') {
+      return (
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={[styles.actionChip, { flex: 1, justifyContent: 'center' }]}
+            onPress={() => {
+              pushUser(t.splitTypeEqual);
+              setState(prev => ({ ...prev, currentExpense: { ...prev.currentExpense, splitType: 'equal', customSplits: undefined } }));
+              setTimeout(() => pushBot(t.askMoreExpenses), 300);
+              setStep('expense_more');
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.actionChipText}>⚖️ {t.splitTypeEqual}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionChip, { flex: 1, justifyContent: 'center' }]}
+            onPress={() => { pushUser(t.splitTypePercentage); goToExpenseSplitValues('percentage'); }}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.actionChipText}>📊 {t.splitTypePercentage}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionChip, { flex: 1, justifyContent: 'center' }]}
+            onPress={() => { pushUser(t.splitTypeCustom); goToExpenseSplitValues('custom'); }}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.actionChipText}>💲 {t.splitTypeCustom}</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (step === 'expense_split_values') {
+      const isPercentage = state.currentExpense.splitType === 'percentage';
+      const totalTarget = isPercentage ? 100 : (state.currentExpense.amount || 0);
+      const currentSum = state.selectedParticipants.reduce(
+        (s, p) => s + parseFloat((splitInputValues[p.id] || '0').replace(',', '.')), 0
+      );
+      const diff = Math.abs(currentSum - totalTarget);
+      const isValid = diff < (isPercentage ? 0.5 : 0.02);
+      return (
+        <View>
+          <ScrollView style={{ maxHeight: 190 }} keyboardShouldPersistTaps="handled">
+            {state.selectedParticipants.map(p => (
+              <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 7, paddingHorizontal: 4, gap: 8 }}>
+                <Text style={{ flex: 1, fontSize: 14, fontWeight: '500', color: theme.colors.onSurface }} numberOfLines={1}>{p.name}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, paddingHorizontal: 8, minWidth: 100 }}>
+                  {!isPercentage && <Text style={{ color: theme.colors.onSurfaceVariant, marginRight: 2 }}>$</Text>}
+                  <TextInput
+                    style={{ flex: 1, fontSize: 15, color: theme.colors.onSurface, textAlign: 'right', paddingVertical: 6 }}
+                    value={splitInputValues[p.id] || ''}
+                    onChangeText={v => setSplitInputValues(prev => ({ ...prev, [p.id]: v }))}
+                    keyboardType="decimal-pad"
+                    placeholder={isPercentage ? '0.0' : '0.00'}
+                    placeholderTextColor={theme.colors.onSurfaceVariant}
+                  />
+                  {isPercentage && <Text style={{ color: theme.colors.onSurfaceVariant, marginLeft: 2 }}>%</Text>}
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 8, paddingHorizontal: 4, gap: 8 }}>
+            <Text style={{ flex: 1, fontSize: 13, color: isValid ? theme.colors.primary : theme.colors.error, fontWeight: '600' }}>
+              {isPercentage
+                ? `Σ ${currentSum.toFixed(1)}% / 100%`
+                : `Σ $${currentSum.toFixed(2)} / $${totalTarget.toFixed(2)}`
+              }
+            </Text>
+            <TouchableOpacity
+              style={[styles.sendBtn, !isValid && styles.sendBtnDisabled]}
+              onPress={handleConfirmSplitValues}
+              disabled={!isValid}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="check" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         </View>
       );
     }

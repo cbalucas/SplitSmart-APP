@@ -26,9 +26,20 @@ export const createExpenseLanguage = {
     // Card: Participantes y División
     participantsCard: {
       title: '👥 Participantes y División',
-      subtitle: 'Selecciona participantes - la división se hará automáticamente de forma igual',
+      subtitle: 'División automática en partes iguales según los participantes seleccionados',
+      subtitlePercentage: 'Ingresa el porcentaje para cada participante (deben sumar 100%)',
+      subtitleFixed: 'Ingresa el monto exacto para cada participante',
       excludedLabel: 'Excluido',
-      warningText: '⚠️ Debes incluir al menos un participante'
+      warningText: '⚠️ Debes incluir al menos un participante en el gasto',
+      splitTypeLabel: 'Tipo de división',
+      splitTypeEqual: 'Partes iguales',
+      splitTypePercentage: 'Porcentaje',
+      splitTypeFixed: 'Monto fijo',
+      percentageSum: 'Suma: {sum}%',
+      fixedSum: 'Suma: ${sum}',
+      remainingAmount: 'Restante: ${remaining}',
+      splitSumOk: 'División correcta ✓',
+      splitSumError: 'La suma no coincide con el monto total'
     },
     
     // Card: Comprobante
@@ -118,7 +129,7 @@ export const createExpenseLanguage = {
       toggleLabel: 'Múltiples pagadores',
       toggleSubtitle: 'Dividir el pago entre varias personas',
       sumOk: 'La suma coincide con el monto del gasto ✓',
-      sumMismatch: 'La suma ({sum}) no coincide con el monto ({total})',
+      sumMismatch: 'Suma: ${sum} — Falta: ${remaining} para completar el pago',
       minPayersWarning: 'Seleccioná al menos 2 pagadores'
     },
 
@@ -158,9 +169,20 @@ export const createExpenseLanguage = {
     // Card: Participantes y División
     participantsCard: {
       title: '👥 Participants & Split',
-      subtitle: 'Select participants - the split will be done automatically equally',
+      subtitle: 'Automatic equal split among selected participants',
+      subtitlePercentage: 'Enter the percentage for each participant (must sum to 100%)',
+      subtitleFixed: 'Enter the exact amount for each participant',
       excludedLabel: 'Excluded',
-      warningText: '⚠️ You must include at least one participant'
+      warningText: '⚠️ You must include at least one participant',
+      splitTypeLabel: 'Split type',
+      splitTypeEqual: 'Equal parts',
+      splitTypePercentage: 'Percentage',
+      splitTypeFixed: 'Fixed amount',
+      percentageSum: 'Sum: {sum}%',
+      fixedSum: 'Sum: ${sum}',
+      remainingAmount: 'Remaining: ${remaining}',
+      splitSumOk: 'Split correct ✓',
+      splitSumError: 'Sum does not match total amount'
     },
     
     // Card: Comprobante
@@ -250,7 +272,7 @@ export const createExpenseLanguage = {
       toggleLabel: 'Multiple payers',
       toggleSubtitle: 'Split the payment among several people',
       sumOk: 'The sum matches the expense amount ✓',
-      sumMismatch: 'The sum ({sum}) does not match the amount ({total})',
+      sumMismatch: 'Sum: ${sum} — Missing: ${remaining} to complete payment',
       minPayersWarning: 'Select at least 2 payers'
     },
 
@@ -290,9 +312,20 @@ export const createExpenseLanguage = {
     // Card: Participantes y División
     participantsCard: {
       title: '👥 Participantes e Divisão',
-      subtitle: 'Selecione participantes - a divisão será feita automaticamente de forma igual',
+      subtitle: 'Divisão automática em partes iguais entre os participantes selecionados',
+      subtitlePercentage: 'Insira a porcentagem para cada participante (deve somar 100%)',
+      subtitleFixed: 'Insira o valor exato para cada participante',
       excludedLabel: 'Excluído',
-      warningText: '⚠️ Você deve incluir pelo menos um participante'
+      warningText: '⚠️ Você deve incluir pelo menos um participante',
+      splitTypeLabel: 'Tipo de divisão',
+      splitTypeEqual: 'Partes iguais',
+      splitTypePercentage: 'Porcentagem',
+      splitTypeFixed: 'Valor fixo',
+      percentageSum: 'Soma: {sum}%',
+      fixedSum: 'Soma: ${sum}',
+      remainingAmount: 'Restante: ${remaining}',
+      splitSumOk: 'Divisão correta ✓',
+      splitSumError: 'A soma não coincide com o valor total'
     },
     
     // Card: Comprobante
@@ -382,7 +415,7 @@ export const createExpenseLanguage = {
       toggleLabel: 'Múltiplos pagadores',
       toggleSubtitle: 'Dividir o pagamento entre várias pessoas',
       sumOk: 'A soma coincide com o valor da despesa ✓',
-      sumMismatch: 'A soma ({sum}) não coincide com o valor ({total})',
+      sumMismatch: 'Soma: ${sum} — Falta: ${remaining} para completar o pagamento',
       minPayersWarning: 'Selecione pelo menos 2 pagadores'
     },
 

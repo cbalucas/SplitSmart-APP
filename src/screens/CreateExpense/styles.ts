@@ -236,18 +236,14 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 9,
-    paddingHorizontal: 10,
-    backgroundColor: theme.colors.surfaceVariant,
-    borderRadius: 8,
-    marginBottom: 4,
-    borderLeftWidth: 4,
-    borderLeftColor: theme.colors.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.surfaceVariant,
   } as ViewStyle,
 
   unifiedParticipantRowExcluded: {
     opacity: 0.6,
-    borderLeftColor: theme.colors.outline,
   } as ViewStyle,
 
   participantToggle: {
@@ -386,6 +382,116 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   receiptBtnText: {
     ...theme.typography.labelLarge,
     fontWeight: '500',
+  } as TextStyle,
+
+  // ── Selector tipo de división (tabs) ──────────────────────
+  splitTypeSelector: {
+    marginBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.surfaceVariant,
+  } as ViewStyle,
+
+  splitTypeSelectorLabel: {
+    ...theme.typography.labelMedium,
+    color: theme.colors.onSurfaceVariant,
+    marginBottom: 8,
+    fontWeight: '500',
+  } as TextStyle,
+
+  splitTypeChipsRow: {
+    flexDirection: 'row',
+  } as ViewStyle,
+
+  splitTypeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+    marginBottom: -1,
+  } as ViewStyle,
+
+  splitTypeChipActive: {
+    borderBottomColor: theme.colors.primary,
+  } as ViewStyle,
+
+  splitTypeChipText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: theme.colors.onSurfaceVariant,
+  } as TextStyle,
+
+  splitTypeChipTextActive: {
+    color: theme.colors.primary,
+    fontWeight: '700',
+  } as TextStyle,
+
+  // ── Inputs por participante (modos % y fijo) ──────────────
+  splitInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 110,
+    justifyContent: 'flex-end',
+  } as ViewStyle,
+
+  splitInputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surfaceVariant,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    minWidth: 72,
+  } as ViewStyle,
+
+  splitInputText: {
+    ...theme.typography.bodyMedium,
+    color: theme.colors.onSurface,
+    minWidth: 48,
+    padding: 0,
+    textAlign: 'right',
+  } as TextStyle,
+
+  splitInputSuffix: {
+    fontSize: 13,
+    color: theme.colors.onSurfaceVariant,
+    marginLeft: 2,
+    fontWeight: '500',
+  } as TextStyle,
+
+  splitInputPrefix: {
+    fontSize: 13,
+    color: theme.colors.onSurfaceVariant,
+    fontWeight: '500',
+  } as TextStyle,
+
+  splitCalcAmount: {
+    fontSize: 12,
+    color: theme.colors.onSurfaceVariant,
+    minWidth: 52,
+    textAlign: 'right',
+  } as TextStyle,
+
+  // ── Banner de validación de splits ────────────────────────
+  splitBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  } as ViewStyle,
+
+  splitBannerText: {
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
   } as TextStyle,
 
   // ── Errores ───────────────────────────────────────────────

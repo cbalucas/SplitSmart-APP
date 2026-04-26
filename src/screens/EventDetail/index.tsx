@@ -2246,8 +2246,8 @@ export default function EventDetailScreen() {
                         <Avatar
                           name={participant.name}
                           image={participant.avatar}
-                          size="small"
-                          style={styles.participantAvatar as any}
+                          size="medium"
+                          style={{ marginRight: 12 } as any}
                         />
                       ) : (
                         <View style={[
@@ -2256,7 +2256,7 @@ export default function EventDetailScreen() {
                         ]}>
                           <MaterialCommunityIcons
                             name={participant.participantType === 'friend' ? 'heart' : 'clock'}
-                            size={20}
+                            size={24}
                             color={participant.participantType === 'friend' ? theme.colors.onSuccess : theme.colors.onWarning}
                           />
                         </View>
@@ -2618,20 +2618,20 @@ export default function EventDetailScreen() {
         {/* 4 botones en una fila: ícono arriba + texto abajo */}
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity
-            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF9800' + '18', paddingVertical: 12, borderRadius: 10, gap: 4 }}
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#25D36618', paddingVertical: 12, borderRadius: 10, gap: 4 }}
             onPress={handleShareSummary}
             activeOpacity={0.7}
           >
-            <MaterialCommunityIcons name="clipboard-check" size={22} color="#FF9800" />
-            <Text style={{ fontSize: 11, fontWeight: '600', color: '#FF9800', textAlign: 'center' }}>{t('eventDetail.shareSummaryLabel')}</Text>
+            <MaterialCommunityIcons name="whatsapp" size={22} color="#25D366" />
+            <Text style={{ fontSize: 11, fontWeight: '600', color: '#25D366', textAlign: 'center' }}>{t('eventDetail.shareSummaryLabel')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF9800' + '18', paddingVertical: 12, borderRadius: 10, gap: 4 }}
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#25D36618', paddingVertical: 12, borderRadius: 10, gap: 4 }}
             onPress={handleShareEvent}
             activeOpacity={0.7}
           >
-            <MaterialCommunityIcons name="file-document" size={22} color="#FF9800" />
-            <Text style={{ fontSize: 11, fontWeight: '600', color: '#FF9800', textAlign: 'center' }}>{t('eventDetail.shareEventLabel')}</Text>
+            <MaterialCommunityIcons name="whatsapp" size={22} color="#25D366" />
+            <Text style={{ fontSize: 11, fontWeight: '600', color: '#25D366', textAlign: 'center' }}>{t('eventDetail.shareEventLabel')}</Text>
           </TouchableOpacity>
           {isEditable && (
             <TouchableOpacity

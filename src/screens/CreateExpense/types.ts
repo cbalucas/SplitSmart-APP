@@ -12,7 +12,7 @@ export interface ExpenseFormData {
   date: Date;
   category: CategoryKey;
   payerId: string;
-  splitType: 'equal';
+  splitType: 'equal' | 'percentage' | 'fixed';
   splits: ExpenseSplit[];
   isMultiplePayers: boolean;
   multiPayers: MultiPayer[];
