@@ -88,6 +88,15 @@ const ExpressEventScreen: React.FC = () => {
   // Split values (modo avanzado)
   const [splitInputValues, setSplitInputValues] = useState<Record<string, string>>({});
 
+  // Multi-payer values (modo avanzado - quién pagó)
+  const [multiPayerInputs, setMultiPayerInputs] = useState<Record<string, string>>({});  // participantId -> amount string
+  const [multiPayerSelected, setMultiPayerSelected] = useState<Set<string>>(new Set());
+  // Advanced: modo de pago (1 o varios) y excluidos del gasto
+  const [advancedPayerMode, setAdvancedPayerMode] = useState<'single' | 'multi' | null>(null);
+  const [excludedSelected, setExcludedSelected] = useState<Set<string>>(new Set());
+  // Help: si ya se respondió una pregunta
+  const [helpAnswered, setHelpAnswered] = useState(false);
+
   // Ref para detectar cambio real de idioma (ignorar mount)
   const prevLanguageRef = useRef<string>(language);
 
@@ -171,6 +180,7 @@ const ExpressEventScreen: React.FC = () => {
 
   const goToHelpMode = () => {
     pushUser(t.modeHelp);
+    setHelpAnswered(false);
     setTimeout(() => {
       pushBot(t.helpWelcome);
       setTimeout(() => {
@@ -187,13 +197,27 @@ const ExpressEventScreen: React.FC = () => {
     setStep('help');
   };
 
+  const goToHelpOptions = () => {
+    setHelpAnswered(false);
+    const menu = [
+      `1. ${t.helpQ1}`,
+      `2. ${t.helpQ2}`,
+      `3. ${t.helpQ3}`,
+      `4. ${t.helpQ4}`,
+      `5. ${t.helpQ5}`,
+    ].join('\n');
+    setTimeout(() => pushBot(`${t.helpChooseOption}\n\n${menu}`), 200);
+  };
+
   const goBackToMenu = () => {
+    setHelpAnswered(false);
     setTimeout(() => pushBot(t.askMode), 100);
     setStep('menu');
   };
 
   // ── Volver al paso anterior durante creación de evento ────
   const goBackStep = () => {
+    const isAdv = chatMode === 'advanced';
     switch (step) {
       case 'event_name':        goBackToMenu(); break;
       case 'event_date':        setStep('event_name'); setTimeout(() => pushBot(t.askEventName), 200); break;
@@ -203,12 +227,43 @@ const ExpressEventScreen: React.FC = () => {
       case 'expense_title':     setStep('ask_expenses'); setTimeout(() => pushBot(t.askHasExpenses), 200); break;
       case 'expense_amount':    setStep('expense_title'); setTimeout(() => pushBot(t.askExpenseTitle), 200); break;
       case 'expense_date':      setStep('expense_amount'); setTimeout(() => pushBot(t.askExpenseAmount), 200); break;
-      case 'expense_payer':     setStep('expense_date'); setTimeout(() => pushBot(t.askExpenseDate), 200); break;
-      case 'expense_split_type':    setStep('expense_payer'); setTimeout(() => pushBot(t.askExpensePayer), 200); break;
-      case 'expense_split_values':   setStep('expense_split_type'); setTimeout(() => pushBot(t.askSplitType), 200); break;
-      case 'expense_more':
-        setStep('expense_payer'); setTimeout(() => pushBot(t.askExpensePayer), 200);
+      // ── Flujo pagadores ──────────────────────────────────
+      case 'expense_payer_count':
+        setStep('expense_date'); setTimeout(() => pushBot(t.askExpenseDate), 200); break;
+      case 'expense_payer':
+        if (isAdv) {
+          setStep('expense_payer_count'); setTimeout(() => pushBot(t.askPayerCount), 200);
+        } else {
+          setStep('expense_date'); setTimeout(() => pushBot(t.askExpenseDate), 200);
+        }
         break;
+      // ── Flujo exclusiones (solo advanced) ────────────────
+      case 'expense_exclude':
+        setStep('expense_payer');
+        setTimeout(() => pushBot(isAdv ? t.askExpensePayerAdvanced : t.askExpensePayer), 200); break;
+      case 'expense_exclude_select':
+        setStep('expense_exclude'); setTimeout(() => pushBot(t.askExcludeParticipants), 200); break;
+      // ── Flujo split ──────────────────────────────────────
+      case 'expense_split_type':
+        if (isAdv) {
+          setStep('expense_exclude'); setTimeout(() => pushBot(t.askExcludeParticipants), 200);
+        } else {
+          setStep('expense_payer'); setTimeout(() => pushBot(t.askExpensePayer), 200);
+        }
+        break;
+      case 'expense_split_values':
+        setStep('expense_split_type'); setTimeout(() => pushBot(t.askSplitType), 200); break;
+      case 'expense_more': {
+        const splitType = state.currentExpense.splitType;
+        if (isAdv && (splitType === 'percentage' || splitType === 'custom')) {
+          setStep('expense_split_values'); setTimeout(() => pushBot(t.askSplitValues), 200);
+        } else if (isAdv) {
+          setStep('expense_split_type'); setTimeout(() => pushBot(t.askSplitType), 200);
+        } else {
+          setStep('expense_payer'); setTimeout(() => pushBot(t.askExpensePayer), 200);
+        }
+        break;
+      }
       case 'summary':           setStep('expense_more'); setTimeout(() => pushBot(t.askMoreExpenses), 200); break;
       default: break;
     }
@@ -217,8 +272,9 @@ const ExpressEventScreen: React.FC = () => {
   // Pasos que son parte del flujo de creación (tienen botón volver/cancelar)
   const isExpressFlowStep = (s: WizardStep) =>
     ['event_name','event_date','participants','bulk_participants','ask_expenses',
-     'expense_title','expense_amount','expense_date','expense_payer','expense_split_type',
-     'expense_split_values','expense_more','summary'].includes(s);
+     'expense_title','expense_amount','expense_date','expense_payer_count',
+     'expense_payer','expense_exclude','expense_exclude_select',
+     'expense_split_type','expense_split_values','expense_more','summary'].includes(s);
 
 
   const getHelpResponse = (text: string): string => {
@@ -251,10 +307,10 @@ const ExpressEventScreen: React.FC = () => {
     if (num >= 1 && num <= 5) {
       const questions = [t.helpQ1, t.helpQ2, t.helpQ3, t.helpQ4, t.helpQ5];
       pushUser(questions[num - 1]);
-      setTimeout(() => pushBot(answers[num - 1]), 300);
+      setTimeout(() => { pushBot(answers[num - 1]); setHelpAnswered(true); }, 300);
     } else {
       pushUser(val.trim());
-      setTimeout(() => pushBot(t.helpAnswerDefault), 300);
+      setTimeout(() => { pushBot(t.helpAnswerDefault); setHelpAnswered(true); }, 300);
     }
   };
 
@@ -390,6 +446,21 @@ const ExpressEventScreen: React.FC = () => {
     }, 100);
   };
 
+  const handleExit = () => {
+    setState({
+      eventName: '',
+      eventDate: todayStr(),
+      selectedParticipants: [],
+      expenses: [],
+      currentExpense: {},
+    });
+    setMessages([]);
+    setTextInput('');
+    setChatMode('standard');
+    setStep('menu');
+    (navigation as any).navigate('Home');
+  };
+
   const goToExpenseTitle = () => {
     pushUser(t.yes);
     setTimeout(() => pushBot(t.askExpenseTitle), 300);
@@ -427,8 +498,69 @@ const ExpressEventScreen: React.FC = () => {
   const goToExpensePayer = (dateStr: string) => {
     setState(prev => ({ ...prev, currentExpense: { ...prev.currentExpense, date: dateStr } }));
     pushUser(formatDateDisplay(dateStr, language));
-    setTimeout(() => pushBot(t.askExpensePayer), 300);
+    if (chatMode === 'advanced') {
+      setAdvancedPayerMode(null);
+      setTimeout(() => pushBot(t.askPayerCount), 300);
+      setStep('expense_payer_count');
+    } else {
+      setTimeout(() => pushBot(t.askExpensePayer), 300);
+      setMultiPayerSelected(new Set());
+      setMultiPayerInputs({});
+      setStep('expense_payer');
+    }
+  };
+
+  const handleSelectPayerCount = (mode: 'single' | 'multi') => {
+    setAdvancedPayerMode(mode);
+    pushUser(mode === 'single' ? t.payerSingle : t.payerMultiple);
+    if (mode === 'multi') {
+      setMultiPayerSelected(new Set());
+      setMultiPayerInputs({});
+      setTimeout(() => pushBot(t.askExpensePayerAdvanced), 300);
+    } else {
+      setTimeout(() => pushBot(t.askExpensePayer), 300);
+    }
     setStep('expense_payer');
+  };
+
+  const handleConfirmMultiPayers = () => {
+    const participants = state.selectedParticipants.length > 0 ? state.selectedParticipants : friends;
+    const selected = participants.filter(p => multiPayerSelected.has(p.id));
+    if (selected.length === 0) return;
+
+    const totalAmount = state.currentExpense.amount || 0;
+    const payerAmounts = selected.map(p => ({
+      participantId: p.id,
+      participantName: p.name,
+      amount: parseFloat((multiPayerInputs[p.id] || '0').replace(',', '.')),
+    }));
+    const sum = payerAmounts.reduce((s, p) => s + p.amount, 0);
+    if (Math.abs(sum - totalAmount) > 0.02) {
+      pushWarning(t.multiPayerSumError.replace('${amount}', totalAmount.toFixed(2)));
+      return;
+    }
+
+    // Pagador principal = el de mayor monto
+    const primary = payerAmounts.reduce((a, b) => a.amount >= b.amount ? a : b);
+    const namesStr = selected.length === 1
+      ? selected[0].name
+      : payerAmounts.map(p => `${p.participantName} $${p.amount.toFixed(2)}`).join(', ');
+
+    setState(prev => ({
+      ...prev,
+      currentExpense: {
+        ...prev.currentExpense,
+        payerId: primary.participantId,
+        payerName: primary.participantName,
+        multiPayers: selected.length > 1 ? payerAmounts : undefined,
+      },
+    }));
+    pushUser(namesStr);
+    setMultiPayerSelected(new Set());
+    setMultiPayerInputs({});
+    setExcludedSelected(new Set());
+    setTimeout(() => pushBot(t.askExcludeParticipants), 300);
+    setStep('expense_exclude');
   };
 
   const goToExpenseMore = (payer: Participant) => {
@@ -441,20 +573,56 @@ const ExpressEventScreen: React.FC = () => {
       },
     }));
     pushUser(payer.name);
-    // TODO: activar flujo avanzado cuando CreateExpense soporte splits por % y monto fijo
-    setTimeout(() => pushBot(t.askMoreExpenses), 300);
-    setStep('expense_more');
+    if (chatMode === 'advanced') {
+      // Modo avanzado: preguntar si hay excluidos
+      setExcludedSelected(new Set());
+      setTimeout(() => pushBot(t.askExcludeParticipants), 300);
+      setStep('expense_exclude');
+    } else {
+      // Modo estándar: partes iguales, ir directo a ¿más gastos?
+      setTimeout(() => pushBot(t.askMoreExpenses), 300);
+      setStep('expense_more');
+    }
+  };
+
+  const handleExcludeNo = () => {
+    pushUser(t.noExclusions);
+    setState(prev => ({ ...prev, currentExpense: { ...prev.currentExpense, excludedParticipantIds: [] } }));
+    setTimeout(() => pushBot(t.askSplitType), 300);
+    setStep('expense_split_type');
+  };
+
+  const handleExcludeYes = () => {
+    pushUser(t.yes);
+    setExcludedSelected(new Set());
+    setStep('expense_exclude_select');
+  };
+
+  const handleConfirmExclusions = () => {
+    const excluded = [...excludedSelected];
+    const participants = state.selectedParticipants;
+    const names = participants
+      .filter(p => excludedSelected.has(p.id))
+      .map(p => p.name)
+      .join(', ');
+    pushUser(names || t.noExclusions);
+    setState(prev => ({ ...prev, currentExpense: { ...prev.currentExpense, excludedParticipantIds: excluded } }));
+    setExcludedSelected(new Set());
+    setTimeout(() => pushBot(t.askSplitType), 300);
+    setStep('expense_split_type');
   };
 
   const goToExpenseSplitValues = (splitType: 'percentage' | 'custom') => {
-    const count = state.selectedParticipants.length;
+    const excluded = state.currentExpense.excludedParticipantIds || [];
+    const activeParticipants = state.selectedParticipants.filter(p => !excluded.includes(p.id));
+    const count = activeParticipants.length;
     const initVals: Record<string, string> = {};
     if (splitType === 'percentage') {
       const equalPct = count > 0 ? (100 / count).toFixed(1) : '0';
-      state.selectedParticipants.forEach(p => { initVals[p.id] = equalPct; });
+      activeParticipants.forEach(p => { initVals[p.id] = equalPct; });
     } else {
       const equalAmt = count > 0 ? (state.currentExpense.amount! / count).toFixed(2) : '0';
-      state.selectedParticipants.forEach(p => { initVals[p.id] = equalAmt; });
+      activeParticipants.forEach(p => { initVals[p.id] = equalAmt; });
     }
     setSplitInputValues(initVals);
     setState(prev => ({ ...prev, currentExpense: { ...prev.currentExpense, splitType } }));
@@ -464,7 +632,8 @@ const ExpressEventScreen: React.FC = () => {
 
   const handleConfirmSplitValues = () => {
     const splitType = state.currentExpense.splitType as 'percentage' | 'custom';
-    const participants = state.selectedParticipants;
+    const excluded = state.currentExpense.excludedParticipantIds || [];
+    const participants = state.selectedParticipants.filter(p => !excluded.includes(p.id));
     const values = participants.map(p => ({
       participantId: p.id,
       participantName: p.name,
@@ -541,7 +710,10 @@ const ExpressEventScreen: React.FC = () => {
       : t.summaryNoParticipants;
     const expensesLines = s.expenses.length > 0
       ? s.expenses.flatMap(e => {
-          const mainLine = `${t.summaryExpenseItem.replace('{title}', e.title).replace('{amount}', e.amount.toFixed(2))} (${t.summaryPaidBy.replace('{name}', e.payerName)})`;
+          const payerInfo = e.multiPayers && e.multiPayers.length > 1
+            ? t.summaryMultiPaidBy.replace('{names}', e.multiPayers.map(p => `${p.participantName} $${p.amount.toFixed(2)}`).join(', '))
+            : t.summaryPaidBy.replace('{name}', e.payerName);
+          const mainLine = `${t.summaryExpenseItem.replace('{title}', e.title).replace('{amount}', e.amount.toFixed(2))} (${payerInfo})`;
           if (e.splitType && e.splitType !== 'equal' && e.customSplits && e.customSplits.length > 0) {
             const splitLines = e.customSplits.map(cs =>
               e.splitType === 'percentage'
@@ -564,6 +736,9 @@ const ExpressEventScreen: React.FC = () => {
       pushBot(t.summaryHeader);
       setTimeout(() => pushSummary(lines.join('\n')), 300);
       setTimeout(() => pushBot(t.confirmCreate), 700);
+      if (chatMode === 'standard') {
+        setTimeout(() => pushBot(t.summaryStandardTip), 1100);
+      }
     }, 300);
   };
 
@@ -600,7 +775,6 @@ const ExpressEventScreen: React.FC = () => {
       }
 
       // Agregar gastos con splits (iguales o personalizados)
-      const splitCount = state.selectedParticipants.length;
       for (const e of state.expenses) {
         const expenseId = generateId();
         let splits;
@@ -617,10 +791,11 @@ const ExpressEventScreen: React.FC = () => {
             updatedAt: new Date().toISOString(),
           }));
         } else {
-          const splitAmount = splitCount > 0
-            ? Math.round((e.amount / splitCount) * 100) / 100
-            : e.amount;
-          splits = state.selectedParticipants.map(p => ({
+          const excluded = e.excludedParticipantIds || [];
+          const activeParticipants = state.selectedParticipants.filter(p => !excluded.includes(p.id));
+          const splitCount = activeParticipants.length || 1;
+          const splitAmount = Math.round((e.amount / splitCount) * 100) / 100;
+          splits = activeParticipants.map(p => ({
             id: generateId(),
             expenseId,
             participantId: p.id,
@@ -641,6 +816,7 @@ const ExpressEventScreen: React.FC = () => {
           date: e.date,
           payerId: e.payerId,
           payerName: e.payerName,
+          payers: e.multiPayers && e.multiPayers.length > 1 ? e.multiPayers : undefined,
           isActive: true,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -651,10 +827,10 @@ const ExpressEventScreen: React.FC = () => {
       setTimeout(() => pushBot(t.detailHint), 500);
       setIsLoading(false);
 
-      // Navegar al detalle tras un breve delay para que el usuario lea el mensaje
+      // Navegar al detalle tras un delay que permita leer los mensajes finales
       setTimeout(() => {
         (navigation as any).replace('EventDetail', { eventId });
-      }, 2200);
+      }, 4000);
     } catch (err) {
       console.error('ExpressEvent: error creating', err);
       pushBot(t.errorCreating);
@@ -823,8 +999,11 @@ const ExpressEventScreen: React.FC = () => {
       case 'expense_title':       return { icon: 'receipt',              label: t.sectionLabelExpenseTitle };
       case 'expense_amount':      return { icon: 'cash',                 label: t.sectionLabelExpenseAmount };
       case 'expense_date':        return { icon: 'calendar-clock',       label: t.sectionLabelExpenseDate };
-      case 'expense_payer':       return { icon: 'account-cash',         label: t.sectionLabelExpensePayer };
-      case 'expense_split_type':  return { icon: 'chart-pie',            label: t.sectionLabelSplitType };
+      case 'expense_payer_count':  return { icon: 'account-multiple',     label: t.sectionLabelPayerCount };
+      case 'expense_payer':        return { icon: 'account-cash',         label: t.sectionLabelExpensePayer };
+      case 'expense_exclude':      return { icon: 'account-minus-outline',label: t.sectionLabelExclude };
+      case 'expense_exclude_select':return{ icon: 'account-minus-outline',label: t.sectionLabelExclude };
+      case 'expense_split_type':   return { icon: 'chart-pie',            label: t.sectionLabelSplitType };
       case 'expense_split_values':return { icon: 'percent',              label: t.sectionLabelSplitValues };
       case 'expense_more':        return { icon: 'plus-circle-outline',  label: t.sectionLabelMoreExpenses };
       case 'summary':             return { icon: 'check-circle-outline', label: t.sectionLabelSummary };
@@ -860,7 +1039,7 @@ const ExpressEventScreen: React.FC = () => {
                 source={require('../../../assets/splitsmart/Splitty.png')}
                 style={{ width: 36, height: 36, resizeMode: 'contain', marginRight: 8 }}
               />
-              <Text style={styles.actionChipText}>{t.modeAdvanced || 'Avanzado'}</Text>
+              <Text style={styles.actionChipText}>{t.modeAdvanced || 'Evento Avanzado'}</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity
@@ -877,6 +1056,38 @@ const ExpressEventScreen: React.FC = () => {
 
     // Modo ayuda
     if (step === 'help') {
+      // Post-respuesta: mostrar opciones de navegación
+      if (helpAnswered) {
+        return (
+          <View style={{ gap: 6 }}>
+            <TouchableOpacity
+              style={[styles.actionChip, { justifyContent: 'center' }]}
+              onPress={goToHelpOptions}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="format-list-bulleted" size={16} color={styles.actionChipText.color} style={{ marginRight: 6 }} />
+              <Text style={styles.actionChipText}>{t.helpSeeOptions}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionChip, { justifyContent: 'center' }]}
+              onPress={goBackToMenu}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="arrow-left" size={16} color={styles.actionChipText.color} style={{ marginRight: 6 }} />
+              <Text style={styles.actionChipText}>{t.helpBackToMenu}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionChip, { justifyContent: 'center', borderColor: '#F97316' }]}
+              onPress={handleExit}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="home-outline" size={16} color="#F97316" style={{ marginRight: 6 }} />
+              <Text style={[styles.actionChipText, { color: '#F97316' }]}>{t.cancelRestart}</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      }
+      // Input de pregunta
       return (
         <>
           <View style={styles.inputRow}>
@@ -920,14 +1131,6 @@ const ExpressEventScreen: React.FC = () => {
 
       return (
         <>
-          {step === 'bulk_participants' && (
-            <TouchableOpacity
-              onPress={() => { setTextInput(''); handleBulkParticipantsSubmit(''); }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.skipLink}>⏭️ {t.bulkParticipantsSkip}</Text>
-            </TouchableOpacity>
-          )}
           <View style={styles.inputRow}>
             <TextInput
               style={styles.textInput}
@@ -949,6 +1152,15 @@ const ExpressEventScreen: React.FC = () => {
               <MaterialCommunityIcons name="send" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
+          {step === 'bulk_participants' && (
+            <TouchableOpacity
+              style={[styles.actionChip, { justifyContent: 'center', marginTop: 6 }]}
+              onPress={() => { setTextInput(''); handleBulkParticipantsSubmit(''); }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.actionChipText}>⏭️ {t.bulkParticipantsSkip}</Text>
+            </TouchableOpacity>
+          )}
         </>
       );
     }
@@ -1022,15 +1234,6 @@ const ExpressEventScreen: React.FC = () => {
                   : `⏭️ Saltar`}
               </Text>
             </TouchableOpacity>
-            {state.selectedParticipants.length > 0 && (
-              <TouchableOpacity
-                style={styles.sendBtn}
-                onPress={() => goToBulkParticipants(state.selectedParticipants)}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons name="send" size={20} color="#FFFFFF" />
-              </TouchableOpacity>
-            )}
           </View>
         </>
       );
@@ -1114,7 +1317,9 @@ const ExpressEventScreen: React.FC = () => {
     if (step === 'expense_split_values') {
       const isPercentage = state.currentExpense.splitType === 'percentage';
       const totalTarget = isPercentage ? 100 : (state.currentExpense.amount || 0);
-      const currentSum = state.selectedParticipants.reduce(
+      const excluded = state.currentExpense.excludedParticipantIds || [];
+      const activeParticipants = state.selectedParticipants.filter(p => !excluded.includes(p.id));
+      const currentSum = activeParticipants.reduce(
         (s, p) => s + parseFloat((splitInputValues[p.id] || '0').replace(',', '.')), 0
       );
       const diff = Math.abs(currentSum - totalTarget);
@@ -1122,7 +1327,7 @@ const ExpressEventScreen: React.FC = () => {
       return (
         <View>
           <ScrollView style={{ maxHeight: 190 }} keyboardShouldPersistTaps="handled">
-            {state.selectedParticipants.map(p => (
+            {activeParticipants.map(p => (
               <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 7, paddingHorizontal: 4, gap: 8 }}>
                 <Text style={{ flex: 1, fontSize: 14, fontWeight: '500', color: theme.colors.onSurface }} numberOfLines={1}>{p.name}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, paddingHorizontal: 8, minWidth: 100 }}>
@@ -1141,10 +1346,10 @@ const ExpressEventScreen: React.FC = () => {
             ))}
           </ScrollView>
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 8, paddingHorizontal: 4, gap: 8 }}>
-            <Text style={{ flex: 1, fontSize: 13, color: isValid ? theme.colors.primary : theme.colors.error, fontWeight: '600' }}>
+            <Text style={{ flex: 1, fontSize: 13, color: isValid ? theme.colors.primary : '#F97316', fontWeight: '600' }}>
               {isPercentage
-                ? `Σ ${currentSum.toFixed(1)}% / 100%`
-                : `Σ $${currentSum.toFixed(2)} / $${totalTarget.toFixed(2)}`
+                ? `Total ${currentSum.toFixed(1)}% / 100%`
+                : `Total $${currentSum.toFixed(2)} / $${totalTarget.toFixed(2)}`
               }
             </Text>
             <TouchableOpacity
@@ -1160,26 +1365,189 @@ const ExpressEventScreen: React.FC = () => {
       );
     }
 
+    if (step === 'expense_payer_count') {
+      return (
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={[styles.actionChip, { flex: 1, justifyContent: 'center' }]}
+            onPress={() => handleSelectPayerCount('single')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.actionChipText}>👤 {t.payerSingle}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionChip, { flex: 1, justifyContent: 'center' }]}
+            onPress={() => handleSelectPayerCount('multi')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.actionChipText}>👥 {t.payerMultiple}</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (step === 'expense_exclude') {
+      return (
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={[styles.actionChip, { flex: 1, justifyContent: 'center' }]}
+            onPress={handleExcludeYes}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.actionChipText}>✅ {t.yes}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionChip, { flex: 1, justifyContent: 'center' }]}
+            onPress={handleExcludeNo}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.actionChipText}>⏭️ {t.noExclusions}</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (step === 'expense_exclude_select') {
+      const selectableParticipants = state.selectedParticipants;
+      return (
+        <View>
+          <ScrollView style={{ maxHeight: 190 }} keyboardShouldPersistTaps="handled">
+            {selectableParticipants.map(p => {
+              const isExcluded = excludedSelected.has(p.id);
+              return (
+                <TouchableOpacity
+                  key={p.id}
+                  style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 4, gap: 10 }}
+                  onPress={() => {
+                    setExcludedSelected(prev => {
+                      const next = new Set(prev);
+                      if (next.has(p.id)) { next.delete(p.id); } else { next.add(p.id); }
+                      return next;
+                    });
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons
+                    name={isExcluded ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'}
+                    size={22}
+                    color={isExcluded ? '#F97316' : theme.colors.onSurfaceVariant}
+                  />
+                  <Text style={[styles.participantName, isExcluded && { color: '#F97316', fontWeight: '600' }]}>
+                    {p.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          <TouchableOpacity
+            style={[styles.actionChip, { justifyContent: 'center', marginTop: 8, opacity: excludedSelected.size === 0 ? 0.4 : 1 }]}
+            onPress={handleConfirmExclusions}
+            disabled={excludedSelected.size === 0}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.actionChipText}>
+              {excludedSelected.size > 0 ? `✅ Confirmar (${excludedSelected.size})` : t.confirmExclusions}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
     if (step === 'expense_payer') {
       const payerOptions = state.selectedParticipants.length > 0
         ? state.selectedParticipants
         : friends;
 
+      // Modo estándar o avanzado con 1 pagador: tap directo en un participante
+      if (chatMode === 'standard' || advancedPayerMode === 'single') {
+        return (
+          <View style={styles.participantListContainer}>
+            <ScrollView style={{ maxHeight: 160 }} contentContainerStyle={styles.participantScrollContent}>
+              {payerOptions.map(p => (
+                <TouchableOpacity
+                  key={p.id}
+                  style={styles.participantItem}
+                  onPress={() => goToExpenseMore(p)}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons name="account-circle-outline" size={20} color={theme.colors.primary} />
+                  <Text style={styles.participantName}>{p.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        );
+      }
+
+      // Modo avanzado: checkbox + monto por pagador + botón confirmar
+      const totalAmount = state.currentExpense.amount || 0;
+      const currentSum = payerOptions
+        .filter(p => multiPayerSelected.has(p.id))
+        .reduce((s, p) => s + parseFloat((multiPayerInputs[p.id] || '0').replace(',', '.')), 0);
+      const isValid = multiPayerSelected.size > 0 && Math.abs(currentSum - totalAmount) <= 0.02;
+      const remaining = totalAmount - currentSum;
+
       return (
-        <View style={styles.participantListContainer}>
-          <ScrollView style={{ maxHeight: 160 }} contentContainerStyle={styles.participantScrollContent}>
-            {payerOptions.map(p => (
-              <TouchableOpacity
-                key={p.id}
-                style={styles.participantItem}
-                onPress={() => goToExpenseMore(p)}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons name="account-circle-outline" size={20} color={theme.colors.primary} />
-                <Text style={styles.participantName}>{p.name}</Text>
-              </TouchableOpacity>
-            ))}
+        <View>
+          <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled">
+            {payerOptions.map(p => {
+              const isSelected = multiPayerSelected.has(p.id);
+              return (
+                <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 7, paddingHorizontal: 4, gap: 8 }}>
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8 }}
+                    onPress={() => {
+                      setMultiPayerSelected(prev => {
+                        const next = new Set(prev);
+                        if (next.has(p.id)) { next.delete(p.id); } else { next.add(p.id); }
+                        return next;
+                      });
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons
+                      name={isSelected ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'}
+                      size={22}
+                      color={isSelected ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                    />
+                    <Text style={[styles.participantName, isSelected && { color: theme.colors.onSurface, fontWeight: '600' }]}>
+                      {p.name}
+                    </Text>
+                  </TouchableOpacity>
+                  {isSelected && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, paddingHorizontal: 8, minWidth: 100 }}>
+                      <Text style={{ color: theme.colors.onSurfaceVariant, marginRight: 2 }}>$</Text>
+                      <TextInput
+                        style={{ flex: 1, fontSize: 15, color: theme.colors.onSurface, textAlign: 'right', paddingVertical: 6 }}
+                        value={multiPayerInputs[p.id] || ''}
+                        onChangeText={v => setMultiPayerInputs(prev => ({ ...prev, [p.id]: v }))}
+                        keyboardType="decimal-pad"
+                        placeholder="0.00"
+                        placeholderTextColor={theme.colors.onSurfaceVariant}
+                      />
+                    </View>
+                  )}
+                </View>
+              );
+            })}
           </ScrollView>
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 8, paddingHorizontal: 4, gap: 8 }}>
+            <Text style={{ flex: 1, fontSize: 13, color: isValid ? theme.colors.primary : '#F97316', fontWeight: '600' }}>
+              {multiPayerSelected.size > 0 && !isValid
+                ? remaining > 0
+                  ? `Falta: $${remaining.toFixed(2)}`
+                  : `Excede: $${Math.abs(remaining).toFixed(2)}`
+                : ''}
+            </Text>
+            <TouchableOpacity
+              style={[styles.sendBtn, !isValid && styles.sendBtnDisabled]}
+              onPress={handleConfirmMultiPayers}
+              disabled={!isValid}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="check" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         </View>
       );
     }
@@ -1207,16 +1575,10 @@ const ExpressEventScreen: React.FC = () => {
 
     if (step === 'summary') {
       return (
-        <>
-          <TouchableOpacity style={styles.confirmBtn} onPress={handleCreate} activeOpacity={0.8}>
-            <MaterialCommunityIcons name="check-circle-outline" size={22} color="#FFFFFF" />
-            <Text style={styles.confirmBtnText}>✨ Crear evento</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.restartBtn} onPress={handleRestart} activeOpacity={0.8}>
-            <MaterialCommunityIcons name="refresh" size={18} color={theme.colors.error} />
-            <Text style={styles.restartBtnText}>{t.cancelRestart}</Text>
-          </TouchableOpacity>
-        </>
+        <TouchableOpacity style={styles.confirmBtn} onPress={handleCreate} activeOpacity={0.8}>
+          <MaterialCommunityIcons name="check-circle-outline" size={22} color="#FFFFFF" />
+          <Text style={styles.confirmBtnText}>✨ Crear evento</Text>
+        </TouchableOpacity>
       );
     }
 
@@ -1231,7 +1593,7 @@ const ExpressEventScreen: React.FC = () => {
     if (step === 'timeout') {
       return (
         <View style={[styles.inputArea, safeBottom]}>
-          <TouchableOpacity style={styles.restartBtn} onPress={handleRestart} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.restartBtn} onPress={handleExit} activeOpacity={0.8}>
             <MaterialCommunityIcons name="home" size={18} color={theme.colors.primary} />
             <Text style={[styles.restartBtnText, { color: theme.colors.primary }]}>{t.cancelRestart}</Text>
           </TouchableOpacity>
@@ -1255,16 +1617,16 @@ const ExpressEventScreen: React.FC = () => {
               onPress={goBackStep}
               activeOpacity={0.8}
             >
-              <MaterialCommunityIcons name="arrow-left" size={16} color={styles.actionChipText.color} style={{ marginRight: 4 }} />
+              <MaterialCommunityIcons name="arrow-left" size={20} color={styles.actionChipText.color} style={{ marginRight: 4 }} />
               <Text style={styles.actionChipText}>{t.goBackStep}</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.actionChip, { flex: 1, justifyContent: 'center', borderColor: theme.colors.error }]}
-              onPress={handleRestart}
+              style={[styles.actionChip, { flex: 1, justifyContent: 'center', borderColor: '#F97316' }]}
+              onPress={handleExit}
               activeOpacity={0.8}
             >
-              <MaterialCommunityIcons name="close-circle-outline" size={16} color={theme.colors.error} style={{ marginRight: 4 }} />
-              <Text style={[styles.actionChipText, { color: theme.colors.error }]}>{t.cancelCreate}</Text>
+              <MaterialCommunityIcons name="home-outline" size={18} color="#F97316" style={{ marginRight: 4 }} />
+              <Text style={[styles.actionChipText, { color: '#F97316' }]}>{t.cancelRestart}</Text>
             </TouchableOpacity>
           </View>
         )}

@@ -44,7 +44,8 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
     >
       <View style={styles.splashContent}>
         <Image
-          source={require('../../../assets/splitsmart/splash-icon-light.png')}
+          //source={require('../../../assets/splitsmart/splash-icon-light.png')}
+          source={require('../../../assets/splitsmart/splash-icon-light-splitty.png')}
           style={styles.splashLogo}
           resizeMode="contain"
         />

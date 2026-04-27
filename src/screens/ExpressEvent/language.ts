@@ -80,6 +80,7 @@ interface ExpressTranslations {
   helpInputPlaceholder: string;
   helpSectionLabel: string;
   helpBackToMenu: string;
+  helpSeeOptions: string;
   helpAnswerEvent: string;
   helpAnswerExpense: string;
   helpAnswerParticipant: string;
@@ -104,6 +105,22 @@ interface ExpressTranslations {
   sectionLabelSplitType: string;
   sectionLabelSplitValues: string;
   summaryCustomSplitLabel: string;
+  // Modo avanzado - múltiples pagadores
+  askPayerCount: string;
+  payerSingle: string;
+  payerMultiple: string;
+  askExpensePayerAdvanced: string;
+  confirmMultiPayers: string;
+  multiPayerSumError: string;
+  summaryMultiPaidBy: string;
+  // Excluir participantes
+  askExcludeParticipants: string;
+  noExclusions: string;
+  confirmExclusions: string;
+  sectionLabelPayerCount: string;
+  sectionLabelExclude: string;
+  // Tip en resumen
+  summaryStandardTip: string;
 }
 
 const es: ExpressTranslations = {
@@ -120,7 +137,7 @@ const es: ExpressTranslations = {
   bulkParticipantsHint: 'Ejemplo: Ana, Carlos, María López',
   bulkParticipantsSkip: 'Saltar, sin más participantes',
   duplicateParticipants: '⚠️ Algunos nombres ya están en la lista: {names}. Corregílos o eliminálos antes de continuar.',
-  cancelRestart: 'Cancelar y empezar de nuevo',
+  cancelRestart: 'Salir',
   cancelRestartConfirm: '¿Segúro? Se perderá todo lo que cargaste.',
   temporaryWarning: '⚠️ Tenés participantes temporales seleccionados. Recordá que deberás convertirlos a amigos permanentes o cargarlos desde el detalle del evento.',
   askHasExpenses: '¿Tenés gastos para cargar en este evento?',
@@ -172,17 +189,18 @@ const es: ExpressTranslations = {
   langChangeContinue: 'Continuar',
   langChangeRestart: 'Volver a empezar',
   cancelCreate: 'Cancelar carga',
-  goBackStep: '← Paso anterior',
+  goBackStep: 'Paso anterior',
   timeoutMessage: '⏰ El chat estuvo inactivo por 5 minutos. Volvé a la pantalla principal e ingresá nuevamente para continuar.',
   askMode: '¿En qué te puedo ayudar hoy?',
   modeExpress: 'Crear evento express',
-  modeAdvanced: 'Evento express avanzado',
+  modeAdvanced: 'Evento Avanzado',
   modeHelp: 'Tengo una consulta',
   // Modo ayuda
   helpWelcome: '¡Claro! Preguntame lo que necesités sobre SplitSmart. Hago lo mejor que puedo 😊',
   helpInputPlaceholder: 'Ingresá un número (1-5)...',
   helpSectionLabel: 'Consulta',
   helpBackToMenu: 'Volver al menú',
+  helpSeeOptions: 'Ver opciones',
   helpAnswerEvent: 'Para crear un evento, podés usar el modo express (rápido, con Splitty) o el botón “+” del inicio (manual, con más opciones). Desde el detalle del evento podés editarlo, agregar participantes y gastos.',
   helpAnswerExpense: 'Los gastos se cargan durante la creación del evento o desde su detalle. Cada gasto tiene nombre, monto, fecha y quién pagó (puede ser más de un participante). La división entre participantes es automática, pero se pueden excluir participantes de un gasto.',
   helpAnswerParticipant: 'Los participantes pueden ser amigos guardados o personas temporales. Los amigos se agregan desde la sección “Amigos” del menú principal. Los temporales no tienen cuenta propia. Un participante temporal puede pasar a ser amigo si al crearlo o editarlo se tilda la opción correspondiente.',
@@ -206,6 +224,22 @@ const es: ExpressTranslations = {
   sectionLabelSplitType: 'Tipo de división',
   sectionLabelSplitValues: 'División personalizada',
   summaryCustomSplitLabel: 'División',
+  // Modo avanzado - múltiples pagadores
+  askPayerCount: '¿Pagó una sola persona o varias?',
+  payerSingle: '1 persona',
+  payerMultiple: 'Varias personas',
+  askExpensePayerAdvanced: '¿Quién pagó? Seleccioná los pagadores e indicá cuánto puso cada uno:',
+  confirmMultiPayers: '✅ Confirmar pagadores',
+  multiPayerSumError: '⚠️ La suma de los pagadores debe ser igual al monto del gasto (${amount}).',
+  summaryMultiPaidBy: 'Pagaron: {names}',
+  // Excluir participantes
+  askExcludeParticipants: '¿Hay algún participante que no participe en este gasto?',
+  noExclusions: 'No, todos participan',
+  confirmExclusions: '✅ Confirmar exclusiones',
+  sectionLabelPayerCount: '¿1 o varios pagadores?',
+  sectionLabelExclude: 'Excluir participantes',
+  // Tip en resumen
+  summaryStandardTip: '💡 Para agregar más de un pagador o dividir el gasto de forma personalizada, editá el gasto desde Detalle del evento → Gastos. O activá la versión avanzada de Splitty desde tu perfil.',
 };
 
 const en: ExpressTranslations = {
@@ -222,7 +256,7 @@ const en: ExpressTranslations = {
   bulkParticipantsHint: 'Example: Ana, Carlos, Maria Lopez',
   bulkParticipantsSkip: 'Skip, no more participants',
   duplicateParticipants: '⚠️ Some names are already in the list: {names}. Fix or remove them before continuing.',
-  cancelRestart: 'Cancel and start over',
+  cancelRestart: 'Exit',
   cancelRestartConfirm: 'Are you sure? All progress will be lost.',
   temporaryWarning: '⚠️ You have temporary participants selected. Remember to convert them to permanent friends or add them from the event detail.',
   askHasExpenses: 'Do you have any expenses to add to this event?',
@@ -276,17 +310,18 @@ const en: ExpressTranslations = {
   langChangeContinue: 'Continue',
   langChangeRestart: 'Start over',
   cancelCreate: 'Cancel creation',
-  goBackStep: '← Previous step',
+  goBackStep: 'Previous step',
   timeoutMessage: '⏰ The chat has been inactive for 5 minutes. Return to the home screen and open Splitty again to continue.',
   askMode: 'How can I help you today?',
   modeExpress: 'Create express event',
-  modeAdvanced: 'Advanced express event',
+  modeAdvanced: 'Advanced Event',
   modeHelp: 'I have a question',
   // Help mode
   helpWelcome: 'Of course! Ask me anything about SplitSmart. I\'ll do my best 😊',
   helpInputPlaceholder: 'Enter a number (1-5)...',
   helpSectionLabel: 'Question',
   helpBackToMenu: 'Back to menu',
+  helpSeeOptions: 'See options',
   helpAnswerEvent: 'To create an event, you can use express mode (quick, with Splitty) or the "+" button on the home screen (manual, with more options). From the event detail you can edit it, add participants and expenses.',
   helpAnswerExpense: 'Expenses can be added during event creation or from the event detail. Each expense has a name, amount, date, and who paid. Splitting among participants is automatic.',
   helpAnswerParticipant: 'Participants can be saved friends or temporary people (name only). Friends are added from the \u201cFriends\u201d section in the main menu. Temporary participants don\'t have their own account.',
@@ -309,6 +344,22 @@ const en: ExpressTranslations = {
   sectionLabelSplitType: 'Split type',
   sectionLabelSplitValues: 'Custom split',
   summaryCustomSplitLabel: 'Split',
+  // Advanced mode - multiple payers
+  askPayerCount: 'Did one person or multiple people pay?',
+  payerSingle: '1 person',
+  payerMultiple: 'Multiple people',
+  askExpensePayerAdvanced: 'Who paid? Select the payers and enter how much each paid:',
+  confirmMultiPayers: '✅ Confirm payers',
+  multiPayerSumError: '⚠️ The sum of payers must equal the expense amount (${amount}).',
+  summaryMultiPaidBy: 'Paid by: {names}',
+  // Exclude participants
+  askExcludeParticipants: 'Is there any participant who is not part of this expense?',
+  noExclusions: 'No, everyone participates',
+  confirmExclusions: '✅ Confirm exclusions',
+  sectionLabelPayerCount: '1 or multiple payers?',
+  sectionLabelExclude: 'Exclude participants',
+  // Summary tip
+  summaryStandardTip: '💡 To add more than one payer or customize the split, edit the expense from Event Detail → Expenses. Or enable the advanced version of Splitty in your profile.',
 };
 
 const pt: ExpressTranslations = {
@@ -325,7 +376,7 @@ const pt: ExpressTranslations = {
   bulkParticipantsHint: 'Exemplo: Ana, Carlos, Maria Lopez',
   bulkParticipantsSkip: 'Pular, sem mais participantes',
   duplicateParticipants: '⚠️ Alguns nomes já estão na lista: {names}. Corrija ou remova-os antes de continuar.',
-  cancelRestart: 'Cancelar e começar novamente',
+  cancelRestart: 'Sair',
   cancelRestartConfirm: 'Tem certeza? Todo o progresso será perdido.',
   temporaryWarning: '⚠️ Você tem participantes temporários selecionados. Lembre-se de convertê-los a amigos permanentes ou adicioná-los nos detalhes do evento.',
   askHasExpenses: 'Você tem despesas para adicionar neste evento?',
@@ -379,17 +430,18 @@ const pt: ExpressTranslations = {
   langChangeContinue: 'Continuar',
   langChangeRestart: 'Começar novamente',
   cancelCreate: 'Cancelar criação',
-  goBackStep: '← Etapa anterior',
+  goBackStep: 'Etapa anterior',
   timeoutMessage: '⏰ O chat ficou inativo por 5 minutos. Volte à tela inicial e abra o Splitty novamente para continuar.',
   askMode: 'Como posso te ajudar hoje?',
   modeExpress: 'Criar evento express',
-  modeAdvanced: 'Evento express avançado',
+  modeAdvanced: 'Evento Avançado',
   modeHelp: 'Tenho uma dúvida',
   // Modo ajuda
   helpWelcome: 'Claro! Pode me perguntar o que precisar sobre o SplitSmart. Farei o meu melhor 😊',
   helpInputPlaceholder: 'Digite um número (1-5)...',
   helpSectionLabel: 'Dúvida',
   helpBackToMenu: 'Voltar ao menu',
+  helpSeeOptions: 'Ver opções',
   helpAnswerEvent: 'Para criar um evento, você pode usar o modo express (rápido, com o Splitty) ou o botão "+" na tela inicial (manual, com mais opções). Nos detalhes do evento você pode editá-lo, adicionar participantes e despesas.',
   helpAnswerExpense: 'As despesas podem ser adicionadas durante a criação do evento ou nos detalhes. Cada despesa tem nome, valor, data e quem pagou. A divisão entre participantes é automática.',
   helpAnswerParticipant: 'Os participantes podem ser amigos salvos ou pessoas temporárias (só com nome). Amigos são adicionados na seção \u201cAmigos\u201d do menu principal. Temporários não têm conta própria.',
@@ -412,6 +464,22 @@ const pt: ExpressTranslations = {
   sectionLabelSplitType: 'Tipo de divisão',
   sectionLabelSplitValues: 'Divisão personalizada',
   summaryCustomSplitLabel: 'Divisão',
+  // Modo avançado - múltiplos pagadores
+  askPayerCount: 'Uma pessoa pagou ou várias?',
+  payerSingle: '1 pessoa',
+  payerMultiple: 'Várias pessoas',
+  askExpensePayerAdvanced: 'Quem pagou? Selecione os pagadores e indique quanto cada um pagou:',
+  confirmMultiPayers: '✅ Confirmar pagadores',
+  multiPayerSumError: '⚠️ A soma dos pagadores deve ser igual ao valor da despesa (${amount}).',
+  summaryMultiPaidBy: 'Pago por: {names}',
+  // Excluir participantes
+  askExcludeParticipants: 'Há algum participante que não participa desta despesa?',
+  noExclusions: 'Não, todos participam',
+  confirmExclusions: '✅ Confirmar exclusões',
+  sectionLabelPayerCount: '1 ou vários pagadores?',
+  sectionLabelExclude: 'Excluir participantes',
+  // Dica no resumo
+  summaryStandardTip: '💡 Para adicionar mais de um pagador ou dividir a despesa de forma personalizada, edite a despesa em Detalhes do evento → Despesas. Ou ative a versão avançada do Splitty no seu perfil.',
 };
 
 export const expressLanguage: Record<ExpressLanguage, ExpressTranslations> = { es, en, pt };

@@ -351,7 +351,7 @@ export const createStyles = (theme: Theme) => ({
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: theme.colors.error,
+    borderColor: '#F97316',
     backgroundColor: 'transparent',
     gap: 6,
     marginTop: 2,
@@ -360,7 +360,7 @@ export const createStyles = (theme: Theme) => ({
   restartBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: theme.colors.error,
+    color: '#F97316',
   } as TextStyle,
 
   skipLink: {

@@ -338,7 +338,10 @@ const ManageFriendsScreen: React.FC = () => {
       showAlert({ type: 'error', title: t.alerts.error.general, message: t.alerts.error.nameRequired });
       return;
     }
-
+    if (newFriend.name.trim().length < 2) {
+      setNameValidation({ isValid: false, isChecking: false, message: t.nameValidation.tooShort });
+      return;
+    }
     // Verificación sincrónica de seguridad (cubre el caso de presionar guardar antes del debounce)
     const trimmedName = newFriend.name.trim().toLowerCase();
     const isDuplicate = friends.some(f => {

@@ -245,6 +245,11 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       return;
     }
 
+    if (newParticipant.name.trim().length < 2) {
+      setNameValidation({ isValid: false, isChecking: false, message: t('addParticipant.nameValidation.tooShort') });
+      return;
+    }
+
     const trimmedName = newParticipant.name.trim().toLowerCase();
 
     // Verificar nombre duplicado en participantes del evento
