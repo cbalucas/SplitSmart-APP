@@ -1866,16 +1866,86 @@ const ProfileScreen: React.FC = () => {
               contentContainerStyle={{ flexGrow: 1 }}
               nestedScrollEnabled={true}
             >
-                                                                      {/* Versión 1.9.0 - Versión Actual */}
+                                                                                    {/* Versión 1.9.1 - Versión Actual */}
               <TouchableOpacity 
                 style={[styles.versionBlock, styles.currentVersionBlock]} 
+                onPress={() => toggleVersionExpanded('1.9.1')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.versionHeader}>
+                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.9.1 (Actual)</Text>
+                  <Text style={[styles.versionDate, styles.currentVersionDate]}>27 Abr 2026</Text>
+                  <MaterialCommunityIcons 
+                    name={expandedVersions.has('1.9.1') ? 'chevron-up' : 'chevron-down'} 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
+                </View>
+                {expandedVersions.has('1.9.1') && (
+                  <View style={styles.versionContent}>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🚀 Novedades</Text>
+                      <Text style={styles.changelogItem}>• Layout de 2 cards en lugar de las 4 anteriores, usando el mismo design language que Pro...</Text>
+                      <Text style={styles.changelogItem}>• Card 1: Información</Text>
+                      <Text style={styles.changelogItem}>• Campo Ubicación</Text>
+                      <Text style={styles.changelogItem}>• Card 2: Opciones</Text>
+                      <Text style={styles.changelogItem}>• Contraída</Text>
+                      <Text style={styles.changelogItem}>• Expandida: fila superior</Text>
+                      <Text style={styles.changelogItem}>• Expandida: fila inferior</Text>
+                      <Text style={styles.changelogItem}>• Card Compartir</Text>
+                      <Text style={styles.changelogItem}>• TutorialOverlay actualizado</Text>
+                      <Text style={styles.changelogItem}>• Helper</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
+                      <Text style={styles.changelogItem}>• Íconos / no existen en MaterialCommunityIcons</Text>
+                      <Text style={styles.changelogItem}>• Color del candado inconsistente</Text>
+                      <Text style={styles.changelogItem}>• Cards de altura desigual</Text>
+                      <Text style={styles.changelogItem}>• Card Tema sin wrapper</Text>
+                      <Text style={styles.changelogItem}>• inline en Cierre Aut.</Text>
+                      <Text style={styles.changelogItem}>• Traducciones no actualizadas en runtime</Text>
+                      <Text style={styles.changelogItem}>• Emojis corruptos () en títulos de alertas de éxito</Text>
+                      <Text style={styles.changelogItem}>• Tipo de alert incorrecto en mensajes de éxito</Text>
+                      <Text style={styles.changelogItem}>• Botón Eliminar foto no funcionaba</Text>
+                      <Text style={styles.changelogItem}>• Botón fuera del recuadro en con 3+ botones</Text>
+                      <Text style={styles.changelogItem}>• en JSX de</Text>
+                      <Text style={styles.changelogItem}>• en</Text>
+                      <Text style={styles.changelogItem}>• íconos desalineados</Text>
+                      <Text style={styles.changelogItem}>• Flecha de back en Splitty chat</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>✨ Mejoras</Text>
+                      <Text style={styles.changelogItem}>• Chips contraídos de Opciones más grandes y con texto</Text>
+                      <Text style={styles.changelogItem}>• Reorden del contenido expandido</Text>
+                      <Text style={styles.changelogItem}>• Título de Card 2</Text>
+                      <Text style={styles.changelogItem}>• Chip de Compartir en chips contraídos</Text>
+                      <Text style={styles.changelogItem}>• Separación visual entre HeaderBar y primera card</Text>
+                      <Text style={styles.changelogItem}>• Textos del TutorialOverlay actualizados</Text>
+                      <Text style={styles.changelogItem}>• Paso 1</Text>
+                      <Text style={styles.changelogItem}>• Paso 2</Text>
+                      <Text style={styles.changelogItem}>• Etiquetas de Preferencias abreviadas</Text>
+                      <Text style={styles.changelogItem}>• → / →</Text>
+                      <Text style={styles.changelogItem}>• → / →</Text>
+                      <Text style={styles.changelogItem}>• → / → / →</Text>
+                      <Text style={styles.changelogItem}>• en todos los labels de valor de cards para evitar desbordamiento</Text>
+                      <Text style={styles.changelogItem}>• importado en para soporte nativo de íconos en botones</Text>
+                      <Text style={styles.changelogItem}>• Textos de ayuda de Splitty () revisados y corregidos por el usuario para amigos, crear ...</Text>
+                      <Text style={styles.changelogItem}>• e</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+{/* Versión 1.9.0 - Versión Actual */}
+              <TouchableOpacity 
+                style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.9.0')}
                 onLayout={(e) => { versionYOffsets.current['1.9.0'] = e.nativeEvent.layout.y; }}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
-                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.9.0</Text>
-                  <Text style={[styles.versionDate, styles.currentVersionDate]}>19 Abr 2026</Text>
+                  <Text style={[styles.versionNumber]}>v1.9.0</Text>
+                  <Text style={[styles.versionDate]}>19 Abr 2026</Text>
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.9.0') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
@@ -2596,7 +2666,7 @@ const ProfileScreen: React.FC = () => {
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                     <Text style={styles.aboutTitle}>SplitSmart</Text>
-                    <View style={styles.versionBadge}><Text style={styles.versionBadgeText}>v1.9.0</Text></View>
+                    <View style={styles.versionBadge}><Text style={styles.versionBadgeText}>v1.9.1</Text></View>
                   </View>
                   <Text style={styles.aboutDescription}>{t('profile.about.appDescription')}</Text>
                 </View>
