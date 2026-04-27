@@ -1936,15 +1936,63 @@ const ProfileScreen: React.FC = () => {
               contentContainerStyle={{ flexGrow: 1 }}
               nestedScrollEnabled={true}
             >
-                                                                                    {/* Versión 1.9.1 - Versión Actual */}
+                                                                                                  {/* Versión 1.9.2 - Versión Actual */}
               <TouchableOpacity 
                 style={[styles.versionBlock, styles.currentVersionBlock]} 
+                onPress={() => toggleVersionExpanded('1.9.2')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.versionHeader}>
+                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.9.2 (Actual)</Text>
+                  <Text style={[styles.versionDate, styles.currentVersionDate]}>27 Abr 2026</Text>
+                  <MaterialCommunityIcons 
+                    name={expandedVersions.has('1.9.2') ? 'chevron-up' : 'chevron-down'} 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
+                </View>
+                {expandedVersions.has('1.9.2') && (
+                  <View style={styles.versionContent}>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🚀 Novedades</Text>
+                      <Text style={styles.changelogItem}>• Soporte Web (PWA): Capa de abstracción de base de datos</Text>
+                      <Text style={styles.changelogItem}>• : Interfaz TypeScript con todas las firmas públicas de la BD (~40 métodos)</Text>
+                      <Text style={styles.changelogItem}>• : Factory que selecciona automáticamente la implementación según</Text>
+                      <Text style={styles.changelogItem}>• : Implementación completa para web usando IndexedDB (via )</Text>
+                      <Text style={styles.changelogItem}>• En móvil (iOS/Android) sigue usando sin ningún cambio</Text>
+                      <Text style={styles.changelogItem}>• En browser usa IndexedDB</Text>
+                      <Text style={styles.changelogItem}>• Botón Atrás en versión web: Todas las pantallas de la app web muestran un botón "‹" par...</Text>
+                      <Text style={styles.changelogItem}>• Compartir por WhatsApp Web: Al tocar "Compartir" en el resumen de un evento, en la vers...</Text>
+                      <Text style={styles.changelogItem}>• PWA instalable: La versión web puede instalarse en el escritorio o en el celular como s...</Text>
+                      <Text style={styles.changelogItem}>• Amigo vinculado al perfil: Al entrar al perfil, si no tenés un amigo creado con tus dat...</Text>
+                      <Text style={styles.changelogItem}>• Notificación automática de actualización: La app ahora consulta directamente el Play St...</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
+                      <Text style={styles.changelogItem}>• Notificación de nueva versión no aparecía: El aviso de "hay una versión nueva" se mostr...</Text>
+                      <Text style={styles.changelogItem}>• Cámara en web abría selector de archivos: En la versión web, tomar foto abría el explor...</Text>
+                      <Text style={styles.changelogItem}>• Fotos y galería en Perfil y Amigos (web): Corregido el flujo de selección de imagen en ...</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>✨ Mejoras</Text>
+                      <Text style={styles.changelogItem}>• Nombres de participantes con mayúscula: Los participantes generados por Splitty (el asi...</Text>
+                      <Text style={styles.changelogItem}>• Sincronización de datos Perfil ↔ Amigo vinculado: Si editás tus datos en el Perfil (nom...</Text>
+                      <Text style={styles.changelogItem}>• latest-version.json se actualiza automáticamente: Al ejecutar para incrementar la versi...</Text>
+                      <Text style={styles.changelogItem}>• Detección de versión directamente desde Play Store: En lugar de depender solo del archi...</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+{/* Versión 1.9.1 - Versión Actual */}
+              <TouchableOpacity 
+                style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.9.1')}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
-                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.9.1 (Actual)</Text>
-                  <Text style={[styles.versionDate, styles.currentVersionDate]}>27 Abr 2026</Text>
+                  <Text style={[styles.versionNumber]}>v1.9.1</Text>
+                  <Text style={[styles.versionDate]}>27 Abr 2026</Text>
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.9.1') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
@@ -2736,7 +2784,7 @@ const ProfileScreen: React.FC = () => {
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                     <Text style={styles.aboutTitle}>SplitSmart</Text>
-                    <View style={styles.versionBadge}><Text style={styles.versionBadgeText}>v1.9.1</Text></View>
+                    <View style={styles.versionBadge}><Text style={styles.versionBadgeText}>v1.9.2</Text></View>
                   </View>
                   <Text style={styles.aboutDescription}>{t('profile.about.appDescription')}</Text>
                 </View>
