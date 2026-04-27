@@ -1137,7 +1137,8 @@ const CreateExpenseScreen: React.FC = () => {
         showLanguageSelector={true}
         showHelp={true}
         showLogout={true}
-        showBackButton={false}
+        showBackButton={Platform.OS === 'web'}
+        onLeftPress={Platform.OS === 'web' ? () => navigation.goBack() : undefined}
         elevation={true}
         onHelpPress={() => { ceScrollRef.current?.scrollTo({ y: 0, animated: false }); setCeTourStep(0); setCeTourVisible(true); }}
       />

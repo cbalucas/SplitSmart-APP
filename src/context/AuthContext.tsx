@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { User } from '../types';
 import { DEMO_USER, DEMO_CREDENTIALS } from '../constants/demoUser';
-import { databaseService } from '../services/database';
+import { databaseService } from '../services/DatabaseFactory';
 
 interface AuthContextValue {
   user: User | null;

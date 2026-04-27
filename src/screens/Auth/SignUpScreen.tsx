@@ -8,7 +8,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { HeaderBar, Card, Button, Input } from '../../components';
 import TutorialOverlay from '../../components/TutorialOverlay';
-import { databaseService } from '../../services/database';
+import { databaseService } from '../../services/DatabaseFactory';
 import { useAuth } from '../../context/AuthContext';
 import { createSignUpStyles } from './SignUpScreen.styles';
 import { signUpLanguage } from './language';

@@ -25,7 +25,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { databaseService } from '../../services/database';
+import { databaseService } from '../../services/DatabaseFactory';
 import { Card, Button, Input, LanguageSelector, CurrencySelector, ThemeToggle, HeaderBar } from '../../components';
 import { 
   UserProfileData, 
@@ -183,7 +183,8 @@ const ProfileScreen: React.FC = () => {
     updateUserPassword,
     verifyUserPassword,
     updateUserNotifications,
-    updateUserPrivacy
+    updateUserPrivacy,
+    getParticipantByUserId
   } = useData();
   const styles = createStyles(theme);
 
@@ -280,6 +281,54 @@ const ProfileScreen: React.FC = () => {
     calculateStats();
     loadUserProfile();
   }, [events, expenses, participants]);
+
+  // Al entrar al perfil, verificar si existe un amigo vinculado
+  useEffect(() => {
+    if (!user?.id) return;
+    const checkLinkedFriend = async () => {
+      try {
+        const linked = await getParticipantByUserId(user.id);
+        if (!linked) {
+          showAlert({
+            type: 'info',
+            title: 'Amigo vinculado',
+            message: 'No tenés un amigo vinculado a tu perfil. ¿Querés crear uno con tus datos para que otros puedan agregarte a eventos?',
+            buttons: [
+              {
+                text: 'Crear amigo',
+                icon: 'account-plus',
+                onPress: async () => {
+                  if (!user?.id) return;
+                  try {
+                    await databaseService.createParticipant({
+                      id: `friend_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                      name: user.name || profileData.name,
+                      email: user.email || profileData.email || undefined,
+                      phone: profileData.phone || undefined,
+                      alias_cbu: profileData.alias_cbu || undefined,
+                      avatar: user.avatar || undefined,
+                      isActive: true,
+                      participantType: 'friend',
+                      userId: user.id,
+                      createdByUserId: user.id,
+                      isPublic: false,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    });
+                    showAlert({ type: 'success', title: 'Amigo creado', message: 'Ahora aparecerás como amigo al agregar participantes.' });
+                  } catch {
+                    showAlert({ type: 'error', title: 'Error', message: 'No se pudo crear el amigo vinculado.' });
+                  }
+                }
+              },
+              { text: 'Ahora no', style: 'cancel' as const }
+            ]
+          });
+        }
+      } catch {}
+    };
+    checkLinkedFriend();
+  }, [user?.id]);
 
   // Chequeo de versión disponible en Play Store
   useEffect(() => {
@@ -494,10 +543,29 @@ const ProfileScreen: React.FC = () => {
     }
   };
 
+  // Abre la cámara real en web usando input[capture]
+  const takePhotoWeb = (): Promise<string | null> =>
+    new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.capture = 'environment';
+      input.onchange = () => {
+        const file = input.files?.[0];
+        if (file) resolve(URL.createObjectURL(file));
+        else resolve(null);
+      };
+      input.click();
+    });
+
   const takePhoto = async () => {
     try {
+      if (Platform.OS === 'web') {
+        const uri = await takePhotoWeb();
+        if (uri) await updateAvatar(uri);
+        return;
+      }
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      
       if (status !== 'granted') {
         showAlert({ type: 'error', title: t('profile.message.permissionRequired'), message: t('profile.message.cameraPermission') });
         return;
@@ -542,7 +610,7 @@ const ProfileScreen: React.FC = () => {
       title: t('profile.message.changeAvatarTitle'),
       message: t('profile.message.chooseOption'),
       buttons: [
-        { text: 'Foto', icon: 'camera', onPress: takePhoto },
+        ...(Platform.OS !== 'web' ? [{ text: 'Foto', icon: 'camera', onPress: takePhoto }] : []),
         { text: 'Galería', icon: 'image-multiple', onPress: pickImageFromGallery },
         ...(user?.avatar ? [{
           text: 'Eliminar',
@@ -985,6 +1053,8 @@ const ProfileScreen: React.FC = () => {
         showHelp={true}
         showLogout={true}
         useDynamicColors={true}
+        showBackButton={Platform.OS === 'web'}
+        onLeftPress={Platform.OS === 'web' ? () => navigation.goBack() : undefined}
         onHelpPress={() => { setPfTourStep(0); setPfTourVisible(true); }}
       />
       </View>

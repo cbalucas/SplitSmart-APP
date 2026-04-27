@@ -14,7 +14,8 @@ import {
   Image,
   Switch,
   BackHandler,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform
 } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -33,7 +34,7 @@ import HeaderBar from '../../components/HeaderBar';
 import SearchBar from '../../components/SearchBar';
 import { LanguageSelector, ThemeToggle, SettlementItem, ConsolidationModal } from '../../components';
 import { useCalculations } from '../../hooks/useCalculations';
-import { databaseService } from '../../services/database';
+import { databaseService } from '../../services/DatabaseFactory';
 import { ConsolidationService } from '../../services/ConsolidationService';
 import { showAlert, dismissAlert } from '../../services/alertService';
 import * as ImagePicker from 'expo-image-picker';
@@ -1140,7 +1141,14 @@ export default function EventDetailScreen() {
 
     // Enviar directamente a WhatsApp
     const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `whatsapp://send?text=${encodedMessage}`;
+    const whatsappUrl = Platform.OS === 'web'
+      ? `https://web.whatsapp.com/send?text=${encodedMessage}`
+      : `whatsapp://send?text=${encodedMessage}`;
+
+    if (Platform.OS === 'web') {
+      Linking.openURL(whatsappUrl);
+      return;
+    }
 
     Linking.canOpenURL(whatsappUrl)
       .then((supported) => {
@@ -1301,7 +1309,14 @@ export default function EventDetailScreen() {
 
     // Enviar directamente a WhatsApp
     const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `whatsapp://send?text=${encodedMessage}`;
+    const whatsappUrl = Platform.OS === 'web'
+      ? `https://web.whatsapp.com/send?text=${encodedMessage}`
+      : `whatsapp://send?text=${encodedMessage}`;
+
+    if (Platform.OS === 'web') {
+      Linking.openURL(whatsappUrl);
+      return;
+    }
 
     Linking.canOpenURL(whatsappUrl)
       .then((supported) => {
@@ -3684,7 +3699,8 @@ export default function EventDetailScreen() {
         <HeaderBar
           title={event.name}
           titleAlignment="left"
-          showBackButton={false}
+          showBackButton={Platform.OS === 'web'}
+          onLeftPress={Platform.OS === 'web' ? () => navigation.goBack() : undefined}
           showThemeToggle={true}
           showLanguageSelector={true}
           showHelp={true}

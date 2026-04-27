@@ -378,7 +378,7 @@ const ExpressEventScreen: React.FC = () => {
 
   // Confirmar carga masiva y avanzar a gastos
   const handleBulkParticipantsSubmit = (raw: string) => {
-    const names = raw.split(',').map(n => n.trim()).filter(n => n.length > 0);
+    const names = raw.split(',').map(n => n.trim()).filter(n => n.length > 0).map(n => n.charAt(0).toUpperCase() + n.slice(1));
     if (names.length === 0) {
       // Saltear sin agregar
       pushUser(t.bulkParticipantsSkip);
@@ -1644,6 +1644,8 @@ const ExpressEventScreen: React.FC = () => {
         showLanguageSelector={true}
         elevation={true}
         showHelp={true}
+        showBackButton={Platform.OS === 'web'}
+        onLeftPress={Platform.OS === 'web' ? () => navigation.goBack() : undefined}
         onHelpPress={() => { setTourStep(0); setTourVisible(true); }}
       />
 

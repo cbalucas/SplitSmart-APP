@@ -11,6 +11,7 @@ $packagePath     = "package.json"
 $buildGradlePath = "android\app\build.gradle"
 $changelogPath   = "CHANGELOG.md"
 $profilePath     = "src\screens\ProfileScreen\index.tsx"
+$latestVerPath   = "latest-version.json"
 
 # ─── Helper: calcular nueva versión semver ────────────────────────────────────
 function Get-BumpedVersion {
@@ -247,7 +248,15 @@ $raw = $raw -replace 'versionName "[0-9.]+"',    "versionName `"$newVer`""
 Set-Content $buildGradlePath $raw -NoNewline
 Write-Host "  ✅ build.gradle: versionCode=$newCode, versionName=$newVer" -ForegroundColor Green
 
-# ─── 4. CHANGELOG.md ─────────────────────────────────────────────────────────
+# ─── 4. latest-version.json ──────────────────────────────────────────────────
+Write-Host "⚙️  Actualizando latest-version.json..." -ForegroundColor Yellow
+$latestVerRaw = Get-Content $latestVerPath -Raw -Encoding UTF8
+$latestVerJson = $latestVerRaw | ConvertFrom-Json
+$latestVerJson.version = $newVer
+$latestVerJson | ConvertTo-Json -Depth 5 | Set-Content $latestVerPath -NoNewline -Encoding UTF8
+Write-Host "  ✅ latest-version.json: version=$newVer" -ForegroundColor Green
+
+# ─── 6. CHANGELOG.md ─────────────────────────────────────────────────────────
 Write-Host "⚙️  Actualizando CHANGELOG.md..." -ForegroundColor Yellow
 
 $pendingRaw = Get-Content $pendingPath -Raw -Encoding UTF8
@@ -273,7 +282,7 @@ $changelogRaw = [regex]::Replace($changelogRaw, '(# Changelog[^\n]*\n)', "`$1`n$
 Set-Content $changelogPath $changelogRaw -NoNewline -Encoding UTF8
 Write-Host "  ✅ CHANGELOG.md: seccion v$newVer insertada" -ForegroundColor Green
 
-# ─── 5. ProfileScreen/index.tsx ──────────────────────────────────────────────
+# ─── 7. ProfileScreen/index.tsx ──────────────────────────────────────────────
 Write-Host "⚙️  Actualizando ProfileScreen..." -ForegroundColor Yellow
 $profileContent = Get-Content $profilePath -Raw -Encoding UTF8
 
@@ -368,7 +377,7 @@ $profileContent = $profileContent -replace "(profile\.about\.version'\)}:</Text>
 Set-Content $profilePath $profileContent -NoNewline -Encoding UTF8
 Write-Host "  ✅ ProfileScreen actualizado (badge, modal, about title, version spec)" -ForegroundColor Green
 
-# ─── 6. Reset PENDING_CHANGES.md ─────────────────────────────────────────────
+# ─── 8. Reset PENDING_CHANGES.md ─────────────────────────────────────────────
 Write-Host "⚙️  Reseteando PENDING_CHANGES.md..." -ForegroundColor Yellow
 $nextPatch    = Get-BumpedVersion $newVer 'patch'
 $pendingReset = @"

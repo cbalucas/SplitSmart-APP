@@ -45,6 +45,17 @@
         }
       ]
     ],
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/splitsmart/splash-icon-app_google.png",
+      "name": "SplitSmart",
+      "shortName": "SplitSmart",
+      "description": "Divide gastos entre amigos de forma inteligente",
+      "themeColor": "#4B89DC",
+      "backgroundColor": "#4B89DC",
+      "lang": "es"
+    },
     "updates": {
       "enabled": false
     },

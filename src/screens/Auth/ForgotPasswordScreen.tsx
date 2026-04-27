@@ -7,7 +7,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { HeaderBar, Card, Button, Input } from '../../components';
-import { databaseService } from '../../services/database';
+import { databaseService } from '../../services/DatabaseFactory';
 import { createForgotPasswordStyles } from './ForgotPasswordScreen.styles';
 import { forgotPasswordLanguage } from './language';
 import { RootStackParamList } from '../../types/navigation';

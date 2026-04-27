@@ -1,8 +1,9 @@
 import * as SQLite from 'expo-sqlite';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Event, Participant, Expense, EventParticipant, Split, Payment } from '../types';
+import { IDatabaseService } from './IDatabaseService';
 
-class DatabaseService {
+class DatabaseService implements IDatabaseService {
   private db: SQLite.SQLiteDatabase | null = null;
   private isInitialized: boolean = false;
   private initPromise: Promise<void> | null = null;
@@ -4063,4 +4064,5 @@ class DatabaseService {
   // Funciones auxiliares ya definidas arriba en la clase
 }
 
+export { DatabaseService };
 export const databaseService = new DatabaseService();

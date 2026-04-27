@@ -103,7 +103,7 @@ const ManageFriendsScreen: React.FC = () => {
   const navigation = useNavigation();
   const { theme } = useTheme();
   const { language } = useLanguage();
-  const { getFriends, getFriendsByUser, addParticipant, updateParticipant, deleteParticipant, refreshData } = useData();
+  const { getFriends, getFriendsByUser, addParticipant, updateParticipant, deleteParticipant, refreshData, updateUserProfile } = useData();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const styles = createStyles(theme, insets);
@@ -250,8 +250,28 @@ const ManageFriendsScreen: React.FC = () => {
     }
   };
 
+  // Abre la cámara real en web usando input[capture]
+  const takeFriendPhotoWeb = (): Promise<string | null> =>
+    new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.capture = 'environment';
+      input.onchange = () => {
+        const file = input.files?.[0];
+        if (file) resolve(URL.createObjectURL(file));
+        else resolve(null);
+      };
+      input.click();
+    });
+
   const takeFriendPhoto = async () => {
     try {
+      if (Platform.OS === 'web') {
+        const uri = await takeFriendPhotoWeb();
+        if (uri) setNewFriend(prev => ({ ...prev, avatar: uri }));
+        return;
+      }
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
         showAlert({ type: 'error', title: 'Permiso requerido', message: 'Se necesita acceso a la cámara para tomar una foto.' });
@@ -276,7 +296,7 @@ const ManageFriendsScreen: React.FC = () => {
       title: 'Foto del amigo',
       message: 'Elige una opción',
       buttons: [
-        { text: 'Foto', icon: 'camera', onPress: takeFriendPhoto },
+        ...(Platform.OS !== 'web' ? [{ text: 'Foto', icon: 'camera', onPress: takeFriendPhoto }] : []),
         { text: 'Galería', icon: 'image-multiple', onPress: pickFriendImageFromGallery },
         ...(newFriend.avatar ? [{
           text: 'Eliminar',
@@ -382,6 +402,16 @@ const ManageFriendsScreen: React.FC = () => {
           isPublic: newFriend.is_public,
           updatedAt: new Date().toISOString()
         });
+        // Si el amigo está vinculado al usuario actual, sincronizar los datos al perfil
+        if (editingFriend.userId && editingFriend.userId === user?.id) {
+          await updateUserProfile(user.id, {
+            name: capitalizeName(newFriend.name),
+            email: newFriend.email.trim() || undefined,
+            phone: newFriend.phone.trim() || undefined,
+            alias_cbu: newFriend.alias_cbu.trim() || undefined,
+            avatar: newFriend.avatar || undefined,
+          });
+        }
         showAlert({ type: 'success', title: t.alerts.success.updated });
       } else {
         // Agregar nuevo amigo
@@ -426,7 +456,8 @@ const ManageFriendsScreen: React.FC = () => {
       showLanguageSelector={true}
       showHelp={true}
       showLogout={true}
-      showBackButton={false}
+      showBackButton={Platform.OS === 'web'}
+      onLeftPress={Platform.OS === 'web' ? () => navigation.goBack() : undefined}
       elevation={true}
       onHelpPress={() => { setActiveTab('list'); setMfTourStep(0); setMfTourVisible(true); }}
     />

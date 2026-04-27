@@ -9,6 +9,7 @@ import {
   Alert,
   Modal,
   Pressable,
+  Platform,
   ViewStyle,
   TextStyle,
   ImageStyle
@@ -147,18 +148,27 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   const handleLeftPress = () => { if (onLeftPress) onLeftPress(); };
   const handleRightPress = () => { if (onRightPress) onRightPress(); };
 
+  // En web: mostrar botón de atrás automáticamente si hay historial de navegación
+  const isWeb = Platform.OS === 'web';
+  const webHasHistory = isWeb && typeof window !== 'undefined' && window.history.length > 1;
+  const handleWebBack = () => {
+    if (onLeftPress) { onLeftPress(); }
+    else if (typeof window !== 'undefined') { window.history.back(); }
+  };
+  const showWebBack = isWeb && webHasHistory && !leftIcon && !leftText && !leftAvatar;
+
   const renderLeftElement = () => {
-    if (showBackButton) {
+    if (showBackButton || showWebBack) {
       return (
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={handleLeftPress}
+          onPress={showWebBack && !showBackButton ? handleWebBack : handleLeftPress}
           activeOpacity={0.7}
         >
           <MaterialCommunityIcons
             name="arrow-left"
             size={24}
-            color={titleColor || theme.colors.onSurface}
+            color={dynamicTitleColor}
           />
         </TouchableOpacity>
       );

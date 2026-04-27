@@ -62,7 +62,7 @@ export default function CustomAlertContainer() {
   const cancelBtn = buttons.find(b => b.style === 'cancel');
   const destructiveBtn = buttons.find(b => b.style === 'destructive');
   const regularBtns = buttons.filter(b => b.style !== 'cancel' && b.style !== 'destructive');
-  const isColumn = regularBtns.length > 1;
+  const isColumn = regularBtns.length > 1 || buttons.some(b => !!b.icon);
   const hasSpecialRow = !!(cancelBtn || destructiveBtn);
 
   return (

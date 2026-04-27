@@ -1,7 +1,9 @@
-import { Linking } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import { showAlert } from './alertService';
 
-const VERSION_URL =
+const PACKAGE_ID = 'com.cbalucas.splitsmart';
+const PLAY_STORE_URL = `https://play.google.com/store/apps/details?id=${PACKAGE_ID}`;
+const FALLBACK_VERSION_URL =
   'https://raw.githubusercontent.com/cbalucas/SplitSmart-APP/main/latest-version.json';
 
 /**
@@ -23,9 +25,60 @@ export interface RemoteVersionInfo {
   forceUpdate?: boolean;
 }
 
-export async function fetchVersionInfo(): Promise<RemoteVersionInfo | null> {
+/**
+ * Intenta obtener la versión directamente de la página del Play Store.
+ * Solo funciona en nativo (en web hay CORS).
+ * No es una API oficial, por lo que puede fallar si Google cambia el HTML.
+ */
+async function fetchVersionFromPlayStore(): Promise<string | null> {
   try {
-    const response = await fetch(VERSION_URL, { cache: 'no-store' });
+    const response = await fetch(
+      `${PLAY_STORE_URL}&hl=en_US`,
+      {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36',
+        },
+        cache: 'no-store',
+      }
+    );
+    if (!response.ok) return null;
+    const html = await response.text();
+
+    // Patrón 1: itemprop="softwareVersion" (más estable)
+    let match = html.match(/itemprop="softwareVersion"[^>]*>\s*([0-9]+\.[0-9]+(?:\.[0-9]+)?)\s*</);
+    if (match?.[1]) return match[1].trim();
+
+    // Patrón 2: JSON embebido en el HTML (frecuente en Play Store moderno)
+    match = html.match(/\[\[\["([0-9]+\.[0-9]+(?:\.[0-9]+)?)"\]\]/);
+    if (match?.[1]) return match[1].trim();
+
+    // Patrón 3: Current Version en texto plano
+    match = html.match(/Current Version[\s\S]{0,200}?([0-9]+\.[0-9]+(?:\.[0-9]+)?)/);
+    if (match?.[1]) return match[1].trim();
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchVersionInfo(): Promise<RemoteVersionInfo | null> {
+  // En nativo: intentar obtener la versión directo del Play Store
+  if (Platform.OS !== 'web') {
+    const playStoreVersion = await fetchVersionFromPlayStore();
+    if (playStoreVersion) {
+      return {
+        version: playStoreVersion,
+        playStoreUrl: PLAY_STORE_URL,
+        forceUpdate: false,
+      };
+    }
+  }
+
+  // Fallback: GitHub JSON (web siempre llega aquí por CORS)
+  try {
+    const response = await fetch(FALLBACK_VERSION_URL, { cache: 'no-store' });
     if (!response.ok) return null;
     return await response.json();
   } catch {

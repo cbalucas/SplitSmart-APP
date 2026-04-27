@@ -9,6 +9,7 @@ import {
   Image,
   StyleSheet,
   Animated,
+  Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showAlert } from '../../services/alertService';
@@ -26,7 +27,7 @@ import {
 } from '../../components';
 import SearchBar from '../../components/SearchBar';
 import { useData } from '../../context/DataContext';
-import { databaseService } from '../../services/database';
+import { databaseService } from '../../services/DatabaseFactory';
 import { HomeEventData, HomeMetricData, HomeScreenState } from './types';
 import { createStyles } from './styles';
 import { homeLanguage } from './language';

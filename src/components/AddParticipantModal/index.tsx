@@ -423,6 +423,8 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
       showLogout={true}
       useDynamicColors={true}
       elevation={true}
+      showBackButton={Platform.OS === 'web'}
+      onLeftPress={Platform.OS === 'web' ? onClose : undefined}
       onHelpPress={() => { setActiveTab('friends'); setApTourStep(0); setApTourVisible(true); }}
     />
   );

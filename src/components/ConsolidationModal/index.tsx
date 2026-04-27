@@ -5,7 +5,8 @@ import {
   Modal,
   TouchableOpacity,
   StyleSheet,
-  ScrollView
+  ScrollView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { showAlert } from '../../services/alertService';
@@ -500,7 +501,8 @@ export const ConsolidationModal: React.FC<ConsolidationModalProps> = ({
           titleAlignment="left"
           useDynamicColors={true}
           showLogo={true}
-          showBackButton={false}
+          showBackButton={Platform.OS === 'web'}
+          onLeftPress={Platform.OS === 'web' ? onClose : undefined}
           isModal={true}
           showThemeToggle={true}
           showLanguageSelector={true}

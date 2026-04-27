@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { Event, Participant, Expense, EventParticipant, Split, Payment } from '../types';
-import { databaseService } from '../services/database';
+import { databaseService } from '../services/DatabaseFactory';
 import { notificationService } from '../services/NotificationService';
 import { useAuth } from './AuthContext';
 
@@ -21,6 +21,7 @@ interface DataContextValue {
   getEventParticipants: (eventId: string) => Promise<(Participant & { role: EventParticipant['role']; balance: number; joinedAt: string })[]>;
   getFriends: () => Promise<Participant[]>;
   getFriendsByUser: (userId: string) => Promise<Participant[]>;
+  getParticipantByUserId: (userId: string) => Promise<Participant | null>;
   getUserPreference: (userId: string, key: string) => Promise<string | null>;
   setUserPreference: (userId: string, key: string, value: string) => Promise<void>;
   incrementParticipantUsage: (participantId: string) => Promise<void>;
@@ -74,6 +75,7 @@ const DataContext = createContext<DataContextValue>({
   getEventParticipants: async () => [],
   getFriends: async () => [],
   getFriendsByUser: async () => [],
+  getParticipantByUserId: async () => null,
   getUserPreference: async () => null,
   setUserPreference: async () => {},
   incrementParticipantUsage: async () => {},
@@ -383,6 +385,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error getFriendsByUser:', error);
       return [];
+    }
+  };
+
+  const getParticipantByUserId = async (userId: string): Promise<Participant | null> => {
+    try {
+      return await databaseService.getParticipantByUserId(userId);
+    } catch (error) {
+      console.error('Error getParticipantByUserId:', error);
+      return null;
     }
   };
 
@@ -1224,6 +1235,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       getEventParticipants,
       getFriends,
       getFriendsByUser,
+      getParticipantByUserId,
       getUserPreference,
       setUserPreference,
       incrementParticipantUsage,

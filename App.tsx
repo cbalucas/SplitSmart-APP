@@ -20,30 +20,32 @@ export default function App() {
     setShowSplash(false);
   };
 
+  // Chequeo de actualización: se lanza DESPUÉS de que el splash termine,
+  // garantizando que CustomAlertContainer ya esté montado y registrado.
   useEffect(() => {
-    // Pequeño delay para que CustomAlertContainer ya esté montado
+    if (showSplash) return;
     const timer = setTimeout(() => {
       checkForUpdate(appVersion);
-    }, 1500);
+    }, 800);
     return () => clearTimeout(timer);
-  }, []);
-
-  if (showSplash) {
-    return <SplashScreen onFinish={handleSplashFinish} />;
-  }
+  }, [showSplash]);
 
   return (
     <SafeAreaProvider>
       <ThemeProvider>
         <LanguageProvider>
-          <AuthProvider>
-            <DataProvider>
-              <NavigationContainer>
-                <RootNavigator />
-              </NavigationContainer>
-              <CustomAlertContainer />
-            </DataProvider>
-          </AuthProvider>
+          {showSplash ? (
+            <SplashScreen onFinish={handleSplashFinish} />
+          ) : (
+            <AuthProvider>
+              <DataProvider>
+                <NavigationContainer>
+                  <RootNavigator />
+                </NavigationContainer>
+                <CustomAlertContainer />
+              </DataProvider>
+            </AuthProvider>
+          )}
         </LanguageProvider>
       </ThemeProvider>
     </SafeAreaProvider>
