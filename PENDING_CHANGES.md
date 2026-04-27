@@ -18,24 +18,51 @@
   - `src/services/IndexedDBDatabaseService.ts` — Implementación completa para web usando IndexedDB (via `idb`)
   - En móvil (iOS/Android) sigue usando `expo-sqlite` sin ningún cambio
   - En browser usa IndexedDB: mismo schema (11 object stores), misma lógica de negocio, mismos algoritmos de liquidación
+- **Botón Atrás en versión web** — Todas las pantallas de la app web muestran un botón "‹" para volver a la pantalla anterior, igual a como funciona en el celular
+- **Compartir por WhatsApp Web** — Al tocar "Compartir" en el resumen de un evento, en la versión web se abre WhatsApp Web en lugar del link de app móvil
+- **PWA instalable** — La versión web puede instalarse en el escritorio o en el celular como si fuera una app nativa (ícono, pantalla completa, sin barra del navegador)
+- **Amigo vinculado al perfil** — Al entrar al perfil, si no tenés un amigo creado con tus datos, la app te ofrece crearlo automáticamente. Así los demás usuarios pueden agregarte a eventos desde la lista de amigos
+- **Notificación automática de actualización** — La app ahora consulta directamente el Play Store para saber si hay una versión más nueva disponible y te avisa al iniciar la sesión
 
 ### 🔧 Correcciones de Bugs
 
-_(ninguna aún)_
+- **Notificación de nueva versión no aparecía** — El aviso de "hay una versión nueva" se mostraba antes de que la pantalla de notificaciones estuviese lista, por lo que se perdía silenciosamente. Ahora se espera a que el splash termine antes de mostrar el aviso
+- **Cámara en web abría selector de archivos** — En la versión web, tomar foto abría el explorador de archivos en lugar de la cámara. Ahora la opción "Foto" se oculta en web y solo aparece "Galería"
+- **Fotos y galería en Perfil y Amigos (web)** — Corregido el flujo de selección de imagen en ambas pantallas para que funcione correctamente en el navegador
 
 ### ✨ Mejoras
 
-- `app.json` — Agregada configuración `"web": { "bundler": "metro", "output": "static" }`
-- `src/context/DataContext.tsx` — Importa `databaseService` desde `DatabaseFactory` en lugar de `database` directamente
-- `src/localization/es.json` + `en.json` — Actualizados textos de "Acerca de": plataforma y base de datos reflejan soporte iOS/Android/Web
+- **Nombres de participantes con mayúscula** — Los participantes generados por Splitty (el asistente de voz/texto) ahora aparecen con la primera letra en mayúscula
+- **Sincronización de datos Perfil ↔ Amigo vinculado** — Si editás tus datos en el Perfil (nombre, teléfono, alias/CBU, foto), esos cambios también se actualizan en tu amigo vinculado. Y viceversa: si alguien edita el amigo que representa tu perfil, el perfil también se actualiza
+- **latest-version.json se actualiza automáticamente** — Al ejecutar `versiones.ps1` para incrementar la versión, el archivo `latest-version.json` también se actualiza solo, sin necesidad de editarlo a mano
+- **Detección de versión directamente desde Play Store** — En lugar de depender solo del archivo JSON en GitHub, la app ahora consulta la página del Play Store en tiempo real para obtener la versión publicada más reciente
 
 ### 📁 Archivos Modificados
 
 - `src/services/database.ts` — Agrega `implements IDatabaseService`; exporta clase `DatabaseService`
-- `src/context/DataContext.tsx` — Cambio de 1 línea de import
-- `src/localization/es.json` — Actualizado `platform` y `database` en sección `about`
-- `src/localization/en.json` — Ídem en inglés
-- `app.json` — Config web agregada
+- `src/services/IDatabaseService.ts` — Interfaz completa de la BD
+- `src/services/DatabaseFactory.ts` — Factory web/nativo
+- `src/services/IndexedDBDatabaseService.ts` — Implementación IndexedDB para web (métodos de consolidación incluidos)
+- `src/services/UpdateService.ts` — Consulta Play Store en nativo; fallback a GitHub JSON; fix timing del alert
+- `src/context/DataContext.tsx` — Import desde DatabaseFactory; agrega `getParticipantByUserId`
+- `src/screens/ProfileScreen/index.tsx` — Botón atrás web; fix cámara web; verificación amigo vinculado al entrar
+- `src/screens/ManageFriends/index.tsx` — Botón atrás web; fix cámara web; sincronización al perfil al editar amigo vinculado
+- `src/screens/EventDetail/index.tsx` — Botón atrás web; WhatsApp Web URL
+- `src/screens/CreateEvent/index.tsx` — Botón atrás web
+- `src/screens/CreateExpense/index.tsx` — Botón atrás web
+- `src/screens/ExpressEvent/index.tsx` — Botón atrás web; capitalización de nombres Splitty
+- `src/components/HeaderBar.tsx` — Auto-detección de historial para botón atrás en web
+- `src/components/AddParticipantModal/index.tsx` — Botón atrás web
+- `src/components/ConsolidationModal/index.tsx` — Botón atrás web
+- `src/components/CustomAlert/index.tsx` — Layout vertical cuando algún botón tiene ícono
+- `src/localization/es.json` + `en.json` — Textos "Acerca de" actualizados
+- `app.json` — Config web PWA completa
+- `versiones.ps1` — Actualización automática de `latest-version.json`
+- `latest-version.json` — Mantenido en sync con la versión publicada
+- `web/manifest.json` — Manifiesto PWA
+- `web/index.html` — HTML base con meta tags Apple, registro del service worker
+- `web/sw.js` — Service worker con estrategia network-first y caché offline
+- `App.tsx` — Fix: `checkForUpdate` se lanza después del splash
 
 ### 📦 Dependencias Instaladas
 
