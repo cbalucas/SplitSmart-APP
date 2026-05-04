@@ -7,6 +7,7 @@ export interface User {
   skipPassword?: boolean;
   autoLogin?: boolean;
   chatModeAdvanced?: boolean;
+  biometricEnabled?: boolean;
   createdAt: string;
   updatedAt: string;
 }

@@ -105,6 +105,7 @@ export interface IDatabaseService {
     skipPassword?: boolean;
     autoLogin?: boolean;
     chatModeAdvanced?: boolean;
+    biometricEnabled?: boolean;
     avatar?: string | null;
     auto_logout?: string;
     username?: string;

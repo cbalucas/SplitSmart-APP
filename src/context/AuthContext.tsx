@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { Platform } from 'react-native';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { User } from '../types';
 import { DEMO_USER, DEMO_CREDENTIALS } from '../constants/demoUser';
 import { databaseService } from '../services/DatabaseFactory';
@@ -15,6 +17,8 @@ interface AuthContextValue {
   autoLoginIfEnabled: () => Promise<User | null>;
   toggleAutoLogin: (enabled: boolean) => Promise<void>;
   toggleChatMode: (enabled: boolean) => Promise<void>;
+  loginWithBiometric: () => Promise<boolean>;
+  toggleBiometric: (enabled: boolean) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -28,7 +32,9 @@ const AuthContext = createContext<AuthContextValue>({
   refreshUser: async () => {},
   autoLoginIfEnabled: async () => null,
   toggleAutoLogin: async () => {},
-  toggleChatMode: async () => {}
+  toggleChatMode: async () => {},
+  loginWithBiometric: async () => false,
+  toggleBiometric: async () => {}
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -132,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           skipPassword: true,
           autoLogin: dbUser.auto_login === 1,
           chatModeAdvanced: dbUser.chat_mode_advanced === 1,
+          biometricEnabled: dbUser.biometric_enabled === 1,
           createdAt: dbUser.created_at,
           updatedAt: dbUser.updated_at
         };
@@ -164,6 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           skipPassword: dbUser.skip_password === 1,
           autoLogin: dbUser.auto_login === 1,
           chatModeAdvanced: dbUser.chat_mode_advanced === 1,
+          biometricEnabled: dbUser.biometric_enabled === 1,
           createdAt: dbUser.created_at,
           updatedAt: dbUser.updated_at
         };
@@ -346,6 +354,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         skipPassword: fullUserData.skip_password === 1,
         autoLogin: fullUserData.auto_login === 1,
         chatModeAdvanced: fullUserData.chat_mode_advanced === 1,
+        biometricEnabled: fullUserData.biometric_enabled === 1,
         createdAt: fullUserData.created_at,
         updatedAt: fullUserData.updated_at
       };
@@ -391,6 +400,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const toggleBiometric = async (enabled: boolean): Promise<void> => {
+    if (!user) throw new Error('No user logged in');
+    try {
+      await databaseService.updateUserProfile(user.id, { biometricEnabled: enabled });
+      setUser(prev => prev ? { ...prev, biometricEnabled: enabled } : null);
+    } catch (error) {
+      console.error('❌ Error toggling biometric:', error);
+      throw error;
+    }
+  };
+
+  const loginWithBiometric = async (): Promise<boolean> => {
+    if (Platform.OS === 'web') return false;
+    try {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      if (!hasHardware) {
+        console.log('❌ Biometric: no hardware available');
+        return false;
+      }
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      if (!isEnrolled) {
+        console.log('❌ Biometric: no biometrics enrolled');
+        return false;
+      }
+      const allUsers = await databaseService.getAllUsersWithLoginInfo();
+      const biometricUser = allUsers.find((u: any) => u.biometric_enabled === 1);
+      if (!biometricUser) {
+        console.log('❌ Biometric: no user has biometric enabled');
+        return false;
+      }
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Verificar identidad',
+        fallbackLabel: 'Usar contraseña',
+        cancelLabel: 'Cancelar',
+        disableDeviceFallback: false,
+      });
+      if (!result.success) {
+        console.log('❌ Biometric authentication failed:', result);
+        return false;
+      }
+      const fullUser = await databaseService.getUserById(biometricUser.id);
+      if (!fullUser) return false;
+      try { await databaseService.updateLastLogin(fullUser.id); } catch (_) {}
+      const authenticatedUser: User = {
+        id: fullUser.id,
+        name: fullUser.name,
+        username: fullUser.username,
+        email: fullUser.email,
+        avatar: fullUser.avatar,
+        skipPassword: fullUser.skip_password === 1,
+        autoLogin: fullUser.auto_login === 1,
+        chatModeAdvanced: fullUser.chat_mode_advanced === 1,
+        biometricEnabled: fullUser.biometric_enabled === 1,
+        createdAt: fullUser.created_at,
+        updatedAt: fullUser.updated_at,
+      };
+      setUser(authenticatedUser);
+      console.log('✅ Biometric login successful for:', authenticatedUser.username);
+      return true;
+    } catch (error) {
+      console.error('❌ Error in biometric login:', error);
+      return false;
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -403,7 +477,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshUser,
       autoLoginIfEnabled,
       toggleAutoLogin,
-      toggleChatMode
+      toggleChatMode,
+      loginWithBiometric,
+      toggleBiometric
     }}>
       {children}
     </AuthContext.Provider>

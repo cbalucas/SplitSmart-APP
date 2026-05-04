@@ -661,7 +661,9 @@ const translations = {
     'profile.autoLoginEnabled': 'La aplicación iniciará automáticamente con este usuario',
     'profile.autoLoginDisabled': 'Se mostrará la pantalla de login al iniciar',
     'profile.biometricLogin': 'Ingreso Biométrico',
-    'profile.biometricLoginDesc': 'Próximamente disponible',
+    'profile.biometricLoginDesc': 'Usar huella digital o Face ID',
+    'profile.biometricEnabled': 'El login biométrico está activado',
+    'profile.biometricDisabled': 'El login biométrico está desactivado',
     'profile.comingSoon': 'Próximamente',
     'profile.selectCurrency': 'Seleccionar Moneda',
     
@@ -1079,7 +1081,9 @@ const translations = {
     'profile.autoLoginEnabled': 'The app will start automatically with this user',
     'profile.autoLoginDisabled': 'Login screen will be shown at startup',
     'profile.biometricLogin': 'Biometric Login',
-    'profile.biometricLoginDesc': 'Coming soon',
+    'profile.biometricLoginDesc': 'Use fingerprint or Face ID',
+    'profile.biometricEnabled': 'Biometric login is now enabled',
+    'profile.biometricDisabled': 'Biometric login is now disabled',
     'profile.comingSoon': 'Coming Soon',
     'profile.selectCurrency': 'Select Currency',
     
@@ -1912,7 +1916,9 @@ const translations = {
     'profile.autoLoginEnabled': 'O app iniciará automaticamente com este usuário',
     'profile.autoLoginDisabled': 'A tela de login será mostrada na inicialização',
     'profile.biometricLogin': 'Login Biométrico',
-    'profile.biometricLoginDesc': 'Em breve disponível',
+    'profile.biometricLoginDesc': 'Usar impressão digital ou Face ID',
+    'profile.biometricEnabled': 'O login biométrico está ativado',
+    'profile.biometricDisabled': 'O login biométrico está desativado',
     'profile.comingSoon': 'Em Breve',
     'profile.selectCurrency': 'Selecionar Moeda',
     

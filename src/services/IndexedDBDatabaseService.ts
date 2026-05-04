@@ -1060,7 +1060,7 @@ export class IndexedDBDatabaseService implements IDatabaseService {
       phone: user.phone || null, alias_cbu: user.alias_cbu || null,
       avatar: null, preferred_currency: 'ARS', auto_logout: 'never',
       skip_password: user.skipPassword ? 1 : 0, auto_login: user.autoLogin ? 1 : 0,
-      chat_mode_advanced: 0,
+      chat_mode_advanced: 0, biometric_enabled: 0,
       notifications_expense_added: 1, notifications_payment_received: 0,
       notifications_event_updated: 0, notifications_weekly_report: 0,
       privacy_share_email: 0, privacy_share_phone: 0,
@@ -1088,7 +1088,7 @@ export class IndexedDBDatabaseService implements IDatabaseService {
   async getAllUsersWithLoginInfo(): Promise<any[]> {
     const db = this._db();
     const all = await db.getAll('users') as any[];
-    return all.map(u => ({ id: u.id, username: u.username, skip_password: u.skip_password, auto_login: u.auto_login, last_login: u.last_login }));
+    return all.map(u => ({ id: u.id, username: u.username, skip_password: u.skip_password, auto_login: u.auto_login, last_login: u.last_login, biometric_enabled: u.biometric_enabled ?? 0 }));
   }
 
   async updateUserProfile(userId: string, updates: any): Promise<void> {
@@ -1103,6 +1103,7 @@ export class IndexedDBDatabaseService implements IDatabaseService {
     if (updates.skipPassword !== undefined) row.skip_password = updates.skipPassword ? 1 : 0;
     if (updates.autoLogin !== undefined) row.auto_login = updates.autoLogin ? 1 : 0;
     if (updates.chatModeAdvanced !== undefined) row.chat_mode_advanced = updates.chatModeAdvanced ? 1 : 0;
+    if (updates.biometricEnabled !== undefined) row.biometric_enabled = updates.biometricEnabled ? 1 : 0;
     if (updates.avatar !== undefined) row.avatar = updates.avatar || null;
     if (updates.auto_logout !== undefined) row.auto_logout = updates.auto_logout;
     if (updates.username !== undefined) row.username = updates.username;

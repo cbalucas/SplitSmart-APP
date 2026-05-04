@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, Image, Modal, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -13,6 +14,7 @@ import { createLoginStyles } from './LoginScreen.styles';
 import { loginLanguage } from './language';
 import { RootStackParamList } from '../../types/navigation';
 import { showAlert } from '../../services/alertService';
+import { databaseService } from '../../services/DatabaseFactory';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -24,10 +26,30 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showDemoModal, setShowDemoModal] = useState(false);
   const [submittedOnce, setSubmittedOnce] = useState(false);
-  const { login, loading } = useAuth();
+  const [showBiometricButton, setShowBiometricButton] = useState(false);
+  const { login, loading, loginWithBiometric } = useAuth();
   const { theme } = useTheme();
   const { language } = useLanguage();
   const navigation = useNavigation<NavigationProp>();
+
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS === 'web') return;
+      (async () => {
+        try {
+          const hasHardware = await LocalAuthentication.hasHardwareAsync();
+          const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+          if (!hasHardware || !isEnrolled) {
+            setShowBiometricButton(false);
+            return;
+          }
+          const allUsers = await databaseService.getAllUsersWithLoginInfo();
+          const hasBiometricUser = allUsers.some((u: any) => u.biometric_enabled === 1);
+          setShowBiometricButton(hasBiometricUser);
+        } catch (_) {}
+      })();
+    }, [])
+  );
   
   const styles = createLoginStyles(theme);
   const t = loginLanguage[language as keyof typeof loginLanguage] || loginLanguage.es;
@@ -188,6 +210,29 @@ export default function LoginScreen() {
                 fullWidth
               />
             </View>
+            {showBiometricButton && Platform.OS !== 'web' && (
+              <TouchableOpacity
+                style={{
+                  marginTop: 12,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                  gap: 8,
+                  paddingVertical: 10,
+                }}
+                onPress={async () => {
+                  const success = await loginWithBiometric();
+                  if (!success) {
+                    showAlert({ type: 'error', title: 'Error', message: 'No se pudo autenticar con biometría', buttons: [{ text: 'OK' }] });
+                  }
+                }}
+                disabled={loading}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons name="fingerprint" size={28} color={theme.colors.primary} />
+                <Text style={{ color: theme.colors.primary, fontSize: 14, fontWeight: '600' }}>Ingresar con huella</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </SafeAreaView>
       </KeyboardAvoidingView>

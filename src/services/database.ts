@@ -450,6 +450,18 @@ class DatabaseService implements IDatabaseService {
         console.error('❌ Error in chat_mode_advanced migration:', error);
       }
 
+      // Migration: Add biometric_enabled column to users table
+      try {
+        const usersInfo2 = await this.db.getAllAsync(`PRAGMA table_info(users)`);
+        const hasBiometric = usersInfo2.some((col: any) => col.name === 'biometric_enabled');
+        if (!hasBiometric) {
+          await this.db.execAsync('ALTER TABLE users ADD COLUMN biometric_enabled INTEGER DEFAULT 0');
+          console.log('✅ Migration: Added biometric_enabled column to users table');
+        }
+      } catch (error: any) {
+        console.error('❌ Error in biometric_enabled migration:', error);
+      }
+
       // Migration: Create user_preferences table if it doesn't exist
       try {
         await this.db.execAsync(`
@@ -808,6 +820,7 @@ class DatabaseService implements IDatabaseService {
           privacy_allow_invitations INTEGER DEFAULT 1,
           privacy_share_event INTEGER DEFAULT 1,
           last_login TEXT,
+          biometric_enabled INTEGER DEFAULT 0,
           created_at TEXT,
           updated_at TEXT
         )
@@ -3288,6 +3301,7 @@ class DatabaseService implements IDatabaseService {
     skipPassword?: boolean;
     autoLogin?: boolean;
     chatModeAdvanced?: boolean;
+    biometricEnabled?: boolean;
     avatar?: string | null;
     auto_logout?: string;
     username?: string;
@@ -3329,6 +3343,10 @@ class DatabaseService implements IDatabaseService {
       if (updates.chatModeAdvanced !== undefined) {
         fields.push('chat_mode_advanced = ?');
         values.push(updates.chatModeAdvanced ? 1 : 0);
+      }
+      if (updates.biometricEnabled !== undefined) {
+        fields.push('biometric_enabled = ?');
+        values.push(updates.biometricEnabled ? 1 : 0);
       }
       if (updates.avatar !== undefined) {
         fields.push('avatar = ?');
@@ -3476,7 +3494,7 @@ class DatabaseService implements IDatabaseService {
     
     try {
       const users = await this.db.getAllAsync(
-        'SELECT id, username, skip_password, auto_login, last_login FROM users'
+        'SELECT id, username, skip_password, auto_login, last_login, biometric_enabled FROM users'
       );
       return users || [];
     } catch (error) {

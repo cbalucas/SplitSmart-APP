@@ -263,6 +263,8 @@
     "changePassword": "Change Password",
     "biometricLogin": "Biometric Login",
     "biometricLoginDesc": "Use fingerprint or Face ID",
+    "biometricEnabled": "Biometric login is now enabled",
+    "biometricDisabled": "Biometric login is now disabled",
     "comingSoon": "Coming Soon",
     "preferences": "Preferences",
     "theme": "Theme",

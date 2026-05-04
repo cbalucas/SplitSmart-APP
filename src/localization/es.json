@@ -262,6 +262,8 @@
     "changePassword": "Cambiar Contraseña",
     "biometricLogin": "Login Biométrico",
     "biometricLoginDesc": "Usar huella digital o Face ID",
+    "biometricEnabled": "El login biométrico está activado",
+    "biometricDisabled": "El login biométrico está desactivado",
     "comingSoon": "Próximamente",
     "preferences": "Preferencias",
     "theme": "Tema", 

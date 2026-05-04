@@ -159,7 +159,7 @@ const SettingItem: React.FC<SettingItemProps> = ({
 const ProfileScreen: React.FC = () => {
   const navigation = useNavigation();
   const { theme, toggleTheme, isDarkMode } = useTheme();
-  const { user, logout, refreshUser, initializeAuth, toggleAutoLogin, toggleChatMode } = useAuth();
+  const { user, logout, refreshUser, initializeAuth, toggleAutoLogin, toggleChatMode, toggleBiometric } = useAuth();
   const { language, setLanguage, t } = useLanguage();
 
   // Helper function to get auto-logout options
@@ -222,6 +222,7 @@ const ProfileScreen: React.FC = () => {
   const [skipPassword, setSkipPassword] = useState(false);
   const [autoLogin, setAutoLogin] = useState(false);
   const [chatModeAdvanced, setChatModeAdvanced] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [showAutoLogoutOptions, setShowAutoLogoutOptions] = useState(false);
   const [showChangelogModal, setShowChangelogModal] = useState(false);
   const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
@@ -437,6 +438,7 @@ const ProfileScreen: React.FC = () => {
         setSkipPassword(profile.skip_password === 1);
         setAutoLogin(profile.auto_login === 1);
         setChatModeAdvanced(profile.chat_mode_advanced === 1);
+        setBiometricEnabled(profile.biometric_enabled === 1);
       }
     } catch (error) {
       console.error('Error loading user profile:', error);
@@ -1403,6 +1405,42 @@ const ProfileScreen: React.FC = () => {
               <Text numberOfLines={1} style={styles.infoNavCardTitle}>{t('profile.skipPassword')}</Text>
             </TouchableOpacity>
           </View>
+          {/* Fila: Huella / Face ID (solo nativo) */}
+          {Platform.OS !== 'web' && (
+            <View style={[styles.statsGrid, { marginTop: 10 }]}>
+              <TouchableOpacity
+                style={[styles.infoNavCard, { borderTopColor: biometricEnabled ? '#9C27B0' : theme.colors.outline }]}
+                onPress={async () => {
+                  try {
+                    if (!user?.id) {
+                      showAlert({ type: 'error', title: 'Error', message: 'No se pudo identificar el usuario' });
+                      return;
+                    }
+                    const newValue = !biometricEnabled;
+                    await toggleBiometric(newValue);
+                    setBiometricEnabled(newValue);
+                    showAlert({
+                      type: 'success',
+                      title: `✅ ${t('profile.biometricLogin')}`,
+                      message: newValue
+                        ? t('profile.biometricEnabled')
+                        : t('profile.biometricDisabled'),
+                    });
+                  } catch (error) {
+                    showAlert({ type: 'error', title: t('error'), message: t('profile.message.settingUpdateError') });
+                  }
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <MaterialCommunityIcons name="fingerprint" size={20} color={biometricEnabled ? '#9C27B0' : theme.colors.onSurfaceVariant} />
+                  <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '700', color: biometricEnabled ? '#9C27B0' : theme.colors.onSurfaceVariant }}>
+                    {biometricEnabled ? 'ACTIVO' : 'DESACTIVADO'}
+                  </Text>
+                </View>
+                <Text numberOfLines={1} style={styles.infoNavCardTitle}>{t('profile.biometricLogin')}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </ProfileSection>
 
         {/* Preferencias */}
@@ -1732,15 +1770,6 @@ const ProfileScreen: React.FC = () => {
             <View style={{ flex: 1 }}>
               <Text style={[styles.statCardNumber, { color: theme.colors.onSurface, fontSize: 14 }]}>{t('notifications.paymentReceived')}</Text>
               <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant, textAlign: 'left' }]}>{t('notifications.paymentReceivedDesc')}</Text>
-            </View>
-            <MaterialCommunityIcons name="rocket-launch" size={18} color={theme.colors.onSurfaceVariant} />
-          </View>
-          {/* Login Biométrico */}
-          <View style={[styles.statCardWide, { borderLeftColor: '#9C27B0', marginBottom: 10 }]}>
-            <MaterialCommunityIcons name="fingerprint" size={24} color="#9C27B0" />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.statCardNumber, { color: theme.colors.onSurface, fontSize: 14 }]}>{t('profile.biometricLogin')}</Text>
-              <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant, textAlign: 'left' }]}>{t('profile.biometricLoginDesc')}</Text>
             </View>
             <MaterialCommunityIcons name="rocket-launch" size={18} color={theme.colors.onSurfaceVariant} />
           </View>
