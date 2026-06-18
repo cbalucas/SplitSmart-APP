@@ -17,7 +17,7 @@ import { Event, Participant, Expense, EventParticipant, Split, Payment } from '.
 import { IDatabaseService } from './IDatabaseService';
 
 const DB_NAME = 'splitsmart';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 // ─── Tipos internos ───────────────────────────────────────────────────────────
 
@@ -1262,9 +1262,13 @@ export class IndexedDBDatabaseService implements IDatabaseService {
     const existing = await this.getUserByCredential('demo');
     if (!existing) {
       await this.createUser({
-        id: 'demo-user', name: 'Usuario Demo', username: 'demo',
-        email: 'demo@splitsmart.com', password: '', skipPassword: true,
+        id: 'demo-user', name: 'Demo', username: 'Demo',
+        email: 'demo@splitsmart.com', password: 'demo123456', skipPassword: true,
       });
+      console.log('✅ IndexedDB: Demo user created');
+    } else if (existing.skip_password !== 1) {
+      await this.updateUserProfile(existing.id, { skipPassword: true });
+      console.log('✅ IndexedDB: Demo user skip_password updated to 1');
     }
   }
 

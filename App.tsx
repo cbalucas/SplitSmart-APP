@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/context/AuthContext';
@@ -11,10 +12,17 @@ import CustomAlertContainer from './src/components/CustomAlert';
 import { checkForUpdate } from './src/services/UpdateService';
 import { version as appVersion } from './app.json';
 
-
+// Si estamos volviendo de un redirect OAuth (web), saltamos el splash
+// para que el usuario entre directo al home sin esperar 6 segundos.
+const isOAuthRedirect =
+  Platform.OS === 'web' &&
+  typeof window !== 'undefined' &&
+  (window.location.hash.includes('access_token') ||
+    window.location.search.includes('code=') ||
+    window.location.hash.includes('error='));
 
 export default function App() {
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(!isOAuthRedirect);
 
   const handleSplashFinish = () => {
     setShowSplash(false);

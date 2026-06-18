@@ -1,9 +1,15 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { User } from '../types';
 import { DEMO_USER, DEMO_CREDENTIALS } from '../constants/demoUser';
 import { databaseService } from '../services/DatabaseFactory';
+import { supabase } from '../services/supabase';
+
+// Necesario para completar el flujo OAuth en iOS/Android
+WebBrowser.maybeCompleteAuthSession();
 
 interface AuthContextValue {
   user: User | null;
@@ -17,8 +23,11 @@ interface AuthContextValue {
   autoLoginIfEnabled: () => Promise<User | null>;
   toggleAutoLogin: (enabled: boolean) => Promise<void>;
   toggleChatMode: (enabled: boolean) => Promise<void>;
-  loginWithBiometric: () => Promise<boolean>;
+  loginWithBiometric: (userId?: string) => Promise<boolean>;
   toggleBiometric: (enabled: boolean) => Promise<void>;
+  registerWithSupabase: (email: string, password: string, name: string, username: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithGoogle: () => Promise<void>;
+  isOnlineUser: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -33,14 +42,33 @@ const AuthContext = createContext<AuthContextValue>({
   autoLoginIfEnabled: async () => null,
   toggleAutoLogin: async () => {},
   toggleChatMode: async () => {},
-  loginWithBiometric: async () => false,
-  toggleBiometric: async () => {}
+  loginWithBiometric: async (_userId?: string) => false,
+  toggleBiometric: async () => {},
+  registerWithSupabase: async () => ({ success: false }),
+  loginWithGoogle: async () => {},
+  isOnlineUser: false,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [isOnlineUser, setIsOnlineUser] = useState(false);
+
+  // Mapea datos de BD local a objeto User
+  const _mapDbUserToUser = (dbUser: any, supabaseBased = false): User => ({
+    id: dbUser.id,
+    name: dbUser.name,
+    username: dbUser.username,
+    email: dbUser.email,
+    avatar: dbUser.avatar,
+    skipPassword: supabaseBased ? true : dbUser.skip_password === 1,
+    autoLogin: dbUser.auto_login === 1,
+    chatModeAdvanced: dbUser.chat_mode_advanced === 1,
+    biometricEnabled: dbUser.biometric_enabled === 1,
+    createdAt: dbUser.created_at,
+    updatedAt: dbUser.updated_at,
+  });
 
   // Inicializar usuario demo en BD si no existe
   const initializeAuth = async () => {
@@ -89,6 +117,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('❌ Error initializing auth:', error);
       // Don't rethrow - let the app continue with basic functionality
+    }
+
+    // Restaurar sesión Supabase existente (si el usuario ya había hecho login online)
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.email) {
+        console.log('\ud83d\udd11 Supabase session found for:', session.user.email);
+        let localUser = await databaseService.getUserByCredential(session.user.email);
+        if (!localUser) {
+          // Crear usuario local desde datos de Supabase
+          await databaseService.createUser({
+            id: session.user.id,
+            username: session.user.user_metadata?.username || session.user.email.split('@')[0],
+            email: session.user.email,
+            password: '',
+            name: session.user.user_metadata?.name || session.user.email.split('@')[0],
+            skipPassword: true,
+          });
+          localUser = await databaseService.getUserById(session.user.id);
+        }
+        if (localUser) {
+          setUser(_mapDbUserToUser(localUser, true));
+          setIsOnlineUser(true);
+          console.log('\u2705 Supabase session restored for:', localUser.username);
+        }
+      }
+    } catch (sessionError) {
+      console.warn('⚠️ Could not restore Supabase session:', sessionError);
     } finally {
       setIsInitializing(false);
     }
@@ -98,12 +154,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initializeAuth();
   }, []);
 
+  // Listener para eventos OAuth (Google, etc.)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        // Solo procesar sign-ins de Google (email/password los maneja login())
+        const provider = session.user.app_metadata?.provider;
+        if (provider !== 'google') return;
+
+        const supaUser = session.user;
+        const email = supaUser.email!;
+        const name =
+          supaUser.user_metadata?.full_name ||
+          supaUser.user_metadata?.name ||
+          email.split('@')[0];
+        const rawUsername = (supaUser.user_metadata?.preferred_username || email.split('@')[0])
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, '_');
+
+        try {
+          await databaseService.init();
+          let localUser = await databaseService.getUserByCredential(email);
+          if (!localUser) {
+            // Evitar colisión de username
+            let username = rawUsername;
+            const existingUsername = await databaseService.getUserByCredential(username);
+            if (existingUsername) username = `${rawUsername}_${Date.now().toString().slice(-4)}`;
+
+            await databaseService.createUser({
+              id: supaUser.id,
+              username,
+              email,
+              password: '',
+              name,
+              skipPassword: true,
+            });
+            localUser = await databaseService.getUserById(supaUser.id);
+          }
+          if (localUser) {
+            try { await databaseService.updateLastLogin(localUser.id); } catch (_) {}
+            setUser(_mapDbUserToUser(localUser, true));
+            setIsOnlineUser(true);
+            console.log('✅ Google OAuth: usuario autenticado como', localUser.username);
+          }
+        } catch (err) {
+          console.error('❌ Error procesando usuario Google OAuth:', err);
+        }
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   const login = async (credential: string, password: string): Promise<boolean> => {
     setLoading(true);
     
     try {
       console.log('🔐 Login attempt with credential:', credential);
-      
+
+      // Asegurar que la base de datos esté inicializada (importante en web)
+      await databaseService.init();
+
       // Buscar usuario en BD
       const dbUser = await databaseService.getUserByCredential(credential);
       
@@ -192,38 +302,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     console.log('🚪 Logging out');
-    // Desactivar auto_login al hacer logout manual
     if (user && user.autoLogin) {
-      console.log('🔒 Auto-login disabled due to manual logout');
-      databaseService.toggleAutoLogin(user.id, false).catch(error => 
+      console.log('\ud83d\udd12 Auto-login disabled due to manual logout');
+      databaseService.toggleAutoLogin(user.id, false).catch(error =>
         console.error('Error disabling auto-login:', error)
       );
     }
+    // Cerrar sesión en Supabase si el usuario era online
+    if (isOnlineUser) {
+      supabase.auth.signOut().catch(e => console.warn('\u26a0\ufe0f Supabase signOut error:', e));
+    }
+    setIsOnlineUser(false);
     setUser(null);
   };
 
   const refreshUser = async () => {
     if (!user) return;
-    
     try {
-      console.log('🔄 Refreshing user data from database...');
       const dbUser = await databaseService.getUserProfile(user.id);
-      console.log('📥 DB User data:', dbUser);
       if (dbUser) {
-        const updatedUser: User = {
-          id: dbUser.id,
-          name: dbUser.name,
-          username: dbUser.username,
-          email: dbUser.email,
-          avatar: dbUser.avatar,
-          skipPassword: dbUser.skip_password === 1,
-          autoLogin: dbUser.auto_login === 1,
-          chatModeAdvanced: dbUser.chat_mode_advanced === 1,
-          createdAt: dbUser.created_at,
-          updatedAt: dbUser.updated_at
-        };
-        console.log('✅ Setting updated user:', updatedUser);
-        setUser(updatedUser);
+        setUser(_mapDbUserToUser(dbUser, isOnlineUser));
+        console.log('✅ User refreshed:', dbUser.username);
       }
     } catch (error) {
       console.error('❌ Error refreshing user:', error);
@@ -335,32 +434,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null;
       }
       
-      console.log('🚀 AUTO-LOGIN: Bypassing login screen and authenticating automatically with:', fullUserData.username);
-      
-      // Actualizar last_login para auto-login
-      try {
-        await databaseService.updateLastLogin(fullUserData.id);
-      } catch (error) {
-        console.error('⚠️ Could not update last_login during auto-login:', error);
-        // No bloquear el auto-login por este error
-      }
-      
-      const authenticatedUser: User = {
-        id: fullUserData.id,
-        name: fullUserData.name,
-        username: fullUserData.username,
-        email: fullUserData.email,
-        avatar: fullUserData.avatar,
-        skipPassword: fullUserData.skip_password === 1,
-        autoLogin: fullUserData.auto_login === 1,
-        chatModeAdvanced: fullUserData.chat_mode_advanced === 1,
-        biometricEnabled: fullUserData.biometric_enabled === 1,
-        createdAt: fullUserData.created_at,
-        updatedAt: fullUserData.updated_at
-      };
-      
-      console.log('🔐 Setting authenticated user via auto-login:', authenticatedUser.username);
+      console.log('🚀 AUTO-LOGIN: Authenticating automatically with:', fullUserData.username);
+      try { await databaseService.updateLastLogin(fullUserData.id); } catch (_) {}
+      const authenticatedUser = _mapDbUserToUser(fullUserData);
       setUser(authenticatedUser);
+      setIsOnlineUser(false);
       return authenticatedUser;
     } catch (error) {
       console.error('❌ Error in auto-login:', error);
@@ -411,7 +489,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loginWithBiometric = async (): Promise<boolean> => {
+  const loginWithBiometric = async (userId?: string): Promise<boolean> => {
     if (Platform.OS === 'web') return false;
     try {
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
@@ -425,9 +503,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
       }
       const allUsers = await databaseService.getAllUsersWithLoginInfo();
-      const biometricUser = allUsers.find((u: any) => u.biometric_enabled === 1);
+      // Si se especifica userId, usar ese usuario; si no, el primero con biométrico
+      const biometricUser = userId
+        ? allUsers.find((u: any) => u.id === userId && u.biometric_enabled === 1)
+        : allUsers.find((u: any) => u.biometric_enabled === 1);
       if (!biometricUser) {
-        console.log('❌ Biometric: no user has biometric enabled');
+        console.log('❌ Biometric: user not found or biometric not enabled');
         return false;
       }
       const result = await LocalAuthentication.authenticateAsync({
@@ -443,25 +524,80 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const fullUser = await databaseService.getUserById(biometricUser.id);
       if (!fullUser) return false;
       try { await databaseService.updateLastLogin(fullUser.id); } catch (_) {}
-      const authenticatedUser: User = {
-        id: fullUser.id,
-        name: fullUser.name,
-        username: fullUser.username,
-        email: fullUser.email,
-        avatar: fullUser.avatar,
-        skipPassword: fullUser.skip_password === 1,
-        autoLogin: fullUser.auto_login === 1,
-        chatModeAdvanced: fullUser.chat_mode_advanced === 1,
-        biometricEnabled: fullUser.biometric_enabled === 1,
-        createdAt: fullUser.created_at,
-        updatedAt: fullUser.updated_at,
-      };
-      setUser(authenticatedUser);
-      console.log('✅ Biometric login successful for:', authenticatedUser.username);
+      setUser(_mapDbUserToUser(fullUser));
+      setIsOnlineUser(false);
+      console.log('✅ Biometric login successful for:', fullUser.username);
       return true;
     } catch (error) {
       console.error('❌ Error in biometric login:', error);
       return false;
+    }
+  };
+
+  // Login con Google via Supabase OAuth
+  const loginWithGoogle = async (): Promise<void> => {
+    setLoading(true);
+    try {
+      if (Platform.OS === 'web') {
+        // En web: Supabase maneja el redirect automáticamente
+        const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo },
+        });
+        if (error) throw error;
+        return;
+      }
+
+      // En nativo: usar expo-web-browser + expo-linking
+      const redirectTo = Linking.createURL('auth/callback');
+      console.log('🔗 Google OAuth redirect URI:', redirectTo);
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo, skipBrowserRedirect: true },
+      });
+      if (error || !data.url) throw error || new Error('No OAuth URL returned');
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+      if (result.type === 'success') {
+        const { error: sessionError } = await supabase.auth.exchangeCodeForSession(result.url);
+        if (sessionError) throw sessionError;
+        // onAuthStateChange ('SIGNED_IN') se encarga de crear el usuario local
+      }
+    } catch (err: any) {
+      console.error('❌ Google sign-in error:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Registro de usuario real via Supabase (email requerido)
+  const registerWithSupabase = async (
+    email: string,
+    password: string,
+    name: string,
+    username: string,
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      console.log('🌐 Registering user in Supabase:', email);
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { name, username } },
+      });
+      if (error) {
+        console.error('❌ Supabase signUp error:', error.message);
+        return { success: false, error: error.message };
+      }
+      if (!data.user) return { success: false, error: 'No user returned from Supabase' };
+
+      console.log('✅ Supabase user created:', data.user.id);
+      return { success: true };
+    } catch (err: any) {
+      console.error('❌ registerWithSupabase error:', err);
+      return { success: false, error: err?.message ?? 'Unknown error' };
     }
   };
 
@@ -479,7 +615,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toggleAutoLogin,
       toggleChatMode,
       loginWithBiometric,
-      toggleBiometric
+      toggleBiometric,
+      registerWithSupabase,
+      loginWithGoogle,
+      isOnlineUser,
     }}>
       {children}
     </AuthContext.Provider>

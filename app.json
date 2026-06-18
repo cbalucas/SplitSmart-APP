@@ -2,6 +2,7 @@
   "expo": {
     "name": "SplitSmart",
     "slug": "splitsmart",
+    "scheme": "splitsmart",
     "version": "1.9.2",
     "orientation": "portrait",
     "icon": "./assets/splitsmart/splash-icon-app_google.png",
@@ -43,7 +44,8 @@
           "cameraPermission": "Esta aplicación necesita acceso a la cámara para tomar fotos de comprobantes.",
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "web": {
       "bundler": "metro",

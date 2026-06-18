@@ -1434,7 +1434,7 @@ const ProfileScreen: React.FC = () => {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                   <MaterialCommunityIcons name="fingerprint" size={20} color={biometricEnabled ? '#9C27B0' : theme.colors.onSurfaceVariant} />
                   <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '700', color: biometricEnabled ? '#9C27B0' : theme.colors.onSurfaceVariant }}>
-                    {biometricEnabled ? 'ACTIVO' : 'DESACTIVADO'}
+                    {biometricEnabled ? t('profile.biometricActive') : t('profile.biometricInactive')}
                   </Text>
                 </View>
                 <Text numberOfLines={1} style={styles.infoNavCardTitle}>{t('profile.biometricLogin')}</Text>

@@ -664,6 +664,8 @@ const translations = {
     'profile.biometricLoginDesc': 'Usar huella digital o Face ID',
     'profile.biometricEnabled': 'El login biométrico está activado',
     'profile.biometricDisabled': 'El login biométrico está desactivado',
+    'profile.biometricActive': 'ACTIVO',
+    'profile.biometricInactive': 'DESACTIVADO',
     'profile.comingSoon': 'Próximamente',
     'profile.selectCurrency': 'Seleccionar Moneda',
     
@@ -1084,6 +1086,8 @@ const translations = {
     'profile.biometricLoginDesc': 'Use fingerprint or Face ID',
     'profile.biometricEnabled': 'Biometric login is now enabled',
     'profile.biometricDisabled': 'Biometric login is now disabled',
+    'profile.biometricActive': 'ACTIVE',
+    'profile.biometricInactive': 'INACTIVE',
     'profile.comingSoon': 'Coming Soon',
     'profile.selectCurrency': 'Select Currency',
     
@@ -1919,6 +1923,8 @@ const translations = {
     'profile.biometricLoginDesc': 'Usar impressão digital ou Face ID',
     'profile.biometricEnabled': 'O login biométrico está ativado',
     'profile.biometricDisabled': 'O login biométrico está desativado',
+    'profile.biometricActive': 'ATIVO',
+    'profile.biometricInactive': 'DESATIVADO',
     'profile.comingSoon': 'Em Breve',
     'profile.selectCurrency': 'Selecionar Moeda',
     

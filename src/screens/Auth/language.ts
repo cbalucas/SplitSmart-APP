@@ -8,7 +8,12 @@ export const loginLanguage = {
       passwordLabel: 'Contraseña (Demo no requiere)',
       passwordPlaceholder: 'No requerida para Demo',
       loginButton: 'Iniciar Sesión',
-      loginButtonLoading: 'Ingresando...'
+      loginButtonLoading: 'Ingresando...',
+      googleLogin: 'Continuar con Google',
+      googleLoginLoading: 'Conectando...',
+      biometricButton: 'Ingresar con huella',
+      welcomeBack: 'Bienvenido de nuevo',
+      switchAccountTitle: 'Seleccionar cuenta'
     },
     demo: {
       title: '🎯 Datos de prueba',
@@ -19,7 +24,9 @@ export const loginLanguage = {
     errors: {
       credentialRequired: 'Por favor ingresa tu usuario o email',
       invalidCredentials: 'Credenciales incorrectas. Intenta con:\nUsuario: Demo (sin contraseña)',
-      general: 'Error'
+      general: 'Error',
+      googleFailed: 'No se pudo iniciar sesión con Google. Intenta nuevamente.',
+      biometricFailed: 'No se pudo autenticar con biometría'
     },
     futureFeatures: {
       title: '🚀 Próximamente',
@@ -27,7 +34,8 @@ export const loginLanguage = {
     },
     links: {
       signUp: '¿No tienes cuenta? Regístrate',
-      forgotPassword: '¿Olvidaste tu contraseña?'
+      forgotPassword: '¿Olvidaste tu contraseña?',
+      changeUser: 'Cambiar cuenta'
     }
   },
   en: {
@@ -39,7 +47,12 @@ export const loginLanguage = {
       passwordLabel: 'Password (Demo doesn\'t require)',
       passwordPlaceholder: 'Not required for Demo',
       loginButton: 'Sign In',
-      loginButtonLoading: 'Signing In...'
+      loginButtonLoading: 'Signing In...',
+      googleLogin: 'Continue with Google',
+      googleLoginLoading: 'Connecting...',
+      biometricButton: 'Sign in with fingerprint',
+      welcomeBack: 'Welcome back',
+      switchAccountTitle: 'Select account'
     },
     demo: {
       title: '🎯 Test data',
@@ -50,7 +63,9 @@ export const loginLanguage = {
     errors: {
       credentialRequired: 'Please enter your username or email',
       invalidCredentials: 'Invalid credentials. Try with:\nUsername: Demo (no password)',
-      general: 'Error'
+      general: 'Error',
+      googleFailed: 'Could not sign in with Google. Please try again.',
+      biometricFailed: 'Could not authenticate with biometrics'
     },
     futureFeatures: {
       title: '🚀 Coming Soon',
@@ -58,7 +73,8 @@ export const loginLanguage = {
     },
     links: {
       signUp: 'Don\'t have an account? Sign up',
-      forgotPassword: 'Forgot your password?'
+      forgotPassword: 'Forgot your password?',
+      changeUser: 'Change account'
     }
   },
   pt: {
@@ -70,7 +86,12 @@ export const loginLanguage = {
       passwordLabel: 'Senha (Demo não requer)',
       passwordPlaceholder: 'Não necessária para Demo',
       loginButton: 'Entrar',
-      loginButtonLoading: 'Entrando...'
+      loginButtonLoading: 'Entrando...',
+      googleLogin: 'Continuar com Google',
+      googleLoginLoading: 'Conectando...',
+      biometricButton: 'Entrar com digital',
+      welcomeBack: 'Bem-vindo de volta',
+      switchAccountTitle: 'Selecionar conta'
     },
     demo: {
       title: '🎯 Dados de teste',
@@ -81,7 +102,9 @@ export const loginLanguage = {
     errors: {
       credentialRequired: 'Por favor digite seu usuário ou email',
       invalidCredentials: 'Credenciais inválidas. Tente com:\nUsuário: Demo (sem senha)',
-      general: 'Erro'
+      general: 'Erro',
+      googleFailed: 'Não foi possível entrar com o Google. Tente novamente.',
+      biometricFailed: 'Não foi possível autenticar com biometria'
     },
     futureFeatures: {
       title: '🚀 Em breve',
@@ -89,7 +112,8 @@ export const loginLanguage = {
     },
     links: {
       signUp: 'Não tem conta? Cadastre-se',
-      forgotPassword: 'Esqueceu sua senha?'
+      forgotPassword: 'Esqueceu sua senha?',
+      changeUser: 'Trocar conta'
     }
   }
 };

@@ -97,17 +97,71 @@ export const createLoginStyles = (theme: Theme) => StyleSheet.create({
 
   // ── Footer fijo ───────────────────────────────────────────
   footer: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingBottom: 16,
+    paddingTop: 16,
+    paddingBottom: 20,
     backgroundColor: theme.colors.surface,
     borderTopWidth: 1,
     borderTopColor: theme.colors.outline,
-    gap: 12,
+    gap: 10,
   },
-  footerButtonFlex: {
+
+  // ── Fila superior: Login + Biométrico ────────────────────
+  authRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 10,
+  },
+  loginButtonWrap: {
+    flex: 2,
+  },
+
+  // ── Separador "o" ─────────────────────────────────────────
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dividerLine: {
     flex: 1,
+    height: 1,
+    backgroundColor: theme.colors.outline,
+  },
+  dividerText: {
+    fontSize: 12,
+    color: theme.colors.onSurfaceVariant,
+    fontWeight: '500',
+  },
+
+  // ── Botón Google ──────────────────────────────────────────
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.outline,
+    backgroundColor: theme.colors.surface,
+  },
+  googleButtonText: {
+    color: theme.colors.onSurface,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  // ── Botón biométrico (1/3 del ancho de la fila) ────────────────
+  biometricButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.outline,
+    backgroundColor: theme.colors.surface,
   },
 
   // ── Link "¿No tienes cuenta?" ─────────────────────────────
@@ -118,6 +172,92 @@ export const createLoginStyles = (theme: Theme) => StyleSheet.create({
   linkText: {
     fontSize: 13,
     color: theme.colors.primary,
+  },
+
+  // ── Último usuario recordado ──────────────────────────────
+  lastUserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 4,
+    marginBottom: 4,
+  },
+  lastUserAvatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  lastUserAvatarText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: theme.colors.onPrimary,
+  },
+  lastUserInfo: {
+    flex: 1,
+  },
+  lastUserName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.colors.onSurface,
+  },
+  lastUserUsername: {
+    fontSize: 13,
+    color: theme.colors.onSurfaceVariant,
+    marginTop: 2,
+  },
+  changeUserLink: {
+    fontSize: 13,
+    color: theme.colors.primary,
+    fontWeight: '600',
+  },
+
+  // ── Picker de usuarios (modal cambiar cuenta) ─────────────
+  userPickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderRadius: 10,
+  },
+  userPickerItemActive: {
+    backgroundColor: theme.colors.primary + '18',
+  },
+  userPickerAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  userPickerAvatarText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: theme.colors.onPrimary,
+  },
+  userPickerInfo: {
+    flex: 1,
+  },
+  userPickerName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.colors.onSurface,
+  },
+  userPickerUsername: {
+    fontSize: 12,
+    color: theme.colors.onSurfaceVariant,
+    marginTop: 1,
+  },
+  userPickerSeparator: {
+    height: 1,
+    backgroundColor: theme.colors.outline + '30',
+    marginVertical: 2,
   },
 
   // ── Modal datos demo ─────────────────────────────────────
