@@ -1965,15 +1965,58 @@ const ProfileScreen: React.FC = () => {
               contentContainerStyle={{ flexGrow: 1 }}
               nestedScrollEnabled={true}
             >
-                                                                                                                {/* Versión 1.10.0 - Versión Actual */}
+                                                                                                                              {/* Versión 1.10.1 - Versión Actual */}
               <TouchableOpacity 
                 style={[styles.versionBlock, styles.currentVersionBlock]} 
+                onPress={() => toggleVersionExpanded('1.10.1')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.versionHeader}>
+                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.10.1 (Actual)</Text>
+                  <Text style={[styles.versionDate, styles.currentVersionDate]}>18 Jun 2026</Text>
+                  <MaterialCommunityIcons 
+                    name={expandedVersions.has('1.10.1') ? 'chevron-up' : 'chevron-down'} 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
+                </View>
+                {expandedVersions.has('1.10.1') && (
+                  <View style={styles.versionContent}>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🚀 Novedades</Text>
+                      <Text style={styles.changelogItem}>• Selector de moneda integrado en la misma fila que "Monto Total *" (chip + botón calcula...</Text>
+                      <Text style={styles.changelogItem}>• Moneda diferente al evento</Text>
+                      <Text style={styles.changelogItem}>• Moneda igual al evento</Text>
+                      <Text style={styles.changelogItem}>• Calculadora inteligente</Text>
+                      <Text style={styles.changelogItem}>• Al cambiar de moneda se limpian todos los campos de importe para evitar inconsistencias</Text>
+                      <Text style={styles.changelogItem}>• Al editar un gasto con moneda diferente, los tres campos (monto extranjero, tasa, equiv...</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
+                      <Text style={styles.changelogItem}>• /</Text>
+                      <Text style={styles.changelogItem}>• Card de gastos</Text>
+                      <Text style={styles.changelogItem}>• Modal de cierre</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>✨ Mejoras</Text>
+                      <Text style={styles.changelogItem}>• Orden visual en</Text>
+                      <Text style={styles.changelogItem}>• Input del campo de monto con label corto "Monto" (mismo-moneda) y labels contextuales p...</Text>
+                      <Text style={styles.changelogItem}>• reposicionado ( en lugar de ) al eliminarse el botón calculadora del interior del input...</Text>
+                      <Text style={styles.changelogItem}>• Traducciones nuevas agregadas en ES / EN / PT</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+{/* Versión 1.10.0 - Versión Actual */}
+              <TouchableOpacity 
+                style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.10.0')}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
-                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.10.0 (Actual)</Text>
-                  <Text style={[styles.versionDate, styles.currentVersionDate]}>18 Jun 2026</Text>
+                  <Text style={[styles.versionNumber]}>v1.10.0</Text>
+                  <Text style={[styles.versionDate]}>18 Jun 2026</Text>
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.10.0') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
@@ -2854,7 +2897,7 @@ const ProfileScreen: React.FC = () => {
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                     <Text style={styles.aboutTitle}>SplitSmart</Text>
-                    <View style={styles.versionBadge}><Text style={styles.versionBadgeText}>v1.10.0</Text></View>
+                    <View style={styles.versionBadge}><Text style={styles.versionBadgeText}>v1.10.1</Text></View>
                   </View>
                   <Text style={styles.aboutDescription}>{t('profile.about.appDescription')}</Text>
                 </View>
