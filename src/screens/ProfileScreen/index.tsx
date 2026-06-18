@@ -1965,15 +1965,56 @@ const ProfileScreen: React.FC = () => {
               contentContainerStyle={{ flexGrow: 1 }}
               nestedScrollEnabled={true}
             >
-                                                                                                  {/* Versión 1.9.2 - Versión Actual */}
+                                                                                                                {/* Versión 1.10.0 - Versión Actual */}
               <TouchableOpacity 
                 style={[styles.versionBlock, styles.currentVersionBlock]} 
+                onPress={() => toggleVersionExpanded('1.10.0')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.versionHeader}>
+                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.10.0 (Actual)</Text>
+                  <Text style={[styles.versionDate, styles.currentVersionDate]}>18 Jun 2026</Text>
+                  <MaterialCommunityIcons 
+                    name={expandedVersions.has('1.10.0') ? 'chevron-up' : 'chevron-down'} 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
+                </View>
+                {expandedVersions.has('1.10.0') && (
+                  <View style={styles.versionContent}>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🚀 Novedades</Text>
+                      <Text style={styles.changelogItem}>• Recordar último usuario en Login</Text>
+                      <Text style={styles.changelogItem}>• Modal "Seleccionar cuenta"</Text>
+                      <Text style={styles.changelogItem}>• Biometría contextual por usuario</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
+                      <Text style={styles.changelogItem}>• Biometría autenticaba usuario incorrecto</Text>
+                      <Text style={styles.changelogItem}>• Botón biométrico visible sin usuario habilitado</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>✨ Mejoras</Text>
+                      <Text style={styles.changelogItem}>• i18n Login: textos biométricos</Text>
+                      <Text style={styles.changelogItem}>• i18n ProfileScreen: estado biométrico</Text>
+                      <Text style={styles.changelogItem}>• Rediseño footer de Login</Text>
+                      <Text style={styles.changelogItem}>• Nuevas claves i18n en</Text>
+                      <Text style={styles.changelogItem}>• Nuevas claves i18n en</Text>
+                      <Text style={styles.changelogItem}>• Nuevos estilos en</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+{/* Versión 1.9.2 - Versión Actual */}
+              <TouchableOpacity 
+                style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.9.2')}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
-                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.9.2 (Actual)</Text>
-                  <Text style={[styles.versionDate, styles.currentVersionDate]}>27 Abr 2026</Text>
+                  <Text style={[styles.versionNumber]}>v1.9.2</Text>
+                  <Text style={[styles.versionDate]}>27 Abr 2026</Text>
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.9.2') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
@@ -2813,7 +2854,7 @@ const ProfileScreen: React.FC = () => {
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                     <Text style={styles.aboutTitle}>SplitSmart</Text>
-                    <View style={styles.versionBadge}><Text style={styles.versionBadgeText}>v1.9.2</Text></View>
+                    <View style={styles.versionBadge}><Text style={styles.versionBadgeText}>v1.10.0</Text></View>
                   </View>
                   <Text style={styles.aboutDescription}>{t('profile.about.appDescription')}</Text>
                 </View>
