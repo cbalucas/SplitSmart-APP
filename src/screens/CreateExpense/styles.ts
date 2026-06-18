@@ -118,11 +118,69 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
 
   currencySuffix: {
     position: 'absolute',
-    right: 68,
+    right: 16,
     top: 40,
     fontSize: 16,
     color: theme.colors.onSurfaceVariant,
     fontWeight: '500',
+  } as TextStyle,
+
+  // ── Selector de moneda del gasto ──────────────────────────
+  currencyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.outline + '40',
+    marginTop: 8,
+  } as ViewStyle,
+
+  currencyRowLabel: {
+    fontSize: 13,
+    color: theme.colors.onSurfaceVariant,
+    fontWeight: '500',
+  } as TextStyle,
+
+  currencyChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: theme.colors.primaryContainer,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  } as ViewStyle,
+
+  currencyChipText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.onPrimaryContainer,
+  } as TextStyle,
+
+  conversionRateContainer: {
+    marginTop: 8,
+    padding: 12,
+    backgroundColor: theme.colors.surfaceVariant + '60',
+    borderRadius: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: theme.colors.primary,
+    gap: 8,
+  } as ViewStyle,
+
+  conversionRateHelperText: {
+    fontSize: 12,
+    color: theme.colors.onSurfaceVariant,
+    marginBottom: 4,
+  } as TextStyle,
+
+  equivalentAmountText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.colors.primary,
+    textAlign: 'right',
+    marginTop: 6,
   } as TextStyle,
 
   calcButton: {

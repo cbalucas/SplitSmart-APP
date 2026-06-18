@@ -479,6 +479,36 @@ class DatabaseService implements IDatabaseService {
         console.error('❌ Error creating user_preferences table:', error);
       }
 
+      // Migration: Add original_amount column to expenses table (multi-currency support)
+      try {
+        await this.db.execAsync('ALTER TABLE expenses ADD COLUMN original_amount REAL DEFAULT NULL');
+        console.log('✅ Migration: Added original_amount column to expenses table');
+      } catch (error: any) {
+        if (!error.message?.includes('duplicate column name')) {
+          console.error('❌ Error adding original_amount column to expenses:', error);
+        }
+      }
+
+      // Migration: Add conversion_rate column to expenses table (multi-currency support)
+      try {
+        await this.db.execAsync('ALTER TABLE expenses ADD COLUMN conversion_rate REAL DEFAULT 1.0');
+        console.log('✅ Migration: Added conversion_rate column to expenses table');
+      } catch (error: any) {
+        if (!error.message?.includes('duplicate column name')) {
+          console.error('❌ Error adding conversion_rate column to expenses:', error);
+        }
+      }
+
+      // Migration: Add closing_comment column to events table
+      try {
+        await this.db.execAsync('ALTER TABLE events ADD COLUMN closing_comment TEXT');
+        console.log('✅ Migration: Added closing_comment column to events table');
+      } catch (error: any) {
+        if (!error.message?.includes('duplicate column name')) {
+          console.error('❌ Error adding closing_comment column to events:', error);
+        }
+      }
+
     } catch (error) {
       console.error('❌ Error running migrations:', error);
     }
@@ -995,6 +1025,10 @@ class DatabaseService implements IDatabaseService {
         fields.push('is_locked = ?');
         values.push(updates.isLocked ? 1 : 0);
       }
+      if (updates.closingComment !== undefined) {
+        fields.push('closing_comment = ?');
+        values.push(updates.closingComment);
+      }
       
       // Siempre actualizar updated_at
       fields.push('updated_at = ?');
@@ -1053,6 +1087,7 @@ class DatabaseService implements IDatabaseService {
         completedAt: row.completed_at,
         isLocked: row.is_locked === 1 || row.is_locked === true,
         isExpress: row.is_express === 1 || row.is_express === true,
+        closingComment: row.closing_comment || undefined,
         createdAt: row.created_at,
         updatedAt: row.updated_at
       }));
@@ -1096,6 +1131,7 @@ class DatabaseService implements IDatabaseService {
         completedAt: result.completed_at,
         isLocked: result.is_locked === 1 || result.is_locked === true,
         isExpress: result.is_express === 1 || result.is_express === true,
+        closingComment: result.closing_comment || undefined,
         createdAt: result.created_at,
         updatedAt: result.updated_at
       };
@@ -1507,14 +1543,16 @@ class DatabaseService implements IDatabaseService {
 
     try {
       await this.db.runAsync(
-        `INSERT INTO expenses (id, event_id, description, amount, currency, date, category, payer_id, receipt_image, is_active, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO expenses (id, event_id, description, amount, currency, original_amount, conversion_rate, date, category, payer_id, receipt_image, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           expense.id,
           expense.eventId,
           expense.description,
           expense.amount,
           expense.currency,
+          expense.originalAmount ?? null,
+          expense.conversionRate ?? 1.0,
           expense.date,
           expense.category || null,
           expense.payerId,
@@ -1540,14 +1578,16 @@ class DatabaseService implements IDatabaseService {
 
     try {
       await this.db.runAsync(
-        `INSERT INTO expenses (id, event_id, description, amount, currency, date, category, payer_id, receipt_image, is_active, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO expenses (id, event_id, description, amount, currency, original_amount, conversion_rate, date, category, payer_id, receipt_image, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           expense.id,
           expense.eventId,
           expense.description,
           expense.amount,
           expense.currency,
+          expense.originalAmount ?? null,
+          expense.conversionRate ?? 1.0,
           expense.date,
           expense.category || null,
           expense.payerId,
@@ -1616,6 +1656,8 @@ class DatabaseService implements IDatabaseService {
         description: row.description,
         amount: row.amount,
         currency: row.currency,
+        originalAmount: row.original_amount ?? undefined,
+        conversionRate: row.conversion_rate ?? 1,
         date: row.date,
         category: row.category,
         payerId: row.payer_id,
@@ -2891,6 +2933,14 @@ class DatabaseService implements IDatabaseService {
       if (expense.receiptImage !== undefined) {
         updates.push('receipt_image = ?');
         values.push(expense.receiptImage);
+      }
+      if (expense.originalAmount !== undefined) {
+        updates.push('original_amount = ?');
+        values.push(expense.originalAmount);
+      }
+      if (expense.conversionRate !== undefined) {
+        updates.push('conversion_rate = ?');
+        values.push(expense.conversionRate);
       }
 
       updates.push('updated_at = ?');

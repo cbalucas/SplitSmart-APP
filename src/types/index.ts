@@ -28,6 +28,7 @@ export interface Event {
   creatorId?: string;
   closedAt?: string;
   completedAt?: string;
+  closingComment?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -72,8 +73,10 @@ export interface Expense {
   id: string;
   eventId: string;
   description: string;
-  amount: number;
-  currency: string;
+  amount: number;          // Monto en la moneda del evento (usado en liquidaciones)
+  currency: string;        // Moneda elegida para el gasto
+  originalAmount?: number; // Monto ingresado en la moneda del gasto (si difiere del evento)
+  conversionRate?: number; // 1 {currency} = conversionRate {event.currency}
   date: string;
   category?: string;
   payerId: string;

@@ -13,7 +13,16 @@ export const createExpenseLanguage = {
       descriptionPlaceholder: 'Ej: Cena en restaurante',
       amountLabel: 'Monto Total',
       amountPlaceholder: '0.00',
-      dateLabel: 'Fecha del Gasto'
+      dateLabel: 'Fecha del Gasto',
+      currencyLabel: 'Moneda del gasto',
+      conversionRateLabel: 'Tasa de conversión',
+      conversionRatePlaceholder: '1.00',
+      conversionRateHelper: '1 {currency} = {rate} {eventCurrency}',
+      amountEquivalent: 'Equivale a {eventCurrency} {amount}',
+      amountInCurrencyLabel: 'Monto en {currency}',
+      amountCalculatedLabel: 'Equivalente en {eventCurrency} (calculado)',
+      amountFieldLabel: 'Monto',
+      conversionRateShortLabel: 'conversión'
     },
     
     // Card: ¿Quién pagó?
@@ -156,7 +165,16 @@ export const createExpenseLanguage = {
       descriptionPlaceholder: 'e.g.: Restaurant dinner',
       amountLabel: 'Total Amount',
       amountPlaceholder: '0.00',
-      dateLabel: 'Expense Date'
+      dateLabel: 'Expense Date',
+      currencyLabel: 'Expense currency',
+      conversionRateLabel: 'Exchange rate',
+      conversionRatePlaceholder: '1.00',
+      conversionRateHelper: '1 {currency} = {rate} {eventCurrency}',
+      amountEquivalent: 'Equivalent to {eventCurrency} {amount}',
+      amountInCurrencyLabel: 'Amount in {currency}',
+      amountCalculatedLabel: 'Equivalent in {eventCurrency} (calculated)',
+      amountFieldLabel: 'Amount',
+      conversionRateShortLabel: 'conversion'
     },
     
     // Card: ¿Quién pagó?
@@ -299,7 +317,16 @@ export const createExpenseLanguage = {
       descriptionPlaceholder: 'Ex: Jantar no restaurante',
       amountLabel: 'Valor Total',
       amountPlaceholder: '0.00',
-      dateLabel: 'Data da Despesa'
+      dateLabel: 'Data da Despesa',
+      currencyLabel: 'Moeda da despesa',
+      conversionRateLabel: 'Taxa de câmbio',
+      conversionRatePlaceholder: '1.00',
+      conversionRateHelper: '1 {currency} = {rate} {eventCurrency}',
+      amountEquivalent: 'Equivale a {eventCurrency} {amount}',
+      amountInCurrencyLabel: 'Valor em {currency}',
+      amountCalculatedLabel: 'Equivalente em {eventCurrency} (calculado)',
+      amountFieldLabel: 'Valor',
+      conversionRateShortLabel: 'conversão'
     },
     
     // Card: ¿Quién pagó?

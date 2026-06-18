@@ -32,6 +32,7 @@ import {
   HeaderBar
 } from '../../components';
 import SearchBar from '../../components/SearchBar';
+import { CurrencySelector } from '../../components/CurrencySelector';
 import { Participant, Expense, Split } from '../../types';
 import { showAlert } from '../../services/alertService';
 import { 
@@ -87,9 +88,14 @@ const CreateExpenseScreen: React.FC = () => {
   const [payerSearchQuery, setPayerSearchQuery] = useState<string>('');
   const [submittedOnce, setSubmittedOnce] = useState(false);
 
-  // Multi-payer states
+  // ── Toggle multipagadores ─────────────────────────────────────
   const [isMultiplePayers, setIsMultiplePayers] = useState(false);
   const [multiPayers, setMultiPayers] = useState<MultiPayer[]>([]);
+
+  // ── Moneda y tasa de conversión ───────────────────────────────
+  const [selectedCurrency, setSelectedCurrency] = useState<string>('ARS');
+  const [conversionRate, setConversionRate] = useState<string>('1');
+  const [originalAmountInput, setOriginalAmountInput] = useState<string>('');
 
   // Estados para inputs de división personalizada (% y monto fijo)
   const [splitPercentageInputs, setSplitPercentageInputs] = useState<Record<string, string>>({});
@@ -225,6 +231,32 @@ const CreateExpenseScreen: React.FC = () => {
   const handleCalcUse = () => {
     if (calcHasError || !calcCurrentInput || calcCurrentInput === 'Error') return;
 
+    const applyValue = (value: string) => {
+      const isDiff = selectedCurrency !== (event?.currency || 'ARS');
+      if (isDiff) {
+        // Moneda diferente: pegar en el input de monto extranjero y recalcular
+        setOriginalAmountInput(value);
+        const oa = parseFloat(value);
+        const rate = parseFloat(conversionRate);
+        if (!isNaN(oa) && !isNaN(rate) && rate > 0) {
+          handleInputChange('amount', (oa * rate).toFixed(2));
+        } else {
+          handleInputChange('amount', '');
+        }
+      } else {
+        // Misma moneda: pegar directamente en el monto
+        handleInputChange('amount', value);
+      }
+    };
+
+    const resetCalc = () => {
+      setShowCalculator(false);
+      setCalcCurrentInput('');
+      setCalcExpression('');
+      setCalcJustEquals(false);
+      setCalcHasError(false);
+    };
+
     // Si hay expresión pendiente (no se presionó =) → confirmar y evaluar
     if (!calcJustEquals && calcExpression !== '') {
       const fullExpr = calcExpression + calcCurrentInput;
@@ -239,29 +271,14 @@ const CreateExpenseScreen: React.FC = () => {
         `Se evaluará:\n${fullExpr} = ${resultStr}\n\n¿Usar este valor como monto?`,
         [
           { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Usar',
-            onPress: () => {
-              handleInputChange('amount', resultStr);
-              setShowCalculator(false);
-              setCalcCurrentInput('');
-              setCalcExpression('');
-              setCalcJustEquals(false);
-              setCalcHasError(false);
-            }
-          }
+          { text: 'Usar', onPress: () => { applyValue(resultStr); resetCalc(); } }
         ]
       );
       return;
     }
 
-    // Pasar el valor directamente (formatCurrency maneja el punto decimal)
-    handleInputChange('amount', calcCurrentInput);
-    setShowCalculator(false);
-    setCalcCurrentInput('');
-    setCalcExpression('');
-    setCalcJustEquals(false);
-    setCalcHasError(false);
+    applyValue(calcCurrentInput);
+    resetCalc();
   };
 
   const handleCalcClose = () => {
@@ -281,6 +298,8 @@ const CreateExpenseScreen: React.FC = () => {
           const foundEvent = events.find(e => e.id === eventId);
           if (foundEvent) {
             setEvent(foundEvent);
+            // Inicializar moneda del gasto con la del evento (por defecto)
+            if (!isEditing) setSelectedCurrency(foundEvent.currency || 'ARS');
             
             // Bloquear entrada si el evento está cerrado o completado
             if (!isEditing && (foundEvent.status === 'closed' || foundEvent.status === 'completed')) {
@@ -389,6 +408,11 @@ const CreateExpenseScreen: React.FC = () => {
               splitType: loadedSplitType,
               splits: loadedSplits
             });
+
+            // Inicializar moneda y tasa de conversión del gasto
+            setSelectedCurrency(expense.currency || event?.currency || 'ARS');
+            setConversionRate(expense.conversionRate ? expense.conversionRate.toString() : '1');
+            setOriginalAmountInput(expense.originalAmount ? expense.originalAmount.toString() : '');
 
             // Inicializar inputs según el tipo cargado
             if (loadedSplitType === 'percentage') {
@@ -915,6 +939,7 @@ const CreateExpenseScreen: React.FC = () => {
       if (isEditing && editingExpenseId) {
         // Actualizar gasto existente
         const numericAmount = getNumericValue(formData.amount);
+        const isDifferentCurrency = selectedCurrency !== (event?.currency || 'ARS');
 
         // Build payers for multi-payer mode
         const selectedMultiPayers = multiPayers.filter(mp => mp.isSelected);
@@ -933,7 +958,9 @@ const CreateExpenseScreen: React.FC = () => {
         const expenseUpdates: Partial<Expense> = {
           description: formData.description.trim(),
           amount: parseFloat(numericAmount),
-          currency: event?.currency || 'ARS',
+          currency: selectedCurrency,
+          originalAmount: isDifferentCurrency ? (parseFloat(originalAmountInput) || undefined) : undefined,
+          conversionRate: isDifferentCurrency ? (parseFloat(conversionRate) || 1) : 1,
           date: formData.date.toISOString(),
           category: formData.category,
           payerId: primaryPayerId,
@@ -975,6 +1002,8 @@ const CreateExpenseScreen: React.FC = () => {
         console.log('Receipt image URI:', receiptImage);
         
         const numericAmount = getNumericValue(formData.amount);
+        const isDifferentCurrency = selectedCurrency !== (event?.currency || 'ARS');
+        const rate = parseFloat(conversionRate) || 1;
 
         // Build payers for multi-payer mode
         const selectedMultiPayers = multiPayers.filter(mp => mp.isSelected);
@@ -995,7 +1024,9 @@ const CreateExpenseScreen: React.FC = () => {
           eventId,
           description: formData.description.trim(),
           amount: parseFloat(numericAmount),
-          currency: event?.currency || 'ARS',
+          currency: selectedCurrency,
+          originalAmount: isDifferentCurrency ? (parseFloat(originalAmountInput) || undefined) : undefined,
+          conversionRate: isDifferentCurrency ? rate : 1,
           date: formData.date.toISOString(),
           category: formData.category,
           payerId: primaryPayerId,
@@ -1173,27 +1204,115 @@ const CreateExpenseScreen: React.FC = () => {
             containerStyle={styles.input}
           />
 
-          <View style={styles.amountInputContainer}>
-            <Input
-              label={t.expenseInfoCard.amountLabel}
-              placeholder={t.expenseInfoCard.amountPlaceholder}
-              value={formData.amount}
-              onChangeText={(text) => handleInputChange('amount', text)}
-              keyboardType="numeric"
-              icon="currency-usd"
-              required={true}
-              error={errors.amount}
-              containerStyle={styles.input}
-            />
-            <Text style={styles.currencySuffix}>{event?.currency || 'ARS'}</Text>
-            <TouchableOpacity
-              style={styles.calcButton}
-              onPress={() => setShowCalculator(true)}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons name="calculator" size={20} color={theme.colors.primary} />
-            </TouchableOpacity>
+          {/* ── Monto Total + chip de moneda + calculadora en la misma fila ── */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, marginBottom: 12, paddingHorizontal: 4 }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.onSurface }}>
+              {t.expenseInfoCard.amountLabel}
+              <Text style={{ color: '#FF5252', fontWeight: '700' }}> *</Text>
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <CurrencySelector
+                selectedCurrency={selectedCurrency}
+                onCurrencyChange={(code) => {
+                  setSelectedCurrency(code);
+                  setOriginalAmountInput('');
+                  setConversionRate('1');
+                  handleInputChange('amount', '');
+                }}
+                renderTrigger={(onPress) => (
+                  <TouchableOpacity style={styles.currencyChip} onPress={onPress} activeOpacity={0.7}>
+                    <Text style={styles.currencyChipText}>{selectedCurrency}</Text>
+                    <MaterialCommunityIcons name="chevron-down" size={14} color={theme.colors.onPrimaryContainer} />
+                  </TouchableOpacity>
+                )}
+              />
+              <TouchableOpacity
+                style={{ padding: 6, borderRadius: 8, backgroundColor: theme.colors.primaryContainer }}
+                onPress={() => setShowCalculator(true)}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons name="calculator" size={20} color={theme.colors.primary} />
+              </TouchableOpacity>
+            </View>
           </View>
+
+          {selectedCurrency !== (event?.currency || 'ARS') ? (
+            /* ── Moneda diferente: par de inputs lado a lado + campo calculado ── */
+            <>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Input
+                  label={selectedCurrency}
+                  placeholder={t.expenseInfoCard.amountPlaceholder}
+                  value={originalAmountInput}
+                  onChangeText={(text) => {
+                    const clean = text.replace(',', '.');
+                    setOriginalAmountInput(clean);
+                    const oa = parseFloat(clean);
+                    const rate = parseFloat(conversionRate);
+                    if (!isNaN(oa) && !isNaN(rate) && rate > 0) {
+                      handleInputChange('amount', (oa * rate).toFixed(2));
+                    } else {
+                      handleInputChange('amount', '');
+                    }
+                  }}
+                  keyboardType="numeric"
+                  icon="currency-usd"
+                  required={true}
+                  error={errors.amount}
+                  containerStyle={{ flex: 1, marginBottom: 0 }}
+                />
+
+                <Input
+                  label={t.expenseInfoCard.conversionRateShortLabel}
+                  placeholder={t.expenseInfoCard.conversionRatePlaceholder}
+                  value={conversionRate}
+                  onChangeText={(text) => {
+                    const clean = text.replace(',', '.');
+                    setConversionRate(clean);
+                    const oa = parseFloat(originalAmountInput);
+                    const rate = parseFloat(clean);
+                    if (!isNaN(oa) && !isNaN(rate) && rate > 0) {
+                      handleInputChange('amount', (oa * rate).toFixed(2));
+                    } else {
+                      handleInputChange('amount', '');
+                    }
+                  }}
+                  keyboardType="numeric"
+                  icon="swap-horizontal"
+                  containerStyle={{ flex: 1, marginBottom: 0 }}
+                />
+              </View>
+
+              <View style={[styles.amountInputContainer, { marginTop: 12 }]}>
+                <Input
+                  label={t.expenseInfoCard.amountCalculatedLabel.replace('{eventCurrency}', event?.currency || 'ARS')}
+                  value={formData.amount}
+                  onChangeText={() => {}}
+                  keyboardType="numeric"
+                  icon="lock-outline"
+                  disabled={true}
+                  containerStyle={styles.input}
+                />
+                <Text style={styles.currencySuffix}>{event?.currency || 'ARS'}</Text>
+              </View>
+            </>
+          ) : (
+            /* ── Misma moneda: campo normal ── */
+            <View style={styles.amountInputContainer}>
+              <Input
+                label={t.expenseInfoCard.amountFieldLabel}
+                placeholder={t.expenseInfoCard.amountPlaceholder}
+                value={formData.amount}
+                onChangeText={(text) => handleInputChange('amount', text)}
+                keyboardType="numeric"
+                icon="currency-usd"
+                required={true}
+                error={errors.amount}
+                containerStyle={styles.input}
+              />
+              <Text style={styles.currencySuffix}>{selectedCurrency}</Text>
+            </View>
+          )}
 
           <TouchableOpacity
             style={styles.dateInput}

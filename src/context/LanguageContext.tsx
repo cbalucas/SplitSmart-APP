@@ -711,6 +711,7 @@ const translations = {
     'events.information': 'Información del Evento',
     'events.actions': 'Acciones',
     'events.reactivate': 'Reactivar',
+    'events.closingComment': 'Comentario de Cierre',
     
     // Expenses
     'expenses.title': 'Gastos',
@@ -867,6 +868,11 @@ const translations = {
     'message.eventCompletedShort': 'El evento está marcado como completo. Puedes gestionar los pagos.',
     'message.archiveEvent': 'Cerrar Evento',
     'message.archiveEventDesc': 'El evento cerrado será de solo lectura. Puedes reactivarlo cuando quieras.',
+    'message.closeWithPendingTitle': 'Cerrar con liquidaciones pendientes',
+    'message.closeWithPendingDesc': 'Hay {count} liquidación(es) sin completar. Podés cerrar el evento, pero es recomendable dejar un comentario.',
+    'message.closeCommentLabel': '¿Por qué cerrás con pendientes? (opcional)',
+    'message.closeCommentPlaceholder': 'Ej: Las partes acordaron no liquidar formalmente...',
+    'message.closeConfirmButton': 'Cerrar de todas formas',
     'message.lockEvent': 'Bloquear Evento',
     'message.lockEventDesc': 'Se sincronizarán las liquidaciones. Solo se podrán registrar pagos pendientes.',
     'message.unlockEvent': 'Desbloquear Evento',
@@ -1133,6 +1139,7 @@ const translations = {
     'events.information': 'Event Information',
     'events.actions': 'Actions',
     'events.reactivate': 'Reactivate',
+    'events.closingComment': 'Closing Comment',
     
     // Expenses
     'expenses.title': 'Expenses',
@@ -1289,6 +1296,11 @@ const translations = {
     'message.eventCompletedShort': 'The event is marked as complete. You can manage payments.',
     'message.archiveEvent': 'Close Event',
     'message.archiveEventDesc': 'The closed event will be read-only. You can reactivate it whenever you want.',
+    'message.closeWithPendingTitle': 'Close with pending settlements',
+    'message.closeWithPendingDesc': 'There are {count} unsettled payment(s). You can still close the event, but it\'s recommended to leave a comment.',
+    'message.closeCommentLabel': 'Why are you closing with pending? (optional)',
+    'message.closeCommentPlaceholder': 'e.g.: Parties agreed not to formally settle...',
+    'message.closeConfirmButton': 'Close anyway',
     'message.lockEvent': 'Lock Event',
     'message.lockEventDesc': 'Settlements will be synced. Only pending payments can be registered.',
     'message.unlockEvent': 'Unlock Event',
@@ -1970,6 +1982,7 @@ const translations = {
     'events.information': 'Informações do Evento',
     'events.actions': 'Ações',
     'events.reactivate': 'Reativar',
+    'events.closingComment': 'Comentário de Fechamento',
     
     // Expenses
     'expenses.title': 'Despesas',
@@ -2126,6 +2139,11 @@ const translations = {
     'message.eventCompletedShort': 'O evento está marcado como concluído. Você pode gerenciar pagamentos.',
     'message.archiveEvent': 'Fechar Evento',
     'message.archiveEventDesc': 'O evento fechado será somente leitura. Você pode reativá-lo quando quiser.',
+    'message.closeWithPendingTitle': 'Fechar com acertos pendentes',
+    'message.closeWithPendingDesc': 'Há {count} acerto(s) não concluído(s). Você pode fechar assim mesmo, mas é recomendado deixar um comentário.',
+    'message.closeCommentLabel': 'Por que está fechando com pendentes? (opcional)',
+    'message.closeCommentPlaceholder': 'Ex: As partes concordaram em não liquidar formalmente...',
+    'message.closeConfirmButton': 'Fechar mesmo assim',
     'message.lockEvent': 'Bloquear Evento',
     'message.lockEventDesc': 'Os acertos serão sincronizados. Apenas pagamentos pendentes poderão ser registrados.',
     'message.unlockEvent': 'Desbloquear Evento',

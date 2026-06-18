@@ -453,17 +453,17 @@ export default function LoginScreen() {
               <View style={styles.dividerLine} />
             </View>
 
-            {/* Continuar con Google */}
+            {/* Continuar con Google — Próximamente */}
             <TouchableOpacity
-              style={[styles.googleButton, (loading || googleLoading) && { opacity: 0.6 }]}
-              onPress={handleGoogleLogin}
-              disabled={loading || googleLoading}
+              style={[styles.googleButton, { opacity: 0.5 }]}
+              onPress={() => showAlert({ type: 'info', title: '🔜 Próximamente', message: 'El acceso con Google estará disponible en una próxima actualización.', buttons: [{ text: 'OK' }] })}
               activeOpacity={0.75}
             >
               <MaterialCommunityIcons name="google" size={20} color="#EA4335" />
               <Text style={styles.googleButtonText}>
-                {googleLoading ? t.form.googleLoginLoading : t.form.googleLogin}
+                {t.form.googleLogin}
               </Text>
+              <MaterialCommunityIcons name="lock-outline" size={14} color="#888" style={{ marginLeft: 4 }} />
             </TouchableOpacity>
 
           </View>

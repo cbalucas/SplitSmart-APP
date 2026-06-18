@@ -150,6 +150,10 @@ export default function EventDetailScreen() {
   const [showOriginalView, setShowOriginalView] = useState(false);
   const [consolidatedSettlements, setConsolidatedSettlements] = useState<any[]>([]);
 
+  // ── Modal: cerrar evento con liquidaciones pendientes ──────
+  const [showCloseWithPendingModal, setShowCloseWithPendingModal] = useState(false);
+  const [closeComment, setCloseComment] = useState('');
+
   // Use calculations hook for balance and settlement calculations  
   const { balances, settlements, eventStats } = useCalculations(
     eventParticipants,
@@ -1039,23 +1043,53 @@ export default function EventDetailScreen() {
   const handleCloseEvent = useCallback(async () => {
     if (!event) return;
 
-    showAlert({ type: 'confirm', title: `📁 ${t('message.archiveEvent')}`, message: t('message.archiveEventDesc'), buttons: [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('events.close'),
-          onPress: async () => {
-            try {
-              await updateEvent(eventId, { status: 'archived', isLocked: false });
-              await databaseService.updateSettlementsEventStatus(eventId, 'archived');
-              showAlert({ type: 'success', title: `✅ ${t('message.eventArchived')}`, message: t('message.eventArchivedDesc'), buttons: [{ text: 'OK', onPress: () => navigation.goBack() }] });
-            } catch (error) {
-              console.error('Error closing event:', error);
-              showAlert({ type: 'error', title: t('common.error'), message: t('message.eventArchivedError') });
+    const pendingCount = dbSettlements.filter((s: any) => !s.isPaid).length;
+
+    if (pendingCount > 0) {
+      // Hay liquidaciones pendientes: pedir comentario antes de cerrar
+      setCloseComment(event.closingComment || '');
+      setShowCloseWithPendingModal(true);
+    } else {
+      // Sin pendientes: flujo normal
+      showAlert({ type: 'confirm', title: `📁 ${t('message.archiveEvent')}`, message: t('message.archiveEventDesc'), buttons: [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('events.close'),
+            onPress: async () => {
+              try {
+                await updateEvent(eventId, { status: 'archived', isLocked: false });
+                await databaseService.updateSettlementsEventStatus(eventId, 'archived');
+                showAlert({ type: 'success', title: `✅ ${t('message.eventArchived')}`, message: t('message.eventArchivedDesc'), buttons: [{ text: 'OK', onPress: () => navigation.goBack() }] });
+              } catch (error) {
+                console.error('Error closing event:', error);
+                showAlert({ type: 'error', title: t('common.error'), message: t('message.eventArchivedError') });
+              }
             }
           }
-        }
-      ] });
-  }, [event, eventId, updateEvent, navigation, t]);
+        ] });
+    }
+  }, [event, eventId, dbSettlements, updateEvent, navigation, t]);
+
+  const confirmCloseWithPending = async () => {
+    try {
+      await updateEvent(eventId, {
+        status: 'archived',
+        isLocked: false,
+        closingComment: closeComment.trim() || undefined
+      });
+      await databaseService.updateSettlementsEventStatus(eventId, 'archived');
+      setShowCloseWithPendingModal(false);
+      showAlert({
+        type: 'success',
+        title: `✅ ${t('message.eventArchived')}`,
+        message: t('message.eventArchivedDesc'),
+        buttons: [{ text: 'OK', onPress: () => navigation.goBack() }]
+      });
+    } catch (error) {
+      console.error('Error closing event with pending:', error);
+      showAlert({ type: 'error', title: t('common.error'), message: t('message.eventArchivedError') });
+    }
+  };
 
   const handleShareSummary = () => {
     if (!event) return;
@@ -1867,7 +1901,7 @@ export default function EventDetailScreen() {
                     <Text style={styles.expenseDescription}>{item.description}</Text>
                     <View style={styles.expenseRightSection}>
                       <Text style={styles.expenseAmount}>
-                        ${item.amount.toFixed(2)} {item.currency}
+                        ${item.amount.toFixed(2)} {event?.currency || 'ARS'}
                       </Text>
                       {/* Icono de comprobante — oculto en modo selección */}
                       {item.receiptImage && !isExpenseSelectMode && (
@@ -2618,6 +2652,21 @@ export default function EventDetailScreen() {
                 </Text>
               </View>
             </View>
+
+            {/* Comentario de cierre */}
+            {event.closingComment ? (
+              <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.colors.outline }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <MaterialCommunityIcons name="comment-text-outline" size={14} color={theme.colors.onSurfaceVariant} />
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: theme.colors.onSurfaceVariant }}>
+                    {t('events.closingComment')}
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 13, color: theme.colors.onSurface, fontStyle: 'italic', lineHeight: 18 }}>
+                  {event.closingComment}
+                </Text>
+              </View>
+            ) : null}
           </View>
         )}
       </Card>
@@ -3799,9 +3848,20 @@ export default function EventDetailScreen() {
                     </View>
                     <View style={styles.expenseDetailRow}>
                       <Text style={styles.expenseDetailLabel}>{t('expenses.amount')}:</Text>
-                      <Text style={[styles.expenseDetailValue, { color: theme.colors.success, fontWeight: '600' }]}>
-                        ${selectedExpenseForDetail.expense.amount.toFixed(2)} {selectedExpenseForDetail.expense.currency}
-                      </Text>
+                      <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                        <Text style={[styles.expenseDetailValue, { color: theme.colors.success, fontWeight: '600' }]}>
+                          ${selectedExpenseForDetail.expense.amount.toFixed(2)} {event?.currency || 'ARS'}
+                        </Text>
+                        {selectedExpenseForDetail.expense.originalAmount != null &&
+                          selectedExpenseForDetail.expense.currency !== (event?.currency || 'ARS') && (
+                          <View style={styles.conversionBadge}>
+                            <MaterialCommunityIcons name="swap-horizontal" size={11} color={theme.colors.onSecondaryContainer} />
+                            <Text style={styles.conversionBadgeText}>
+                              {selectedExpenseForDetail.expense.currency} {selectedExpenseForDetail.expense.originalAmount.toFixed(2)} × {selectedExpenseForDetail.expense.conversionRate?.toFixed(4) ?? 1}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
                     <View style={styles.expenseDetailRow}>
                       <Text style={styles.expenseDetailLabel}>{t('expenses.date')}:</Text>
@@ -3978,6 +4038,59 @@ export default function EventDetailScreen() {
         currency={event?.currency || 'ARS'}
         existingAssignments={consolidationAssignments}
       />
+
+      {/* ── Modal: cerrar evento con liquidaciones pendientes ── */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showCloseWithPendingModal}
+        onRequestClose={() => setShowCloseWithPendingModal(false)}
+      >
+        <View style={styles.closeWithPendingOverlay}>
+          <View style={styles.closeWithPendingCard}>
+            {/* Header */}
+            <View style={styles.closeWithPendingHeader}>
+              <MaterialCommunityIcons name="alert-circle-outline" size={26} color="#FF9800" />
+              <Text style={styles.closeWithPendingTitle}>{t('message.closeWithPendingTitle')}</Text>
+            </View>
+
+            {/* Descripción */}
+            <Text style={styles.closeWithPendingDesc}>
+              {t('message.closeWithPendingDesc').replace('{count}', String(dbSettlements.filter((s: any) => !s.isPaid).length))}
+            </Text>
+
+            {/* Campo de comentario */}
+            <Text style={styles.closeCommentLabel}>{t('message.closeCommentLabel')}</Text>
+            <TextInput
+              style={styles.closeCommentInput}
+              value={closeComment}
+              onChangeText={setCloseComment}
+              placeholder={t('message.closeCommentPlaceholder')}
+              placeholderTextColor={theme.colors.onSurfaceVariant + '80'}
+              multiline={true}
+              numberOfLines={3}
+            />
+
+            {/* Botones */}
+            <View style={styles.closeWithPendingFooter}>
+              <TouchableOpacity
+                style={styles.closeWithPendingCancelBtn}
+                onPress={() => setShowCloseWithPendingModal(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.closeWithPendingCancelText}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.closeWithPendingConfirmBtn}
+                onPress={confirmCloseWithPending}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.closeWithPendingConfirmText}>{t('message.closeConfirmButton')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
