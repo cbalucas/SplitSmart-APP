@@ -37,12 +37,11 @@ export default function LoginScreen() {
   const [showDemoModal, setShowDemoModal] = useState(false);
   const [submittedOnce, setSubmittedOnce] = useState(false);
   const [showBiometricButton, setShowBiometricButton] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [lastLoggedUser, setLastLoggedUser] = useState<LastUser | null>(null);
   const [showLastUserCard, setShowLastUserCard] = useState(false);
   const [showSwitchModal, setShowSwitchModal] = useState(false);
   const [knownUsers, setKnownUsers] = useState<LastUser[]>([]);
-  const { login, loading, loginWithBiometric, loginWithGoogle } = useAuth();
+  const { login, loading, loginWithBiometric } = useAuth();
   const { theme } = useTheme();
   const { language } = useLanguage();
   const navigation = useNavigation<NavigationProp>();
@@ -163,16 +162,6 @@ export default function LoginScreen() {
       setKnownUsers(users);
       setShowSwitchModal(true);
     } catch (_) {}
-  };
-
-  const handleGoogleLogin = async () => {
-    try {
-      await loginWithGoogle();
-    } catch (_) {
-      showAlert({ type: 'error', title: t.errors.general, message: t.errors.googleFailed, buttons: [{ text: 'OK' }] });
-    } finally {
-      setGoogleLoading(false);
-    }
   };
 
   const handleLogin = async () => {
@@ -447,24 +436,7 @@ export default function LoginScreen() {
             </View>
 
             {/* Separador */}
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>o</Text>
-              <View style={styles.dividerLine} />
-            </View>
 
-            {/* Continuar con Google — Próximamente */}
-            <TouchableOpacity
-              style={[styles.googleButton, { opacity: 0.5 }]}
-              onPress={() => showAlert({ type: 'info', title: '🔜 Próximamente', message: 'El acceso con Google estará disponible en una próxima actualización.', buttons: [{ text: 'OK' }] })}
-              activeOpacity={0.75}
-            >
-              <MaterialCommunityIcons name="google" size={20} color="#EA4335" />
-              <Text style={styles.googleButtonText}>
-                {t.form.googleLogin}
-              </Text>
-              <MaterialCommunityIcons name="lock-outline" size={14} color="#888" style={{ marginLeft: 4 }} />
-            </TouchableOpacity>
 
           </View>
         </SafeAreaView>

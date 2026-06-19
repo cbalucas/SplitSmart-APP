@@ -157,7 +157,7 @@ $aabOk = $false
 if ($AAB) {
     Write-Host "Construyendo Android App Bundle (.aab)..." -ForegroundColor Yellow
     Write-Host "Esto puede tardar 5-10 minutos la primera vez.`n" -ForegroundColor Gray
-    .\gradlew.bat bundleRelease --no-daemon
+    .\gradlew.bat bundleProductionRelease --no-daemon
     $aabOk = ($LASTEXITCODE -eq 0)
 }
 
@@ -175,10 +175,10 @@ Pop-Location
 # ─── Resultado AAB ───────────────────────────────────────────────────────────
 if ($AAB) {
     if ($aabOk) {
-        $aabSource = "android\app\build\outputs\bundle\release\app-release.aab"
+        $aabSource = "android\app\build\outputs\bundle\productionRelease\app-production-release.aab"
         if (Test-Path $aabSource) {
             $aabName   = "SplitSmart_v${version}_${fecha}_${hora}.aab"
-            $aabDestDir = "android\app\build\outputs\bundle\release"
+            $aabDestDir = "android\app\build\outputs\bundle\productionRelease"
             $aabDest   = Join-Path $aabDestDir $aabName
             Copy-Item $aabSource $aabDest
             $sizeMB = [math]::Round((Get-Item $aabDest).Length / 1MB, 2)
@@ -231,7 +231,7 @@ if ($AAB) {
 
         } else {
             Write-Host "`nBuild AAB exitoso pero no se encontro el archivo en la ruta esperada." -ForegroundColor Red
-            Write-Host "Busca manualmente en: android\app\build\outputs\bundle\`n" -ForegroundColor Yellow
+            Write-Host "Busca manualmente en: android\app\build\outputs\bundle\productionRelease\`n" -ForegroundColor Yellow
         }
     } else {
         Write-Host "`nError al generar el AAB." -ForegroundColor Red
@@ -245,7 +245,7 @@ if ($AAB) {
 # ─── Resultado APK ───────────────────────────────────────────────────────────
 if ($APK) {
     if ($apkOk) {
-        $apkFile = Get-ChildItem -Path "android\app\build\outputs\apk\release" -Filter "*.apk" | Select-Object -First 1
+        $apkFile = Get-ChildItem -Path "android\app\build\outputs\apk\production\release" -Filter "*.apk" | Select-Object -First 1
         if ($apkFile) {
             $apkName = "SplitSmart_v${version}_${fecha}_${hora}.apk"
             $apkDest = Join-Path $apkFile.DirectoryName $apkName
@@ -271,7 +271,7 @@ if ($APK) {
 
         } else {
             Write-Host "`nBuild APK exitoso pero no se encontro el archivo .apk." -ForegroundColor Red
-            Write-Host "Busca manualmente en: android\app\build\outputs\apk\release\`n" -ForegroundColor Yellow
+            Write-Host "Busca manualmente en: android\app\build\outputs\apk\production\release\`n" -ForegroundColor Yellow
         }
     } else {
         Write-Host "`nError al generar el APK." -ForegroundColor Red
