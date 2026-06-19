@@ -1965,15 +1965,39 @@ const ProfileScreen: React.FC = () => {
               contentContainerStyle={{ flexGrow: 1 }}
               nestedScrollEnabled={true}
             >
-                                                                                                                              {/* Versión 1.10.1 - Versión Actual */}
+                                                                                                                                            {/* Versión 1.10.2 - Versión Actual */}
               <TouchableOpacity 
                 style={[styles.versionBlock, styles.currentVersionBlock]} 
+                onPress={() => toggleVersionExpanded('1.10.2')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.versionHeader}>
+                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.10.2 (Actual)</Text>
+                  <Text style={[styles.versionDate, styles.currentVersionDate]}>18 Jun 2026</Text>
+                  <MaterialCommunityIcons 
+                    name={expandedVersions.has('1.10.2') ? 'chevron-up' : 'chevron-down'} 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
+                </View>
+                {expandedVersions.has('1.10.2') && (
+                  <View style={styles.versionContent}>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.changelogItem}>• Mejoras internas y correcciones</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+{/* Versión 1.10.1 - Versión Actual */}
+              <TouchableOpacity 
+                style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.10.1')}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
-                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.10.1 (Actual)</Text>
-                  <Text style={[styles.versionDate, styles.currentVersionDate]}>18 Jun 2026</Text>
+                  <Text style={[styles.versionNumber]}>v1.10.1</Text>
+                  <Text style={[styles.versionDate]}>18 Jun 2026</Text>
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.10.1') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
@@ -2897,7 +2921,7 @@ const ProfileScreen: React.FC = () => {
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                     <Text style={styles.aboutTitle}>SplitSmart</Text>
-                    <View style={styles.versionBadge}><Text style={styles.versionBadgeText}>v1.10.1</Text></View>
+                    <View style={styles.versionBadge}><Text style={styles.versionBadgeText}>v1.10.2</Text></View>
                   </View>
                   <Text style={styles.aboutDescription}>{t('profile.about.appDescription')}</Text>
                 </View>
