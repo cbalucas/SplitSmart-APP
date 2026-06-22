@@ -114,7 +114,7 @@ const CreateExpenseScreen: React.FC = () => {
   const ceReceiptRef  = useRef<View>(null);
   const ceCategoryRef = useRef<View>(null);
 
-  const scrollToCard = (ref: React.RefObject<View>) => {
+  const scrollToCard = (ref: React.RefObject<View | null>) => {
     if (ref.current && ceScrollRef.current) {
       ref.current.measureLayout(
         ceScrollRef.current as any,
@@ -406,7 +406,9 @@ const CreateExpenseScreen: React.FC = () => {
               category: expense.category as any,
               payerId: expense.payerId,
               splitType: loadedSplitType,
-              splits: loadedSplits
+              splits: loadedSplits,
+              isMultiplePayers: false,
+              multiPayers: []
             });
 
             // Inicializar moneda y tasa de conversión del gasto
@@ -477,10 +479,6 @@ const CreateExpenseScreen: React.FC = () => {
   // Funciones para manejo de imágenes
   const pickImage = async () => {
     try {
-      console.log('📱 ImagePicker available options:', {
-        MediaType: ImagePicker.MediaType,
-        MediaTypeOptions: ImagePicker.MediaTypeOptions
-      });
       console.log('📱 Requesting media library permissions...');
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       console.log('📱 Media library permission status:', status);
@@ -965,7 +963,7 @@ const CreateExpenseScreen: React.FC = () => {
           category: formData.category,
           payerId: primaryPayerId,
           payers: payersForUpdate,
-          receiptImage: receiptImage || null,
+          receiptImage: receiptImage || undefined,
           updatedAt: new Date().toISOString()
         };
 

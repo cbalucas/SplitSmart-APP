@@ -3,6 +3,7 @@ import {
   View,
   StyleSheet,
   ViewStyle,
+  StyleProp,
   TouchableOpacity
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
@@ -13,7 +14,7 @@ export interface CardProps {
   variant?: 'elevated' | 'outlined' | 'filled';
   padding?: number;
   elevation?: number;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   onPress?: () => void;
 }
 
