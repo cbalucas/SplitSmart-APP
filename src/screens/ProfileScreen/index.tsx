@@ -1966,15 +1966,50 @@ const ProfileScreen: React.FC = () => {
               contentContainerStyle={{ flexGrow: 1 }}
               nestedScrollEnabled={true}
             >
-                                                                                                                                                          {/* Versión 1.10.3 - Versión Actual */}
+                                                                                                                                                                        {/* Versión 1.10.4 - Versión Actual */}
               <TouchableOpacity 
                 style={[styles.versionBlock, styles.currentVersionBlock]} 
+                onPress={() => toggleVersionExpanded('1.10.4')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.versionHeader}>
+                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.10.4 (Actual)</Text>
+                  <Text style={[styles.versionDate, styles.currentVersionDate]}>22 Jun 2026</Text>
+                  <MaterialCommunityIcons 
+                    name={expandedVersions.has('1.10.4') ? 'chevron-up' : 'chevron-down'} 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
+                </View>
+                {expandedVersions.has('1.10.4') && (
+                  <View style={styles.versionContent}>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
+                      <Text style={styles.changelogItem}>• : incompleto al editar gasto</Text>
+                      <Text style={styles.changelogItem}>• : inexistente</Text>
+                      <Text style={styles.changelogItem}>• : null vs undefined</Text>
+                      <Text style={styles.changelogItem}>• : con ref tipado incorrecto</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>✨ Mejoras</Text>
+                      <Text style={styles.changelogItem}>• component: acepta arrays de estilos</Text>
+                      <Text style={styles.changelogItem}>• Configuración VS Code: suprimir errores de</Text>
+                      <Text style={styles.changelogItem}>• Análisis de iconos de app</Text>
+                      <Text style={styles.changelogItem}>• Imágenes Splitty: diagnóstico de transparencia</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+{/* Versión 1.10.3 - Versión Actual */}
+              <TouchableOpacity 
+                style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.10.3')}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
-                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.10.3 (Actual)</Text>
-                  <Text style={[styles.versionDate, styles.currentVersionDate]}>22 Jun 2026</Text>
+                  <Text style={[styles.versionNumber]}>v1.10.3</Text>
+                  <Text style={[styles.versionDate]}>22 Jun 2026</Text>
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.10.3') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
@@ -2960,7 +2995,7 @@ const ProfileScreen: React.FC = () => {
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                     <Text style={styles.aboutTitle}>SplitSmart</Text>
-                    <View style={styles.versionBadge}><Text style={styles.versionBadgeText}>v1.10.3</Text></View>
+                    <View style={styles.versionBadge}><Text style={styles.versionBadgeText}>v1.10.4</Text></View>
                   </View>
                   <Text style={styles.aboutDescription}>{t('profile.about.appDescription')}</Text>
                 </View>

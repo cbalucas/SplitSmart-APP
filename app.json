@@ -3,7 +3,7 @@
     "name": "SplitSmart",
     "slug": "splitsmart",
     "scheme": "splitsmart",
-    "version": "1.10.3",
+    "version": "1.10.4",
     "orientation": "portrait",
     "icon": "./assets/splitsmart/splash-icon-app_google.png",
     "userInterfaceStyle": "automatic",
@@ -25,7 +25,7 @@
         "backgroundColor": "#4B89DC"
       },
       "package": "com.cbalucas.splitsmart",
-      "versionCode": 28,
+      "versionCode": 29,
       "permissions": [
         "android.permission.USE_FINGERPRINT",
         "android.permission.USE_BIOMETRIC",
