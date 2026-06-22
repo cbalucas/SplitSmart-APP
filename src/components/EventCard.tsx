@@ -12,6 +12,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
+import { getSplittyImage } from '../constants/splitty';
 import { Theme } from '../constants/theme';
 import Card from './Card';
 
@@ -56,7 +57,7 @@ const EventCard: React.FC<EventCardProps> = ({
   onToggleExpand
 }) => {
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const styles = createStyles(theme);
   const [internalExpanded, setInternalExpanded] = useState(false);
 
@@ -135,7 +136,7 @@ const EventCard: React.FC<EventCardProps> = ({
             <View style={styles.titleContainer}>
               {event.isExpress && (
                 <Image
-                  source={require('../../assets/splitsmart/Splitty.png')}
+                  source={getSplittyImage(language)}
                   style={{ width: 36, height: 36, resizeMode: 'contain', marginRight: 3 }}
                 />
               )}

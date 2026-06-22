@@ -25,6 +25,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { getSplittyImage } from '../../constants/splitty';
 import { databaseService } from '../../services/DatabaseFactory';
 import { Card, Button, Input, LanguageSelector, CurrencySelector, ThemeToggle, HeaderBar } from '../../components';
 import { 
@@ -1588,7 +1589,7 @@ const ProfileScreen: React.FC = () => {
             }}
           >
             <Image
-              source={require('../../../assets/splitsmart/Splitty.png')}
+              source={getSplittyImage(language)}
               style={{ width: 36, height: 36, resizeMode: 'contain', opacity: chatModeAdvanced ? 1 : 0.4 }}
             />
             <View style={{ flex: 1 }}>

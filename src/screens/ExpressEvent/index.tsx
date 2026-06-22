@@ -24,6 +24,7 @@ import { HeaderBar } from '../../components';
 import TutorialOverlay, { TourStep } from '../../components/TutorialOverlay';
 import { createStyles } from './styles';
 import { expressLanguage, ExpressLanguage } from './language';
+import { getSplittyImage } from '../../constants/splitty';
 import { ChatMessage, WizardStep, ExpressEventState, ExpenseEntry } from './types';
 import { Participant } from '../../types';
 // ID generation consistent with the rest of the project
@@ -901,7 +902,7 @@ const ExpressEventScreen: React.FC = () => {
       return (
         <View key={msg.id} style={[styles.messageRow, styles.messageRowBot]}>
           <View style={styles.botAvatar}>
-            <Image source={require('../../../assets/splitsmart/Splitty.png')} style={{ width: 56, height: 56, resizeMode: 'contain' }} />
+            <Image source={getSplittyImage(language)} style={{ width: 56, height: 56, resizeMode: 'contain' }} />
           </View>
           <View style={styles.bubbleBot}>
             <Text style={styles.textBot}>{msg.text}</Text>
@@ -931,7 +932,7 @@ const ExpressEventScreen: React.FC = () => {
       return (
         <View key={msg.id} style={[styles.messageRow, styles.messageRowBot]}>
           <View style={styles.botAvatar}>
-            <Image source={require('../../../assets/splitsmart/Splitty.png')} style={{ width: 56, height: 56, resizeMode: 'contain' }} />
+            <Image source={getSplittyImage(language)} style={{ width: 56, height: 56, resizeMode: 'contain' }} />
           </View>
           <View style={styles.bubbleSummary}>
             {msg.text.split('\n').map((line, i) => (
@@ -952,7 +953,7 @@ const ExpressEventScreen: React.FC = () => {
       return (
         <View key={msg.id} style={[styles.messageRow, styles.messageRowBot]}>
           <View style={styles.botAvatar}>
-            <Image source={require('../../../assets/splitsmart/Splitty.png')} style={{ width: 56, height: 56, resizeMode: 'contain' }} />
+            <Image source={getSplittyImage(language)} style={{ width: 56, height: 56, resizeMode: 'contain' }} />
           </View>
           <View style={styles.bubbleLangChange}>
             <Text style={styles.textBot}>{msg.text}</Text>
@@ -972,7 +973,7 @@ const ExpressEventScreen: React.FC = () => {
       return (
         <View key={msg.id} style={[styles.messageRow, styles.messageRowBot]}>
           <View style={styles.botAvatar}>
-            <Image source={require('../../../assets/splitsmart/Splitty.png')} style={{ width: 56, height: 56, resizeMode: 'contain' }} />
+            <Image source={getSplittyImage(language)} style={{ width: 56, height: 56, resizeMode: 'contain' }} />
           </View>
           <View style={[styles.bubbleWarning, { borderRadius: 14, maxWidth: '80%' }]}>
             <Text style={styles.textWarning}>{t.timeoutMessage}</Text>
@@ -1023,7 +1024,7 @@ const ExpressEventScreen: React.FC = () => {
               activeOpacity={0.8}
             >
               <Image
-                source={require('../../../assets/splitsmart/Splitty.png')}
+                source={getSplittyImage(language)}
                 style={{ width: 36, height: 36, resizeMode: 'contain', marginRight: 8 }}
               />
               <Text style={styles.actionChipText}>Evento express</Text>
@@ -1036,7 +1037,7 @@ const ExpressEventScreen: React.FC = () => {
               activeOpacity={0.8}
             >
               <Image
-                source={require('../../../assets/splitsmart/Splitty.png')}
+                source={getSplittyImage(language)}
                 style={{ width: 36, height: 36, resizeMode: 'contain', marginRight: 8 }}
               />
               <Text style={styles.actionChipText}>{t.modeAdvanced || 'Evento Avanzado'}</Text>

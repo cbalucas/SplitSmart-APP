@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { showAlert } from '../../services/alertService';
+import { checkForUpdate } from '../../services/UpdateService';
+import { version as appVersion } from '../../../app.json';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,6 +33,7 @@ import { databaseService } from '../../services/DatabaseFactory';
 import { HomeEventData, HomeMetricData, HomeScreenState } from './types';
 import { createStyles } from './styles';
 import { homeLanguage } from './language';
+import { getSplittyImage } from '../../constants/splitty';
 import TutorialOverlay, { TourStep } from '../../components/TutorialOverlay';
 
 const HomeScreen: React.FC = () => {
@@ -68,6 +71,8 @@ const HomeScreen: React.FC = () => {
   const [fabsVisible, setFabsVisible] = useState(true);
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const fabsAnim = useRef(new Animated.Value(1)).current;
+  // Flag para verificar actualizaciones solo una vez por sesión
+  const updateChecked = useRef(false);
 
   const toggleFabs = () => {
     const expanding = !fabsExpanded;
@@ -117,9 +122,16 @@ const HomeScreen: React.FC = () => {
         };
 
         const activeSettlements = settlements.filter((s: any) => !isForgiven(s));
-        const pendingAmount = activeSettlements
-          .filter((s: any) => s.isPaid !== true)
-          .reduce((sum: number, s: any) => sum + (s.amount || 0), 0);
+
+        // Solo contar pendiente si el evento tiene gastos activos.
+        // Sin gastos, las liquidaciones en DB son huérfanas (no se muestran en EventDetail)
+        // y no deben reflejarse como pendiente en la card.
+        const eventHasExpenses = (expenseCounts[event.id] ?? 0) > 0;
+        const pendingAmount = eventHasExpenses
+          ? activeSettlements
+              .filter((s: any) => s.isPaid !== true)
+              .reduce((sum: number, s: any) => sum + (s.amount || 0), 0)
+          : 0;
 
         settlementCounts[event.id] = {
           total: activeSettlements.length,
@@ -191,6 +203,16 @@ const HomeScreen: React.FC = () => {
       pendingSettlementAmount: eventSettlements[event.id]?.pendingAmount ?? 0
     }));
   }, [visibleEvents, eventTotals, eventParticipants, eventExpenses, eventSettlements]);
+
+  // Verificar actualizaciones disponibles — solo una vez por sesión, al primer foco
+  useFocusEffect(
+    useCallback(() => {
+      if (!updateChecked.current) {
+        updateChecked.current = true;
+        checkForUpdate(appVersion);
+      }
+    }, [])
+  );
 
   // Recargar conteos al volver al foco (ej: pagos de liquidaciones desde EventDetail)
   useFocusEffect(
@@ -513,6 +535,7 @@ const HomeScreen: React.FC = () => {
             data={filteredEvents}
             renderItem={renderEventItem}
             keyExtractor={item => item.id}
+            extraData={eventSettlements}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing || dbLoading}
@@ -606,7 +629,7 @@ const HomeScreen: React.FC = () => {
                 {/* Splitty */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <Image
-                    source={require('../../../assets/splitsmart/Splitty.png')}
+                    source={getSplittyImage(language)}
                     style={{ width: 28, height: 28, resizeMode: 'contain' }}
                   />
                   <Text style={{ flex: 1, fontSize: 13, color: theme.colors.onSurfaceVariant ?? theme.colors.onSurface }}>

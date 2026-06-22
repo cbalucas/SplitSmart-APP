@@ -27,12 +27,29 @@ export interface RemoteVersionInfo {
 
 /**
  * Intenta obtener la versión directamente de la página del Play Store.
+const FETCH_TIMEOUT_MS = 5000;
+
+/**
+ * Wrapper de fetch con timeout usando AbortController.
+ */
+async function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+/**
+ * Intenta obtener la versión directamente de la página del Play Store.
  * Solo funciona en nativo (en web hay CORS).
  * No es una API oficial, por lo que puede fallar si Google cambia el HTML.
  */
 async function fetchVersionFromPlayStore(): Promise<string | null> {
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${PLAY_STORE_URL}&hl=en_US`,
       {
         headers: {
@@ -78,7 +95,7 @@ export async function fetchVersionInfo(): Promise<RemoteVersionInfo | null> {
 
   // Fallback: GitHub JSON (web siempre llega aquí por CORS)
   try {
-    const response = await fetch(FALLBACK_VERSION_URL, { cache: 'no-store' });
+    const response = await fetchWithTimeout(FALLBACK_VERSION_URL, { cache: 'no-store' });
     if (!response.ok) return null;
     return await response.json();
   } catch {
