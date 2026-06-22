@@ -11,6 +11,7 @@ export interface HomeEventData {
   isExpress?: boolean;
   settlementCount?: number;
   paidSettlementCount?: number;
+  pendingSettlementAmount?: number;
 }
 
 export interface HomeMetricData {

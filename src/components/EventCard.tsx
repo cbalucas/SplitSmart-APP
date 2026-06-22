@@ -30,6 +30,7 @@ export interface EventData {
   description?: string;
   settlementCount?: number;
   paidSettlementCount?: number;
+  pendingSettlementAmount?: number;
   isExpress?: boolean;
 }
 
@@ -197,9 +198,16 @@ const EventCard: React.FC<EventCardProps> = ({
                 {formatDate(event.startDate)}
               </Text>
             </View>
-            <Text style={styles.totalAmount}>
-              {formatCurrency(event.totalAmount, event.currency)}
-            </Text>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={styles.totalAmount}>
+                {formatCurrency(event.totalAmount, event.currency)}
+              </Text>
+              {(event.pendingSettlementAmount ?? 0) > 0 && (
+                <Text style={{ fontSize: 12, color: '#FF9800', fontWeight: '600' }}>
+                  {formatCurrency(event.pendingSettlementAmount!, event.currency)}
+                </Text>
+              )}
+            </View>
           </View>
         </View>
       </TouchableOpacity>

@@ -21,7 +21,6 @@ export const createExpenseLanguage = {
       amountEquivalent: 'Equivale a {eventCurrency} {amount}',
       amountInCurrencyLabel: 'Monto en {currency}',
       amountCalculatedLabel: 'Equivalente en {eventCurrency} (calculado)',
-      amountFieldLabel: 'Monto',
       conversionRateShortLabel: 'conversión'
     },
     
@@ -173,7 +172,6 @@ export const createExpenseLanguage = {
       amountEquivalent: 'Equivalent to {eventCurrency} {amount}',
       amountInCurrencyLabel: 'Amount in {currency}',
       amountCalculatedLabel: 'Equivalent in {eventCurrency} (calculated)',
-      amountFieldLabel: 'Amount',
       conversionRateShortLabel: 'conversion'
     },
     
@@ -325,7 +323,6 @@ export const createExpenseLanguage = {
       amountEquivalent: 'Equivale a {eventCurrency} {amount}',
       amountInCurrencyLabel: 'Valor em {currency}',
       amountCalculatedLabel: 'Equivalente em {eventCurrency} (calculado)',
-      amountFieldLabel: 'Valor',
       conversionRateShortLabel: 'conversão'
     },
     

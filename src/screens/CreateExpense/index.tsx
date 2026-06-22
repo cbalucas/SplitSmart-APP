@@ -1204,6 +1204,26 @@ const CreateExpenseScreen: React.FC = () => {
             containerStyle={styles.input}
           />
 
+          <TouchableOpacity
+            style={styles.dateInput}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <View style={styles.inputWrapper}>
+              <MaterialCommunityIcons
+                name="calendar-outline"
+                size={20}
+                color={theme.colors.onSurfaceVariant}
+                style={styles.inputIcon}
+              />
+              <View style={styles.inputContent}>
+                <Text style={styles.inputLabel}>{t.expenseInfoCard.dateLabel}<Text style={{ color: '#FF5252', fontWeight: '700' }}> *</Text></Text>
+                <Text style={styles.inputValue}>
+                  {formatDate(formData.date)}
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+
           {/* ── Monto Total + chip de moneda + calculadora en la misma fila ── */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, marginBottom: 12, paddingHorizontal: 4 }}>
             <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.onSurface }}>
@@ -1300,7 +1320,6 @@ const CreateExpenseScreen: React.FC = () => {
             /* ── Misma moneda: campo normal ── */
             <View style={styles.amountInputContainer}>
               <Input
-                label={t.expenseInfoCard.amountFieldLabel}
                 placeholder={t.expenseInfoCard.amountPlaceholder}
                 value={formData.amount}
                 onChangeText={(text) => handleInputChange('amount', text)}
@@ -1313,26 +1332,6 @@ const CreateExpenseScreen: React.FC = () => {
               <Text style={styles.currencySuffix}>{selectedCurrency}</Text>
             </View>
           )}
-
-          <TouchableOpacity
-            style={styles.dateInput}
-            onPress={() => setShowDatePicker(true)}
-          >
-            <View style={styles.inputWrapper}>
-              <MaterialCommunityIcons
-                name="calendar-outline"
-                size={20}
-                color={theme.colors.onSurfaceVariant}
-                style={styles.inputIcon}
-              />
-              <View style={styles.inputContent}>
-                <Text style={styles.inputLabel}>{t.expenseInfoCard.dateLabel}<Text style={{ color: '#FF5252', fontWeight: '700' }}> *</Text></Text>
-                <Text style={styles.inputValue}>
-                  {formatDate(formData.date)}
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
         </Card>
         </View>
 

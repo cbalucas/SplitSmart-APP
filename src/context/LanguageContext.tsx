@@ -946,6 +946,7 @@ const translations = {
     'eventCard.expenses': 'gastos',
     'eventCard.settlement': 'liquidación',
     'eventCard.settlements': 'liquidaciones',
+    'eventCard.pending': 'pendiente',
     // EventDetail - Textos hardcodeados en UI
     'eventDetail.consolidate': 'Consolidar',
     'eventDetail.viewConsolidated': 'Ver Consolidado',
@@ -1831,6 +1832,7 @@ const translations = {
     'eventCard.expenses': 'expenses',
     'eventCard.settlement': 'settlement',
     'eventCard.settlements': 'settlements',
+    'eventCard.pending': 'pending',
     'eventDetail.convertToFriendTitle': '⭐ Convert to Permanent Friend',
     'eventDetail.convertToFriendSubtitle': 'Will appear in "My Friends" and you can easily add them to other events',
     'eventDetail.duplicateFriendWarning': '⚠️ Friend "{name}" already exists. When saving you can replace this participant with the existing friend.',
@@ -2601,6 +2603,7 @@ const translations = {
     'eventCard.expenses': 'despesas',
     'eventCard.settlement': 'liquidação',
     'eventCard.settlements': 'liquidações',
+    'eventCard.pending': 'pendente',
   }
 };
 

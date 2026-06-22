@@ -54,7 +54,7 @@ const HomeScreen: React.FC = () => {
   const [eventParticipants, setEventParticipants] = useState<{[eventId: string]: number}>({});
   const [eventExpenses, setEventExpenses] = useState<{[eventId: string]: number}>({});
   const [eventTotals, setEventTotals] = useState<{[eventId: string]: number}>({});
-  const [eventSettlements, setEventSettlements] = useState<{[eventId: string]: { total: number; paid: number }}>({});
+  const [eventSettlements, setEventSettlements] = useState<{[eventId: string]: { total: number; paid: number; pendingAmount: number }}>({});
 
   // Tour
   const [tourVisible, setTourVisible] = useState(false);
@@ -86,7 +86,7 @@ const HomeScreen: React.FC = () => {
   const loadEventCounts = useCallback(async () => {
     const participantCounts: {[eventId: string]: number} = {};
     const expenseCounts: {[eventId: string]: number} = {};
-    const settlementCounts: {[eventId: string]: { total: number; paid: number }} = {};
+    const settlementCounts: {[eventId: string]: { total: number; paid: number; pendingAmount: number }} = {};
     
     for (const event of dbEvents) {
       try {
@@ -111,18 +111,24 @@ const HomeScreen: React.FC = () => {
 
         // Una liquidación es condonada si, después de aplicar la consolidación, el pagador real
         // y el acreedor son la misma persona (pago a sí mismo → no requiere acción real)
-        const forgivenCount = settlements.filter((s: any) => {
+        const isForgiven = (s: any) => {
           const actualPayer = assignmentMap[s.fromParticipantId] || s.fromParticipantId;
           return actualPayer === s.toParticipantId;
-        }).length;
+        };
+
+        const activeSettlements = settlements.filter((s: any) => !isForgiven(s));
+        const pendingAmount = activeSettlements
+          .filter((s: any) => s.isPaid !== true)
+          .reduce((sum: number, s: any) => sum + (s.amount || 0), 0);
 
         settlementCounts[event.id] = {
-          total: settlements.length - forgivenCount,
-          paid: settlements.filter((s: any) => s.isPaid === true).length
+          total: activeSettlements.length,
+          paid: settlements.filter((s: any) => s.isPaid === true).length,
+          pendingAmount
         };
       } catch (error) {
         console.error(`Error loading settlements for event ${event.id}:`, error);
-        settlementCounts[event.id] = { total: 0, paid: 0 };
+        settlementCounts[event.id] = { total: 0, paid: 0, pendingAmount: 0 };
       }
     }
     
@@ -181,7 +187,8 @@ const HomeScreen: React.FC = () => {
       expenseCount: eventExpenses[event.id] || 0,
       description: event.description,
       settlementCount: eventSettlements[event.id]?.total ?? 0,
-      paidSettlementCount: eventSettlements[event.id]?.paid ?? 0
+      paidSettlementCount: eventSettlements[event.id]?.paid ?? 0,
+      pendingSettlementAmount: eventSettlements[event.id]?.pendingAmount ?? 0
     }));
   }, [visibleEvents, eventTotals, eventParticipants, eventExpenses, eventSettlements]);
 
