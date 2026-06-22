@@ -1966,15 +1966,53 @@ const ProfileScreen: React.FC = () => {
               contentContainerStyle={{ flexGrow: 1 }}
               nestedScrollEnabled={true}
             >
-                                                                                                                                            {/* Versión 1.10.2 - Versión Actual */}
+                                                                                                                                                          {/* Versión 1.10.3 - Versión Actual */}
               <TouchableOpacity 
                 style={[styles.versionBlock, styles.currentVersionBlock]} 
+                onPress={() => toggleVersionExpanded('1.10.3')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.versionHeader}>
+                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.10.3 (Actual)</Text>
+                  <Text style={[styles.versionDate, styles.currentVersionDate]}>22 Jun 2026</Text>
+                  <MaterialCommunityIcons 
+                    name={expandedVersions.has('1.10.3') ? 'chevron-up' : 'chevron-down'} 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
+                </View>
+                {expandedVersions.has('1.10.3') && (
+                  <View style={styles.versionContent}>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🚀 Novedades</Text>
+                      <Text style={styles.changelogItem}>• Monto pendiente en EventCard</Text>
+                      <Text style={styles.changelogItem}>• Imágenes de Splitty por idioma</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🔧 Correcciones</Text>
+                      <Text style={styles.changelogItem}>• Monto pendiente incorrecto en card</Text>
+                      <Text style={styles.changelogItem}>• Monto pendiente no se actualizaba tras pagar una liquidación</Text>
+                      <Text style={styles.changelogItem}>• Popup de actualización no aparecía al lanzar nueva versión</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>✨ Mejoras</Text>
+                      <Text style={styles.changelogItem}>• CreateExpense: orden de campos</Text>
+                      <Text style={styles.changelogItem}>• CreateExpense: label de monto eliminado</Text>
+                      <Text style={styles.changelogItem}>• EventCard: liquidaciones</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+{/* Versión 1.10.2 - Versión Actual */}
+              <TouchableOpacity 
+                style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.10.2')}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
-                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.10.2 (Actual)</Text>
-                  <Text style={[styles.versionDate, styles.currentVersionDate]}>18 Jun 2026</Text>
+                  <Text style={[styles.versionNumber]}>v1.10.2</Text>
+                  <Text style={[styles.versionDate]}>18 Jun 2026</Text>
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.10.2') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
@@ -2922,7 +2960,7 @@ const ProfileScreen: React.FC = () => {
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                     <Text style={styles.aboutTitle}>SplitSmart</Text>
-                    <View style={styles.versionBadge}><Text style={styles.versionBadgeText}>v1.10.2</Text></View>
+                    <View style={styles.versionBadge}><Text style={styles.versionBadgeText}>v1.10.3</Text></View>
                   </View>
                   <Text style={styles.aboutDescription}>{t('profile.about.appDescription')}</Text>
                 </View>
