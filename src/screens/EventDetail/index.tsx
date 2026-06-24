@@ -68,9 +68,11 @@ export default function EventDetailScreen() {
     participants,
     getPaymentsByEvent,
     createPayment,
-    updatePayment
+    updatePayment,
+    createShareLink,
+    refreshShareLink,
   } = useData();
-  const { user } = useAuth();
+  const { user, isOnlineUser } = useAuth();
   const insets = useSafeAreaInsets();
   
   const eventId = (route.params as any)?.eventId as string;
@@ -158,6 +160,8 @@ export default function EventDetailScreen() {
   // ── Modal: QR de invitación ────────────────────────────────
   const [showQRModal, setShowQRModal] = useState(false);
   const [qrPermission, setQrPermission] = useState<'editor' | 'viewer'>('viewer');
+  const [shareId, setShareId] = useState<string | null>(event?.shareId || null);
+  const [shareLoading, setShareLoading] = useState(false);
 
   // Use calculations hook for balance and settlement calculations  
   const { balances, settlements, eventStats } = useCalculations(
@@ -4153,7 +4157,7 @@ export default function EventDetailScreen() {
           <View style={{ backgroundColor: theme.colors.surface, borderRadius: 20, padding: 24, width: '100%', maxWidth: 360 }}>
             {/* Header */}
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 10 }}>
-              <MaterialCommunityIcons name="qrcode" size={26} color="#4CAF50" />
+              <MaterialCommunityIcons name="qrcode" size={26} color="#9C27B0" />
               <Text style={{ fontSize: 18, fontWeight: '700', color: theme.colors.onSurface, flex: 1 }}>
                 {t('eventDetail.qrModalTitle')}
               </Text>
@@ -4162,118 +4166,186 @@ export default function EventDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Selector de permiso */}
-            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colors.onSurfaceVariant, marginBottom: 10 }}>
-              {t('eventDetail.qrPermissionLabel')}
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
-              <TouchableOpacity
-                style={{
-                  flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
-                  backgroundColor: qrPermission === 'editor' ? '#4CAF5020' : theme.colors.surfaceVariant,
-                  borderWidth: 2, borderColor: qrPermission === 'editor' ? '#4CAF50' : 'transparent',
-                }}
-                onPress={() => setQrPermission('editor')}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons name="pencil" size={20} color={qrPermission === 'editor' ? '#4CAF50' : theme.colors.onSurfaceVariant} />
-                <Text style={{ fontSize: 12, fontWeight: '700', marginTop: 4, color: qrPermission === 'editor' ? '#4CAF50' : theme.colors.onSurfaceVariant, textAlign: 'center' }}>
-                  {t('eventDetail.qrPermissionEdit')}
+            {!isOnlineUser ? (
+              /* ── Usuario local: requiere cuenta online ─── */
+              <View style={{ alignItems: 'center', paddingVertical: 20, gap: 12 }}>
+                <MaterialCommunityIcons name="cloud-off-outline" size={56} color={theme.colors.onSurfaceVariant} />
+                <Text style={{ fontSize: 15, fontWeight: '700', color: theme.colors.onSurface, textAlign: 'center' }}>
+                  {t('eventDetail.qrRequiresOnlineTitle')}
                 </Text>
-                <Text style={{ fontSize: 10, color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 2 }}>
-                  {t('eventDetail.qrPermissionEditDesc')}
+                <Text style={{ fontSize: 13, color: theme.colors.onSurfaceVariant, textAlign: 'center', lineHeight: 20 }}>
+                  {t('eventDetail.qrRequiresOnlineDesc')}
                 </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={{
-                  flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
-                  backgroundColor: qrPermission === 'viewer' ? '#2196F320' : theme.colors.surfaceVariant,
-                  borderWidth: 2, borderColor: qrPermission === 'viewer' ? '#2196F3' : 'transparent',
-                }}
-                onPress={() => setQrPermission('viewer')}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons name="eye" size={20} color={qrPermission === 'viewer' ? '#2196F3' : theme.colors.onSurfaceVariant} />
-                <Text style={{ fontSize: 12, fontWeight: '700', marginTop: 4, color: qrPermission === 'viewer' ? '#2196F3' : theme.colors.onSurfaceVariant, textAlign: 'center' }}>
-                  {t('eventDetail.qrPermissionView')}
-                </Text>
-                <Text style={{ fontSize: 10, color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 2 }}>
-                  {t('eventDetail.qrPermissionViewDesc')}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* QR Code */}
-            <View style={{ alignItems: 'center', marginBottom: 16 }}>
-              <View style={{ padding: 16, backgroundColor: '#FFFFFF', borderRadius: 12 }}>
-                <QRCodeView
-                  value={(() => {
-                    try {
-                      const payload = {
-                        v: 1,
-                        role: qrPermission,
-                        e: {
-                          id: event?.id,
-                          n: event?.name || '',
-                          d: event?.description || '',
-                          s: event?.startDate || '',
-                          l: event?.location || '',
-                          c: event?.currency || 'ARS',
-                          cat: event?.category || 'evento',
-                        },
-                        p: eventParticipants.map(p => ({ id: p.id, n: p.name })),
-                        ex: eventExpenses.map(e => ({
-                          id: e.id, d: e.description, a: e.amount,
-                          dt: e.date, c: e.currency, cat: e.category,
-                          pid: e.payerId, pn: e.payerName,
-                        })),
-                        sp: eventSplits.map(s => ({
-                          id: s.id, eid: s.expenseId,
-                          pid: s.participantId, a: s.amount, t: s.type,
-                        })),
-                      };
-                      const json = JSON.stringify(payload);
-                      return 'splitsmart://join?data=' + btoa(unescape(encodeURIComponent(json)));
-                    } catch {
-                      return `splitsmart://join?eventId=${eventId}&role=${qrPermission}`;
-                    }
-                  })()}
-                  size={180}
-                  color="#1A1A1A"
-                  backgroundColor="#FFFFFF"
-                />
               </View>
-              <Text style={{ fontSize: 12, color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 12, lineHeight: 18 }}>
-                {t('eventDetail.qrInstructions')}
-              </Text>
-            </View>
+            ) : (
+              <>
+                {/* Selector de permiso (solo visible antes de generar o para cambiar) */}
+                {!shareId && (
+                  <>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colors.onSurfaceVariant, marginBottom: 10 }}>
+                      {t('eventDetail.qrPermissionLabel')}
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+                      <TouchableOpacity
+                        style={{
+                          flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
+                          backgroundColor: qrPermission === 'editor' ? '#4CAF5020' : theme.colors.surfaceVariant,
+                          borderWidth: 2, borderColor: qrPermission === 'editor' ? '#4CAF50' : 'transparent',
+                        }}
+                        onPress={() => setQrPermission('editor')}
+                        activeOpacity={0.7}
+                      >
+                        <MaterialCommunityIcons name="pencil" size={20} color={qrPermission === 'editor' ? '#4CAF50' : theme.colors.onSurfaceVariant} />
+                        <Text style={{ fontSize: 12, fontWeight: '700', marginTop: 4, color: qrPermission === 'editor' ? '#4CAF50' : theme.colors.onSurfaceVariant, textAlign: 'center' }}>
+                          {t('eventDetail.qrPermissionEdit')}
+                        </Text>
+                        <Text style={{ fontSize: 10, color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 2 }}>
+                          {t('eventDetail.qrPermissionEditDesc')}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={{
+                          flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
+                          backgroundColor: qrPermission === 'viewer' ? '#2196F320' : theme.colors.surfaceVariant,
+                          borderWidth: 2, borderColor: qrPermission === 'viewer' ? '#2196F3' : 'transparent',
+                        }}
+                        onPress={() => setQrPermission('viewer')}
+                        activeOpacity={0.7}
+                      >
+                        <MaterialCommunityIcons name="eye" size={20} color={qrPermission === 'viewer' ? '#2196F3' : theme.colors.onSurfaceVariant} />
+                        <Text style={{ fontSize: 12, fontWeight: '700', marginTop: 4, color: qrPermission === 'viewer' ? '#2196F3' : theme.colors.onSurfaceVariant, textAlign: 'center' }}>
+                          {t('eventDetail.qrPermissionView')}
+                        </Text>
+                        <Text style={{ fontSize: 10, color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 2 }}>
+                          {t('eventDetail.qrPermissionViewDesc')}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
 
-            {/* Compartir datos del evento */}
-            <TouchableOpacity
-              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: theme.colors.outline }}
-              onPress={() => {
-                try {
-                  const payload = {
-                    v: 1, role: qrPermission,
-                    e: { id: event?.id, n: event?.name, d: event?.description, s: event?.startDate, l: event?.location, c: event?.currency, cat: event?.category },
-                    p: eventParticipants.map(p => ({ id: p.id, n: p.name })),
-                    ex: eventExpenses.map(e => ({ id: e.id, d: e.description, a: e.amount, dt: e.date, c: e.currency, cat: e.category, pid: e.payerId, pn: e.payerName })),
-                    sp: eventSplits.map(s => ({ id: s.id, eid: s.expenseId, pid: s.participantId, a: s.amount, t: s.type })),
-                  };
-                  const encoded = 'splitsmart://join?data=' + btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-                  Clipboard.setString(encoded);
-                  showAlert({ type: 'success', title: '✅', message: t('eventDetail.qrLinkCopied'), buttons: [{ text: 'OK' }] });
-                } catch {
-                  showAlert({ type: 'error', title: t('common.error'), message: 'No se pudo generar el enlace', buttons: [{ text: 'OK' }] });
-                }
-              }}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons name="content-copy" size={18} color={theme.colors.onSurfaceVariant} />
-              <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colors.onSurfaceVariant }}>
-                {t('eventDetail.qrCopyLink')}
-              </Text>
-            </TouchableOpacity>
+                    {/* Botón Generar QR */}
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: '#9C27B0', paddingVertical: 14, borderRadius: 12,
+                        alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8,
+                      }}
+                      disabled={shareLoading}
+                      onPress={async () => {
+                        try {
+                          setShareLoading(true);
+                          const newShareId = await createShareLink(eventId, qrPermission);
+                          setShareId(newShareId);
+                        } catch (err: any) {
+                          showAlert({ type: 'error', title: t('common.error'), message: t('eventDetail.qrGenerateError'), buttons: [{ text: 'OK' }] });
+                        } finally {
+                          setShareLoading(false);
+                        }
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      {shareLoading
+                        ? <ActivityIndicator size="small" color="#fff" />
+                        : <MaterialCommunityIcons name="cloud-upload-outline" size={20} color="#fff" />}
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>
+                        {shareLoading ? t('eventDetail.qrGenerating') : t('eventDetail.qrGenerateButton')}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                {/* QR generado */}
+                {shareId && (
+                  <>
+                    {/* Badge de permiso activo */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12, alignSelf: 'center' }}>
+                      <MaterialCommunityIcons
+                        name={qrPermission === 'editor' ? 'pencil' : 'eye'}
+                        size={14}
+                        color={qrPermission === 'editor' ? '#4CAF50' : '#2196F3'}
+                      />
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: qrPermission === 'editor' ? '#4CAF50' : '#2196F3' }}>
+                        {qrPermission === 'editor' ? t('eventDetail.qrPermissionEdit') : t('eventDetail.qrPermissionView')}
+                      </Text>
+                    </View>
+
+                    <View style={{ alignItems: 'center', marginBottom: 14 }}>
+                      <View style={{ padding: 16, backgroundColor: '#FFFFFF', borderRadius: 12 }}>
+                        <QRCodeView
+                          value={`splitsmart://join?share=${shareId}`}
+                          size={180}
+                          color="#1A1A1A"
+                          backgroundColor="#FFFFFF"
+                        />
+                      </View>
+                      <Text style={{ fontSize: 11, color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 10, lineHeight: 16 }}>
+                        {t('eventDetail.qrInstructions')}
+                      </Text>
+                    </View>
+
+                    {/* Acciones del QR generado */}
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      {/* Actualizar snapshot */}
+                      <TouchableOpacity
+                        style={{
+                          flex: 1, paddingVertical: 11, borderRadius: 10, alignItems: 'center',
+                          backgroundColor: theme.colors.surfaceVariant,
+                          flexDirection: 'row', justifyContent: 'center', gap: 6,
+                        }}
+                        disabled={shareLoading}
+                        onPress={async () => {
+                          try {
+                            setShareLoading(true);
+                            await refreshShareLink(shareId, eventId, qrPermission);
+                            showAlert({ type: 'success', title: '✅', message: t('eventDetail.qrRefreshed'), buttons: [{ text: 'OK' }] });
+                          } catch {
+                            showAlert({ type: 'error', title: t('common.error'), message: t('eventDetail.qrGenerateError'), buttons: [{ text: 'OK' }] });
+                          } finally {
+                            setShareLoading(false);
+                          }
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        {shareLoading
+                          ? <ActivityIndicator size="small" color={theme.colors.onSurfaceVariant} />
+                          : <MaterialCommunityIcons name="refresh" size={16} color={theme.colors.onSurfaceVariant} />}
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: theme.colors.onSurfaceVariant }}>
+                          {t('eventDetail.qrRefreshButton')}
+                        </Text>
+                      </TouchableOpacity>
+
+                      {/* Copiar enlace */}
+                      <TouchableOpacity
+                        style={{
+                          flex: 1, paddingVertical: 11, borderRadius: 10, alignItems: 'center',
+                          borderWidth: 1, borderColor: theme.colors.outline,
+                          flexDirection: 'row', justifyContent: 'center', gap: 6,
+                        }}
+                        onPress={() => {
+                          Clipboard.setString(`splitsmart://join?share=${shareId}`);
+                          showAlert({ type: 'success', title: '✅', message: t('eventDetail.qrLinkCopied'), buttons: [{ text: 'OK' }] });
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <MaterialCommunityIcons name="content-copy" size={16} color={theme.colors.onSurfaceVariant} />
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: theme.colors.onSurfaceVariant }}>
+                          {t('eventDetail.qrCopyLink')}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Nuevo QR con otro permiso */}
+                    <TouchableOpacity
+                      style={{ marginTop: 10, alignItems: 'center', paddingVertical: 6 }}
+                      onPress={() => setShareId(null)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{ fontSize: 12, color: '#9C27B0', fontWeight: '600' }}>
+                        {t('eventDetail.qrNewPermission')}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </>
+            )}
           </View>
         </View>
       </Modal>

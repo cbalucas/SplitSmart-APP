@@ -15,7 +15,11 @@ interface DataContextValue {
   addEvent: (event: Partial<Event>) => Promise<void>;
   updateEvent: (id: string, updates: Partial<Event>) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
-  importSharedEvent: (payload: any, role: 'editor' | 'viewer') => Promise<Event>;
+  importSharedEvent: (payload: any, role: 'editor' | 'viewer', shareId?: string, ownerName?: string) => Promise<Event>;
+  /** Sube un snapshot del evento a Supabase. Retorna el share_id. Requiere usuario online. */
+  createShareLink: (eventId: string, role: 'editor' | 'viewer') => Promise<string>;
+  /** Actualiza el snapshot en Supabase con los datos actuales del evento. */
+  refreshShareLink: (shareId: string, eventId: string, role: 'editor' | 'viewer') => Promise<void>;
   // Participant methods
   addParticipant: (participant: Participant) => Promise<void>;
   addParticipantToEvent: (eventId: string, participant: Participant) => Promise<void>;
@@ -72,6 +76,8 @@ const DataContext = createContext<DataContextValue>({
   updateEvent: async () => {},
   deleteEvent: async () => {},
   importSharedEvent: async () => { throw new Error('Not implemented'); },
+  createShareLink: async () => { throw new Error('Not implemented'); },
+  refreshShareLink: async () => { throw new Error('Not implemented'); },
   addParticipant: async () => {},
   addParticipantToEvent: async () => {},
   addExistingParticipantToEvent: async () => {},
@@ -1222,11 +1228,59 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshData]);
 
-  const importSharedEvent = useCallback(async (payload: any, role: 'editor' | 'viewer'): Promise<Event> => {
-    const newEvent = await databaseService.importSharedEvent(payload, role);
+  const importSharedEvent = useCallback(async (payload: any, role: 'editor' | 'viewer', shareId?: string, ownerName?: string): Promise<Event> => {
+    const newEvent = await databaseService.importSharedEvent(payload, role, shareId, ownerName);
     await refreshData();
     return newEvent;
   }, [refreshData]);
+
+  const createShareLink = useCallback(async (eventId: string, role: 'editor' | 'viewer'): Promise<string> => {
+    if (!user?.supabaseUserId) throw new Error('REQUIRES_ONLINE');
+    const SharedEventService = (await import('../services/SharedEventService')).default;
+    // Obtener datos del evento
+    const [ev, participants, expenses, splits] = await Promise.all([
+      databaseService.getEventById(eventId),
+      databaseService.getEventParticipants(eventId),
+      databaseService.getExpensesByEvent(eventId),
+      databaseService.getSplitsByEvent(eventId),
+    ]);
+    if (!ev) throw new Error('Event not found');
+    const snapshot = {
+      v: 1,
+      role,
+      e: { id: ev.id, n: ev.name, d: ev.description || '', s: ev.startDate, l: ev.location || '', c: ev.currency, cat: ev.category || 'evento' },
+      p: participants.map(p => ({ id: p.id, n: p.name })),
+      ex: expenses.map(e => ({ id: e.id, d: e.description, a: e.amount, dt: e.date, c: e.currency, cat: e.category || '', pid: e.payerId, pn: e.payerName || '' })),
+      sp: splits.map(s => ({ id: s.id, eid: s.expenseId, pid: s.participantId, a: s.amount, t: s.type || 'equal' })),
+    };
+    const shareId = await SharedEventService.createShare(snapshot as any, user.supabaseUserId, user.name);
+    // Guardar registro local
+    await databaseService.saveEventShare(shareId, eventId, 'sent', role);
+    return shareId;
+  }, [user, refreshData]);
+
+  const refreshShareLink = useCallback(async (shareId: string, eventId: string, role: 'editor' | 'viewer'): Promise<void> => {
+    if (!user?.supabaseUserId) throw new Error('REQUIRES_ONLINE');
+    const SharedEventService = (await import('../services/SharedEventService')).default;
+    const [ev, participants, expenses, splits] = await Promise.all([
+      databaseService.getEventById(eventId),
+      databaseService.getEventParticipants(eventId),
+      databaseService.getExpensesByEvent(eventId),
+      databaseService.getSplitsByEvent(eventId),
+    ]);
+    if (!ev) throw new Error('Event not found');
+    const snapshot = {
+      v: 1,
+      role,
+      e: { id: ev.id, n: ev.name, d: ev.description || '', s: ev.startDate, l: ev.location || '', c: ev.currency, cat: ev.category || 'evento' },
+      p: participants.map(p => ({ id: p.id, n: p.name })),
+      ex: expenses.map(e => ({ id: e.id, d: e.description, a: e.amount, dt: e.date, c: e.currency, cat: e.category || '', pid: e.payerId, pn: e.payerName || '' })),
+      sp: splits.map(s => ({ id: s.id, eid: s.expenseId, pid: s.participantId, a: s.amount, t: s.type || 'equal' })),
+    };
+    await SharedEventService.refreshShare(shareId, snapshot as any);
+    // Actualizar synced_at local
+    await databaseService.saveEventShare(shareId, eventId, 'sent', role);
+  }, [user]);
 
   return (
     <DataContext.Provider value={{
@@ -1276,7 +1330,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       nukeDatabase,
       exportData,
       importData,
-      importSharedEvent
+      importSharedEvent,
+      createShareLink,
+      refreshShareLink,
     }}>
       {children}
     </DataContext.Provider>

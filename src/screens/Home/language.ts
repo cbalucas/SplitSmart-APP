@@ -83,6 +83,8 @@ export const homeLanguage = {
       importSuccessMessage: 'El evento "{name}" ya está en tu lista',
       importError: 'Error al importar el evento',
       invalidQR: 'QR inválido. Solo se aceptan invitaciones de SplitSmart',
+      fetchingShare: 'Obteniendo datos del evento desde la nube. ¿Continuar?',
+      shareNotFound: 'Este QR ya no está disponible o fue eliminado por el dueño.',
     }
   },
   
@@ -168,6 +170,8 @@ export const homeLanguage = {
       importSuccessMessage: 'The event "{name}" is now in your list',
       importError: 'Error importing event',
       invalidQR: 'Invalid QR. Only SplitSmart invitations are accepted',
+      fetchingShare: 'Fetching event data from the cloud. Continue?',
+      shareNotFound: 'This QR is no longer available or was deleted by the owner.',
     }
   },
   
@@ -255,6 +259,8 @@ export const homeLanguage = {
       importSuccessMessage: 'O evento "{name}" já está na sua lista',
       importError: 'Erro ao importar o evento',
       invalidQR: 'QR inválido. Apenas convites do SplitSmart são aceitos',
+      fetchingShare: 'Buscando dados do evento na nuvem. Continuar?',
+      shareNotFound: 'Este QR não está mais disponível ou foi excluído pelo proprietário.',
     }
   }
 };

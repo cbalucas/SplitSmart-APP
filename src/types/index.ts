@@ -37,6 +37,8 @@ export interface Event {
   isShared?: boolean;
   /** Rol del usuario actual en eventos compartidos */
   sharedRole?: 'editor' | 'viewer';
+  /** share_id de Supabase si este evento fue compartido/recibido via QR online */
+  shareId?: string;
 }
 
 export interface Participant {
@@ -149,4 +151,15 @@ export interface ConsolidatedSettlement extends Settlement {
   isConsolidated: boolean;
   originalSettlements?: Settlement[];
   consolidationAssignments?: ConsolidationAssignment[];
+}
+
+/** Registro local de un evento compartido (enviado o recibido). */
+export interface EventShare {
+  id: string;           // = share_id de Supabase
+  eventId: string;      // ID del evento local
+  direction: 'sent' | 'received';
+  role: 'editor' | 'viewer';
+  ownerName?: string;   // nombre del dueño (solo para 'received')
+  syncedAt?: string;    // última vez que se descargó el snapshot
+  createdAt: string;
 }

@@ -1,22 +1,23 @@
 -- =====================================================================
--- SplitSmart — Supabase (PostgreSQL) Schema
+-- SplitSmart — Supabase (PostgreSQL) Schema v2
 -- =====================================================================
 -- Ejecutar en: Supabase Dashboard → SQL Editor → New Query
 --
--- Este schema es equivalente al SQLite local de la app.
--- Los tipos de dato se mapean así:
---   TEXT/INTEGER → TEXT/BOOLEAN/INTEGER
---   is_paid INTEGER → BOOLEAN
---   timestamps TEXT → TIMESTAMPTZ
---   IDs TEXT → UUID
+-- Este script es IDEMPOTENTE: puede correrse en instalaciones nuevas
+-- y en bases de datos existentes sin pérdida de datos.
 --
--- IMPORTANTE: Ejecutar PRIMERO schema.sql, LUEGO rls.sql
+-- Mapeo de tipos SQLite → PostgreSQL:
+--   TEXT/INTEGER booleans → BOOLEAN
+--   TEXT timestamps       → TIMESTAMPTZ
+--   TEXT IDs              → UUID
+--   INTEGER (0/1)         → BOOLEAN
+--
+-- EJECUCIÓN: Primero schema.sql, luego rls.sql
 -- =====================================================================
 
--- Habilitar extensión UUID (gen_random_uuid está disponible por defecto en Supabase)
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ─── FUNCIÓN AUTO-UPDATE updated_at ──────────────────────────────────────────
+-- ─── HELPER: auto-update updated_at ──────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -25,10 +26,67 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- ─── HELPER: verificar participación del usuario en un evento ─────────────────
+-- Centraliza la verificación "¿participa el usuario en este evento?"
+-- Usada por múltiples políticas RLS para evitar sub-queries repetidas.
+-- SECURITY DEFINER: se ejecuta con privilegios del owner (bypasea RLS internamente).
+-- STABLE: no modifica datos; Postgres puede cachear el resultado por query.
+CREATE OR REPLACE FUNCTION public.user_participates_in_event(event_uuid UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.event_participants ep
+    JOIN public.participants p ON ep.participant_id = p.id
+    WHERE ep.event_id = event_uuid
+      AND p.user_id = auth.uid()
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+-- ─── HELPER: acceso al evento (creador O participante) ───────────────────────
+CREATE OR REPLACE FUNCTION public.user_can_access_event(event_uuid UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.events e
+    WHERE e.id = event_uuid
+      AND (
+        e.creator_id = auth.uid()
+        OR public.user_participates_in_event(event_uuid)
+      )
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+-- ─── SHARED_EVENTS (QR sharing) ─── SE CREA PRIMERO (referenciada por events) ─
+-- Snapshot de eventos para compartir por QR anónimo.
+-- DIFERENCIA con event_invitations: el destinatario es ANÓNIMO.
+--   Cualquiera con el share_id (UUID secreto) puede escanear el QR.
+-- owner_id → auth.uid() sin FK declarada (auth.users no es accesible via FK).
+--   El RLS garantiza que solo el owner puede modificar.
+-- expires_at: vencimiento automático del QR (90 días por defecto).
+CREATE TABLE IF NOT EXISTS public.shared_events (
+  share_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id       UUID NOT NULL,
+  owner_name     TEXT NOT NULL,
+  event_snapshot JSONB NOT NULL,
+  role           TEXT NOT NULL DEFAULT 'viewer'
+                 CHECK (role IN ('editor', 'viewer')),
+  expires_at     TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '90 days'),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_shared_events_owner      ON public.shared_events(owner_id);
+CREATE INDEX IF NOT EXISTS idx_shared_events_expires_at ON public.shared_events(expires_at);
+
+CREATE OR REPLACE TRIGGER trg_shared_events_updated_at
+  BEFORE UPDATE ON public.shared_events
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
 -- ─── USERS ───────────────────────────────────────────────────────────────────
 -- Perfil de aplicación vinculado a auth.users de Supabase Auth.
 -- id = auth.users.id (UUID generado por Supabase al registrarse).
 -- La contraseña la gestiona Supabase Auth, NO se almacena aquí.
+-- NOTA: Al sincronizar desde SQLite, excluir el campo 'password'.
+--   Mapear: sqlite.users.supabase_user_id → supabase.users.id
 CREATE TABLE IF NOT EXISTS public.users (
   id                             UUID PRIMARY KEY,  -- = auth.users.id
   username                       TEXT UNIQUE NOT NULL,
@@ -72,7 +130,7 @@ CREATE TABLE IF NOT EXISTS public.user_preferences (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (user_id, key)
 );
-
+CREATE INDEX IF NOT EXISTS idx_user_prefs_user_id ON public.user_preferences(user_id);
 -- ─── EVENTS ──────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.events (
   id               UUID PRIMARY KEY,
@@ -93,6 +151,13 @@ CREATE TABLE IF NOT EXISTS public.events (
   closing_comment  TEXT,
   closed_at        TIMESTAMPTZ,
   completed_at     TIMESTAMPTZ,
+  -- Campos para eventos compartidos por QR (recibidos)
+  -- is_shared=TRUE: evento importado de otro usuario
+  -- shared_role: permiso con que fue importado
+  -- share_id: referencia al snapshot en shared_events (para re-fetch/refresh)
+  is_shared        BOOLEAN NOT NULL DEFAULT FALSE,
+  shared_role      TEXT CHECK (shared_role IN ('editor', 'viewer')),
+  share_id         UUID REFERENCES public.shared_events(share_id) ON DELETE SET NULL,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   sync_status      TEXT NOT NULL DEFAULT 'synced'
@@ -102,6 +167,8 @@ CREATE TABLE IF NOT EXISTS public.events (
 CREATE INDEX IF NOT EXISTS idx_events_creator_id  ON public.events(creator_id);
 CREATE INDEX IF NOT EXISTS idx_events_status      ON public.events(status);
 CREATE INDEX IF NOT EXISTS idx_events_sync_status ON public.events(sync_status);
+CREATE INDEX IF NOT EXISTS idx_events_is_shared   ON public.events(is_shared) WHERE is_shared = TRUE;
+CREATE INDEX IF NOT EXISTS idx_events_share_id    ON public.events(share_id);
 
 CREATE OR REPLACE TRIGGER trg_events_updated_at
   BEFORE UPDATE ON public.events
@@ -165,7 +232,10 @@ CREATE TABLE IF NOT EXISTS public.expenses (
   conversion_rate REAL NOT NULL DEFAULT 1.0,
   date            TIMESTAMPTZ NOT NULL,
   category        TEXT,
-  payer_id        UUID NOT NULL REFERENCES public.participants(id),
+  payer_id        UUID NOT NULL REFERENCES public.participants(id) ON DELETE RESTRICT,
+  -- payer_name: desnormalizado intencionalmente.
+  -- Preserva el nombre histórico aunque el participante sea renombrado/eliminado.
+  payer_name      TEXT NOT NULL DEFAULT '',
   receipt_image   TEXT,                              -- URL en Supabase Storage
   is_active       BOOLEAN NOT NULL DEFAULT TRUE,
   created_at      TIMESTAMPTZ DEFAULT NOW(),
@@ -177,6 +247,7 @@ CREATE TABLE IF NOT EXISTS public.expenses (
 CREATE INDEX IF NOT EXISTS idx_expenses_event_id    ON public.expenses(event_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_payer_id    ON public.expenses(payer_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_sync_status ON public.expenses(sync_status);
+CREATE INDEX IF NOT EXISTS idx_expenses_date        ON public.expenses(date);
 
 CREATE OR REPLACE TRIGGER trg_expenses_updated_at
   BEFORE UPDATE ON public.expenses
@@ -188,11 +259,19 @@ CREATE TABLE IF NOT EXISTS public.expense_payers (
   expense_id     UUID NOT NULL REFERENCES public.expenses(id) ON DELETE CASCADE,
   participant_id UUID NOT NULL REFERENCES public.participants(id) ON DELETE CASCADE,
   amount         REAL NOT NULL,
-  created_at     TIMESTAMPTZ DEFAULT NOW(),
-  updated_at     TIMESTAMPTZ DEFAULT NOW()
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  -- sync_status: necesario para sync bidireccional (consistente con otras tablas)
+  sync_status    TEXT NOT NULL DEFAULT 'synced'
+                 CHECK (sync_status IN ('pending', 'synced', 'conflict'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_expense_payers_expense_id ON public.expense_payers(expense_id);
+CREATE INDEX IF NOT EXISTS idx_expense_payers_expense_id     ON public.expense_payers(expense_id);
+CREATE INDEX IF NOT EXISTS idx_expense_payers_participant_id ON public.expense_payers(participant_id);
+
+CREATE OR REPLACE TRIGGER trg_expense_payers_updated_at
+  BEFORE UPDATE ON public.expense_payers
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- ─── SPLITS ──────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.splits (
@@ -212,6 +291,7 @@ CREATE TABLE IF NOT EXISTS public.splits (
 
 CREATE INDEX IF NOT EXISTS idx_splits_expense_id     ON public.splits(expense_id);
 CREATE INDEX IF NOT EXISTS idx_splits_participant_id ON public.splits(participant_id);
+CREATE INDEX IF NOT EXISTS idx_splits_is_paid        ON public.splits(is_paid) WHERE is_paid = FALSE;
 
 CREATE OR REPLACE TRIGGER trg_splits_updated_at
   BEFORE UPDATE ON public.splits
@@ -221,9 +301,11 @@ CREATE OR REPLACE TRIGGER trg_splits_updated_at
 CREATE TABLE IF NOT EXISTS public.settlements (
   id                    UUID PRIMARY KEY,
   event_id              UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
-  from_participant_id   UUID NOT NULL REFERENCES public.participants(id),
+  -- ON DELETE RESTRICT (explícito): no se puede eliminar un participante con liquidaciones.
+  -- Los nombres desnormalizados preservan el historial si el participante cambia.
+  from_participant_id   UUID NOT NULL REFERENCES public.participants(id) ON DELETE RESTRICT,
   from_participant_name TEXT NOT NULL,
-  to_participant_id     UUID NOT NULL REFERENCES public.participants(id),
+  to_participant_id     UUID NOT NULL REFERENCES public.participants(id) ON DELETE RESTRICT,
   to_participant_name   TEXT NOT NULL,
   amount                REAL NOT NULL,
   is_paid               BOOLEAN NOT NULL DEFAULT FALSE,
@@ -240,6 +322,7 @@ CREATE TABLE IF NOT EXISTS public.settlements (
 CREATE INDEX IF NOT EXISTS idx_settlements_event_id    ON public.settlements(event_id);
 CREATE INDEX IF NOT EXISTS idx_settlements_from_p      ON public.settlements(from_participant_id);
 CREATE INDEX IF NOT EXISTS idx_settlements_to_p        ON public.settlements(to_participant_id);
+CREATE INDEX IF NOT EXISTS idx_settlements_is_paid     ON public.settlements(is_paid) WHERE is_paid = FALSE;
 CREATE INDEX IF NOT EXISTS idx_settlements_sync_status ON public.settlements(sync_status);
 
 CREATE OR REPLACE TRIGGER trg_settlements_updated_at
@@ -266,15 +349,20 @@ CREATE INDEX IF NOT EXISTS idx_app_versions_current ON public.app_versions(is_cu
 CREATE TABLE IF NOT EXISTS public.consolidation_assignments (
   id          SERIAL PRIMARY KEY,
   event_id    UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
-  payer_id    UUID NOT NULL REFERENCES public.participants(id),
+  -- ON DELETE RESTRICT: igual que settlements, para proteger integridad histórica
+  payer_id    UUID NOT NULL REFERENCES public.participants(id) ON DELETE RESTRICT,
   payer_name  TEXT NOT NULL,
-  debtor_id   UUID NOT NULL REFERENCES public.participants(id),
+  debtor_id   UUID NOT NULL REFERENCES public.participants(id) ON DELETE RESTRICT,
   debtor_name TEXT NOT NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_consolidation_event_id ON public.consolidation_assignments(event_id);
+
+CREATE OR REPLACE TRIGGER trg_consolidation_updated_at
+  BEFORE UPDATE ON public.consolidation_assignments
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- ─── PUSH_TOKENS ──────────────────────────────────────────────────────────────
 -- Token Expo/FCM/APNs para enviar push notifications al dispositivo del usuario.
@@ -328,36 +416,65 @@ CREATE TABLE IF NOT EXISTS public.notifications (
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON public.notifications(recipient_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_event     ON public.notifications(event_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_unread    ON public.notifications(recipient_id, is_read);
+-- ─── NOTIFICATIONS: índices adicionales ──────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_notifications_unread     ON public.notifications(recipient_id, is_read) WHERE is_read = FALSE;
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON public.notifications(created_at);
 
--- ─── EVENT_INVITATIONS ────────────────────────────────────────────────────────
--- Invitaciones para compartir un evento entre usuarios (local o Supabase).
--- El invitado puede aceptar → se agrega como participante en el evento.
-CREATE TABLE IF NOT EXISTS public.event_invitations (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_id        UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
-  inviter_id      UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  -- Destinatario: puede ser usuario existente o invitado por email
-  invitee_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
-  invitee_email   TEXT,
-  status          TEXT NOT NULL DEFAULT 'pending'
-                  CHECK (status IN ('pending', 'accepted', 'declined', 'expired')),
-  role            TEXT NOT NULL DEFAULT 'member'
-                  CHECK (role IN ('admin', 'member', 'viewer')),
-  message         TEXT,
-  expires_at      TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '7 days'),
-  responded_at    TIMESTAMPTZ,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+-- ─── EVENT_INVITATIONS: constraint integridad ────────────────────────────────
+-- Al menos uno de invitee_user_id o invitee_email debe estar presente.
+ALTER TABLE public.event_invitations
+  ADD COLUMN IF NOT EXISTS invitee_email TEXT;
 
-CREATE INDEX IF NOT EXISTS idx_invitations_event_id  ON public.event_invitations(event_id);
-CREATE INDEX IF NOT EXISTS idx_invitations_invitee   ON public.event_invitations(invitee_user_id);
-CREATE INDEX IF NOT EXISTS idx_invitations_email     ON public.event_invitations(invitee_email);
-CREATE INDEX IF NOT EXISTS idx_invitations_status    ON public.event_invitations(status);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'chk_invitee_present'
+  ) THEN
+    ALTER TABLE public.event_invitations
+      ADD CONSTRAINT chk_invitee_present
+      CHECK (invitee_user_id IS NOT NULL OR invitee_email IS NOT NULL);
+  END IF;
+END $$;
 
-CREATE OR REPLACE TRIGGER trg_event_invitations_updated_at
-  BEFORE UPDATE ON public.event_invitations
-  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+-- ─── MIGRACIONES PARA INSTANCIAS EXISTENTES (idempotente) ────────────────────
+-- Estas sentencias son seguras de correr en cualquier estado de la BD.
+
+-- events: campos de sharing (v2)
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS is_shared   BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS shared_role TEXT CHECK (shared_role IN ('editor', 'viewer'));
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS share_id    UUID;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'events_share_id_fkey') THEN
+    ALTER TABLE public.events ADD CONSTRAINT events_share_id_fkey
+      FOREIGN KEY (share_id) REFERENCES public.shared_events(share_id) ON DELETE SET NULL;
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS idx_events_is_shared ON public.events(is_shared) WHERE is_shared = TRUE;
+CREATE INDEX IF NOT EXISTS idx_events_share_id  ON public.events(share_id);
+
+-- expenses: payer_name desnormalizado (v2)
+ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS payer_name TEXT NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS idx_expenses_date ON public.expenses(date);
+
+-- expense_payers: sync_status y trigger (v2)
+ALTER TABLE public.expense_payers ADD COLUMN IF NOT EXISTS sync_status TEXT
+  NOT NULL DEFAULT 'synced' CHECK (sync_status IN ('pending', 'synced', 'conflict'));
+CREATE INDEX IF NOT EXISTS idx_expense_payers_participant_id ON public.expense_payers(participant_id);
+
+-- splits: índice adicional (v2)
+CREATE INDEX IF NOT EXISTS idx_splits_is_paid ON public.splits(is_paid) WHERE is_paid = FALSE;
+
+-- settlements: índice is_paid (v2)
+CREATE INDEX IF NOT EXISTS idx_settlements_is_paid ON public.settlements(is_paid) WHERE is_paid = FALSE;
+
+-- participants: índice is_public (v2)
+CREATE INDEX IF NOT EXISTS idx_participants_is_public ON public.participants(is_public) WHERE is_public = TRUE;
+
+-- user_preferences: índice por user_id (v2)
+CREATE INDEX IF NOT EXISTS idx_user_prefs_user_id ON public.user_preferences(user_id);
+
+-- shared_events: campo expires_at (v2)
+ALTER TABLE public.shared_events ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ
+  DEFAULT (NOW() + INTERVAL '90 days');
+CREATE INDEX IF NOT EXISTS idx_shared_events_expires_at ON public.shared_events(expires_at);

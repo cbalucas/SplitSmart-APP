@@ -258,7 +258,7 @@ export class IndexedDBDatabaseService implements IDatabaseService {
 
   // ─── Participants ──────────────────────────────────────────────────────────
 
-  async importSharedEvent(payload: any, role: 'editor' | 'viewer'): Promise<Event> {
+  async importSharedEvent(payload: any, role: 'editor' | 'viewer', shareId?: string, ownerName?: string): Promise<Event> {
     // Web implementation: delegates to a thin local-only import
     const { v4: uuidv4 } = await import('uuid');
     const now = new Date().toISOString();
@@ -280,6 +280,7 @@ export class IndexedDBDatabaseService implements IDatabaseService {
       is_express: 0,
       is_shared: 1,
       shared_role: role,
+      share_id: shareId || null,
       created_at: now,
       updated_at: now,
     });
@@ -302,6 +303,15 @@ export class IndexedDBDatabaseService implements IDatabaseService {
     const imported = await this.getEventById(newEventId);
     if (!imported) throw new Error('Failed to retrieve imported event');
     return imported;
+  }
+
+  async saveEventShare(_shareId: string, _eventId: string, _direction: 'sent' | 'received', _role: 'editor' | 'viewer', _ownerName?: string): Promise<void> {
+    // Web: not implemented (IndexedDB would need an 'event_shares' store)
+  }
+
+  async getEventShares(_eventId?: string): Promise<any[]> {
+    // Web: not implemented
+    return [];
   }
 
   async createParticipant(participant: Participant): Promise<void> {

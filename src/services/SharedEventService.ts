@@ -1,0 +1,155 @@
+/**
+ * SharedEventService.ts
+ *
+ * Gestiona el compartir eventos via QR usando Supabase como intermediario.
+ *
+ * Flujo:
+ *  Dueño (online): createShare() → sube snapshot al cloud → obtiene share_id
+ *  QR contiene: splitsmart://join?share=<uuid>
+ *  Receptor: fetchShare(share_id) → obtiene snapshot → importa localmente
+ *
+ * Requiere: usuario autenticado en Supabase para crear shares.
+ * Leer (fetchShare): permitido a cualquiera (anon key o autenticado).
+ */
+
+import { supabase } from './supabase';
+
+/** Snapshot compacto del evento que se almacena en Supabase. */
+export interface SharedEventSnapshot {
+  v: number;                                       // versión del formato (1)
+  role: 'editor' | 'viewer';                      // permiso otorgado al receptor
+  e: {                                             // datos del evento
+    id: string; n: string; d: string;
+    s: string; l: string; c: string; cat: string;
+  };
+  p: Array<{ id: string; n: string }>;             // participantes
+  ex: Array<{                                      // gastos
+    id: string; d: string; a: number; dt: string;
+    c: string; cat: string; pid: string; pn: string;
+  }>;
+  sp: Array<{                                      // splits
+    id: string; eid: string; pid: string; a: number; t: string;
+  }>;
+}
+
+export interface SharedEventRecord {
+  shareId: string;
+  ownerId: string;
+  ownerName: string;
+  snapshot: SharedEventSnapshot;
+  role: 'editor' | 'viewer';
+  createdAt: string;
+  updatedAt: string;
+}
+
+const SharedEventService = {
+  /**
+   * Sube el snapshot del evento a Supabase y retorna el share_id generado.
+   * El dueño debe estar autenticado en Supabase (isOnlineUser = true).
+   */
+  async createShare(
+    snapshot: SharedEventSnapshot,
+    ownerSupabaseId: string,
+    ownerName: string,
+  ): Promise<string> {
+    const { data, error } = await supabase
+      .from('shared_events')
+      .insert({
+        owner_id: ownerSupabaseId,
+        owner_name: ownerName,
+        event_snapshot: snapshot,
+        role: snapshot.role,
+      })
+      .select('share_id')
+      .single();
+
+    if (error) throw new Error(error.message);
+    return (data as any).share_id as string;
+  },
+
+  /**
+   * Actualiza el snapshot de un share existente (el dueño actualizó el evento).
+   * Solo el propietario puede llamar esta función (RLS lo garantiza).
+   */
+  async refreshShare(shareId: string, snapshot: SharedEventSnapshot): Promise<void> {
+    const { error } = await supabase
+      .from('shared_events')
+      .update({ event_snapshot: snapshot, role: snapshot.role })
+      .eq('share_id', shareId);
+
+    if (error) throw new Error(error.message);
+  },
+
+  /**
+   * Obtiene un share por su ID. Disponible para cualquier usuario (RLS: SELECT = TRUE).
+   * Si el share_id no existe o fue eliminado, lanza un error.
+   */
+  async fetchShare(shareId: string): Promise<SharedEventRecord> {
+    const { data, error } = await supabase
+      .from('shared_events')
+      .select('share_id, owner_id, owner_name, event_snapshot, role, created_at, updated_at')
+      .eq('share_id', shareId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        throw new Error('QR_NOT_FOUND');
+      }
+      throw new Error(error.message);
+    }
+
+    return {
+      shareId: (data as any).share_id,
+      ownerId: (data as any).owner_id,
+      ownerName: (data as any).owner_name,
+      snapshot: (data as any).event_snapshot as SharedEventSnapshot,
+      role: (data as any).role as 'editor' | 'viewer',
+      createdAt: (data as any).created_at,
+      updatedAt: (data as any).updated_at,
+    };
+  },
+
+  /**
+   * Obtiene todos los shares creados por el usuario autenticado.
+   * Útil para mostrar "Eventos que compartí".
+   */
+  async getMyShares(ownerSupabaseId: string): Promise<SharedEventRecord[]> {
+    const { data, error } = await supabase
+      .from('shared_events')
+      .select('share_id, owner_id, owner_name, event_snapshot, role, created_at, updated_at')
+      .eq('owner_id', ownerSupabaseId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error(error.message);
+
+    return ((data as any[]) ?? []).map((row: any) => ({
+      shareId: row.share_id,
+      ownerId: row.owner_id,
+      ownerName: row.owner_name,
+      snapshot: row.event_snapshot as SharedEventSnapshot,
+      role: row.role as 'editor' | 'viewer',
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  },
+
+  /**
+   * Elimina un share (el dueño revoca el acceso).
+   * Solo el propietario puede eliminar (RLS).
+   */
+  async deleteShare(shareId: string): Promise<void> {
+    const { error } = await supabase
+      .from('shared_events')
+      .delete()
+      .eq('share_id', shareId);
+
+    if (error) throw new Error(error.message);
+  },
+
+  /** Construye la URL profunda a partir de un share_id. */
+  buildShareUrl(shareId: string): string {
+    return `splitsmart://join?share=${shareId}`;
+  },
+};
+
+export default SharedEventService;

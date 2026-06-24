@@ -14,7 +14,7 @@ import {
   Modal,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { CameraView, Camera } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { showAlert } from '../../services/alertService';
 import { checkForUpdate } from '../../services/UpdateService';
 import { version as appVersion } from '../../../app.json';
@@ -64,7 +64,7 @@ const HomeScreen: React.FC = () => {
 
   // QR Scanner
   const [showQRScanner, setShowQRScanner] = useState(false);
-  const [cameraPermission, requestCameraPermission] = Camera.useCameraPermissions();
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const qrScannedRef = useRef(false);
 
   // Tour
@@ -354,51 +354,107 @@ const HomeScreen: React.FC = () => {
   // ── QR / Deep Link handlers ──────────────────────────────────────────────
   const processQRData = useCallback(async (raw: string) => {
     try {
-      let dataB64: string | null = null;
-      if (raw.startsWith('splitsmart://join?')) {
-        const url = new URL(raw);
-        dataB64 = url.searchParams.get('data');
-      }
-      if (!dataB64) {
+      if (!raw.startsWith('splitsmart://join?')) {
         showAlert({ type: 'error', title: t.actions.error, message: t.qr.invalidQR, buttons: [{ text: 'OK' }] });
         return;
       }
-      const json = decodeURIComponent(escape(atob(dataB64)));
-      const payload = JSON.parse(json);
-      if (!payload?.e?.n) {
-        showAlert({ type: 'error', title: t.actions.error, message: t.qr.invalidQR, buttons: [{ text: 'OK' }] });
-        return;
-      }
-      const roleLabel = payload.role === 'editor' ? t.qr.importRoleEditor : t.qr.importRoleViewer;
-      const message = t.qr.importConfirmMessage
-        .replace('{name}', payload.e.n)
-        .replace('{role}', roleLabel);
-      showAlert({
-        type: 'confirm',
-        title: t.qr.importConfirmTitle,
-        message,
-        buttons: [
-          { text: t.actions.cancel, style: 'cancel' },
-          {
-            text: t.actions.ok,
-            onPress: async () => {
-              try {
-                const newEvent = await importSharedEvent(payload, payload.role || 'viewer');
-                showAlert({
-                  type: 'success',
-                  title: t.qr.importSuccess,
-                  message: t.qr.importSuccessMessage.replace('{name}', newEvent.name),
-                  buttons: [{ text: t.actions.ok, onPress: () => {
-                    (navigation as any).navigate('EventDetail', { eventId: newEvent.id });
-                  }}],
-                });
-              } catch {
-                showAlert({ type: 'error', title: t.actions.error, message: t.qr.importError, buttons: [{ text: 'OK' }] });
+      const url = new URL(raw);
+      const shareId = url.searchParams.get('share');
+      const legacyDataB64 = url.searchParams.get('data'); // compatibilidad con QRs viejos
+
+      if (shareId) {
+        // ── Nuevo flujo: obtener snapshot desde Supabase ──
+        showAlert({
+          type: 'confirm',
+          title: t.qr.importConfirmTitle,
+          message: t.qr.fetchingShare,
+          buttons: [
+            { text: t.actions.cancel, style: 'cancel' },
+            {
+              text: t.actions.ok,
+              onPress: async () => {
+                try {
+                  const SharedEventService = (await import('../../services/SharedEventService')).default;
+                  const record = await SharedEventService.fetchShare(shareId);
+                  const roleLabel = record.role === 'editor' ? t.qr.importRoleEditor : t.qr.importRoleViewer;
+                  const confirmMsg = t.qr.importConfirmMessage
+                    .replace('{name}', record.snapshot?.e?.n || '?')
+                    .replace('{role}', roleLabel);
+                  showAlert({
+                    type: 'confirm',
+                    title: t.qr.importConfirmTitle,
+                    message: confirmMsg,
+                    buttons: [
+                      { text: t.actions.cancel, style: 'cancel' },
+                      {
+                        text: t.actions.ok,
+                        onPress: async () => {
+                          try {
+                            const newEvent = await importSharedEvent(record.snapshot, record.role, shareId, record.ownerName);
+                            showAlert({
+                              type: 'success',
+                              title: t.qr.importSuccess,
+                              message: t.qr.importSuccessMessage.replace('{name}', newEvent.name),
+                              buttons: [{ text: t.actions.ok, onPress: () => {
+                                (navigation as any).navigate('EventDetail', { eventId: newEvent.id });
+                              }}],
+                            });
+                          } catch {
+                            showAlert({ type: 'error', title: t.actions.error, message: t.qr.importError, buttons: [{ text: 'OK' }] });
+                          }
+                        }
+                      },
+                    ],
+                  });
+                } catch (err: any) {
+                  const msg = err?.message === 'QR_NOT_FOUND' ? t.qr.shareNotFound : t.qr.importError;
+                  showAlert({ type: 'error', title: t.actions.error, message: msg, buttons: [{ text: 'OK' }] });
+                }
               }
-            }
-          },
-        ],
-      });
+            },
+          ],
+        });
+      } else if (legacyDataB64) {
+        // ── Flujo legacy: datos incrustados en QR ──
+        const json = decodeURIComponent(escape(atob(legacyDataB64)));
+        const payload = JSON.parse(json);
+        if (!payload?.e?.n) {
+          showAlert({ type: 'error', title: t.actions.error, message: t.qr.invalidQR, buttons: [{ text: 'OK' }] });
+          return;
+        }
+        const roleLabel = payload.role === 'editor' ? t.qr.importRoleEditor : t.qr.importRoleViewer;
+        const message = t.qr.importConfirmMessage
+          .replace('{name}', payload.e.n)
+          .replace('{role}', roleLabel);
+        showAlert({
+          type: 'confirm',
+          title: t.qr.importConfirmTitle,
+          message,
+          buttons: [
+            { text: t.actions.cancel, style: 'cancel' },
+            {
+              text: t.actions.ok,
+              onPress: async () => {
+                try {
+                  const newEvent = await importSharedEvent(payload, payload.role || 'viewer');
+                  showAlert({
+                    type: 'success',
+                    title: t.qr.importSuccess,
+                    message: t.qr.importSuccessMessage.replace('{name}', newEvent.name),
+                    buttons: [{ text: t.actions.ok, onPress: () => {
+                      (navigation as any).navigate('EventDetail', { eventId: newEvent.id });
+                    }}],
+                  });
+                } catch {
+                  showAlert({ type: 'error', title: t.actions.error, message: t.qr.importError, buttons: [{ text: 'OK' }] });
+                }
+              }
+            },
+          ],
+        });
+      } else {
+        showAlert({ type: 'error', title: t.actions.error, message: t.qr.invalidQR, buttons: [{ text: 'OK' }] });
+      }
     } catch {
       showAlert({ type: 'error', title: t.actions.error, message: t.qr.invalidQR, buttons: [{ text: 'OK' }] });
     }

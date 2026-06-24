@@ -556,6 +556,35 @@ class DatabaseService implements IDatabaseService {
         }
       }
 
+      // Migration: Create event_shares table (tracks shared events sent/received)
+      try {
+        await this.db.execAsync(`
+          CREATE TABLE IF NOT EXISTS event_shares (
+            id TEXT PRIMARY KEY,
+            event_id TEXT NOT NULL,
+            direction TEXT NOT NULL CHECK(direction IN ('sent', 'received')),
+            role TEXT NOT NULL CHECK(role IN ('editor', 'viewer')),
+            owner_name TEXT,
+            synced_at TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE
+          )
+        `);
+        console.log('✅ Migration: event_shares table ensured');
+      } catch (error: any) {
+        console.error('❌ Error creating event_shares table:', error);
+      }
+
+      // Migration: Add share_id column to events table
+      try {
+        await this.db.execAsync('ALTER TABLE events ADD COLUMN share_id TEXT');
+        console.log('✅ Migration: Added share_id column to events table');
+      } catch (error: any) {
+        if (!error.message?.includes('duplicate column name')) {
+          console.error('❌ Error adding share_id column to events:', error);
+        }
+      }
+
     } catch (error) {
       console.error('❌ Error running migrations:', error);
     }
@@ -745,6 +774,7 @@ class DatabaseService implements IDatabaseService {
           is_express INTEGER NOT NULL DEFAULT 0,
           is_shared INTEGER NOT NULL DEFAULT 0,
           shared_role TEXT,
+          share_id TEXT,
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL
         )
@@ -951,6 +981,20 @@ class DatabaseService implements IDatabaseService {
         )
       `);
 
+      // Event shares table: registro local de eventos compartidos/recibidos via QR
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS event_shares (
+          id TEXT PRIMARY KEY,
+          event_id TEXT NOT NULL,
+          direction TEXT NOT NULL CHECK(direction IN ('sent', 'received')),
+          role TEXT NOT NULL CHECK(role IN ('editor', 'viewer')),
+          owner_name TEXT,
+          synced_at TEXT,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE
+        )
+      `);
+
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_event_participants_event_id ON event_participants(event_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_expenses_event_id ON expenses(event_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_splits_expense_id ON splits(expense_id)`);
@@ -1138,6 +1182,7 @@ class DatabaseService implements IDatabaseService {
         isExpress: row.is_express === 1 || row.is_express === true,
         isShared: row.is_shared === 1 || row.is_shared === true,
         sharedRole: (row.shared_role as 'editor' | 'viewer') || undefined,
+        shareId: row.share_id || undefined,
         closingComment: row.closing_comment || undefined,
         createdAt: row.created_at,
         updatedAt: row.updated_at
@@ -1184,6 +1229,7 @@ class DatabaseService implements IDatabaseService {
         isExpress: result.is_express === 1 || result.is_express === true,
         isShared: result.is_shared === 1 || result.is_shared === true,
         sharedRole: (result.shared_role as 'editor' | 'viewer') || undefined,
+        shareId: result.share_id || undefined,
         closingComment: result.closing_comment || undefined,
         createdAt: result.created_at,
         updatedAt: result.updated_at
@@ -1198,8 +1244,9 @@ class DatabaseService implements IDatabaseService {
    * Importa un evento compartido recibido via QR o deep link.
    * Crea una copia local del evento con isShared=true y el rol indicado.
    * Los IDs originales se reemplazan por nuevos IDs locales.
+   * Si se provee shareId (QR online), lo guarda en event_shares.
    */
-  async importSharedEvent(payload: any, role: 'editor' | 'viewer'): Promise<Event> {
+  async importSharedEvent(payload: any, role: 'editor' | 'viewer', shareId?: string, ownerName?: string): Promise<Event> {
     if (!this.db) throw new Error('Database not initialized');
 
     const now = new Date().toISOString();
@@ -1207,10 +1254,10 @@ class DatabaseService implements IDatabaseService {
 
     // Crear el evento
     await this.db.runAsync(
-      `INSERT INTO events (id, name, description, start_date, location, currency, total_amount, status, type, category, creator_id, is_locked, is_express, is_shared, shared_role, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 0, 'active', 'public', ?, NULL, 0, 0, 1, ?, ?, ?)`,
+      `INSERT INTO events (id, name, description, start_date, location, currency, total_amount, status, type, category, creator_id, is_locked, is_express, is_shared, shared_role, share_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 0, 'active', 'public', ?, NULL, 0, 0, 1, ?, ?, ?, ?)`,
       [newEventId, payload.e.n, payload.e.d || null, payload.e.s, payload.e.l || null,
-       payload.e.c, payload.e.cat || 'evento', role, now, now]
+       payload.e.c, payload.e.cat || 'evento', role, shareId || null, now, now]
     );
 
     // Mapear IDs originales a nuevos IDs locales
@@ -1249,9 +1296,45 @@ class DatabaseService implements IDatabaseService {
       }
     }
 
+    // Registrar en event_shares si viene de Supabase (tiene shareId)
+    if (shareId) {
+      try {
+        await this.db.runAsync(
+          `INSERT OR REPLACE INTO event_shares (id, event_id, direction, role, owner_name, synced_at, created_at)
+           VALUES (?, ?, 'received', ?, ?, ?, ?)`,
+          [shareId, newEventId, role, ownerName || null, now, now]
+        );
+      } catch (e) {
+        // No bloquear el import si falla el tracking
+      }
+    }
+
     const importedEvent = await this.getEventById(newEventId);
     if (!importedEvent) throw new Error('Failed to retrieve imported event');
     return importedEvent;
+  }
+
+  /** Guarda o actualiza un registro de share enviado en event_shares. */
+  async saveEventShare(shareId: string, eventId: string, direction: 'sent' | 'received', role: 'editor' | 'viewer', ownerName?: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    const now = new Date().toISOString();
+    await this.db.runAsync(
+      `INSERT OR REPLACE INTO event_shares (id, event_id, direction, role, owner_name, synced_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [shareId, eventId, direction, role, ownerName || null, now, now]
+    );
+  }
+
+  /** Retorna todos los registros de event_shares para un evento. */
+  async getEventShares(eventId?: string): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+    if (eventId) {
+      return await this.db.getAllAsync(
+        `SELECT * FROM event_shares WHERE event_id = ? ORDER BY created_at DESC`,
+        [eventId]
+      );
+    }
+    return await this.db.getAllAsync(`SELECT * FROM event_shares ORDER BY created_at DESC`);
   }
 
   // Participants CRUD
