@@ -32,6 +32,12 @@ ALTER TABLE public.notifications             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.event_invitations         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shared_events             ENABLE ROW LEVEL SECURITY;
 
+-- ─── REVOCAR ACCESO RPC DIRECTO A HELPER FUNCTIONS ───────────────────────────
+-- Estas funciones son solo para uso interno de las políticas RLS.
+-- No deben ser llamables via /rest/v1/rpc por anon ni authenticated.
+REVOKE EXECUTE ON FUNCTION public.user_participates_in_event(UUID) FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.user_can_access_event(UUID) FROM anon, authenticated;
+
 -- ─── USERS ────────────────────────────────────────────────────────────────────
 -- Cada usuario solo puede ver y editar su propio perfil.
 -- DELETE no permitido desde el cliente (solo service_role).

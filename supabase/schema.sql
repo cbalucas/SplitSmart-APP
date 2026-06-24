@@ -24,7 +24,7 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = '';
 
 -- ─── HELPER: verificar participación del usuario en un evento ─────────────────
 -- Centraliza la verificación "¿participa el usuario en este evento?"
@@ -42,7 +42,7 @@ BEGIN
       AND p.user_id = auth.uid()
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = '';
 
 -- ─── HELPER: acceso al evento (creador O participante) ───────────────────────
 CREATE OR REPLACE FUNCTION public.user_can_access_event(event_uuid UUID)
@@ -57,7 +57,49 @@ BEGIN
       )
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = '';
+
+-- ─── TRIGGER: crear public.users al registrarse via Auth ─────────────────────
+-- Se ejecuta en auth.users (INSERT) → crea el perfil en public.users.
+-- Aplica para Google OAuth, email/password, magic link, etc.
+-- username = email_prefix + primeros 8 chars del UUID (garantiza unicidad).
+CREATE OR REPLACE FUNCTION public.handle_new_auth_user()
+RETURNS TRIGGER AS $$
+DECLARE
+  base_username TEXT;
+  final_username TEXT;
+BEGIN
+  base_username := LOWER(REGEXP_REPLACE(
+    COALESCE(
+      NEW.raw_user_meta_data->>'preferred_username',
+      SPLIT_PART(NEW.email, '@', 1),
+      'user'
+    ),
+    '[^a-z0-9_]', '_', 'g'
+  ));
+  final_username := base_username || '_' || SUBSTRING(NEW.id::text, 1, 8);
+
+  INSERT INTO public.users (id, username, email, name, sync_status)
+  VALUES (
+    NEW.id,
+    final_username,
+    NEW.email,
+    COALESCE(
+      NEW.raw_user_meta_data->>'full_name',
+      NEW.raw_user_meta_data->>'name',
+      SPLIT_PART(NEW.email, '@', 1)
+    ),
+    'synced'
+  )
+  ON CONFLICT (id) DO NOTHING;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
+
+CREATE OR REPLACE TRIGGER trg_on_new_auth_user
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_auth_user();
 
 -- ─── SHARED_EVENTS (QR sharing) ─── SE CREA PRIMERO (referenciada por events) ─
 -- Snapshot de eventos para compartir por QR anónimo.
