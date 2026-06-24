@@ -10,6 +10,8 @@ export interface User {
   biometricEnabled?: boolean;
   createdAt: string;
   updatedAt: string;
+  /** UUID de Supabase Auth vinculado a este usuario local. undefined = solo local. */
+  supabaseUserId?: string;
 }
 
 export interface Event {
@@ -31,6 +33,10 @@ export interface Event {
   closingComment?: string;
   createdAt: string;
   updatedAt: string;
+  /** true cuando el evento fue importado via QR/link desde otro dispositivo */
+  isShared?: boolean;
+  /** Rol del usuario actual en eventos compartidos */
+  sharedRole?: 'editor' | 'viewer';
 }
 
 export interface Participant {

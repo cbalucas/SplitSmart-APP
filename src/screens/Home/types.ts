@@ -12,6 +12,8 @@ export interface HomeEventData {
   settlementCount?: number;
   paidSettlementCount?: number;
   pendingSettlementAmount?: number;
+  isShared?: boolean;
+  sharedRole?: 'editor' | 'viewer';
 }
 
 export interface HomeMetricData {

@@ -33,6 +33,8 @@ export interface EventData {
   paidSettlementCount?: number;
   pendingSettlementAmount?: number;
   isExpress?: boolean;
+  isShared?: boolean;
+  sharedRole?: 'editor' | 'viewer';
 }
 
 export interface EventCardProps {
@@ -143,6 +145,29 @@ const EventCard: React.FC<EventCardProps> = ({
               <Text style={styles.eventName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
                 {event.name}
               </Text>
+              {event.isShared && (
+                <View style={{
+                  backgroundColor: event.sharedRole === 'editor' ? '#9C27B015' : '#2196F315',
+                  borderWidth: 1,
+                  borderColor: event.sharedRole === 'editor' ? '#9C27B060' : '#2196F360',
+                  borderRadius: 6,
+                  paddingHorizontal: 5,
+                  paddingVertical: 1,
+                  marginLeft: 4,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 2,
+                }}>
+                  <MaterialCommunityIcons
+                    name={event.sharedRole === 'editor' ? 'pencil' : 'eye'}
+                    size={10}
+                    color={event.sharedRole === 'editor' ? '#9C27B0' : '#2196F3'}
+                  />
+                  <Text style={{ fontSize: 9, fontWeight: '700', color: event.sharedRole === 'editor' ? '#9C27B0' : '#2196F3' }}>
+                    {event.sharedRole === 'editor' ? 'EDITOR' : 'VISTA'}
+                  </Text>
+                </View>
+              )}
             </View>
             <TouchableOpacity
               onPress={handleEditPress}

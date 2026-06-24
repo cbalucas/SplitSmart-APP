@@ -17,6 +17,7 @@ import {
   ActivityIndicator,
   Platform
 } from 'react-native';
+import QRCodeView from '../../components/QRCodeView';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
@@ -154,6 +155,10 @@ export default function EventDetailScreen() {
   const [showCloseWithPendingModal, setShowCloseWithPendingModal] = useState(false);
   const [closeComment, setCloseComment] = useState('');
 
+  // ── Modal: QR de invitación ────────────────────────────────
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrPermission, setQrPermission] = useState<'editor' | 'viewer'>('viewer');
+
   // Use calculations hook for balance and settlement calculations  
   const { balances, settlements, eventStats } = useCalculations(
     eventParticipants,
@@ -167,7 +172,10 @@ export default function EventDetailScreen() {
   // --- Variables de permisos de estado ---
   const isLocked = event?.isLocked === true;
   const isClosed = event?.status === 'archived';
-  const isEditable = event?.status === 'active' && !isLocked;
+  const isSharedEvent = event?.isShared === true;
+  const sharedRole = event?.sharedRole;
+  // Los eventos compartidos con rol viewer son solo lectura
+  const isEditable = event?.status === 'active' && !isLocked && !(isSharedEvent && sharedRole === 'viewer');
 
   // Crear un objeto indexable para balances
   const balancesById = balances.reduce((acc: Record<string, number>, balance) => {
@@ -2612,6 +2620,29 @@ export default function EventDetailScreen() {
         </View>
         {event && (
           <View style={styles.summaryInfo}>
+            {/* Banner: Evento Compartido */}
+            {isSharedEvent && (
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 8,
+                backgroundColor: sharedRole === 'editor' ? '#9C27B012' : '#2196F312',
+                borderWidth: 1, borderColor: sharedRole === 'editor' ? '#9C27B040' : '#2196F340',
+                borderRadius: 10, padding: 10, marginBottom: 12,
+              }}>
+                <MaterialCommunityIcons
+                  name={sharedRole === 'editor' ? 'account-edit' : 'eye'}
+                  size={18}
+                  color={sharedRole === 'editor' ? '#9C27B0' : '#2196F3'}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: sharedRole === 'editor' ? '#9C27B0' : '#2196F3' }}>
+                    {t('eventDetail.sharedEventBanner')}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: theme.colors.onSurfaceVariant, marginTop: 1 }}>
+                    {sharedRole === 'editor' ? t('eventDetail.qrPermissionEditDesc') : t('eventDetail.qrPermissionViewDesc')}
+                  </Text>
+                </View>
+              </View>
+            )}
             <Text style={[styles.eventName, { color: theme.colors.onSurfaceVariant }]}>{event.name}</Text>
             {event.description && (
               <Text style={[styles.eventDescription, { color: theme.colors.onSurfaceVariant }]}>{event.description}</Text>
@@ -2737,6 +2768,25 @@ export default function EventDetailScreen() {
               <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '600', fontSize: 11, textAlign: 'center' }}>{t('events.close')}</Text>
             </TouchableOpacity>
           )}
+        </View>
+
+        {/* Segunda fila: botón QR */}
+        <View style={{ marginTop: 8 }}>
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+              backgroundColor: '#9C27B018', paddingVertical: 12, borderRadius: 10,
+              borderWidth: 1.5, borderColor: '#9C27B040',
+            }}
+            onPress={() => setShowQRModal(true)}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="qrcode" size={22} color="#9C27B0" />
+            <View>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#9C27B0' }}>{t('eventDetail.qrInviteButton')}</Text>
+              <Text style={{ fontSize: 10, color: '#9C27B0', opacity: 0.8 }}>{t('eventDetail.qrPermissionEdit')} / {t('eventDetail.qrPermissionView')}</Text>
+            </View>
+          </TouchableOpacity>
         </View>
       </Card>
       </View>
@@ -4091,6 +4141,143 @@ export default function EventDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ── Modal QR de Invitación ─────────────────────────────── */}
+      <Modal
+        visible={showQRModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowQRModal(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: theme.colors.surface, borderRadius: 20, padding: 24, width: '100%', maxWidth: 360 }}>
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 10 }}>
+              <MaterialCommunityIcons name="qrcode" size={26} color="#4CAF50" />
+              <Text style={{ fontSize: 18, fontWeight: '700', color: theme.colors.onSurface, flex: 1 }}>
+                {t('eventDetail.qrModalTitle')}
+              </Text>
+              <TouchableOpacity onPress={() => setShowQRModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <MaterialCommunityIcons name="close" size={22} color={theme.colors.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Selector de permiso */}
+            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colors.onSurfaceVariant, marginBottom: 10 }}>
+              {t('eventDetail.qrPermissionLabel')}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
+                  backgroundColor: qrPermission === 'editor' ? '#4CAF5020' : theme.colors.surfaceVariant,
+                  borderWidth: 2, borderColor: qrPermission === 'editor' ? '#4CAF50' : 'transparent',
+                }}
+                onPress={() => setQrPermission('editor')}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons name="pencil" size={20} color={qrPermission === 'editor' ? '#4CAF50' : theme.colors.onSurfaceVariant} />
+                <Text style={{ fontSize: 12, fontWeight: '700', marginTop: 4, color: qrPermission === 'editor' ? '#4CAF50' : theme.colors.onSurfaceVariant, textAlign: 'center' }}>
+                  {t('eventDetail.qrPermissionEdit')}
+                </Text>
+                <Text style={{ fontSize: 10, color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 2 }}>
+                  {t('eventDetail.qrPermissionEditDesc')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
+                  backgroundColor: qrPermission === 'viewer' ? '#2196F320' : theme.colors.surfaceVariant,
+                  borderWidth: 2, borderColor: qrPermission === 'viewer' ? '#2196F3' : 'transparent',
+                }}
+                onPress={() => setQrPermission('viewer')}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons name="eye" size={20} color={qrPermission === 'viewer' ? '#2196F3' : theme.colors.onSurfaceVariant} />
+                <Text style={{ fontSize: 12, fontWeight: '700', marginTop: 4, color: qrPermission === 'viewer' ? '#2196F3' : theme.colors.onSurfaceVariant, textAlign: 'center' }}>
+                  {t('eventDetail.qrPermissionView')}
+                </Text>
+                <Text style={{ fontSize: 10, color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 2 }}>
+                  {t('eventDetail.qrPermissionViewDesc')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* QR Code */}
+            <View style={{ alignItems: 'center', marginBottom: 16 }}>
+              <View style={{ padding: 16, backgroundColor: '#FFFFFF', borderRadius: 12 }}>
+                <QRCodeView
+                  value={(() => {
+                    try {
+                      const payload = {
+                        v: 1,
+                        role: qrPermission,
+                        e: {
+                          id: event?.id,
+                          n: event?.name || '',
+                          d: event?.description || '',
+                          s: event?.startDate || '',
+                          l: event?.location || '',
+                          c: event?.currency || 'ARS',
+                          cat: event?.category || 'evento',
+                        },
+                        p: eventParticipants.map(p => ({ id: p.id, n: p.name })),
+                        ex: eventExpenses.map(e => ({
+                          id: e.id, d: e.description, a: e.amount,
+                          dt: e.date, c: e.currency, cat: e.category,
+                          pid: e.payerId, pn: e.payerName,
+                        })),
+                        sp: eventSplits.map(s => ({
+                          id: s.id, eid: s.expenseId,
+                          pid: s.participantId, a: s.amount, t: s.type,
+                        })),
+                      };
+                      const json = JSON.stringify(payload);
+                      return 'splitsmart://join?data=' + btoa(unescape(encodeURIComponent(json)));
+                    } catch {
+                      return `splitsmart://join?eventId=${eventId}&role=${qrPermission}`;
+                    }
+                  })()}
+                  size={180}
+                  color="#1A1A1A"
+                  backgroundColor="#FFFFFF"
+                />
+              </View>
+              <Text style={{ fontSize: 12, color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 12, lineHeight: 18 }}>
+                {t('eventDetail.qrInstructions')}
+              </Text>
+            </View>
+
+            {/* Compartir datos del evento */}
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: theme.colors.outline }}
+              onPress={() => {
+                try {
+                  const payload = {
+                    v: 1, role: qrPermission,
+                    e: { id: event?.id, n: event?.name, d: event?.description, s: event?.startDate, l: event?.location, c: event?.currency, cat: event?.category },
+                    p: eventParticipants.map(p => ({ id: p.id, n: p.name })),
+                    ex: eventExpenses.map(e => ({ id: e.id, d: e.description, a: e.amount, dt: e.date, c: e.currency, cat: e.category, pid: e.payerId, pn: e.payerName })),
+                    sp: eventSplits.map(s => ({ id: s.id, eid: s.expenseId, pid: s.participantId, a: s.amount, t: s.type })),
+                  };
+                  const encoded = 'splitsmart://join?data=' + btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+                  Clipboard.setString(encoded);
+                  showAlert({ type: 'success', title: '✅', message: t('eventDetail.qrLinkCopied'), buttons: [{ text: 'OK' }] });
+                } catch {
+                  showAlert({ type: 'error', title: t('common.error'), message: 'No se pudo generar el enlace', buttons: [{ text: 'OK' }] });
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="content-copy" size={18} color={theme.colors.onSurfaceVariant} />
+              <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colors.onSurfaceVariant }}>
+                {t('eventDetail.qrCopyLink')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }

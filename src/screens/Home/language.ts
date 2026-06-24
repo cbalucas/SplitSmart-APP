@@ -66,6 +66,23 @@ export const homeLanguage = {
       splitty: 'Abre Splitty, tu asistente para crear eventos express.',
       add: 'Crea un nuevo evento manualmente.',
       profile: 'Accede a tu perfil y configuración.'
+    },
+    // QR Scanner
+    qr: {
+      scanButton: 'Escanear QR',
+      scanTitle: 'Escanear Invitación QR',
+      scanInstructions: 'Apuntá la cámara al código QR de invitación de SplitSmart',
+      permissionRequired: 'Permiso de cámara requerido',
+      permissionMessage: 'SplitSmart necesita acceso a la cámara para escanear códigos QR',
+      grantPermission: 'Conceder Permiso',
+      importConfirmTitle: 'Unirse al evento',
+      importConfirmMessage: '¿Deseas agregar el evento "{name}" como {role}?',
+      importRoleEditor: 'Editor',
+      importRoleViewer: 'Solo Visualización',
+      importSuccess: '¡Evento agregado!',
+      importSuccessMessage: 'El evento "{name}" ya está en tu lista',
+      importError: 'Error al importar el evento',
+      invalidQR: 'QR inválido. Solo se aceptan invitaciones de SplitSmart',
     }
   },
   
@@ -134,6 +151,23 @@ export const homeLanguage = {
       splitty: 'Opens Splitty, your assistant for creating express events.',
       add: 'Creates a new event manually.',
       profile: 'Access your profile and settings.'
+    },
+    // QR Scanner
+    qr: {
+      scanButton: 'Scan QR',
+      scanTitle: 'Scan QR Invitation',
+      scanInstructions: 'Point the camera at a SplitSmart QR invitation code',
+      permissionRequired: 'Camera permission required',
+      permissionMessage: 'SplitSmart needs camera access to scan QR codes',
+      grantPermission: 'Grant Permission',
+      importConfirmTitle: 'Join event',
+      importConfirmMessage: 'Do you want to add the event "{name}" as {role}?',
+      importRoleEditor: 'Editor',
+      importRoleViewer: 'View Only',
+      importSuccess: 'Event added!',
+      importSuccessMessage: 'The event "{name}" is now in your list',
+      importError: 'Error importing event',
+      invalidQR: 'Invalid QR. Only SplitSmart invitations are accepted',
     }
   },
   
@@ -204,6 +238,23 @@ export const homeLanguage = {
       splitty: 'Abre o Splitty, seu assistente para criar eventos express.',
       add: 'Cria um novo evento manualmente.',
       profile: 'Acesse seu perfil e configurações.'
+    },
+    // QR Scanner
+    qr: {
+      scanButton: 'Escanear QR',
+      scanTitle: 'Escanear Convite QR',
+      scanInstructions: 'Aponte a câmera para o código QR de convite do SplitSmart',
+      permissionRequired: 'Permissão de câmera necessária',
+      permissionMessage: 'SplitSmart precisa de acesso à câmera para escanear códigos QR',
+      grantPermission: 'Conceder Permissão',
+      importConfirmTitle: 'Entrar no evento',
+      importConfirmMessage: 'Deseja adicionar o evento "{name}" como {role}?',
+      importRoleEditor: 'Editor',
+      importRoleViewer: 'Somente Visualização',
+      importSuccess: 'Evento adicionado!',
+      importSuccessMessage: 'O evento "{name}" já está na sua lista',
+      importError: 'Erro ao importar o evento',
+      invalidQR: 'QR inválido. Apenas convites do SplitSmart são aceitos',
     }
   }
 };

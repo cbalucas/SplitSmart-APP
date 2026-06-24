@@ -2,6 +2,7 @@ import * as SQLite from 'expo-sqlite';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Event, Participant, Expense, EventParticipant, Split, Payment } from '../types';
 import { IDatabaseService } from './IDatabaseService';
+import { generateId } from '../utils/uuid';
 
 class DatabaseService implements IDatabaseService {
   private db: SQLite.SQLiteDatabase | null = null;
@@ -53,16 +54,19 @@ class DatabaseService implements IDatabaseService {
       console.log('✅ Tables created, running migrations...');
       await this.runMigrations();
       
+      // Habilitar foreign keys (imprescindible para que los CASCADE funcionen)
+      await this.db.execAsync('PRAGMA foreign_keys = ON');
+
       // Test query to verify database is working
       console.log('🧪 Testing database connection...');
       await this.db.getAllAsync('SELECT 1 as test');
       
-      // Verify new unified table exists
+      // Verify settlements table exists (tabla principal post-migración)
       console.log('🔍 Verifying database schema...');
-      const transactionsInfo = await this.db.getAllAsync('PRAGMA table_info(transactions)');
+      const settlementsInfo = await this.db.getAllAsync('PRAGMA table_info(settlements)');
       
-      if (transactionsInfo.length === 0) {
-        console.log('⚠️ Transactions table missing, running migrations...');
+      if (settlementsInfo.length === 0) {
+        console.log('⚠️ Settlements table missing, running createTables...');
         await this.createTables();
       }
       
@@ -509,6 +513,49 @@ class DatabaseService implements IDatabaseService {
         }
       }
 
+      // Migration: Add sync_status column to main tables (preparación para Supabase)
+      const syncTables = ['events', 'participants', 'expenses', 'splits', 'settlements', 'users'];
+      for (const table of syncTables) {
+        try {
+          await this.db.execAsync(
+            `ALTER TABLE ${table} ADD COLUMN sync_status TEXT NOT NULL DEFAULT 'pending'`
+          );
+          console.log(`✅ Migration: Added sync_status column to ${table}`);
+        } catch (error: any) {
+          if (!error.message?.includes('duplicate column name')) {
+            console.error(`❌ Error adding sync_status to ${table}:`, error);
+          }
+        }
+      }
+
+      // Migration: Add supabase_user_id to users table (vinculación con Supabase Auth)
+      try {
+        await this.db.execAsync('ALTER TABLE users ADD COLUMN supabase_user_id TEXT');
+        console.log('✅ Migration: Added supabase_user_id column to users table');
+      } catch (error: any) {
+        if (!error.message?.includes('duplicate column name')) {
+          console.error('❌ Error adding supabase_user_id column:', error);
+        }
+      }
+
+      // Migration: Add is_shared + shared_role columns to events table
+      try {
+        await this.db.execAsync('ALTER TABLE events ADD COLUMN is_shared INTEGER NOT NULL DEFAULT 0');
+        console.log('✅ Migration: Added is_shared column to events table');
+      } catch (error: any) {
+        if (!error.message?.includes('duplicate column name')) {
+          console.error('❌ Error adding is_shared column to events:', error);
+        }
+      }
+      try {
+        await this.db.execAsync('ALTER TABLE events ADD COLUMN shared_role TEXT');
+        console.log('✅ Migration: Added shared_role column to events table');
+      } catch (error: any) {
+        if (!error.message?.includes('duplicate column name')) {
+          console.error('❌ Error adding shared_role column to events:', error);
+        }
+      }
+
     } catch (error) {
       console.error('❌ Error running migrations:', error);
     }
@@ -696,6 +743,8 @@ class DatabaseService implements IDatabaseService {
           completed_at TEXT,
           is_locked INTEGER NOT NULL DEFAULT 0,
           is_express INTEGER NOT NULL DEFAULT 0,
+          is_shared INTEGER NOT NULL DEFAULT 0,
+          shared_role TEXT,
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL
         )
@@ -1087,6 +1136,8 @@ class DatabaseService implements IDatabaseService {
         completedAt: row.completed_at,
         isLocked: row.is_locked === 1 || row.is_locked === true,
         isExpress: row.is_express === 1 || row.is_express === true,
+        isShared: row.is_shared === 1 || row.is_shared === true,
+        sharedRole: (row.shared_role as 'editor' | 'viewer') || undefined,
         closingComment: row.closing_comment || undefined,
         createdAt: row.created_at,
         updatedAt: row.updated_at
@@ -1131,6 +1182,8 @@ class DatabaseService implements IDatabaseService {
         completedAt: result.completed_at,
         isLocked: result.is_locked === 1 || result.is_locked === true,
         isExpress: result.is_express === 1 || result.is_express === true,
+        isShared: result.is_shared === 1 || result.is_shared === true,
+        sharedRole: (result.shared_role as 'editor' | 'viewer') || undefined,
         closingComment: result.closing_comment || undefined,
         createdAt: result.created_at,
         updatedAt: result.updated_at
@@ -1139,6 +1192,66 @@ class DatabaseService implements IDatabaseService {
       console.error('❌ Error getting event by ID:', error);
       return null;
     }
+  }
+
+  /**
+   * Importa un evento compartido recibido via QR o deep link.
+   * Crea una copia local del evento con isShared=true y el rol indicado.
+   * Los IDs originales se reemplazan por nuevos IDs locales.
+   */
+  async importSharedEvent(payload: any, role: 'editor' | 'viewer'): Promise<Event> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const now = new Date().toISOString();
+    const newEventId = generateId();
+
+    // Crear el evento
+    await this.db.runAsync(
+      `INSERT INTO events (id, name, description, start_date, location, currency, total_amount, status, type, category, creator_id, is_locked, is_express, is_shared, shared_role, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 0, 'active', 'public', ?, NULL, 0, 0, 1, ?, ?, ?)`,
+      [newEventId, payload.e.n, payload.e.d || null, payload.e.s, payload.e.l || null,
+       payload.e.c, payload.e.cat || 'evento', role, now, now]
+    );
+
+    // Mapear IDs originales a nuevos IDs locales
+    const idMap: Record<string, string> = {};
+
+    // Crear participantes
+    for (const p of (payload.p || [])) {
+      const newParticipantId = generateId();
+      idMap[p.id] = newParticipantId;
+      await this.db.runAsync(
+        `INSERT INTO participants (id, name, is_active, participant_type, created_at, updated_at) VALUES (?, ?, 1, 'temporary', ?, ?)`,
+        [newParticipantId, p.n, now, now]
+      );
+      await this.db.runAsync(
+        `INSERT INTO event_participants (id, event_id, participant_id, role, joined_at) VALUES (?, ?, ?, 'member', ?)`,
+        [generateId(), newEventId, newParticipantId, now]
+      );
+    }
+
+    // Crear gastos y splits
+    for (const ex of (payload.ex || [])) {
+      const newExpenseId = generateId();
+      idMap[ex.id] = newExpenseId;
+      const newPayerId = idMap[ex.pid] || generateId();
+      await this.db.runAsync(
+        `INSERT INTO expenses (id, event_id, description, amount, currency, date, category, payer_id, payer_name, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+        [newExpenseId, newEventId, ex.d, ex.a, ex.c || payload.e.c,
+         ex.dt, ex.cat || null, newPayerId, ex.pn || '', now, now]
+      );
+      for (const sp of (payload.sp || []).filter((s: any) => s.eid === ex.id)) {
+        await this.db.runAsync(
+          `INSERT INTO splits (id, expense_id, participant_id, amount, type, is_paid, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)`,
+          [generateId(), newExpenseId, idMap[sp.pid] || sp.pid, sp.a, sp.t || 'equal', now, now]
+        );
+      }
+    }
+
+    const importedEvent = await this.getEventById(newEventId);
+    if (!importedEvent) throw new Error('Failed to retrieve imported event');
+    return importedEvent;
   }
 
   // Participants CRUD
@@ -1176,18 +1289,7 @@ class DatabaseService implements IDatabaseService {
 
     try {
       const result = await this.db.getAllAsync('SELECT * FROM participants WHERE is_active = 1');
-      return result.map((row: any) => ({
-        id: row.id,
-        name: row.name,
-        email: row.email,
-        phone: row.phone,
-        alias_cbu: row.alias_cbu,
-        avatar: row.avatar,
-        isActive: row.is_active === 1,
-        participantType: row.participant_type || 'temporary',
-        createdAt: row.created_at,
-        updatedAt: row.updated_at
-      }));
+      return result.map((row: any) => this._mapParticipantRow(row));
     } catch (error) {
       console.error('❌ Error getting participants:', error);
       throw error;
@@ -1212,18 +1314,7 @@ class DatabaseService implements IDatabaseService {
         return null;
       }
 
-      return {
-        id: result.id,
-        name: result.name,
-        email: result.email,
-        phone: result.phone,
-        alias_cbu: result.alias_cbu,
-        avatar: result.avatar,
-        isActive: result.is_active === 1,
-        participantType: result.participant_type || 'temporary',
-        createdAt: result.created_at,
-        updatedAt: result.updated_at
-      };
+      return this._mapParticipantRow(result);
     } catch (error) {
       console.error('❌ Error getting participant by ID:', error);
       return null;
@@ -2245,7 +2336,7 @@ class DatabaseService implements IDatabaseService {
       const currentTime = new Date().toISOString();
       for (const settlement of newSettlements) {
         if (settlement.amount > 0.01) { // Solo crear si hay monto significativo
-          const settlementId = `settlement_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          const settlementId = generateId();
           await this.createSettlement({
             id: settlementId,
             eventId: eventId,
@@ -2703,19 +2794,36 @@ class DatabaseService implements IDatabaseService {
 
     try {
       const result = await this.db.getAllAsync('SELECT * FROM expenses WHERE is_active = 1');
+
+      // Hidratar campo payers desde expense_payers
+      const payersResult = await this.db.getAllAsync(
+        `SELECT ep.expense_id, ep.participant_id, ep.amount, p.name as participant_name
+         FROM expense_payers ep
+         JOIN participants p ON ep.participant_id = p.id`
+      ) as any[];
+      const payersMap = new Map<string, { participantId: string; participantName: string; amount: number }[]>();
+      for (const row of payersResult) {
+        const list = payersMap.get(row.expense_id) || [];
+        list.push({ participantId: row.participant_id, participantName: row.participant_name, amount: row.amount });
+        payersMap.set(row.expense_id, list);
+      }
+
       return result.map((row: any) => ({
         id: row.id,
         eventId: row.event_id,
         description: row.description,
         amount: row.amount,
         currency: row.currency,
+        originalAmount: row.original_amount ?? undefined,
+        conversionRate: row.conversion_rate ?? 1,
         date: row.date,
         category: row.category,
         payerId: row.payer_id,
         receiptImage: row.receipt_image,
         isActive: row.is_active === 1,
         createdAt: row.created_at,
-        updatedAt: row.updated_at
+        updatedAt: row.updated_at,
+        payers: payersMap.get(row.id) || undefined
       }));
     } catch (error) {
       console.error('❌ Error getting all expenses:', error);
@@ -2727,8 +2835,8 @@ class DatabaseService implements IDatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      // Los pagos ahora se manejan como settlements con isPaid = true
-      const result = await this.db.getAllAsync('SELECT * FROM settlements WHERE isPaid = 1');
+      // Los pagos ahora se manejan como settlements con is_paid = 1
+      const result = await this.db.getAllAsync('SELECT * FROM settlements WHERE is_paid = 1');
       return result.map((row: any) => ({
         id: row.id,
         eventId: row.event_id,
@@ -2842,7 +2950,8 @@ class DatabaseService implements IDatabaseService {
         participant_id: row.participant_id,
         role: row.role,
         balance: row.balance,
-        joined_at: row.joined_at
+        joined_at: row.joined_at,
+        parent_participant_id: row.parent_participant_id || null
       }));
     } catch (error) {
       console.error('❌ Error getting all event participants:', error);
@@ -3106,6 +3215,12 @@ class DatabaseService implements IDatabaseService {
         }
       }
 
+      // Eliminar filas de expense_payers del participante en gastos de este evento
+      await this.db.runAsync(
+        `DELETE FROM expense_payers WHERE participant_id = ? AND expense_id IN (SELECT id FROM expenses WHERE event_id = ?)`,
+        [participantId, eventId]
+      );
+
       // Remove participant from event
       await this.db.runAsync(
         'DELETE FROM event_participants WHERE event_id = ? AND participant_id = ?',
@@ -3207,7 +3322,7 @@ class DatabaseService implements IDatabaseService {
   async addSecondaryParticipant(eventId: string, primaryParticipantId: string, name: string): Promise<string> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const secondaryId = `sec_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const secondaryId = generateId();
     const now = new Date().toISOString();
 
     try {
@@ -3230,7 +3345,7 @@ class DatabaseService implements IDatabaseService {
       );
 
       // Vincular al evento con referencia al primario
-      const epId = `ep_${secondaryId}`;
+      const epId = generateId();
       await this.db.runAsync(
         `INSERT INTO event_participants (id, event_id, participant_id, role, balance, joined_at, parent_participant_id)
          VALUES (?, ?, ?, 'member', 0, ?, ?)`,
@@ -3285,6 +3400,29 @@ class DatabaseService implements IDatabaseService {
       return user || null;
     } catch (error) {
       console.error('❌ Error getting user profile:', error);
+      return null;
+    }
+  }
+
+  async linkUserToSupabase(localUserId: string, supabaseId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    await this.db.runAsync(
+      `UPDATE users SET supabase_user_id = ?, sync_status = 'pending', updated_at = ? WHERE id = ?`,
+      [supabaseId, new Date().toISOString(), localUserId]
+    );
+    console.log(`✅ User ${localUserId} linked to Supabase ID ${supabaseId}`);
+  }
+
+  async getUserBySupabaseId(supabaseId: string): Promise<any | null> {
+    if (!this.db) throw new Error('Database not initialized');
+    try {
+      const user = await this.db.getFirstAsync(
+        'SELECT * FROM users WHERE supabase_user_id = ?',
+        [supabaseId]
+      );
+      return user || null;
+    } catch (error) {
+      console.error('❌ Error getting user by Supabase ID:', error);
       return null;
     }
   }
@@ -3409,6 +3547,10 @@ class DatabaseService implements IDatabaseService {
       if (updates.username !== undefined) {
         fields.push('username = ?');
         values.push(updates.username);
+      }
+      if ((updates as any).supabaseUserId !== undefined) {
+        fields.push('supabase_user_id = ?');
+        values.push((updates as any).supabaseUserId || null);
       }
 
       fields.push('updated_at = ?');

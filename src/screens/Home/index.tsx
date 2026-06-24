@@ -10,8 +10,11 @@ import {
   StyleSheet,
   Animated,
   Platform,
+  Linking,
+  Modal,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CameraView, Camera } from 'expo-camera';
 import { showAlert } from '../../services/alertService';
 import { checkForUpdate } from '../../services/UpdateService';
 import { version as appVersion } from '../../../app.json';
@@ -41,7 +44,7 @@ const HomeScreen: React.FC = () => {
   const { theme } = useTheme();
   const { language } = useLanguage();
   const { user } = useAuth();
-  const { events: dbEvents, loading: dbLoading, refreshData, getEventParticipants, getExpensesByEvent, updateEvent, deleteEvent } = useData();
+  const { events: dbEvents, loading: dbLoading, refreshData, getEventParticipants, getExpensesByEvent, updateEvent, deleteEvent, importSharedEvent } = useData();
   const insets = useSafeAreaInsets();
   const styles = createStyles(theme, insets.bottom);
   
@@ -58,6 +61,11 @@ const HomeScreen: React.FC = () => {
   const [eventExpenses, setEventExpenses] = useState<{[eventId: string]: number}>({});
   const [eventTotals, setEventTotals] = useState<{[eventId: string]: number}>({});
   const [eventSettlements, setEventSettlements] = useState<{[eventId: string]: { total: number; paid: number; pendingAmount: number }}>({});
+
+  // QR Scanner
+  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [cameraPermission, requestCameraPermission] = Camera.useCameraPermissions();
+  const qrScannedRef = useRef(false);
 
   // Tour
   const [tourVisible, setTourVisible] = useState(false);
@@ -194,6 +202,8 @@ const HomeScreen: React.FC = () => {
       status: event.status as 'active' | 'closed' | 'completed' | 'archived',
       isLocked: event.isLocked === true,
       isExpress: event.isExpress === true,
+      isShared: event.isShared === true,
+      sharedRole: event.sharedRole,
       type: event.type as 'public' | 'private',
       participantCount: eventParticipants[event.id] || 0,
       expenseCount: eventExpenses[event.id] || 0,
@@ -340,6 +350,83 @@ const HomeScreen: React.FC = () => {
   const handleEventPress = (event: HomeEventData) => {
     (navigation as any).navigate('EventDetail', { eventId: event.id });
   };
+
+  // ── QR / Deep Link handlers ──────────────────────────────────────────────
+  const processQRData = useCallback(async (raw: string) => {
+    try {
+      let dataB64: string | null = null;
+      if (raw.startsWith('splitsmart://join?')) {
+        const url = new URL(raw);
+        dataB64 = url.searchParams.get('data');
+      }
+      if (!dataB64) {
+        showAlert({ type: 'error', title: t.actions.error, message: t.qr.invalidQR, buttons: [{ text: 'OK' }] });
+        return;
+      }
+      const json = decodeURIComponent(escape(atob(dataB64)));
+      const payload = JSON.parse(json);
+      if (!payload?.e?.n) {
+        showAlert({ type: 'error', title: t.actions.error, message: t.qr.invalidQR, buttons: [{ text: 'OK' }] });
+        return;
+      }
+      const roleLabel = payload.role === 'editor' ? t.qr.importRoleEditor : t.qr.importRoleViewer;
+      const message = t.qr.importConfirmMessage
+        .replace('{name}', payload.e.n)
+        .replace('{role}', roleLabel);
+      showAlert({
+        type: 'confirm',
+        title: t.qr.importConfirmTitle,
+        message,
+        buttons: [
+          { text: t.actions.cancel, style: 'cancel' },
+          {
+            text: t.actions.ok,
+            onPress: async () => {
+              try {
+                const newEvent = await importSharedEvent(payload, payload.role || 'viewer');
+                showAlert({
+                  type: 'success',
+                  title: t.qr.importSuccess,
+                  message: t.qr.importSuccessMessage.replace('{name}', newEvent.name),
+                  buttons: [{ text: t.actions.ok, onPress: () => {
+                    (navigation as any).navigate('EventDetail', { eventId: newEvent.id });
+                  }}],
+                });
+              } catch {
+                showAlert({ type: 'error', title: t.actions.error, message: t.qr.importError, buttons: [{ text: 'OK' }] });
+              }
+            }
+          },
+        ],
+      });
+    } catch {
+      showAlert({ type: 'error', title: t.actions.error, message: t.qr.invalidQR, buttons: [{ text: 'OK' }] });
+    }
+  }, [importSharedEvent, navigation, t]);
+
+  const handleOpenQRScanner = useCallback(async () => {
+    if (!cameraPermission?.granted) {
+      const result = await requestCameraPermission();
+      if (!result.granted) {
+        showAlert({ type: 'error', title: t.qr.permissionRequired, message: t.qr.permissionMessage, buttons: [{ text: t.qr.grantPermission, onPress: () => Linking.openSettings() }, { text: t.actions.cancel }] });
+        return;
+      }
+    }
+    qrScannedRef.current = false;
+    setShowQRScanner(true);
+  }, [cameraPermission, requestCameraPermission, t]);
+
+  // Handle deep links (cold start + while running)
+  useEffect(() => {
+    const handleURL = (url: string) => {
+      if (url.includes('splitsmart://join')) {
+        processQRData(url);
+      }
+    };
+    Linking.getInitialURL().then(url => { if (url) handleURL(url); });
+    const sub = Linking.addEventListener('url', ({ url }) => handleURL(url));
+    return () => sub.remove();
+  }, [processQRData]);
 
   const handleEventEdit = (event: HomeEventData) => {
     (navigation as any).navigate('CreateEvent', { eventId: event.id, mode: 'edit' });
@@ -517,7 +604,8 @@ const HomeScreen: React.FC = () => {
           showHelp={true}
           showLogout={true}
           overflowBeforeItems={[
-            { icon: 'account-group', label: t.header.friends, onPress: handleManageFriends }
+            { icon: 'account-group', label: t.header.friends, onPress: handleManageFriends },
+            { icon: 'qrcode-scan', label: t.qr.scanButton, onPress: handleOpenQRScanner },
           ]}
           elevation={true}
           onHelpPress={() => { setTourStep(0); setTourVisible(true); }}
@@ -610,6 +698,56 @@ const HomeScreen: React.FC = () => {
         </View>
 
       </SafeAreaView>
+
+      {/* ── Modal QR Scanner ───────────────────────────────────────────── */}
+      <Modal
+        visible={showQRScanner}
+        animationType="slide"
+        onRequestClose={() => setShowQRScanner(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          {/* Header */}
+          <View style={{ paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <TouchableOpacity onPress={() => setShowQRScanner(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700', flex: 1 }}>{t.qr.scanTitle}</Text>
+          </View>
+
+          {cameraPermission?.granted ? (
+            <CameraView
+              style={{ flex: 1 }}
+              facing="back"
+              barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+              onBarcodeScanned={({ data }) => {
+                if (qrScannedRef.current) return;
+                qrScannedRef.current = true;
+                setShowQRScanner(false);
+                processQRData(data);
+              }}
+            >
+              {/* Marco de escaneo */}
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <View style={{ width: 240, height: 240, borderWidth: 3, borderColor: '#9C27B0', borderRadius: 16 }} />
+                <Text style={{ color: '#FFFFFF', marginTop: 24, fontSize: 14, textAlign: 'center', paddingHorizontal: 32, lineHeight: 20 }}>
+                  {t.qr.scanInstructions}
+                </Text>
+              </View>
+            </CameraView>
+          ) : (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 16 }}>
+              <MaterialCommunityIcons name="camera-off" size={64} color="#888" />
+              <Text style={{ color: '#FFFFFF', fontSize: 16, textAlign: 'center' }}>{t.qr.permissionMessage}</Text>
+              <TouchableOpacity
+                style={{ backgroundColor: '#9C27B0', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 }}
+                onPress={() => Linking.openSettings()}
+              >
+                <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>{t.qr.grantPermission}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </Modal>
 
       {/* Tour guiado */}
       <TutorialOverlay

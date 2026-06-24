@@ -249,12 +249,60 @@ export class IndexedDBDatabaseService implements IDatabaseService {
       completedAt: row.completed_at,
       isLocked: row.is_locked === 1 || row.is_locked === true,
       isExpress: row.is_express === 1 || row.is_express === true,
+      isShared: row.is_shared === 1 || row.is_shared === true,
+      sharedRole: (row.shared_role as 'editor' | 'viewer') || undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
   }
 
   // ─── Participants ──────────────────────────────────────────────────────────
+
+  async importSharedEvent(payload: any, role: 'editor' | 'viewer'): Promise<Event> {
+    // Web implementation: delegates to a thin local-only import
+    const { v4: uuidv4 } = await import('uuid');
+    const now = new Date().toISOString();
+    const newEventId = uuidv4();
+    const db = this._db();
+    await db.put('events', {
+      id: newEventId,
+      name: payload.e.n,
+      description: payload.e.d || null,
+      start_date: payload.e.s,
+      location: payload.e.l || null,
+      currency: payload.e.c,
+      total_amount: 0,
+      status: 'active',
+      type: 'public',
+      category: payload.e.cat || 'evento',
+      creator_id: null,
+      is_locked: 0,
+      is_express: 0,
+      is_shared: 1,
+      shared_role: role,
+      created_at: now,
+      updated_at: now,
+    });
+    const idMap: Record<string, string> = {};
+    for (const p of (payload.p || [])) {
+      const newPId = uuidv4();
+      idMap[p.id] = newPId;
+      await db.put('participants', { id: newPId, name: p.n, is_active: 1, participant_type: 'temporary', created_at: now, updated_at: now });
+      await db.put('event_participants', { id: uuidv4(), event_id: newEventId, participant_id: newPId, role: 'member', joined_at: now });
+    }
+    for (const ex of (payload.ex || [])) {
+      const newExId = uuidv4();
+      idMap[ex.id] = newExId;
+      const newPayerId = idMap[ex.pid] || uuidv4();
+      await db.put('expenses', { id: newExId, event_id: newEventId, description: ex.d, amount: ex.a, currency: ex.c || payload.e.c, date: ex.dt, category: ex.cat || null, payer_id: newPayerId, payer_name: ex.pn || '', is_active: 1, created_at: now, updated_at: now });
+      for (const sp of (payload.sp || []).filter((s: any) => s.eid === ex.id)) {
+        await db.put('splits', { id: uuidv4(), expense_id: newExId, participant_id: idMap[sp.pid] || sp.pid, amount: sp.a, type: sp.t || 'equal', is_paid: 0, created_at: now, updated_at: now });
+      }
+    }
+    const imported = await this.getEventById(newEventId);
+    if (!imported) throw new Error('Failed to retrieve imported event');
+    return imported;
+  }
 
   async createParticipant(participant: Participant): Promise<void> {
     const db = this._db();
