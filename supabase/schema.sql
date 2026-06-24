@@ -33,19 +33,22 @@ $$ LANGUAGE plpgsql;
 -- STABLE: no modifica datos; Postgres puede cachear el resultado por query.
 CREATE OR REPLACE FUNCTION public.user_participates_in_event(event_uuid UUID)
 RETURNS BOOLEAN AS $$
-  SELECT EXISTS (
+BEGIN
+  RETURN EXISTS (
     SELECT 1
     FROM public.event_participants ep
     JOIN public.participants p ON ep.participant_id = p.id
     WHERE ep.event_id = event_uuid
       AND p.user_id = auth.uid()
   );
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
 -- ─── HELPER: acceso al evento (creador O participante) ───────────────────────
 CREATE OR REPLACE FUNCTION public.user_can_access_event(event_uuid UUID)
 RETURNS BOOLEAN AS $$
-  SELECT EXISTS (
+BEGIN
+  RETURN EXISTS (
     SELECT 1 FROM public.events e
     WHERE e.id = event_uuid
       AND (
@@ -53,7 +56,8 @@ RETURNS BOOLEAN AS $$
         OR public.user_participates_in_event(event_uuid)
       )
   );
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
 -- ─── SHARED_EVENTS (QR sharing) ─── SE CREA PRIMERO (referenciada por events) ─
 -- Snapshot de eventos para compartir por QR anónimo.
@@ -142,7 +146,7 @@ CREATE TABLE IF NOT EXISTS public.events (
   total_amount     REAL NOT NULL DEFAULT 0,
   status           TEXT NOT NULL DEFAULT 'active'
                    CHECK (status IN ('active', 'closed', 'completed', 'archived')),
-  type             TEXT NOT NULL DEFAULT 'private'
+  type             TEXT NOT NULL DEFAULT 'public'
                    CHECK (type IN ('public', 'private')),
   category         TEXT DEFAULT 'evento',
   creator_id       UUID REFERENCES public.users(id) ON DELETE SET NULL,
@@ -227,7 +231,7 @@ CREATE TABLE IF NOT EXISTS public.expenses (
   event_id        UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
   description     TEXT NOT NULL,
   amount          REAL NOT NULL,                     -- en la moneda del evento
-  currency        TEXT NOT NULL DEFAULT 'ARS',       -- moneda original del gasto
+  currency        TEXT NOT NULL DEFAULT 'USD',       -- moneda original del gasto
   original_amount REAL,                              -- monto en moneda original (si difiere)
   conversion_rate REAL NOT NULL DEFAULT 1.0,
   date            TIMESTAMPTZ NOT NULL,
@@ -417,24 +421,44 @@ CREATE TABLE IF NOT EXISTS public.notifications (
 );
 
 -- ─── NOTIFICATIONS: índices adicionales ──────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_notifications_recipient  ON public.notifications(recipient_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_event      ON public.notifications(event_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_unread     ON public.notifications(recipient_id, is_read) WHERE is_read = FALSE;
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON public.notifications(created_at);
 
--- ─── EVENT_INVITATIONS: constraint integridad ────────────────────────────────
--- Al menos uno de invitee_user_id o invitee_email debe estar presente.
-ALTER TABLE public.event_invitations
-  ADD COLUMN IF NOT EXISTS invitee_email TEXT;
+-- ─── EVENT_INVITATIONS ────────────────────────────────────────────────────────
+-- Invitaciones para compartir un evento entre usuarios (local o Supabase).
+-- El invitado puede aceptar → se agrega como participante en el evento.
+-- CONSTRAINT chk_invitee_present: al menos uno de invitee_user_id o invitee_email
+--   debe estar presente (no se puede invitar a nadie sin identificador).
+CREATE TABLE IF NOT EXISTS public.event_invitations (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id        UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
+  inviter_id      UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  -- Destinatario: puede ser usuario existente o invitado por email
+  invitee_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  invitee_email   TEXT,
+  status          TEXT NOT NULL DEFAULT 'pending'
+                  CHECK (status IN ('pending', 'accepted', 'declined', 'expired')),
+  role            TEXT NOT NULL DEFAULT 'member'
+                  CHECK (role IN ('admin', 'member', 'viewer')),
+  message         TEXT,
+  expires_at      TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '7 days'),
+  responded_at    TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT chk_invitee_present
+    CHECK (invitee_user_id IS NOT NULL OR invitee_email IS NOT NULL)
+);
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'chk_invitee_present'
-  ) THEN
-    ALTER TABLE public.event_invitations
-      ADD CONSTRAINT chk_invitee_present
-      CHECK (invitee_user_id IS NOT NULL OR invitee_email IS NOT NULL);
-  END IF;
-END $$;
+CREATE INDEX IF NOT EXISTS idx_invitations_event_id  ON public.event_invitations(event_id);
+CREATE INDEX IF NOT EXISTS idx_invitations_invitee   ON public.event_invitations(invitee_user_id);
+CREATE INDEX IF NOT EXISTS idx_invitations_email     ON public.event_invitations(invitee_email);
+CREATE INDEX IF NOT EXISTS idx_invitations_status    ON public.event_invitations(status) WHERE status = 'pending';
+
+CREATE OR REPLACE TRIGGER trg_event_invitations_updated_at
+  BEFORE UPDATE ON public.event_invitations
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- ─── MIGRACIONES PARA INSTANCIAS EXISTENTES (idempotente) ────────────────────
 -- Estas sentencias son seguras de correr en cualquier estado de la BD.

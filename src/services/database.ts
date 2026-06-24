@@ -575,6 +575,16 @@ class DatabaseService implements IDatabaseService {
         console.error('❌ Error creating event_shares table:', error);
       }
 
+      // Migration: Add payer_name column to expenses table (desnormalizado para historial)
+      try {
+        await this.db.execAsync("ALTER TABLE expenses ADD COLUMN payer_name TEXT NOT NULL DEFAULT ''");
+        console.log('✅ Migration: Added payer_name column to expenses table');
+      } catch (error: any) {
+        if (!error.message?.includes('duplicate column name')) {
+          console.error('❌ Error adding payer_name column to expenses:', error);
+        }
+      }
+
       // Migration: Add share_id column to events table
       try {
         await this.db.execAsync('ALTER TABLE events ADD COLUMN share_id TEXT');
@@ -828,6 +838,7 @@ class DatabaseService implements IDatabaseService {
           date TEXT NOT NULL,
           category TEXT,
           payer_id TEXT NOT NULL,
+          payer_name TEXT NOT NULL DEFAULT '',
           receipt_image TEXT,
           is_active INTEGER DEFAULT 1,
           created_at TEXT,
