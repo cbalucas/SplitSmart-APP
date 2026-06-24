@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, Image, Modal, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Modal, KeyboardAvoidingView, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -41,7 +41,8 @@ export default function LoginScreen() {
   const [showLastUserCard, setShowLastUserCard] = useState(false);
   const [showSwitchModal, setShowSwitchModal] = useState(false);
   const [knownUsers, setKnownUsers] = useState<LastUser[]>([]);
-  const { login, loading, loginWithBiometric } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { login, loading, loginWithBiometric, loginWithGoogle } = useAuth();
   const { theme } = useTheme();
   const { language } = useLanguage();
   const navigation = useNavigation<NavigationProp>();
@@ -162,6 +163,17 @@ export default function LoginScreen() {
       setKnownUsers(users);
       setShowSwitchModal(true);
     } catch (_) {}
+  };
+
+  const handleGoogleLogin = async () => {
+    setGoogleLoading(true);
+    try {
+      await loginWithGoogle();
+    } catch (_err) {
+      showAlert({ type: 'error', title: t.errors.general, message: t.errors.googleFailed, buttons: [{ text: 'OK' }] });
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   const handleLogin = async () => {
@@ -435,8 +447,33 @@ export default function LoginScreen() {
               )}
             </View>
 
-            {/* Separador */}
+            {/* Separador ── o ── */}
+            <View style={[styles.dividerRow, { marginTop: 12 }]}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>o</Text>
+              <View style={styles.dividerLine} />
+            </View>
 
+            {/* Botón Google */}
+            <TouchableOpacity
+              style={[styles.googleButton, (loading || googleLoading) && { opacity: 0.6 }]}
+              onPress={handleGoogleLogin}
+              disabled={loading || googleLoading}
+              activeOpacity={0.8}
+            >
+              {googleLoading ? (
+                <ActivityIndicator size={18} color={theme.colors.onSurface} />
+              ) : (
+                <Image
+                  source={require('../../../assets/images/google-icon.png')}
+                  style={{ width: 20, height: 20 }}
+                  resizeMode="contain"
+                />
+              )}
+              <Text style={styles.googleButtonText}>
+                {googleLoading ? t.form.googleLoginLoading : t.form.googleLogin}
+              </Text>
+            </TouchableOpacity>
 
           </View>
         </SafeAreaView>
