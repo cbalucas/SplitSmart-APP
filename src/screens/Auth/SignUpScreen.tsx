@@ -1,5 +1,5 @@
 ﻿import React, { useState, useRef } from 'react';
-import { View, Text, ScrollView, KeyboardAvoidingView, Image, Platform, Modal, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, KeyboardAvoidingView, Image, Platform, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -14,6 +14,7 @@ import { createSignUpStyles } from './SignUpScreen.styles';
 import { signUpLanguage } from './language';
 import { RootStackParamList } from '../../types/navigation';
 import { showAlert } from '../../services/alertService';
+import { generateId } from '../../utils/uuid';
 
 interface SignUpFormData {
   name: string;
@@ -52,9 +53,6 @@ export default function SignUpScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showFriendModal, setShowFriendModal] = useState(false);
-  const [pendingCredentials, setPendingCredentials] = useState<{ username: string; password: string } | null>(null);
-  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   const [submittedOnce, setSubmittedOnce] = useState(false);
   const [usernameValidation, setUsernameValidation] = useState<UsernameValidation>({
     isValid: false,
@@ -269,10 +267,34 @@ export default function SignUpScreen() {
         }
       }
 
-      // Guardar credenciales y mostrar modal de amigo (antes del auto-login)
-      setPendingCredentials({ username: formData.username.toLowerCase(), password: formData.skipPassword ? '' : formData.password });
-      setPendingUserId(userId);
-      setShowFriendModal(true);
+      // Crear automáticamente el amigo vinculado con los datos del usuario
+      // (antes se preguntaba; ahora se crea por defecto para que otros puedan agregarte a eventos)
+      try {
+        await databaseService.createParticipant({
+          id: generateId(),
+          name: formData.name.trim(),
+          email: formData.email.trim() || undefined,
+          phone: formData.phone.trim() || undefined,
+          isActive: true,
+          participantType: 'friend',
+          userId: userId,
+          createdByUserId: userId,
+          isPublic: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        } as any);
+      } catch (e) {
+        console.error('Error creating self as friend:', e);
+      }
+
+      // Auto-login inmediato
+      const success = await login(
+        formData.username.toLowerCase(),
+        formData.skipPassword ? '' : formData.password,
+      );
+      if (!success) {
+        showAlert({ type: 'info', title: t.success.title, message: t.success.messageLoginManual, buttons: [{ text: t.success.button, onPress: () => navigation.navigate('Login') }] });
+      }
 
     } catch (error) {
       console.error('Error creating user:', error);
@@ -298,73 +320,8 @@ export default function SignUpScreen() {
     }
   };
 
-  const handleFriendDecision = async (create: boolean) => {
-    setShowFriendModal(false);
-    if (create) {
-      try {
-        await databaseService.createParticipant({
-          id: `friend_${Date.now()}`,
-          name: formData.name.trim(),
-          email: formData.email.trim() || undefined,
-          phone: formData.phone.trim() || undefined,
-          isActive: true,
-          participantType: 'friend',
-          userId: pendingUserId || undefined,
-          createdByUserId: pendingUserId || undefined,
-          isPublic: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        } as any);
-      } catch (e) {
-        console.error('Error creating self as friend:', e);
-      }
-    }
-    // Auto-login ahora que el usuario tomó la decisión
-    if (pendingCredentials) {
-      const success = await login(pendingCredentials.username, pendingCredentials.password);
-      if (!success) {
-        showAlert({ type: 'info', title: t.success.title, message: t.success.messageLoginManual, buttons: [{ text: t.success.button, onPress: () => navigation.navigate('Login') }] });
-      }
-    }
-    setPendingCredentials(null);
-  };
-
   return (
     <View style={styles.container}>
-
-      {/* ── Modal: ¿Agregarte como amigo? ─────────────────── */}
-      <Modal visible={showFriendModal} transparent animationType="fade" onRequestClose={() => {}}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{t.friendModal.title}</Text>
-            <Text style={styles.modalSubtitle}>{t.friendModal.subtitle}</Text>
-
-            <View style={styles.modalDataRow}>
-              <Text style={styles.modalDataLabel}>{t.friendModal.nameLabel}</Text>
-              <Text style={styles.modalDataValue}>{formData.name.trim()}</Text>
-            </View>
-            <View style={styles.modalDataRow}>
-              <Text style={styles.modalDataLabel}>{t.friendModal.emailLabel}</Text>
-              <Text style={styles.modalDataValue}>{formData.email.trim() || t.friendModal.noEmail}</Text>
-            </View>
-            <View style={styles.modalDataRow}>
-              <Text style={styles.modalDataLabel}>{t.friendModal.phoneLabel}</Text>
-              <Text style={styles.modalDataValue}>{formData.phone.trim() || t.friendModal.noPhone}</Text>
-            </View>
-
-            <View style={styles.modalNoteBox}>
-              <Text style={styles.modalNoteText}>{t.friendModal.note}</Text>
-            </View>
-
-            <TouchableOpacity style={styles.modalConfirmButton} onPress={() => handleFriendDecision(true)} activeOpacity={0.8}>
-              <Text style={styles.modalConfirmText}>{t.friendModal.confirmButton}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalSkipButton} onPress={() => handleFriendDecision(false)} activeOpacity={0.7}>
-              <Text style={styles.modalSkipText}>{t.friendModal.skipButton}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       {/* ── Header ────────────────────────────────────────── */}
       <HeaderBar

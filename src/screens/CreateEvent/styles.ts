@@ -308,6 +308,31 @@ export const createStyles = (theme: Theme, insets: EdgeInsets) => StyleSheet.cre
     marginBottom: 16,
   } as ViewStyle,
 
+  selfParticipantRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.outline,
+    backgroundColor: theme.colors.surface,
+    marginBottom: 8,
+  } as ViewStyle,
+
+  selfParticipantTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.colors.onSurface,
+  } as TextStyle,
+
+  selfParticipantDesc: {
+    fontSize: 12,
+    color: theme.colors.onSurfaceVariant,
+    marginTop: 2,
+  } as TextStyle,
+
   categoryButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',

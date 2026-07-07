@@ -59,6 +59,24 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = '';
 
+-- ─── HELPER: ¿el usuario comparte algún evento con este participante? ─────────
+-- Usada por la política participants_select. DEBE ser SECURITY DEFINER para
+-- bypassear RLS internamente: si consultara public.participants bajo RLS
+-- volvería a evaluar participants_select → recursión infinita (error 500).
+CREATE OR REPLACE FUNCTION public.user_shares_event_with_participant(participant_uuid UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1
+    FROM public.event_participants ep1
+    JOIN public.event_participants ep2 ON ep1.event_id = ep2.event_id
+    JOIN public.participants p2 ON ep2.participant_id = p2.id
+    WHERE ep1.participant_id = participant_uuid
+      AND p2.user_id = auth.uid()
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = '';
+
 -- ─── TRIGGER: crear public.users al registrarse via Auth ─────────────────────
 -- Se ejecuta en auth.users (INSERT) → crea el perfil en public.users.
 -- Aplica para Google OAuth, email/password, magic link, etc.
@@ -108,6 +126,8 @@ CREATE OR REPLACE TRIGGER trg_on_new_auth_user
 -- owner_id → auth.uid() sin FK declarada (auth.users no es accesible via FK).
 --   El RLS garantiza que solo el owner puede modificar.
 -- expires_at: vencimiento automático del QR (90 días por defecto).
+-- short_code: código corto legible (8 chars, sin caracteres ambiguos) que permite
+--   vincular el evento ingresándolo manualmente, sin escanear el QR.
 CREATE TABLE IF NOT EXISTS public.shared_events (
   share_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id       UUID NOT NULL,
@@ -115,13 +135,18 @@ CREATE TABLE IF NOT EXISTS public.shared_events (
   event_snapshot JSONB NOT NULL,
   role           TEXT NOT NULL DEFAULT 'viewer'
                  CHECK (role IN ('editor', 'viewer')),
+  short_code     TEXT UNIQUE,
   expires_at     TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '90 days'),
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Migración idempotente para bases existentes (la tabla ya podía existir sin la columna).
+ALTER TABLE public.shared_events ADD COLUMN IF NOT EXISTS short_code TEXT;
+
 CREATE INDEX IF NOT EXISTS idx_shared_events_owner      ON public.shared_events(owner_id);
 CREATE INDEX IF NOT EXISTS idx_shared_events_expires_at ON public.shared_events(expires_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_shared_events_short_code ON public.shared_events(short_code);
 
 CREATE OR REPLACE TRIGGER trg_shared_events_updated_at
   BEFORE UPDATE ON public.shared_events
@@ -544,3 +569,39 @@ CREATE INDEX IF NOT EXISTS idx_user_prefs_user_id ON public.user_preferences(use
 ALTER TABLE public.shared_events ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ
   DEFAULT (NOW() + INTERVAL '90 days');
 CREATE INDEX IF NOT EXISTS idx_shared_events_expires_at ON public.shared_events(expires_at);
+
+-- ─── ACTIVITIES (Organización) ───────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.activities (
+  id                 UUID PRIMARY KEY,
+  event_id           UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
+  title              TEXT NOT NULL,
+  description        TEXT,
+  position           INTEGER NOT NULL DEFAULT 0,
+  created_by_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  created_at         TIMESTAMPTZ DEFAULT NOW(),
+  updated_at         TIMESTAMPTZ DEFAULT NOW(),
+  sync_status        TEXT NOT NULL DEFAULT 'synced'
+                     CHECK (sync_status IN ('pending', 'synced', 'conflict'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_activities_event_id    ON public.activities(event_id);
+CREATE INDEX IF NOT EXISTS idx_activities_sync_status ON public.activities(sync_status);
+
+CREATE OR REPLACE TRIGGER trg_activities_updated_at
+  BEFORE UPDATE ON public.activities
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- ─── ACTIVITY_PARTICIPANTS (join actividad ↔ participante) ───────────────────
+CREATE TABLE IF NOT EXISTS public.activity_participants (
+  id             UUID PRIMARY KEY,
+  activity_id    UUID NOT NULL REFERENCES public.activities(id) ON DELETE CASCADE,
+  participant_id UUID NOT NULL REFERENCES public.participants(id) ON DELETE CASCADE,
+  created_at     TIMESTAMPTZ DEFAULT NOW(),
+  sync_status    TEXT NOT NULL DEFAULT 'synced'
+                 CHECK (sync_status IN ('pending', 'synced', 'conflict')),
+  UNIQUE (activity_id, participant_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_activity_participants_activity_id    ON public.activity_participants(activity_id);
+CREATE INDEX IF NOT EXISTS idx_activity_participants_participant_id ON public.activity_participants(participant_id);
+

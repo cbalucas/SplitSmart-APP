@@ -1,4 +1,4 @@
-import { Event, Participant, Expense, EventParticipant, Split, Payment } from '../types';
+import { Event, Participant, Expense, EventParticipant, Split, Payment, Activity, ActivityTemplate } from '../types';
 
 /**
  * Interfaz común para las implementaciones de base de datos.
@@ -26,6 +26,19 @@ export interface IDatabaseService {
   importSharedEvent(payload: any, role: 'editor' | 'viewer', shareId?: string, ownerName?: string): Promise<Event>;
   saveEventShare(shareId: string, eventId: string, direction: 'sent' | 'received', role: 'editor' | 'viewer', ownerName?: string): Promise<void>;
   getEventShares(eventId?: string): Promise<any[]>;
+
+  // ─── Activities (Organización) ────────────────────────────────────────────
+  getActivitiesByEvent(eventId: string): Promise<Activity[]>;
+  createActivity(activity: Activity): Promise<void>;
+  updateActivity(activityId: string, updates: Partial<Activity>): Promise<void>;
+  deleteActivity(activityId: string): Promise<void>;
+  setActivityParticipants(activityId: string, participantIds: string[]): Promise<void>;
+
+  // ─── Activity Templates ───────────────────────────────────────────────────
+  getActivityTemplates(userId: string): Promise<ActivityTemplate[]>;
+  createActivityTemplate(template: ActivityTemplate): Promise<void>;
+  updateActivityTemplate(templateId: string, updates: Partial<ActivityTemplate>): Promise<void>;
+  deleteActivityTemplate(templateId: string): Promise<void>;
 
   // ─── Participants ─────────────────────────────────────────────────────────
   createParticipant(participant: Participant): Promise<void>;

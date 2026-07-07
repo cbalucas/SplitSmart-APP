@@ -1,6 +1,5 @@
 import { Platform } from 'react-native';
 import { IDatabaseService } from './IDatabaseService';
-import { DatabaseService } from './database';
 
 /**
  * Selecciona la implementación correcta de IDatabaseService según la plataforma:
@@ -13,7 +12,9 @@ function createDatabaseService(): IDatabaseService {
     const { IndexedDBDatabaseService } = require('./IndexedDBDatabaseService');
     return new IndexedDBDatabaseService() as IDatabaseService;
   }
-  return new DatabaseService();
+  // Import dinámico para que expo-sqlite solo se cargue en nativo
+  const { DatabaseService } = require('./database');
+  return new DatabaseService() as IDatabaseService;
 }
 
 export const databaseService: IDatabaseService = createDatabaseService();

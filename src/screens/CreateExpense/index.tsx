@@ -35,6 +35,7 @@ import SearchBar from '../../components/SearchBar';
 import { CurrencySelector } from '../../components/CurrencySelector';
 import { Participant, Expense, Split } from '../../types';
 import { showAlert } from '../../services/alertService';
+import { generateId } from '../../utils/uuid';
 import { 
   ExpenseFormData, 
   ExpenseSplit, 
@@ -1018,7 +1019,7 @@ const CreateExpenseScreen: React.FC = () => {
           : formData.payerId;
 
         const expense: Expense = {
-          id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          id: generateId(),
           eventId,
           description: formData.description.trim(),
           amount: parseFloat(numericAmount),
@@ -1327,7 +1328,7 @@ const CreateExpenseScreen: React.FC = () => {
                 error={errors.amount}
                 containerStyle={styles.input}
               />
-              <Text style={styles.currencySuffix}>{selectedCurrency}</Text>
+              <Text style={styles.currencySuffixNoLabel}>{selectedCurrency}</Text>
             </View>
           )}
         </Card>

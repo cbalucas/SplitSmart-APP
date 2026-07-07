@@ -29,7 +29,8 @@
       "permissions": [
         "android.permission.USE_FINGERPRINT",
         "android.permission.USE_BIOMETRIC",
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ],
       "allowBackup": true
     },
@@ -51,7 +52,8 @@
           "cameraPermission": "SplitSmart necesita acceso a la cámara para escanear códigos QR de invitación."
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "@react-native-google-signin/google-signin"
     ],
     "web": {
       "bundler": "metro",
@@ -67,11 +69,11 @@
     "updates": {
       "enabled": false
     },
+    "owner": "cbalucas1983",
     "extra": {
       "eas": {
-        "projectId": "52d27e66-73b7-4b12-94df-056f034a9712"
+        "projectId": "dc732165-2502-4095-8bbd-5e5221823b7a"
       }
-    },
-    "owner": "cbalucas"
+    }
   }
 }

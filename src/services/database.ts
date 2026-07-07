@@ -1,6 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 import * as FileSystem from 'expo-file-system/legacy';
-import { Event, Participant, Expense, EventParticipant, Split, Payment } from '../types';
+import { Event, Participant, Expense, EventParticipant, Split, Payment, Activity, ActivityTemplate } from '../types';
 import { IDatabaseService } from './IDatabaseService';
 import { generateId } from '../utils/uuid';
 
@@ -72,6 +72,14 @@ class DatabaseService implements IDatabaseService {
       
       this.isInitialized = true;
       console.log('✅ Database initialized and tested successfully');
+
+      // Migración one-time: normalizar IDs legacy (Date.now()_random) → UUID v4.
+      // Necesaria para que el push a Supabase (columnas UUID) no falle.
+      try {
+        await this.migrateLegacyIdsToUuid();
+      } catch (migErr) {
+        console.warn('⚠️ Migración de IDs legacy (SQLite) falló:', migErr);
+      }
     } catch (error) {
       this.isInitialized = false;
       console.error('❌ Database initialization error:', error);
@@ -94,6 +102,90 @@ class DatabaseService implements IDatabaseService {
         throw recoveryError;
       }
     }
+  }
+
+  private async migrateLegacyIdsToUuid(): Promise<void> {
+    if (!this.db) return;
+    const db = this.db;
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const isUuid = (v: any): boolean => typeof v === 'string' && UUID_RE.test(v);
+
+    // Paso 1: mapa old→new para entidades referenciadas por FK
+    // (events, participants, expenses). Sus PKs se propagan a las columnas FK.
+    const idMap = new Map<string, string>();
+    for (const table of ['events', 'participants', 'expenses'] as const) {
+      const rows = (await db.getAllAsync(`SELECT id FROM ${table}`)) as any[];
+      for (const r of rows) {
+        if (r && typeof r.id === 'string' && !isUuid(r.id)) {
+          idMap.set(r.id, generateId());
+        }
+      }
+    }
+
+    // Paso 2: PKs propios (no referenciados por FK) que igual deben ser UUID
+    // para poder subirse a Supabase. consolidation_assignments usa PK INTEGER
+    // autoincrement → se conserva.
+    const childPkTables = ['event_participants', 'splits', 'expense_payers', 'settlements'] as const;
+    const childRemaps: Array<{ table: string; oldId: string; newId: string }> = [];
+    for (const table of childPkTables) {
+      const rows = (await db.getAllAsync(`SELECT id FROM ${table}`)) as any[];
+      for (const r of rows) {
+        if (r && typeof r.id === 'string' && !isUuid(r.id)) {
+          childRemaps.push({ table, oldId: r.id, newId: generateId() });
+        }
+      }
+    }
+
+    if (idMap.size === 0 && childRemaps.length === 0) {
+      return; // nada legacy que migrar
+    }
+
+    // PRAGMA foreign_keys NO puede cambiarse dentro de una transacción → se
+    // deshabilita antes, se migra dentro de la transacción y se reactiva después.
+    await db.execAsync('PRAGMA foreign_keys = OFF');
+    try {
+      await db.withTransactionAsync(async () => {
+        for (const [oldId, newId] of idMap.entries()) {
+          // PKs de entidades referenciadas
+          await db.runAsync('UPDATE events SET id = ? WHERE id = ?', [newId, oldId]);
+          await db.runAsync('UPDATE participants SET id = ? WHERE id = ?', [newId, oldId]);
+          await db.runAsync('UPDATE expenses SET id = ? WHERE id = ?', [newId, oldId]);
+
+          // FK event_id
+          await db.runAsync('UPDATE expenses SET event_id = ? WHERE event_id = ?', [newId, oldId]);
+          await db.runAsync('UPDATE event_participants SET event_id = ? WHERE event_id = ?', [newId, oldId]);
+          await db.runAsync('UPDATE settlements SET event_id = ? WHERE event_id = ?', [newId, oldId]);
+          await db.runAsync('UPDATE consolidation_assignments SET event_id = ? WHERE event_id = ?', [newId, oldId]);
+          await db.runAsync('UPDATE event_shares SET event_id = ? WHERE event_id = ?', [newId, oldId]);
+
+          // FK participant_id / payer / debtor / from / to / parent
+          await db.runAsync('UPDATE expenses SET payer_id = ? WHERE payer_id = ?', [newId, oldId]);
+          await db.runAsync('UPDATE event_participants SET participant_id = ? WHERE participant_id = ?', [newId, oldId]);
+          await db.runAsync('UPDATE event_participants SET parent_participant_id = ? WHERE parent_participant_id = ?', [newId, oldId]);
+          await db.runAsync('UPDATE splits SET participant_id = ? WHERE participant_id = ?', [newId, oldId]);
+          await db.runAsync('UPDATE expense_payers SET participant_id = ? WHERE participant_id = ?', [newId, oldId]);
+          await db.runAsync('UPDATE settlements SET from_participant_id = ? WHERE from_participant_id = ?', [newId, oldId]);
+          await db.runAsync('UPDATE settlements SET to_participant_id = ? WHERE to_participant_id = ?', [newId, oldId]);
+          await db.runAsync('UPDATE consolidation_assignments SET payer_id = ? WHERE payer_id = ?', [newId, oldId]);
+          await db.runAsync('UPDATE consolidation_assignments SET debtor_id = ? WHERE debtor_id = ?', [newId, oldId]);
+
+          // FK expense_id
+          await db.runAsync('UPDATE splits SET expense_id = ? WHERE expense_id = ?', [newId, oldId]);
+          await db.runAsync('UPDATE expense_payers SET expense_id = ? WHERE expense_id = ?', [newId, oldId]);
+        }
+
+        // PKs propios no referenciados
+        for (const { table, oldId, newId } of childRemaps) {
+          await db.runAsync(`UPDATE ${table} SET id = ? WHERE id = ?`, [newId, oldId]);
+        }
+      });
+    } finally {
+      await db.execAsync('PRAGMA foreign_keys = ON');
+    }
+
+    console.log(
+      `🔧 Migración IDs legacy → UUID (SQLite): ${idMap.size} entidades + ${childRemaps.length} filas hijas normalizadas`
+    );
   }
 
   private async runMigrations() {
@@ -525,6 +617,16 @@ class DatabaseService implements IDatabaseService {
           if (!error.message?.includes('duplicate column name')) {
             console.error(`❌ Error adding sync_status to ${table}:`, error);
           }
+        }
+      }
+
+      // Migration: Add description column to activities table (Organización)
+      try {
+        await this.db.execAsync('ALTER TABLE activities ADD COLUMN description TEXT');
+        console.log('✅ Migration: Added description column to activities table');
+      } catch (error: any) {
+        if (!error.message?.includes('duplicate column name') && !error.message?.includes('no such table')) {
+          console.error('❌ Error adding description to activities:', error);
         }
       }
 
@@ -1006,12 +1108,58 @@ class DatabaseService implements IDatabaseService {
         )
       `);
 
+      // Activities table: tareas de organización dentro de un evento
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS activities (
+          id TEXT PRIMARY KEY,
+          event_id TEXT NOT NULL,
+          title TEXT NOT NULL,
+          description TEXT,
+          position INTEGER DEFAULT 0,
+          created_by_user_id TEXT,
+          created_at TEXT,
+          updated_at TEXT,
+          sync_status TEXT NOT NULL DEFAULT 'pending',
+          FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE
+        )
+      `);
+
+      // Activity participants relationship table (join actividad ↔ participante)
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS activity_participants (
+          id TEXT PRIMARY KEY,
+          activity_id TEXT NOT NULL,
+          participant_id TEXT NOT NULL,
+          created_at TEXT,
+          sync_status TEXT NOT NULL DEFAULT 'pending',
+          FOREIGN KEY (activity_id) REFERENCES activities (id) ON DELETE CASCADE,
+          FOREIGN KEY (participant_id) REFERENCES participants (id) ON DELETE CASCADE,
+          UNIQUE(activity_id, participant_id)
+        )
+      `);
+
+      // Activity templates table: plantillas reutilizables del usuario
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS activity_templates (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          tasks TEXT NOT NULL DEFAULT '[]',
+          created_at TEXT,
+          updated_at TEXT
+        )
+      `);
+
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_event_participants_event_id ON event_participants(event_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_expenses_event_id ON expenses(event_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_splits_expense_id ON splits(expense_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_settlements_event_id ON settlements(event_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_consolidation_assignments_event_id ON consolidation_assignments(event_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_app_versions_current ON app_versions(is_current)`);
+      await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_activities_event_id ON activities(event_id)`);
+      await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_activity_participants_activity_id ON activity_participants(activity_id)`);
+      await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_activity_participants_participant_id ON activity_participants(participant_id)`);
+      await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_activity_templates_user_id ON activity_templates(user_id)`);
 
       console.log('✅ All tables and indexes created successfully');
       
@@ -1346,6 +1494,167 @@ class DatabaseService implements IDatabaseService {
       );
     }
     return await this.db.getAllAsync(`SELECT * FROM event_shares ORDER BY created_at DESC`);
+  }
+
+  // ==================== Activities (Organización) ====================
+
+  private _mapActivityRow(row: any, assignedParticipantIds: string[] = []): Activity {
+    return {
+      id: row.id,
+      eventId: row.event_id,
+      title: row.title,
+      description: row.description || undefined,
+      position: row.position ?? 0,
+      createdByUserId: row.created_by_user_id || undefined,
+      createdAt: row.created_at || undefined,
+      updatedAt: row.updated_at || undefined,
+      assignedParticipantIds,
+    };
+  }
+
+  async getActivitiesByEvent(eventId: string): Promise<Activity[]> {
+    if (!this.db) throw new Error('Database not initialized');
+    const rows = await this.db.getAllAsync(
+      `SELECT * FROM activities WHERE event_id = ? ORDER BY position ASC, created_at ASC`,
+      [eventId]
+    ) as any[];
+    const links = await this.db.getAllAsync(
+      `SELECT ap.activity_id, ap.participant_id FROM activity_participants ap
+       INNER JOIN activities a ON a.id = ap.activity_id
+       WHERE a.event_id = ?`,
+      [eventId]
+    ) as any[];
+    const byActivity: Record<string, string[]> = {};
+    for (const l of links) {
+      (byActivity[l.activity_id] ||= []).push(l.participant_id);
+    }
+    return rows.map((row) => this._mapActivityRow(row, byActivity[row.id] || []));
+  }
+
+  async createActivity(activity: Activity): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    const now = new Date().toISOString();
+    await this.db.runAsync(
+      `INSERT INTO activities (id, event_id, title, description, position, created_by_user_id, created_at, updated_at, sync_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+      [
+        activity.id,
+        activity.eventId,
+        activity.title,
+        activity.description || null,
+        activity.position ?? 0,
+        activity.createdByUserId || null,
+        activity.createdAt || now,
+        activity.updatedAt || now,
+      ]
+    );
+    if (activity.assignedParticipantIds && activity.assignedParticipantIds.length > 0) {
+      await this.setActivityParticipants(activity.id, activity.assignedParticipantIds);
+    }
+  }
+
+  async updateActivity(activityId: string, updates: Partial<Activity>): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    const now = new Date().toISOString();
+    const fields: string[] = [];
+    const values: any[] = [];
+    if (updates.title !== undefined) { fields.push('title = ?'); values.push(updates.title); }
+    if (updates.description !== undefined) { fields.push('description = ?'); values.push(updates.description || null); }
+    if (updates.position !== undefined) { fields.push('position = ?'); values.push(updates.position); }
+    fields.push('updated_at = ?'); values.push(now);
+    fields.push(`sync_status = 'pending'`);
+    values.push(activityId);
+    await this.db.runAsync(
+      `UPDATE activities SET ${fields.join(', ')} WHERE id = ?`,
+      values
+    );
+    if (updates.assignedParticipantIds !== undefined) {
+      await this.setActivityParticipants(activityId, updates.assignedParticipantIds);
+    }
+  }
+
+  async deleteActivity(activityId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    await this.db.runAsync(`DELETE FROM activity_participants WHERE activity_id = ?`, [activityId]);
+    await this.db.runAsync(`DELETE FROM activities WHERE id = ?`, [activityId]);
+  }
+
+  async setActivityParticipants(activityId: string, participantIds: string[]): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    const now = new Date().toISOString();
+    await this.db.runAsync(`DELETE FROM activity_participants WHERE activity_id = ?`, [activityId]);
+    for (const pid of participantIds) {
+      await this.db.runAsync(
+        `INSERT OR IGNORE INTO activity_participants (id, activity_id, participant_id, created_at, sync_status)
+         VALUES (?, ?, ?, ?, 'pending')`,
+        [generateId(), activityId, pid, now]
+      );
+    }
+  }
+
+  // ==================== Activity Templates ====================
+
+  private _mapActivityTemplateRow(row: any): ActivityTemplate {
+    let tasks: string[] = [];
+    try {
+      tasks = JSON.parse(row.tasks || '[]');
+    } catch {
+      tasks = [];
+    }
+    return {
+      id: row.id,
+      userId: row.user_id,
+      name: row.name,
+      tasks,
+      createdAt: row.created_at || undefined,
+      updatedAt: row.updated_at || undefined,
+    };
+  }
+
+  async getActivityTemplates(userId: string): Promise<ActivityTemplate[]> {
+    if (!this.db) throw new Error('Database not initialized');
+    const rows = await this.db.getAllAsync(
+      `SELECT * FROM activity_templates WHERE user_id = ? ORDER BY created_at ASC`,
+      [userId]
+    ) as any[];
+    return rows.map((row) => this._mapActivityTemplateRow(row));
+  }
+
+  async createActivityTemplate(template: ActivityTemplate): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    const now = new Date().toISOString();
+    await this.db.runAsync(
+      `INSERT INTO activity_templates (id, user_id, name, tasks, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        template.id,
+        template.userId,
+        template.name,
+        JSON.stringify(template.tasks || []),
+        template.createdAt || now,
+        template.updatedAt || now,
+      ]
+    );
+  }
+
+  async updateActivityTemplate(templateId: string, updates: Partial<ActivityTemplate>): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    const now = new Date().toISOString();
+    const fields: string[] = [];
+    const values: any[] = [];
+    if (updates.name !== undefined) { fields.push('name = ?'); values.push(updates.name); }
+    if (updates.tasks !== undefined) { fields.push('tasks = ?'); values.push(JSON.stringify(updates.tasks)); }
+    fields.push('updated_at = ?'); values.push(now);
+    values.push(templateId);
+    await this.db.runAsync(
+      `UPDATE activity_templates SET ${fields.join(', ')} WHERE id = ?`,
+      values
+    );
+  }
+
+  async deleteActivityTemplate(templateId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    await this.db.runAsync(`DELETE FROM activity_templates WHERE id = ?`, [templateId]);
   }
 
   // Participants CRUD

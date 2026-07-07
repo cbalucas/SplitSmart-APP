@@ -22,6 +22,7 @@ import { Card, Button, HeaderBar, Input } from '../../components';
 import Avatar from '../../components/Avatar';
 import SearchBar from '../../components/SearchBar';
 import { showAlert } from '../../services/alertService';
+import { generateId } from '../../utils/uuid';
 import { FriendItemProps, NewFriendData, TabType, AVATAR_COLORS } from './types';
 import { createStyles } from './styles';
 import { manageFriendsLanguage } from './language';
@@ -416,7 +417,7 @@ const ManageFriendsScreen: React.FC = () => {
       } else {
         // Agregar nuevo amigo
         const friend: Participant = {
-          id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          id: generateId(),
           name: capitalizeName(newFriend.name),
           email: newFriend.email.trim() || undefined,
           phone: newFriend.phone.trim() || undefined,

@@ -72,6 +72,12 @@ export const createStyles = (theme: Theme) =>
       alignItems: 'center',
     } as ViewStyle,
 
+    syncRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: 12,
+    } as ViewStyle,
+
     avatarContainer: {
       marginRight: 16,
       position: 'relative',

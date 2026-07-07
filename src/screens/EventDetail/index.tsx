@@ -25,7 +25,7 @@ import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { Event, Expense, Participant, EventParticipant, Split, Payment, Settlement } from '../../types';
+import { Event, Expense, Participant, EventParticipant, Split, Payment, Settlement, Activity, ActivityTemplate } from '../../types';
 import { AppColors } from '../../constants/colors';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
@@ -38,6 +38,7 @@ import { useCalculations } from '../../hooks/useCalculations';
 import { databaseService } from '../../services/DatabaseFactory';
 import { ConsolidationService } from '../../services/ConsolidationService';
 import { showAlert, dismissAlert } from '../../services/alertService';
+import { generateId } from '../../utils/uuid';
 import * as ImagePicker from 'expo-image-picker';
 import { createStyles } from './styles';
 import TutorialOverlay from '../../components/TutorialOverlay';
@@ -71,6 +72,15 @@ export default function EventDetailScreen() {
     updatePayment,
     createShareLink,
     refreshShareLink,
+    getActivitiesByEvent,
+    addActivity,
+    updateActivity,
+    deleteActivity,
+    setActivityAssignees,
+    getActivityTemplates,
+    addActivityTemplate,
+    updateActivityTemplate,
+    deleteActivityTemplate,
   } = useData();
   const { user, isOnlineUser } = useAuth();
   const insets = useSafeAreaInsets();
@@ -85,6 +95,35 @@ export default function EventDetailScreen() {
   const [dbSettlements, setDbSettlements] = useState<Settlement[]>([]);
   const [activeTab, setActiveTab] = useState('resumen');
   const [showAddParticipantModal, setShowAddParticipantModal] = useState(false);
+
+  // Estados para la tab Organización (actividades)
+  const [eventActivities, setEventActivities] = useState<Activity[]>([]);
+  const [showActivityModal, setShowActivityModal] = useState(false);
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [activityTitleInput, setActivityTitleInput] = useState('');
+  const [activityDescInput, setActivityDescInput] = useState('');
+  const [activityAssigneeIds, setActivityAssigneeIds] = useState<Set<string>>(new Set());
+  const [isSavingActivity, setIsSavingActivity] = useState(false);
+  // Modal de asignación de participantes (al presionar la card)
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignActivity, setAssignActivity] = useState<Activity | null>(null);
+  const [isSavingAssign, setIsSavingAssign] = useState(false);
+  // Selección múltiple de tareas
+  const [isActivitySelectMode, setIsActivitySelectMode] = useState(false);
+  const [selectedActivityIds, setSelectedActivityIds] = useState<Set<string>>(new Set());
+  // Plantillas
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [customTemplates, setCustomTemplates] = useState<ActivityTemplate[]>([]);
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
+  // Editor de plantillas (crear/editar tareas de una plantilla)
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<ActivityTemplate | null>(null);
+  const [templateEditorName, setTemplateEditorName] = useState('');
+  const [templateEditorTasks, setTemplateEditorTasks] = useState<string[]>([]);
+  const [templateEditorNewTask, setTemplateEditorNewTask] = useState('');
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
 
   // Tour guiado
   const [edTourVisible, setEdTourVisible] = useState(false);
@@ -161,6 +200,7 @@ export default function EventDetailScreen() {
   const [showQRModal, setShowQRModal] = useState(false);
   const [qrPermission, setQrPermission] = useState<'editor' | 'viewer'>('viewer');
   const [shareId, setShareId] = useState<string | null>(event?.shareId || null);
+  const [shortCode, setShortCode] = useState<string | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
 
   // Use calculations hook for balance and settlement calculations  
@@ -237,11 +277,13 @@ export default function EventDetailScreen() {
         const paymentsData = await getPaymentsByEvent(eventId).catch(() => []);
         const settlementsData = await databaseService.getSettlementsByEvent(eventId).catch(() => []);
         const consolidationData = await databaseService.getConsolidationAssignments(eventId).catch(() => []);
+        const activitiesData = await getActivitiesByEvent(eventId).catch(() => []);
         
         setEventExpenses(expensesData);
         setEventParticipants(participantsData);
         setEventSplits(splitsData);
         setEventPayments(paymentsData);
+        setEventActivities(activitiesData);
         
         // Debug: Log settlements cargados de DB
         console.log('📊 Settlements cargados de DB:', settlementsData.map(s => ({
@@ -278,6 +320,7 @@ export default function EventDetailScreen() {
         setDbSettlements([]);
         setConsolidationAssignments([]);
         setConsolidatedSettlements([]);
+        setEventActivities([]);
       }
     } catch (error) {
       console.error('Error in loadEventData:', error);
@@ -289,6 +332,7 @@ export default function EventDetailScreen() {
       setDbSettlements([]);
       setConsolidationAssignments([]);
       setConsolidatedSettlements([]);
+      setEventActivities([]);
     } finally {
       setIsInitialLoading(false);
     }
@@ -364,7 +408,7 @@ export default function EventDetailScreen() {
         } else {
           // Crear nueva liquidación
           const newSettlement = {
-            id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            id: generateId(),
             eventId,
             fromParticipantId: calculatedSettlement.fromParticipantId,
             fromParticipantName: calculatedSettlement.fromParticipantName,
@@ -1214,6 +1258,69 @@ export default function EventDetailScreen() {
       });
   };
 
+  // Compartir la organización (tareas + participantes) por WhatsApp
+  const handleShareOrganization = () => {
+    if (!event) return;
+
+    let message = `📋 ${t('organization.shareTitle')} - ${event.name.toUpperCase()}\n`;
+    message += `━━━━━━━\n`;
+    if (event.startDate) {
+      message += `📅 ${new Date(event.startDate).toLocaleDateString()}\n`;
+    }
+    if (event.location) {
+      message += `📍 ${event.location}\n`;
+    }
+    message += `━━━━━━━\n\n`;
+
+    if (eventActivities.length === 0) {
+      message += `${t('organization.empty')}\n`;
+    } else {
+      eventActivities.forEach((activity) => {
+        message += `✅ *${activity.title}*\n`;
+        if (activity.description) {
+          message += `   _${activity.description}_\n`;
+        }
+        const names = (activity.assignedParticipantIds || [])
+          .map((pid) => getParticipantById(pid)?.name)
+          .filter(Boolean);
+        if (names.length > 0) {
+          message += `   👥 ${names.join(', ')}\n`;
+        } else {
+          message += `   👤 ${t('organization.unassigned')}\n`;
+        }
+        message += `\n`;
+      });
+    }
+
+    message += `━━━━━━━\n`;
+    message += `\n*Realizado con SplitSmart.*\n_Descarga tu app_`;
+
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = Platform.OS === 'web'
+      ? `https://web.whatsapp.com/send?text=${encodedMessage}`
+      : `whatsapp://send?text=${encodedMessage}`;
+
+    if (Platform.OS === 'web') {
+      Linking.openURL(whatsappUrl);
+      return;
+    }
+
+    Linking.canOpenURL(whatsappUrl)
+      .then((supported) => {
+        if (supported) {
+          return Linking.openURL(whatsappUrl);
+        } else {
+          Clipboard.setString(message);
+          showAlert({ type: 'warning', title: t('message.whatsappNotAvailable'), message: `${t('organization.title')} ${t('message.copiedToClipboard')}`, buttons: [{ text: t('ok') }] });
+        }
+      })
+      .catch((err) => {
+        console.error('Error opening WhatsApp:', err);
+        Clipboard.setString(message);
+        showAlert({ type: 'warning', title: t('message.whatsappError'), message: `${t('organization.title')} ${t('message.copiedToClipboard')}`, buttons: [{ text: t('ok') }] });
+      });
+  };
+
   const handleShareEvent = () => {
     if (!event) return;
 
@@ -1399,7 +1506,7 @@ export default function EventDetailScreen() {
       // Aplicar consolidaciones usando el servicio - usar dbSettlements que tienen todas las propiedades
       const settlementsToConsolidate = dbSettlements.length > 0 ? dbSettlements : settlements.map(s => ({
         ...s,
-        id: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: generateId(),
         eventId: eventId || '',
         isPaid: false,
         createdAt: new Date().toISOString(),
@@ -1635,9 +1742,10 @@ export default function EventDetailScreen() {
 
   const renderTabBar = () => {
     const TABS = [
-      { key: 'resumen',       title: t('summary.title'),      icon: 'chart-pie'     as const, color: '#4CAF50' },
-      { key: 'participantes', title: t('participants.title'), icon: 'account-group' as const, color: '#2196F3' },
-      { key: 'gastos',        title: t('expenses.title'),     icon: 'cash'          as const, color: '#FF9800' },
+      { key: 'resumen',       title: t('summary.title'),      icon: 'chart-pie'         as const, color: '#4CAF50' },
+      { key: 'participantes', title: t('participants.title'), icon: 'account-group'     as const, color: '#2196F3' },
+      { key: 'gastos',        title: t('expenses.title'),     icon: 'cash'              as const, color: '#FF9800' },
+      { key: 'organizacion',  title: t('organization.title'), icon: 'clipboard-list-outline' as const, color: '#FF6F00' },
     ];
     return (
       <View style={styles.tabBar}>
@@ -2792,6 +2900,22 @@ export default function EventDetailScreen() {
             </View>
           </TouchableOpacity>
         </View>
+
+        {/* Tercera fila: compartir Organización por WhatsApp */}
+        <View style={{ marginTop: 8 }}>
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+              backgroundColor: '#FF6F0018', paddingVertical: 12, borderRadius: 10,
+              borderWidth: 1.5, borderColor: '#FF6F0040',
+            }}
+            onPress={handleShareOrganization}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="whatsapp" size={22} color="#FF6F00" />
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#FF6F00' }}>{t('organization.shareWhatsapp')}</Text>
+          </TouchableOpacity>
+        </View>
       </Card>
       </View>
 
@@ -3550,7 +3674,7 @@ export default function EventDetailScreen() {
               let createdCount = 0;
               for (const settlement of settlements) {
                 const newPayment: Payment = {
-                  id: `payment_${Date.now()}_${Math.random()}`,
+                  id: generateId(),
                   eventId,
                   fromParticipantId: settlement.fromParticipantId,
                   toParticipantId: settlement.toParticipantId,
@@ -3715,6 +3839,491 @@ export default function EventDetailScreen() {
     );
   };
 
+  // ==================== Organización (actividades) ====================
+
+  const getParticipantById = (id: string) =>
+    eventParticipants.find((p) => p.id === id);
+
+  const openAddActivity = () => {
+    setEditingActivity(null);
+    setActivityTitleInput('');
+    setActivityDescInput('');
+    setActivityAssigneeIds(new Set());
+    setShowActivityModal(true);
+  };
+
+  const openEditActivity = (activity: Activity) => {
+    setEditingActivity(activity);
+    setActivityTitleInput(activity.title);
+    setActivityDescInput(activity.description || '');
+    setShowActivityModal(true);
+  };
+
+  const toggleActivityAssignee = (participantId: string) => {
+    setActivityAssigneeIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(participantId)) next.delete(participantId);
+      else next.add(participantId);
+      return next;
+    });
+  };
+
+  const handleSaveActivity = async () => {
+    const title = activityTitleInput.trim();
+    if (!title) return;
+    setIsSavingActivity(true);
+    try {
+      const description = activityDescInput.trim();
+      if (editingActivity) {
+        await updateActivity(editingActivity.id, { title, description });
+      } else {
+        const now = new Date().toISOString();
+        await addActivity({
+          id: generateId(),
+          eventId,
+          title,
+          description,
+          position: eventActivities.length,
+          createdByUserId: user?.id,
+          createdAt: now,
+          updatedAt: now,
+          assignedParticipantIds: [],
+        });
+      }
+      setShowActivityModal(false);
+      await loadEventData();
+    } catch (e) {
+      console.error('Error saving activity:', e);
+    } finally {
+      setIsSavingActivity(false);
+    }
+  };
+
+  // ── Asignación de participantes (al presionar la card) ──────────────────
+  const openAssignModal = (activity: Activity) => {
+    setAssignActivity(activity);
+    setActivityAssigneeIds(new Set(activity.assignedParticipantIds || []));
+    setShowAssignModal(true);
+  };
+
+  const handleSaveAssign = async () => {
+    if (!assignActivity) return;
+    setIsSavingAssign(true);
+    try {
+      await setActivityAssignees(assignActivity.id, Array.from(activityAssigneeIds));
+      setShowAssignModal(false);
+      setAssignActivity(null);
+      await loadEventData();
+    } catch (e) {
+      console.error('Error saving assignees:', e);
+    } finally {
+      setIsSavingAssign(false);
+    }
+  };
+
+  const handleDeleteActivity = (activity: Activity) => {
+    showAlert({
+      type: 'destructive',
+      title: t('organization.deleteTitle'),
+      message: t('organization.deleteMessage', { title: activity.title }),
+      buttons: [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteActivity(activity.id);
+              setShowActivityModal(false);
+              await loadEventData();
+            } catch (e) {
+              console.error('Error deleting activity:', e);
+            }
+          },
+        },
+      ],
+    });
+  };
+
+  // ── Selección múltiple de tareas ────────────────────────────────────────
+  const enterActivitySelectMode = (activityId?: string) => {
+    setIsActivitySelectMode(true);
+    setSelectedActivityIds(activityId ? new Set([activityId]) : new Set());
+  };
+
+  const exitActivitySelectMode = () => {
+    setIsActivitySelectMode(false);
+    setSelectedActivityIds(new Set());
+  };
+
+  const toggleActivitySelection = (activityId: string) => {
+    setSelectedActivityIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(activityId)) next.delete(activityId);
+      else next.add(activityId);
+      return next;
+    });
+  };
+
+  const handleBulkDeleteActivities = () => {
+    const count = selectedActivityIds.size;
+    if (count === 0) return;
+    showAlert({
+      type: 'destructive',
+      title: t('organization.deleteSelectedTitle'),
+      message: t('organization.deleteSelectedMessage', { count, plural: count !== 1 ? 's' : '' }),
+      buttons: [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            showAlert({ type: 'warning', isLoading: true, title: t('common.processing') });
+            try {
+              for (const id of selectedActivityIds) {
+                await deleteActivity(id);
+              }
+              await loadEventData();
+              exitActivitySelectMode();
+              dismissAlert();
+            } catch (e: any) {
+              console.error('Error bulk deleting activities:', e);
+              dismissAlert();
+              showAlert({ type: 'error', title: t('common.error'), message: e?.message || '' });
+            }
+          },
+        },
+      ],
+    });
+  };
+
+  const openTemplateModal = async () => {
+    try {
+      const templates = user?.id ? await getActivityTemplates(user.id) : [];
+      setCustomTemplates(templates);
+    } catch {
+      setCustomTemplates([]);
+    }
+    setShowTemplateModal(true);
+  };
+
+  const refreshTemplates = async () => {
+    if (!user?.id) return;
+    try {
+      const templates = await getActivityTemplates(user.id);
+      setCustomTemplates(templates);
+    } catch {
+      /* noop */
+    }
+  };
+
+  const applyTemplateTasks = async (tasks: string[]) => {
+    if (tasks.length === 0) return;
+    setApplyingTemplate(true);
+    try {
+      const now = new Date().toISOString();
+      let pos = eventActivities.length;
+      for (const task of tasks) {
+        await addActivity({
+          id: generateId(),
+          eventId,
+          title: task,
+          position: pos++,
+          createdByUserId: user?.id,
+          createdAt: now,
+          updatedAt: now,
+          assignedParticipantIds: [],
+        });
+      }
+      setShowTemplateModal(false);
+      await loadEventData();
+    } catch (e) {
+      console.error('Error applying template:', e);
+    } finally {
+      setApplyingTemplate(false);
+    }
+  };
+
+  const handleSaveCurrentAsTemplate = () => {
+    if (!user?.id || eventActivities.length === 0) return;
+    setNewTemplateName(event?.name || '');
+    setShowSaveTemplateModal(true);
+  };
+
+  const confirmSaveTemplate = async () => {
+    const name = newTemplateName.trim();
+    if (!name || !user?.id) return;
+    try {
+      await addActivityTemplate({
+        id: generateId(),
+        userId: user.id,
+        name,
+        tasks: eventActivities.map((a) => a.title),
+      });
+      await refreshTemplates();
+      setShowSaveTemplateModal(false);
+      setNewTemplateName('');
+    } catch (e) {
+      console.error('Error saving template:', e);
+    }
+  };
+
+  // ── Editor de plantillas (crear/editar) ─────────────────────────────────
+  const openTemplateEditor = (template: ActivityTemplate | null) => {
+    setEditingTemplate(template);
+    setTemplateEditorName(template?.name || '');
+    setTemplateEditorTasks(template ? [...template.tasks] : []);
+    setTemplateEditorNewTask('');
+    setShowTemplateEditor(true);
+  };
+
+  const addTemplateEditorTask = () => {
+    const task = templateEditorNewTask.trim();
+    if (!task) return;
+    setTemplateEditorTasks((prev) => [...prev, task]);
+    setTemplateEditorNewTask('');
+  };
+
+  const removeTemplateEditorTask = (index: number) => {
+    setTemplateEditorTasks((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const saveTemplateEditor = async () => {
+    const name = templateEditorName.trim();
+    if (!name || !user?.id || templateEditorTasks.length === 0) return;
+    setIsSavingTemplate(true);
+    try {
+      if (editingTemplate) {
+        await updateActivityTemplate(editingTemplate.id, { name, tasks: templateEditorTasks });
+      } else {
+        await addActivityTemplate({
+          id: generateId(),
+          userId: user.id,
+          name,
+          tasks: templateEditorTasks,
+        });
+      }
+      await refreshTemplates();
+      setShowTemplateEditor(false);
+      setEditingTemplate(null);
+    } catch (e) {
+      console.error('Error saving template editor:', e);
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  };
+
+  const handleDeleteTemplate = (template: ActivityTemplate) => {
+    showAlert({
+      type: 'destructive',
+      title: t('organization.deleteTemplateTitle'),
+      message: t('organization.deleteTemplateMessage', { name: template.name }),
+      buttons: [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteActivityTemplate(template.id);
+              await refreshTemplates();
+            } catch (e) {
+              console.error('Error deleting template:', e);
+            }
+          },
+        },
+      ],
+    });
+  };
+
+  const renderAssigneeAvatars = (participantIds: string[]) => {
+    if (!participantIds || participantIds.length === 0) {
+      return (
+        <Text style={styles.activityNoAssignees}>{t('organization.unassigned')}</Text>
+      );
+    }
+    const maxShown = 3;
+    const shown = participantIds.slice(0, maxShown);
+    const overflow = participantIds.length - shown.length;
+    return (
+      <View style={styles.activityAvatarsRow}>
+        {shown.map((pid) => {
+          const p = getParticipantById(pid);
+          const initial = (p?.name || '?').charAt(0).toUpperCase();
+          return (
+            <View key={pid} style={styles.activityAvatar}>
+              {p?.avatar ? (
+                <Avatar name={p.name} image={p.avatar} size="small" />
+              ) : (
+                <Text style={styles.activityAvatarText}>{initial}</Text>
+              )}
+            </View>
+          );
+        })}
+        {overflow > 0 && (
+          <View style={[styles.activityAvatar, styles.activityAvatarOverflow]}>
+            <Text style={styles.activityAvatarText}>+{overflow}</Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const renderOrganizacionTab = () => {
+    const allSelected = eventActivities.length > 0 && eventActivities.every((a) => selectedActivityIds.has(a.id));
+    return (
+      <View style={styles.tabContent}>
+        {/* ══ Encabezado con acciones (armónico con Gastos/Participantes) ══ */}
+        <View style={{ marginHorizontal: 16, marginTop: 12 }}>
+          <Card style={{ borderTopWidth: 4, borderTopColor: '#FF6F00', overflow: 'hidden', marginBottom: 8 }}>
+            <Text style={styles.organizationSubtitle}>{t('organization.subtitle')}</Text>
+            <View style={{ height: 1, backgroundColor: theme.colors.outline + '25', marginTop: 8, marginBottom: 10 }} />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              {isActivitySelectMode ? (
+                <>
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                    onPress={() =>
+                      setSelectedActivityIds(allSelected ? new Set() : new Set(eventActivities.map((a) => a.id)))
+                    }
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons
+                      name={allSelected ? 'checkbox-marked-circle' : selectedActivityIds.size > 0 ? 'minus-circle-outline' : 'checkbox-blank-circle-outline'}
+                      size={22}
+                      color="#FF6F00"
+                      style={{ marginRight: 8 }}
+                    />
+                    <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
+                      {selectedActivityIds.size > 0
+                        ? t('organization.selectedCount', { count: selectedActivityIds.size })
+                        : t('organization.selectAll')}
+                    </Text>
+                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    {selectedActivityIds.size > 0 && (
+                      <TouchableOpacity
+                        style={{ backgroundColor: theme.colors.error, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}
+                        onPress={handleBulkDeleteActivities}
+                      >
+                        <MaterialCommunityIcons name="delete-outline" size={20} color="#fff" />
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.outline + '25' }}
+                      onPress={exitActivitySelectMode}
+                    >
+                      <MaterialCommunityIcons name="close" size={20} color={theme.colors.onSurface} />
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                    <MaterialCommunityIcons name="clipboard-list-outline" size={18} color="#FF6F00" />
+                    <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
+                      {t('organization.title')} ({eventActivities.length})
+                    </Text>
+                  </View>
+                  {isEditable && (
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity
+                        style={{ backgroundColor: '#FF6F00', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
+                        onPress={openAddActivity}
+                        activeOpacity={0.7}
+                      >
+                        <MaterialCommunityIcons name="plus" size={16} color="#fff" style={{ marginRight: 6 }} />
+                        <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>{t('add')}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={{ backgroundColor: '#FF6F0015', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 }}
+                        onPress={openTemplateModal}
+                        activeOpacity={0.7}
+                      >
+                        <MaterialCommunityIcons name="clipboard-text-multiple-outline" size={18} color="#FF6F00" />
+                      </TouchableOpacity>
+                      {eventActivities.length > 0 && (
+                        <TouchableOpacity
+                          style={{ backgroundColor: theme.colors.error + '15', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 }}
+                          onPress={() => enterActivitySelectMode()}
+                          activeOpacity={0.7}
+                        >
+                          <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.error} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
+                </>
+              )}
+            </View>
+          </Card>
+        </View>
+
+        {/* ══ Lista de actividades ══ */}
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }}>
+          {eventActivities.length === 0 ? (
+            <Card style={{ marginHorizontal: 16, marginBottom: 16, borderTopWidth: 4, borderTopColor: '#FF6F00', overflow: 'hidden' }}>
+              <View style={styles.organizationEmpty}>
+                <MaterialCommunityIcons name="clipboard-list-outline" size={48} color={theme.colors.onSurfaceVariant} />
+                <Text style={styles.organizationEmptyText}>{t('organization.empty')}</Text>
+              </View>
+            </Card>
+          ) : (
+            <View style={{ marginHorizontal: 16 }}>
+              {eventActivities.map((activity) => {
+                const isSelected = selectedActivityIds.has(activity.id);
+                return (
+                  <TouchableOpacity
+                    key={activity.id}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      if (!isEditable) return;
+                      if (isActivitySelectMode) toggleActivitySelection(activity.id);
+                      else openAssignModal(activity);
+                    }}
+                    onLongPress={() => {
+                      if (isEditable && !isActivitySelectMode) enterActivitySelectMode(activity.id);
+                    }}
+                  >
+                    <Card style={[styles.activityCard, isActivitySelectMode && isSelected && { borderColor: '#FF6F00', borderWidth: 1.5 }]}>
+                      <View style={styles.activityRow}>
+                        {isActivitySelectMode && (
+                          <MaterialCommunityIcons
+                            name={isSelected ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                            size={22}
+                            color={isSelected ? '#FF6F00' : theme.colors.onSurfaceVariant}
+                            style={{ marginRight: 8 }}
+                          />
+                        )}
+                        <View style={styles.activityInfo}>
+                          <Text style={styles.activityTitle}>{activity.title}</Text>
+                          {!!activity.description && (
+                            <Text style={styles.activityDescription} numberOfLines={2}>{activity.description}</Text>
+                          )}
+                          {renderAssigneeAvatars(activity.assignedParticipantIds || [])}
+                        </View>
+                        {isEditable && !isActivitySelectMode && (
+                          <View style={styles.activityRowActions}>
+                            <TouchableOpacity onPress={() => openEditActivity(activity)} style={styles.activityIconBtn}>
+                              <MaterialCommunityIcons name="pencil-outline" size={20} color={theme.colors.primary} />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => handleDeleteActivity(activity)} style={styles.activityIconBtn}>
+                              <MaterialCommunityIcons name="trash-can-outline" size={20} color={theme.colors.error} />
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                    </Card>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </ScrollView>
+      </View>
+    );
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'gastos':
@@ -3723,6 +4332,8 @@ export default function EventDetailScreen() {
         return renderParticipantesTab();
       case 'resumen':
         return renderResumenTab();
+      case 'organizacion':
+        return renderOrganizacionTab();
       default:
         return renderGastosTab();
     }
@@ -3848,6 +4459,307 @@ export default function EventDetailScreen() {
         currentParticipants={eventParticipants}
         hasExpenses={eventExpenses.length > 0}
       />
+
+      {/* Modal Agregar/Editar Actividad (Organización) */}
+      <Modal
+        visible={showActivityModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowActivityModal(false)}
+      >
+        <View style={styles.activityModalOverlay}>
+          <View style={styles.activityModalContent}>
+            <Text style={styles.activityModalTitle}>
+              {editingActivity ? t('organization.editActivity') : t('organization.addActivity')}
+            </Text>
+            <Text style={styles.activityModalLabel}>{t('organization.activityTitleLabel')}</Text>
+            <TextInput
+              style={styles.activityModalInput}
+              value={activityTitleInput}
+              onChangeText={setActivityTitleInput}
+              placeholder={t('organization.activityTitlePlaceholder')}
+              placeholderTextColor={theme.colors.onSurfaceVariant}
+              autoFocus
+            />
+            <Text style={styles.activityModalLabel}>{t('organization.activityDescLabel')}</Text>
+            <TextInput
+              style={[styles.activityModalInput, styles.activityModalTextArea]}
+              value={activityDescInput}
+              onChangeText={setActivityDescInput}
+              placeholder={t('organization.activityDescPlaceholder')}
+              placeholderTextColor={theme.colors.onSurfaceVariant}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+            {editingActivity && (
+              <TouchableOpacity
+                style={styles.activitySaveTemplateBtn}
+                onPress={() => handleDeleteActivity(editingActivity)}
+              >
+                <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.error} />
+                <Text style={[styles.activitySaveTemplateText, { color: theme.colors.error }]}>
+                  {t('organization.deleteActivity')}
+                </Text>
+              </TouchableOpacity>
+            )}
+            <View style={styles.activityModalActions}>
+              <TouchableOpacity
+                style={[styles.activityModalBtn, styles.activityModalBtnCancel]}
+                onPress={() => setShowActivityModal(false)}
+              >
+                <Text style={styles.activityModalBtnCancelText}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.activityModalBtn,
+                  styles.activityModalBtnSave,
+                  (!activityTitleInput.trim() || isSavingActivity) && { opacity: 0.5 },
+                ]}
+                onPress={handleSaveActivity}
+                disabled={!activityTitleInput.trim() || isSavingActivity}
+              >
+                <Text style={styles.activityModalBtnSaveText}>{t('common.save')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Asignar Participantes a una tarea (al presionar la card) */}
+      <Modal
+        visible={showAssignModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowAssignModal(false)}
+      >
+        <View style={styles.activityModalOverlay}>
+          <View style={styles.activityModalContent}>
+            <Text style={styles.activityModalTitle} numberOfLines={1}>
+              {assignActivity?.title || ''}
+            </Text>
+            {!!assignActivity?.description && (
+              <Text style={styles.activityDescription}>{assignActivity.description}</Text>
+            )}
+            <Text style={styles.activityModalLabel}>{t('organization.assignTo')}</Text>
+            <ScrollView style={styles.activityAssigneeList}>
+              {eventParticipants
+                .filter((p) => !p.parentParticipantId)
+                .map((p) => {
+                  const selected = activityAssigneeIds.has(p.id);
+                  return (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={styles.activityAssigneeItem}
+                      onPress={() => toggleActivityAssignee(p.id)}
+                    >
+                      <MaterialCommunityIcons
+                        name={selected ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                        size={22}
+                        color={selected ? '#FF6F00' : theme.colors.onSurfaceVariant}
+                      />
+                      <Text style={styles.activityAssigneeName}>{p.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+            </ScrollView>
+            <View style={styles.activityModalActions}>
+              <TouchableOpacity
+                style={[styles.activityModalBtn, styles.activityModalBtnCancel]}
+                onPress={() => setShowAssignModal(false)}
+              >
+                <Text style={styles.activityModalBtnCancelText}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.activityModalBtn,
+                  styles.activityModalBtnSave,
+                  isSavingAssign && { opacity: 0.5 },
+                ]}
+                onPress={handleSaveAssign}
+                disabled={isSavingAssign}
+              >
+                <Text style={styles.activityModalBtnSaveText}>{t('common.save')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Selección de Plantilla (Organización) */}
+      <Modal
+        visible={showTemplateModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowTemplateModal(false)}
+      >
+        <View style={styles.activityModalOverlay}>
+          <View style={styles.activityModalContent}>
+            <Text style={styles.activityModalTitle}>{t('organization.templatesTitle')}</Text>
+            <ScrollView style={{ maxHeight: 360 }}>
+              <View style={styles.activityTemplateSectionRow}>
+                <Text style={styles.activityTemplateSection}>{t('organization.myTemplates')}</Text>
+                <TouchableOpacity onPress={() => openTemplateEditor(null)}>
+                  <MaterialCommunityIcons name="plus-circle-outline" size={22} color="#FF6F00" />
+                </TouchableOpacity>
+              </View>
+              {customTemplates.length === 0 ? (
+                <Text style={styles.activityTemplateTasks}>{t('organization.noCustomTemplates')}</Text>
+              ) : (
+                customTemplates.map((tpl) => (
+                  <View key={tpl.id} style={styles.activityTemplateItem}>
+                    <TouchableOpacity
+                      style={styles.activityTemplateMain}
+                      disabled={applyingTemplate}
+                      onPress={() => applyTemplateTasks(tpl.tasks)}
+                    >
+                      <MaterialCommunityIcons name="bookmark-outline" size={20} color="#FF6F00" />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.activityTemplateName}>{tpl.name}</Text>
+                        <Text style={styles.activityTemplateTasks} numberOfLines={1}>
+                          {tpl.tasks.join(' · ')}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.activityIconBtn} onPress={() => openTemplateEditor(tpl)}>
+                      <MaterialCommunityIcons name="pencil-outline" size={18} color={theme.colors.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.activityIconBtn} onPress={() => handleDeleteTemplate(tpl)}>
+                      <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.error} />
+                    </TouchableOpacity>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+
+            {eventActivities.length > 0 && (
+              <TouchableOpacity style={styles.activitySaveTemplateBtn} onPress={handleSaveCurrentAsTemplate}>
+                <MaterialCommunityIcons name="content-save-outline" size={18} color={theme.colors.primary} />
+                <Text style={styles.activitySaveTemplateText}>{t('organization.saveCurrentAsTemplate')}</Text>
+              </TouchableOpacity>
+            )}
+
+            <View style={styles.activityModalActions}>
+              <TouchableOpacity
+                style={[styles.activityModalBtn, styles.activityModalBtnCancel]}
+                onPress={() => setShowTemplateModal(false)}
+              >
+                <Text style={styles.activityModalBtnCancelText}>{t('common.close')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Editor de Plantilla (crear/editar tareas) */}
+      <Modal
+        visible={showTemplateEditor}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowTemplateEditor(false)}
+      >
+        <View style={styles.activityModalOverlay}>
+          <View style={styles.activityModalContent}>
+            <Text style={styles.activityModalTitle}>
+              {editingTemplate ? t('organization.editTemplate') : t('organization.newTemplate')}
+            </Text>
+            <Text style={styles.activityModalLabel}>{t('organization.templateNameLabel')}</Text>
+            <TextInput
+              style={styles.activityModalInput}
+              value={templateEditorName}
+              onChangeText={setTemplateEditorName}
+              placeholder={t('organization.templateNamePlaceholder')}
+              placeholderTextColor={theme.colors.onSurfaceVariant}
+            />
+            <Text style={styles.activityModalLabel}>{t('organization.templateTasksLabel')}</Text>
+            <ScrollView style={styles.activityAssigneeList}>
+              {templateEditorTasks.map((task, index) => (
+                <View key={`${task}-${index}`} style={styles.activityAssigneeItem}>
+                  <MaterialCommunityIcons name="circle-small" size={22} color={theme.colors.onSurfaceVariant} />
+                  <Text style={[styles.activityAssigneeName, { flex: 1 }]}>{task}</Text>
+                  <TouchableOpacity onPress={() => removeTemplateEditorTask(index)}>
+                    <MaterialCommunityIcons name="close-circle-outline" size={20} color={theme.colors.error} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+            <View style={styles.activityTemplateAddRow}>
+              <TextInput
+                style={[styles.activityModalInput, { flex: 1, marginBottom: 0 }]}
+                value={templateEditorNewTask}
+                onChangeText={setTemplateEditorNewTask}
+                placeholder={t('organization.templateTaskPlaceholder')}
+                placeholderTextColor={theme.colors.onSurfaceVariant}
+                onSubmitEditing={addTemplateEditorTask}
+              />
+              <TouchableOpacity style={styles.activityIconBtn} onPress={addTemplateEditorTask}>
+                <MaterialCommunityIcons name="plus-circle" size={28} color="#FF6F00" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.activityModalActions}>
+              <TouchableOpacity
+                style={[styles.activityModalBtn, styles.activityModalBtnCancel]}
+                onPress={() => setShowTemplateEditor(false)}
+              >
+                <Text style={styles.activityModalBtnCancelText}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.activityModalBtn,
+                  styles.activityModalBtnSave,
+                  (!templateEditorName.trim() || templateEditorTasks.length === 0 || isSavingTemplate) && { opacity: 0.5 },
+                ]}
+                onPress={saveTemplateEditor}
+                disabled={!templateEditorName.trim() || templateEditorTasks.length === 0 || isSavingTemplate}
+              >
+                <Text style={styles.activityModalBtnSaveText}>{t('common.save')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Guardar Plantilla (nombre) */}
+      <Modal
+        visible={showSaveTemplateModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowSaveTemplateModal(false)}
+      >
+        <View style={styles.activityModalOverlay}>
+          <View style={styles.activityModalContent}>
+            <Text style={styles.activityModalTitle}>{t('organization.saveTemplateTitle')}</Text>
+            <Text style={styles.activityModalLabel}>{t('organization.templateNameLabel')}</Text>
+            <TextInput
+              style={styles.activityModalInput}
+              value={newTemplateName}
+              onChangeText={setNewTemplateName}
+              placeholder={t('organization.templateNamePlaceholder')}
+              placeholderTextColor={theme.colors.onSurfaceVariant}
+              autoFocus
+            />
+            <View style={styles.activityModalActions}>
+              <TouchableOpacity
+                style={[styles.activityModalBtn, styles.activityModalBtnCancel]}
+                onPress={() => setShowSaveTemplateModal(false)}
+              >
+                <Text style={styles.activityModalBtnCancelText}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.activityModalBtn,
+                  styles.activityModalBtnSave,
+                  !newTemplateName.trim() && { opacity: 0.5 },
+                ]}
+                onPress={confirmSaveTemplate}
+                disabled={!newTemplateName.trim()}
+              >
+                <Text style={styles.activityModalBtnSaveText}>{t('common.save')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Modal de Edición de Participante */}
       <Modal
@@ -4232,10 +5144,14 @@ export default function EventDetailScreen() {
                       onPress={async () => {
                         try {
                           setShareLoading(true);
-                          const newShareId = await createShareLink(eventId, qrPermission);
+                          const { shareId: newShareId, shortCode: newCode } = await createShareLink(eventId, qrPermission);
                           setShareId(newShareId);
+                          setShortCode(newCode);
                         } catch (err: any) {
-                          showAlert({ type: 'error', title: t('common.error'), message: t('eventDetail.qrGenerateError'), buttons: [{ text: 'OK' }] });
+                          const msg = err?.message === 'REQUIRES_ONLINE'
+                            ? t('eventDetail.qrRequiresOnlineDesc')
+                            : (err?.message ? `${t('eventDetail.qrGenerateError')}\n\n${err.message}` : t('eventDetail.qrGenerateError'));
+                          showAlert({ type: 'error', title: t('common.error'), message: msg, buttons: [{ text: 'OK' }] });
                         } finally {
                           setShareLoading(false);
                         }
@@ -4280,6 +5196,36 @@ export default function EventDetailScreen() {
                         {t('eventDetail.qrInstructions')}
                       </Text>
                     </View>
+
+                    {/* Código corto legible (alternativa a escanear el QR) */}
+                    {shortCode && (
+                      <View style={{ alignItems: 'center', marginBottom: 14 }}>
+                        <Text style={{ fontSize: 12, color: theme.colors.onSurfaceVariant, marginBottom: 6 }}>
+                          {t('eventDetail.qrCodeLabel')}
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => {
+                            Clipboard.setString(shortCode);
+                            showAlert({ type: 'success', title: '✅', message: t('eventDetail.qrCodeCopied'), buttons: [{ text: 'OK' }] });
+                          }}
+                          activeOpacity={0.7}
+                          style={{
+                            flexDirection: 'row', alignItems: 'center', gap: 10,
+                            paddingVertical: 10, paddingHorizontal: 18, borderRadius: 12,
+                            backgroundColor: theme.colors.surfaceVariant,
+                            borderWidth: 1, borderColor: theme.colors.outline, borderStyle: 'dashed',
+                          }}
+                        >
+                          <Text style={{ fontSize: 22, fontWeight: '800', letterSpacing: 4, color: theme.colors.onSurface }}>
+                            {shortCode}
+                          </Text>
+                          <MaterialCommunityIcons name="content-copy" size={18} color={theme.colors.onSurfaceVariant} />
+                        </TouchableOpacity>
+                        <Text style={{ fontSize: 10, color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 8, lineHeight: 14, paddingHorizontal: 12 }}>
+                          {t('eventDetail.qrCodeInstructions')}
+                        </Text>
+                      </View>
+                    )}
 
                     {/* Acciones del QR generado */}
                     <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -4335,7 +5281,7 @@ export default function EventDetailScreen() {
                     {/* Nuevo QR con otro permiso */}
                     <TouchableOpacity
                       style={{ marginTop: 10, alignItems: 'center', paddingVertical: 6 }}
-                      onPress={() => setShareId(null)}
+                      onPress={() => { setShareId(null); setShortCode(null); }}
                       activeOpacity={0.7}
                     >
                       <Text style={{ fontSize: 12, color: '#9C27B0', fontWeight: '600' }}>

@@ -27,7 +27,7 @@ import { useData } from '../../context/DataContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { getSplittyImage } from '../../constants/splitty';
 import { databaseService } from '../../services/DatabaseFactory';
-import { Card, Button, Input, LanguageSelector, CurrencySelector, ThemeToggle, HeaderBar } from '../../components';
+import { Card, Button, Input, LanguageSelector, CurrencySelector, ThemeToggle, HeaderBar, SyncStatusIndicator } from '../../components';
 import { 
   UserProfileData, 
   ProfileSectionProps, 
@@ -39,6 +39,7 @@ import {
 import { createStyles } from './styles';
 import { PROFILE_KEYS, NOTIFICATION_KEYS, getLanguageDisplayName, getUserInitials } from './language';
 import { showAlert } from '../../services/alertService';
+import { generateId } from '../../utils/uuid';
 import { fetchVersionInfo, isNewerVersion, RemoteVersionInfo } from '../../services/UpdateService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TutorialOverlay from '../../components/TutorialOverlay';
@@ -185,9 +186,10 @@ const ProfileScreen: React.FC = () => {
     verifyUserPassword,
     updateUserNotifications,
     updateUserPrivacy,
-    getParticipantByUserId
-  } = useData();
-  const styles = createStyles(theme);
+    getParticipantByUserId,
+    getUserPreference,
+    setUserPreference
+  } = useData();  const styles = createStyles(theme);
 
   const [profileData, setProfileData] = useState<UserProfileData>({
     name: user?.name || 'Usuario Demo',
@@ -224,6 +226,7 @@ const ProfileScreen: React.FC = () => {
   const [autoLogin, setAutoLogin] = useState(false);
   const [chatModeAdvanced, setChatModeAdvanced] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [autoAddSelfParticipant, setAutoAddSelfParticipant] = useState(true);
   const [showAutoLogoutOptions, setShowAutoLogoutOptions] = useState(false);
   const [showChangelogModal, setShowChangelogModal] = useState(false);
   const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
@@ -303,7 +306,7 @@ const ProfileScreen: React.FC = () => {
                   if (!user?.id) return;
                   try {
                     await databaseService.createParticipant({
-                      id: `friend_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                      id: generateId(),
                       name: user.name || profileData.name,
                       email: user.email || profileData.email || undefined,
                       phone: profileData.phone || undefined,
@@ -441,6 +444,12 @@ const ProfileScreen: React.FC = () => {
         setChatModeAdvanced(profile.chat_mode_advanced === 1);
         setBiometricEnabled(profile.biometric_enabled === 1);
       }
+      // Preferencia: agregar automáticamente al usuario como participante al crear eventos.
+      // Por defecto activado (null → true).
+      try {
+        const pref = await getUserPreference(user.id, 'auto_add_self_participant');
+        setAutoAddSelfParticipant(pref === null ? true : pref === '1');
+      } catch {}
     } catch (error) {
       console.error('Error loading user profile:', error);
     }
@@ -1070,9 +1079,10 @@ const ProfileScreen: React.FC = () => {
         contentContainerStyle={styles.scrollViewContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Banner de versión */}
+        {/* Banner de versión + sincronización */}
         <View ref={pfBannerRef} collapsable={false}
           onLayout={(e) => { const y = e.nativeEvent.layout.y; setPfSectionY(p => ({ ...p, banner: y })); }}>
+        <View style={{ flexDirection: 'column', gap: 8, marginHorizontal: 16, marginBottom: 8 }}>
         <TouchableOpacity
           activeOpacity={updateAvailable ? 0.7 : 1}
           onPress={updateAvailable && versionInfo ? () => Linking.openURL(versionInfo.playStoreUrl) : undefined}
@@ -1080,8 +1090,6 @@ const ProfileScreen: React.FC = () => {
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            marginHorizontal: 16,
-            marginBottom: 8,
             paddingHorizontal: 14,
             paddingVertical: 10,
             borderRadius: 12,
@@ -1108,6 +1116,8 @@ const ProfileScreen: React.FC = () => {
             <MaterialCommunityIcons name="download-circle-outline" size={22} color={theme.colors.error} />
           )}
         </TouchableOpacity>
+        <SyncStatusIndicator variant="full" />
+        </View>
         </View>
 
         {/* Perfil del Usuario */}
@@ -1600,6 +1610,31 @@ const ProfileScreen: React.FC = () => {
             </View>
             <Text style={{ fontSize: 12, fontWeight: '700', color: chatModeAdvanced ? theme.colors.primary : theme.colors.onSurfaceVariant }}>
               {chatModeAdvanced ? 'ACTIVADO' : 'DESACTIVADO'}
+            </Text>
+          </TouchableOpacity>
+          {/* Auto-agregarme como participante al crear eventos - ancho completo */}
+          <TouchableOpacity
+            style={[styles.statCardWide, { borderLeftColor: autoAddSelfParticipant ? theme.colors.primary : theme.colors.outline, marginTop: 8 }]}
+            onPress={async () => {
+              try {
+                if (!user?.id) return;
+                const newValue = !autoAddSelfParticipant;
+                setAutoAddSelfParticipant(newValue);
+                await setUserPreference(user.id, 'auto_add_self_participant', newValue ? '1' : '0');
+              } catch (error) {
+                showAlert({ type: 'error', title: t('error'), message: t('profile.message.settingUpdateError') });
+              }
+            }}
+          >
+            <MaterialCommunityIcons name="account-check" size={24} color={autoAddSelfParticipant ? theme.colors.primary : theme.colors.onSurfaceVariant} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.statCardNumber, { color: autoAddSelfParticipant ? theme.colors.primary : theme.colors.onSurface, fontSize: 15 }]}>{t('profile.autoAddSelf')}</Text>
+              <Text style={[styles.statCardLabel, { color: theme.colors.onSurfaceVariant, textAlign: 'left' }]}>
+                {t('profile.autoAddSelfDesc')}
+              </Text>
+            </View>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: autoAddSelfParticipant ? theme.colors.primary : theme.colors.onSurfaceVariant }}>
+              {autoAddSelfParticipant ? 'ACTIVADO' : 'DESACTIVADO'}
             </Text>
           </TouchableOpacity>
         </ProfileSection>

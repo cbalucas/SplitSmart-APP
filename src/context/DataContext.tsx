@@ -1,9 +1,22 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { Event, Participant, Expense, EventParticipant, Split, Payment } from '../types';
+﻿import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
+import { Event, Participant, Expense, EventParticipant, Split, Payment, Activity, ActivityTemplate } from '../types';
 import { databaseService } from '../services/DatabaseFactory';
+import { syncService } from '../services/SyncFactory';
+import { supabase } from '../services/supabase';
 import { notificationService } from '../services/NotificationService';
 import { useAuth } from './AuthContext';
 import { generateId } from '../utils/uuid';
+
+/**
+ * Estado de sincronización con la nube:
+ * - 'disabled': el usuario no es online (local-only) o sync deshabilitado → no mostrar indicador
+ * - 'synced':   todo sincronizado con Supabase
+ * - 'syncing':  sincronización en curso
+ * - 'offline':  sin conexión a la nube
+ * - 'error':    la última sincronización falló
+ */
+export type SyncStatus = 'disabled' | 'synced' | 'syncing' | 'offline' | 'error';
 
 interface DataContextValue {
   events: Event[];
@@ -11,13 +24,18 @@ interface DataContextValue {
   expenses: Expense[];
   splits: Split[];
   loading: boolean;
+  isSyncing: boolean;
+  syncStatus: SyncStatus;
+  lastSyncedAt: string | null;
+  lastSyncError: string | null;
+  syncNow: () => Promise<void>;
   // Event methods
   addEvent: (event: Partial<Event>) => Promise<void>;
   updateEvent: (id: string, updates: Partial<Event>) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
   importSharedEvent: (payload: any, role: 'editor' | 'viewer', shareId?: string, ownerName?: string) => Promise<Event>;
-  /** Sube un snapshot del evento a Supabase. Retorna el share_id. Requiere usuario online. */
-  createShareLink: (eventId: string, role: 'editor' | 'viewer') => Promise<string>;
+  /** Sube un snapshot del evento a Supabase. Retorna el share_id (UUID para QR) y el código corto legible. Requiere usuario online. */
+  createShareLink: (eventId: string, role: 'editor' | 'viewer') => Promise<{ shareId: string; shortCode: string }>;
   /** Actualiza el snapshot en Supabase con los datos actuales del evento. */
   refreshShareLink: (shareId: string, eventId: string, role: 'editor' | 'viewer') => Promise<void>;
   // Participant methods
@@ -40,6 +58,16 @@ interface DataContextValue {
   deleteExpense: (expenseId: string) => Promise<void>;
   getExpensesByEvent: (eventId: string) => Promise<Expense[]>;
   getSplitsByEvent: (eventId: string) => Promise<Split[]>;
+  // Activity methods (Organización)
+  getActivitiesByEvent: (eventId: string) => Promise<Activity[]>;
+  addActivity: (activity: Activity) => Promise<void>;
+  updateActivity: (activityId: string, updates: Partial<Activity>) => Promise<void>;
+  deleteActivity: (activityId: string) => Promise<void>;
+  setActivityAssignees: (activityId: string, participantIds: string[]) => Promise<void>;
+  getActivityTemplates: (userId: string) => Promise<ActivityTemplate[]>;
+  addActivityTemplate: (template: ActivityTemplate) => Promise<void>;
+  updateActivityTemplate: (templateId: string, updates: Partial<ActivityTemplate>) => Promise<void>;
+  deleteActivityTemplate: (templateId: string) => Promise<void>;
   // Payment methods
   createPayment: (payment: Payment) => Promise<void>;
   updatePayment: (paymentId: string, updates: Partial<Payment>) => Promise<void>;
@@ -72,6 +100,11 @@ const DataContext = createContext<DataContextValue>({
   expenses: [],
   splits: [],
   loading: false,
+  isSyncing: false,
+  syncStatus: 'disabled',
+  lastSyncedAt: null,
+  lastSyncError: null,
+  syncNow: async () => {},
   addEvent: async () => {},
   updateEvent: async () => {},
   deleteEvent: async () => {},
@@ -104,6 +137,15 @@ const DataContext = createContext<DataContextValue>({
   deleteExpense: async () => {},
   getExpensesByEvent: async () => [],
   getSplitsByEvent: async () => [],
+  getActivitiesByEvent: async () => [],
+  addActivity: async () => {},
+  updateActivity: async () => {},
+  deleteActivity: async () => {},
+  setActivityAssignees: async () => {},
+  getActivityTemplates: async () => [],
+  addActivityTemplate: async () => {},
+  updateActivityTemplate: async () => {},
+  deleteActivityTemplate: async () => {},
   createPayment: async () => {},
   updatePayment: async () => {},
   getPaymentsByEvent: async () => [],
@@ -119,12 +161,23 @@ const DataContext = createContext<DataContextValue>({
 });
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth(); // Obtener usuario logueado
+  const { user, isOnlineUser } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [splits, setSplits] = useState<Split[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('disabled');
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [lastSyncError, setLastSyncError] = useState<string | null>(null);
+  const hasSyncedRef = useRef(false);
+
+  // ID que debe usarse para sincronizar con Supabase.
+  // - Usuario Google OAuth: user.id ya ES el auth.uid() de Supabase.
+  // - Usuario local vinculado: el auth.uid() está en supabaseUserId.
+  // La RLS exige que creator_id = auth.uid(), por lo que siempre usamos este id.
+  const syncUserId = user?.supabaseUserId || user?.id;
 
   useEffect(() => {
     initializeData();
@@ -189,6 +242,197 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // --- Sync: disparo automatico al login con Google/Supabase ---
+  useEffect(() => {
+    // Ajustar estado base según disponibilidad de sync
+    if (!isOnlineUser || !syncService.isEnabled) {
+      setSyncStatus('disabled');
+    } else if (syncStatus === 'disabled') {
+      setSyncStatus('synced');
+    }
+
+    if (isOnlineUser && syncUserId && syncService.isEnabled && !hasSyncedRef.current) {
+      hasSyncedRef.current = true;
+      console.log('Iniciando sync automatico para usuario (auth id):', syncUserId);
+      setIsSyncing(true);
+      setSyncStatus('syncing');
+      syncService.syncAll(syncUserId)
+        .then(async (result) => {
+          console.log('Sync completado:', result.pushed, 'subidos,', result.pulled, 'descargados');
+          if (result.pulled > 0 || result.pushed > 0) {
+            await refreshData();
+          }
+          if (result.success) {
+            setSyncStatus('synced');
+            setLastSyncedAt(new Date().toISOString());
+          } else {
+            setSyncStatus('error');
+          }
+        })
+        .catch(err => {
+          console.warn('Sync error:', err);
+          setSyncStatus('offline');
+        })
+        .finally(() => setIsSyncing(false));
+    } else if (!user) {
+      hasSyncedRef.current = false;
+    }
+  }, [syncUserId, isOnlineUser]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Push en background despues de cada escritura (solo usuarios online)
+  const backgroundPush = useCallback(() => {
+    if (!isOnlineUser || !syncUserId || !syncService.isEnabled) return;
+    setSyncStatus('syncing');
+    syncService.push(syncUserId)
+      .then(result => {
+        if (!result.success) {
+          console.warn('Background push failed:', result.error);
+          setSyncStatus('error');
+        } else {
+          setSyncStatus('synced');
+          setLastSyncedAt(new Date().toISOString());
+        }
+      })
+      .catch(err => {
+        console.warn('Background push error:', err);
+        setSyncStatus('offline');
+      });
+  }, [isOnlineUser, syncUserId]);
+
+  // Sync manual completo (para exponer en contexto y UI)
+  const syncNow = useCallback(async (): Promise<void> => {
+    if (!isOnlineUser || !syncUserId || !syncService.isEnabled) return;
+    setIsSyncing(true);
+    setSyncStatus('syncing');
+    try {
+      const result = await syncService.syncAll(syncUserId);
+      if (result.pulled > 0 || result.pushed > 0) {
+        await refreshData();
+      }
+      if (result.success) {
+        setSyncStatus('synced');
+        setLastSyncedAt(new Date().toISOString());
+        setLastSyncError(null);
+      } else {
+        setSyncStatus('error');
+        setLastSyncError(result.error || 'Error desconocido de sincronización');
+      }
+      console.log('Sync manual completado:', result.pushed, 'subidos,', result.pulled, 'descargados');
+    } catch (err) {
+      console.warn('Sync manual error:', err);
+      setSyncStatus('offline');
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [isOnlineUser, syncUserId, refreshData]);
+
+  // ─── Supabase Realtime: recibir cambios de otros dispositivos en vivo ───────
+  useEffect(() => {
+    if (!isOnlineUser || !syncUserId || !syncService.isEnabled) return;
+
+    // Debounce: esperar 1.5s desde el último cambio antes de hacer pull
+    const debounceRef = { timer: null as ReturnType<typeof setTimeout> | null };
+
+    const schedulePull = () => {
+      if (debounceRef.timer) clearTimeout(debounceRef.timer);
+      debounceRef.timer = setTimeout(async () => {
+        console.log('☁️ Realtime: cambio detectado en la nube, sincronizando...');
+        try {
+          const result = await syncService.pull(syncUserId);
+          if (result.pulled > 0) {
+            await refreshData();
+            console.log(`☁️ Realtime pull: ${result.pulled} registros actualizados`);
+          }
+          if (result.success) {
+            setSyncStatus('synced');
+            setLastSyncedAt(new Date().toISOString());
+          }
+        } catch (err) {
+          console.warn('⚠️ Realtime pull error:', err);
+          setSyncStatus('offline');
+        }
+      }, 1500);
+    };
+
+    const channel = supabase
+      .channel(`splitsmart-user-${syncUserId}`)
+      // Eventos creados/modificados/borrados por el usuario
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'events',
+        filter: `creator_id=eq.${syncUserId}`,
+      }, schedulePull)
+      // Gastos de eventos del usuario (no se puede filtrar por creator_id aquí,
+      // pero Supabase RLS garantiza que solo llegan cambios accesibles)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'expenses',
+      }, schedulePull)
+      // Liquidaciones
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'settlements',
+      }, schedulePull)
+      // Amigos del usuario
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'participants',
+        filter: `created_by_user_id=eq.${syncUserId}`,
+      }, schedulePull)
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Realtime: suscripción activa para usuario', syncUserId);
+          setSyncStatus((prev) => (prev === 'offline' || prev === 'error' ? 'synced' : prev));
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('⚠️ Realtime: error en el canal, se reintentará automáticamente');
+          setSyncStatus('offline');
+        }
+      });
+
+    return () => {
+      if (debounceRef.timer) clearTimeout(debounceRef.timer);
+      supabase.removeChannel(channel);
+      console.log('🔌 Realtime: canal cerrado');
+    };
+  }, [user?.id, isOnlineUser, refreshData]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── AppState: sync al volver al primer plano ──────────────────────────────
+  useEffect(() => {
+    if (!isOnlineUser || !user?.id || !syncService.isEnabled) return;
+
+    const MIN_INTERVAL_MS = 30_000; // Mínimo 30 segundos entre syncs por AppState
+    const lastSyncRef = { time: Date.now() };
+
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState === 'active') {
+        const now = Date.now();
+        if (now - lastSyncRef.time > MIN_INTERVAL_MS) {
+          lastSyncRef.time = now;
+          console.log('📲 App en primer plano → sincronizando con Supabase...');
+          setIsSyncing(true);
+          setSyncStatus('syncing');
+          syncService.syncAll(syncUserId)
+            .then(async (result) => {
+              if (result.pulled > 0 || result.pushed > 0) {
+                await refreshData();
+                console.log(`📲 AppState sync: ${result.pushed} subidos, ${result.pulled} descargados`);
+              }
+              if (result.success) {
+                setSyncStatus('synced');
+                setLastSyncedAt(new Date().toISOString());
+              } else {
+                setSyncStatus('error');
+              }
+            })
+            .catch(err => {
+              console.warn('⚠️ AppState sync error:', err);
+              setSyncStatus('offline');
+            })
+            .finally(() => setIsSyncing(false));
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription.remove();
+  }, [syncUserId, isOnlineUser, refreshData]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Event methods
   const addEvent = useCallback(async (eventData: Partial<Event>) => {
     try {
@@ -210,12 +454,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       await databaseService.createEvent(newEvent);
       await refreshData();
+      backgroundPush();
       console.log('âœ… Event added successfully:', newEvent.name);
     } catch (error) {
       console.error('âŒ Error adding event:', error);
       throw error;
     }
-  }, [refreshData]);
+  }, [refreshData, backgroundPush]);
 
   const updateEvent = useCallback(async (id: string, updates: Partial<Event>) => {
     try {
@@ -225,29 +470,38 @@ export function DataProvider({ children }: { children: ReactNode }) {
       };
       await databaseService.updateEvent(id, updatedData);
       await refreshData();
+      backgroundPush();
       console.log('âœ… Event updated successfully:', id);
     } catch (error) {
       console.error('âŒ Error updating event:', error);
       throw error;
     }
-  }, [refreshData]);
+  }, [refreshData, backgroundPush]);
 
   const deleteEvent = useCallback(async (id: string) => {
     try {
       await databaseService.deleteEvent(id);
       await refreshData();
+      // Eliminar también en Supabase si el usuario está online
+      if (isOnlineUser && user?.id) {
+        supabase.from('events').delete().eq('id', id).then(
+          () => {},
+          () => {}
+        );
+      }
       console.log('âœ… Event deleted successfully:', id);
     } catch (error) {
       console.error('âŒ Error deleting event:', error);
       throw error;
     }
-  }, [refreshData]);
+  }, [refreshData, isOnlineUser, user?.id]);
 
   // Participant methods
   const addParticipant = useCallback(async (participant: Participant) => {
     try {
       await databaseService.createParticipant(participant);
       await refreshData();
+      backgroundPush();
       console.log('âœ… Participant added successfully:', participant.name);
     } catch (error: any) {
       // If it's a UNIQUE constraint error, the participant already exists
@@ -259,7 +513,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       console.error('âŒ Error adding participant:', error);
       throw error;
     }
-  }, [refreshData]);
+  }, [refreshData, backgroundPush]);
 
   const addParticipantToEvent = useCallback(async (eventId: string, participant: Participant) => {
     try {
@@ -434,12 +688,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       await databaseService.updateParticipantType(id, type);
       await refreshData();
+      backgroundPush();
       console.log(`âœ… Participant type updated: ${type}`);
     } catch (error) {
       console.error('âŒ Error updating participant type:', error);
       throw error;
     }
-  }, [refreshData]);
+  }, [refreshData, backgroundPush]);
 
   const updateParticipant = useCallback(async (id: string, updates: Partial<Participant>) => {
     try {
@@ -451,23 +706,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
       
       await refreshData();
+      backgroundPush();
       console.log(`âœ… Participant updated successfully`);
     } catch (error) {
       console.error('âŒ Error updating participant:', error);
       throw error;
     }
-  }, [refreshData]);
+  }, [refreshData, backgroundPush]);
 
   const deleteParticipant = useCallback(async (id: string) => {
     try {
       await databaseService.deleteParticipant(id);
       await refreshData();
+      backgroundPush();
       console.log(`âœ… Participant deleted successfully`);
     } catch (error) {
       console.error('âŒ Error deleting participant:', error);
       throw error;
     }
-  }, [refreshData]);
+  }, [refreshData, backgroundPush]);
 
   // User Profile methods
   const getUserProfile = useCallback(async (userId: string) => {
@@ -568,11 +825,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       
       // Refresh data to update UI
       await refreshData();
+      backgroundPush();
     } catch (error) {
       console.error('âŒ Error adding expense:', error);
       throw error;
     }
-  }, [refreshData]);
+  }, [refreshData, backgroundPush]);
 
   const getExpensesByEvent = useCallback(async (eventId: string) => {
     try {
@@ -592,12 +850,97 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Activity methods (Organización)
+  const getActivitiesByEvent = useCallback(async (eventId: string) => {
+    try {
+      return await databaseService.getActivitiesByEvent(eventId);
+    } catch (error) {
+      console.error('❌ Error getting activities by event:', error);
+      return [];
+    }
+  }, []);
+
+  const addActivity = useCallback(async (activity: Activity) => {
+    try {
+      await databaseService.createActivity(activity);
+      backgroundPush();
+    } catch (error) {
+      console.error('❌ Error creating activity:', error);
+      throw error;
+    }
+  }, [backgroundPush]);
+
+  const updateActivity = useCallback(async (activityId: string, updates: Partial<Activity>) => {
+    try {
+      await databaseService.updateActivity(activityId, updates);
+      backgroundPush();
+    } catch (error) {
+      console.error('❌ Error updating activity:', error);
+      throw error;
+    }
+  }, [backgroundPush]);
+
+  const deleteActivity = useCallback(async (activityId: string) => {
+    try {
+      await databaseService.deleteActivity(activityId);
+      backgroundPush();
+    } catch (error) {
+      console.error('❌ Error deleting activity:', error);
+      throw error;
+    }
+  }, [backgroundPush]);
+
+  const setActivityAssignees = useCallback(async (activityId: string, participantIds: string[]) => {
+    try {
+      await databaseService.setActivityParticipants(activityId, participantIds);
+      backgroundPush();
+    } catch (error) {
+      console.error('❌ Error setting activity assignees:', error);
+      throw error;
+    }
+  }, [backgroundPush]);
+
+  const getActivityTemplates = useCallback(async (userId: string) => {
+    try {
+      return await databaseService.getActivityTemplates(userId);
+    } catch (error) {
+      console.error('❌ Error getting activity templates:', error);
+      return [];
+    }
+  }, []);
+
+  const addActivityTemplate = useCallback(async (template: ActivityTemplate) => {
+    try {
+      await databaseService.createActivityTemplate(template);
+    } catch (error) {
+      console.error('❌ Error creating activity template:', error);
+      throw error;
+    }
+  }, []);
+
+  const updateActivityTemplate = useCallback(async (templateId: string, updates: Partial<ActivityTemplate>) => {
+    try {
+      await databaseService.updateActivityTemplate(templateId, updates);
+    } catch (error) {
+      console.error('❌ Error updating activity template:', error);
+      throw error;
+    }
+  }, []);
+
+  const deleteActivityTemplate = useCallback(async (templateId: string) => {
+    try {
+      await databaseService.deleteActivityTemplate(templateId);
+    } catch (error) {
+      console.error('❌ Error deleting activity template:', error);
+      throw error;
+    }
+  }, []);
+
   // Payment methods
   const createPayment = useCallback(async (payment: Payment) => {
     try {
       await databaseService.createPayment(payment);
       console.log('âœ… Payment created successfully');
-      
       // Enviar notificaciÃ³n WhatsApp al acreedor (quien recibe el pago)
       try {
         console.log('ðŸ”” Checking payment notification for recipient:', payment.toParticipantId);
@@ -1158,23 +1501,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       await databaseService.updateExpense(expenseId, expense, splits);
       await refreshData();
+      backgroundPush();
       console.log('âœ… Expense updated successfully');
     } catch (error) {
       console.error('âŒ Error updating expense:', error);
       throw error;
     }
-  }, [refreshData]);
+  }, [refreshData, backgroundPush]);
 
   const deleteExpense = useCallback(async (expenseId: string) => {
     try {
       await databaseService.deleteExpense(expenseId);
       await refreshData();
+      backgroundPush();
+      // Eliminar en Supabase si el usuario esta online
+      if (isOnlineUser && user?.id) { supabase.from('expenses').delete().eq('id', expenseId).then(() => {}, () => {}); }
       console.log('âœ… Expense deleted successfully');
     } catch (error) {
       console.error('âŒ Error deleting expense:', error);
       throw error;
     }
-  }, [refreshData]);
+  }, [refreshData, backgroundPush, isOnlineUser, user?.id]);
 
   const removeParticipantFromEvent = useCallback(async (eventId: string, participantId: string) => {
     try {
@@ -1231,12 +1578,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const importSharedEvent = useCallback(async (payload: any, role: 'editor' | 'viewer', shareId?: string, ownerName?: string): Promise<Event> => {
     const newEvent = await databaseService.importSharedEvent(payload, role, shareId, ownerName);
     await refreshData();
+    // Subir el evento importado a Supabase para que sea accesible desde otros dispositivos
+    backgroundPush();
     return newEvent;
-  }, [refreshData]);
+  }, [refreshData, backgroundPush]);
 
-  const createShareLink = useCallback(async (eventId: string, role: 'editor' | 'viewer'): Promise<string> => {
-    if (!user?.supabaseUserId) throw new Error('REQUIRES_ONLINE');
+  const createShareLink = useCallback(async (eventId: string, role: 'editor' | 'viewer'): Promise<{ shareId: string; shortCode: string }> => {
     const SharedEventService = (await import('../services/SharedEventService')).default;
+    // Obtener el owner_id desde la sesión REAL de Supabase para garantizar que
+    // auth.uid() = owner_id (requisito de la política RLS shared_events_insert).
+    // Sin sesión activa el INSERT es rechazado por RLS → error genérico.
+    const { data: { session } } = await supabase.auth.getSession();
+    const ownerId = session?.user?.id;
+    if (!ownerId) throw new Error('REQUIRES_ONLINE');
     // Obtener datos del evento
     const [ev, participants, expenses, splits] = await Promise.all([
       databaseService.getEventById(eventId),
@@ -1253,15 +1607,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
       ex: expenses.map(e => ({ id: e.id, d: e.description, a: e.amount, dt: e.date, c: e.currency, cat: e.category || '', pid: e.payerId, pn: e.payerName || '' })),
       sp: splits.map(s => ({ id: s.id, eid: s.expenseId, pid: s.participantId, a: s.amount, t: s.type || 'equal' })),
     };
-    const shareId = await SharedEventService.createShare(snapshot as any, user.supabaseUserId, user.name);
+    const { shareId, shortCode } = await SharedEventService.createShare(snapshot as any, ownerId, user?.name || 'SplitSmart');
     // Guardar registro local
     await databaseService.saveEventShare(shareId, eventId, 'sent', role);
-    return shareId;
+    return { shareId, shortCode };
   }, [user, refreshData]);
 
   const refreshShareLink = useCallback(async (shareId: string, eventId: string, role: 'editor' | 'viewer'): Promise<void> => {
-    if (!user?.supabaseUserId) throw new Error('REQUIRES_ONLINE');
     const SharedEventService = (await import('../services/SharedEventService')).default;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user?.id) throw new Error('REQUIRES_ONLINE');
     const [ev, participants, expenses, splits] = await Promise.all([
       databaseService.getEventById(eventId),
       databaseService.getEventParticipants(eventId),
@@ -1318,6 +1673,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
       deleteExpense,
       getExpensesByEvent,
       getSplitsByEvent,
+      getActivitiesByEvent,
+      addActivity,
+      updateActivity,
+      deleteActivity,
+      setActivityAssignees,
+      getActivityTemplates,
+      addActivityTemplate,
+      updateActivityTemplate,
+      deleteActivityTemplate,
       createPayment,
       updatePayment,
       getPaymentsByEvent,
@@ -1325,6 +1689,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addSecondaryParticipant,
       removeSecondaryParticipant,
       refreshData,
+      isSyncing,
+      syncStatus,
+      lastSyncedAt,
+      lastSyncError,
+      syncNow,
       clearAllData,
       resetDatabase,
       nukeDatabase,

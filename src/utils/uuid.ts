@@ -17,14 +17,40 @@
 import { v4 as uuidv4 } from 'uuid';
 
 /**
+ * Fallback UUID v4 en JS puro (no requiere crypto.getRandomValues).
+ *
+ * En React Native `crypto.getRandomValues` no está polyfilleado, por lo que
+ * tanto `crypto.randomUUID()` como el package `uuid` lanzan
+ * "crypto.getRandomValues() not supported". Este generador usa Math.random,
+ * suficiente para IDs de entidades (no son tokens de seguridad) y evita
+ * agregar dependencias nativas (que obligarían a regenerar el build).
+ */
+function uuidV4Fallback(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+/**
  * Genera un UUID v4 estándar.
  * Reemplaza el patrón anterior: `${Date.now()}_${Math.random().toString(36).substr(2,9)}`
  */
 export function generateId(): string {
-  // React Native 0.71+ expone crypto.randomUUID() globalmente
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
+  // 1. crypto.randomUUID() nativo (web / RN con crypto disponible)
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+  } catch {
+    // ignora y prueba el siguiente método
   }
-  // Fallback: uuid v4 del package instalado
-  return uuidv4();
+  // 2. uuid v4 del package (requiere crypto.getRandomValues)
+  try {
+    return uuidv4();
+  } catch {
+    // 3. Fallback JS puro (React Native sin crypto.getRandomValues)
+    return uuidV4Fallback();
+  }
 }

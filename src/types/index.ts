@@ -153,6 +153,38 @@ export interface ConsolidatedSettlement extends Settlement {
   consolidationAssignments?: ConsolidationAssignment[];
 }
 
+/** Actividad/tarea de organización dentro de un evento. */
+export interface Activity {
+  id: string;
+  eventId: string;
+  title: string;
+  description?: string;              // detalle opcional de la tarea
+  position?: number;                 // orden dentro del evento
+  createdByUserId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  /** Participantes asignados (poblado al leer desde la DB). */
+  assignedParticipantIds?: string[];
+}
+
+/** Relación actividad ↔ participante asignado (tabla join). */
+export interface ActivityParticipant {
+  id: string;
+  activityId: string;
+  participantId: string;
+  createdAt?: string;
+}
+
+/** Plantilla de organización reutilizable (guardada por el usuario). */
+export interface ActivityTemplate {
+  id: string;
+  userId: string;
+  name: string;
+  tasks: string[];                   // títulos de tareas
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 /** Registro local de un evento compartido (enviado o recibido). */
 export interface EventShare {
   id: string;           // = share_id de Supabase

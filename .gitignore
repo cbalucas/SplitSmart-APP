@@ -12,3 +12,6 @@ build/
 .vscode/
 npm-debug.log
 yarn-error.log
+
+# Expo web export
+dist/

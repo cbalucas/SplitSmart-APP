@@ -55,13 +55,13 @@ Write-Host "Construyendo APK de DEV (staging release)..." -ForegroundColor Yello
 Write-Host "Esto puede tardar 3-5 minutos.`n" -ForegroundColor Gray
 
 Push-Location android
-.\gradlew.bat clean assembleStagingRelease --no-daemon
+.\gradlew.bat clean assembleStaging --no-daemon
 $apkOk = ($LASTEXITCODE -eq 0)
 Pop-Location
 
 # ─── Resultado ───────────────────────────────────────────────────────────────
 if ($apkOk) {
-    $apkDir  = "android\app\build\outputs\apk\staging\release"
+    $apkDir  = "android\app\build\outputs\apk\staging"
     $apkFile = Get-ChildItem -Path $apkDir -Filter "*.apk" -ErrorAction SilentlyContinue | Select-Object -First 1
 
     if ($apkFile) {

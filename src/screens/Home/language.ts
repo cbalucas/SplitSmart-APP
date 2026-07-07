@@ -85,6 +85,12 @@ export const homeLanguage = {
       invalidQR: 'QR inválido. Solo se aceptan invitaciones de SplitSmart',
       fetchingShare: 'Obteniendo datos del evento desde la nube. ¿Continuar?',
       shareNotFound: 'Este QR ya no está disponible o fue eliminado por el dueño.',
+      enterCodeButton: 'Ingresar código',
+      enterCodeTitle: 'Ingresar código de invitación',
+      enterCodeDesc: 'Escribí el código de 8 caracteres que aparece junto al QR para vincularte al evento.',
+      enterCodePlaceholder: 'Ej: A7K2M9QP',
+      enterCodeSubmit: 'Vincular',
+      codeNotFound: 'Código inválido, expirado o eliminado por el dueño.',
     }
   },
   
@@ -172,6 +178,12 @@ export const homeLanguage = {
       invalidQR: 'Invalid QR. Only SplitSmart invitations are accepted',
       fetchingShare: 'Fetching event data from the cloud. Continue?',
       shareNotFound: 'This QR is no longer available or was deleted by the owner.',
+      enterCodeButton: 'Enter code',
+      enterCodeTitle: 'Enter invitation code',
+      enterCodeDesc: 'Type the 8-character code shown next to the QR to join the event.',
+      enterCodePlaceholder: 'e.g. A7K2M9QP',
+      enterCodeSubmit: 'Link',
+      codeNotFound: 'Invalid, expired or deleted code.',
     }
   },
   
@@ -261,6 +273,12 @@ export const homeLanguage = {
       invalidQR: 'QR inválido. Apenas convites do SplitSmart são aceitos',
       fetchingShare: 'Buscando dados do evento na nuvem. Continuar?',
       shareNotFound: 'Este QR não está mais disponível ou foi excluído pelo proprietário.',
+      enterCodeButton: 'Inserir código',
+      enterCodeTitle: 'Inserir código de convite',
+      enterCodeDesc: 'Digite o código de 8 caracteres exibido ao lado do QR para entrar no evento.',
+      enterCodePlaceholder: 'Ex: A7K2M9QP',
+      enterCodeSubmit: 'Vincular',
+      codeNotFound: 'Código inválido, expirado ou excluído pelo proprietário.',
     }
   }
 };

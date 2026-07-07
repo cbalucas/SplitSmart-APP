@@ -22,5 +22,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: Platform.OS === 'web',
+    // PKCE: en nativo el login OAuth vuelve con ?code=... y se intercambia con
+    // exchangeCodeForSession(). Sin esto el default es 'implicit' (tokens en el
+    // fragmento #), que exchangeCodeForSession NO soporta → el login con Google
+    // fallaba en la app. En web, detectSessionInUrl completa el intercambio.
+    flowType: 'pkce',
   },
 });

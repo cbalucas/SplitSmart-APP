@@ -22,6 +22,8 @@ export const createEventLanguage = {
       locationPlaceholder: 'Ej: Bariloche, Argentina',
       currency: 'Moneda *',
       eventType: 'Tipo de Evento',
+      addSelfParticipant: 'Agregarme como participante',
+      addSelfParticipantDesc: 'Te sumás automáticamente a este evento',
       
       // Event types
       publicEvent: '🌐 Público',
@@ -89,6 +91,8 @@ export const createEventLanguage = {
       locationPlaceholder: 'e.g: Bariloche, Argentina',
       currency: 'Currency *',
       eventType: 'Event Type',
+      addSelfParticipant: 'Add me as a participant',
+      addSelfParticipantDesc: 'You are automatically added to this event',
       
       publicEvent: '🌐 Public',
       publicEventDescription: 'Visible to all users',
@@ -154,6 +158,8 @@ export const createEventLanguage = {
       locationPlaceholder: 'ex: Bariloche, Argentina',
       currency: 'Moeda *',
       eventType: 'Tipo de Evento',
+      addSelfParticipant: 'Adicionar-me como participante',
+      addSelfParticipantDesc: 'Você é adicionado automaticamente a este evento',
       
       publicEvent: '🌐 Público',
       publicEventDescription: 'Visível para todos os usuários',

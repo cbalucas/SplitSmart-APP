@@ -38,8 +38,47 @@ export interface SharedEventRecord {
   ownerName: string;
   snapshot: SharedEventSnapshot;
   role: 'editor' | 'viewer';
+  shortCode: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Resultado de crear un share: incluye el UUID (para el QR) y el código corto legible. */
+export interface CreateShareResult {
+  shareId: string;
+  shortCode: string;
+}
+
+// Alfabeto sin caracteres ambiguos (sin 0/O, 1/I/L) para códigos fáciles de dictar.
+const SHORT_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const SHORT_CODE_LENGTH = 8;
+
+/** Genera un código corto legible en mayúsculas (ej: "A7K2M9QP"). */
+function generateShortCode(): string {
+  let code = '';
+  for (let i = 0; i < SHORT_CODE_LENGTH; i++) {
+    code += SHORT_CODE_ALPHABET.charAt(Math.floor(Math.random() * SHORT_CODE_ALPHABET.length));
+  }
+  return code;
+}
+
+/** Normaliza un código ingresado por el usuario (mayúsculas, sin espacios/guiones). */
+export function normalizeShortCode(raw: string): string {
+  return (raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+/** Mapea una fila de shared_events al modelo de la app. */
+function mapShareRow(row: any): SharedEventRecord {
+  return {
+    shareId: row.share_id,
+    ownerId: row.owner_id,
+    ownerName: row.owner_name,
+    snapshot: row.event_snapshot as SharedEventSnapshot,
+    role: row.role as 'editor' | 'viewer',
+    shortCode: row.short_code ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 const SharedEventService = {
@@ -51,20 +90,38 @@ const SharedEventService = {
     snapshot: SharedEventSnapshot,
     ownerSupabaseId: string,
     ownerName: string,
-  ): Promise<string> {
-    const { data, error } = await supabase
-      .from('shared_events')
-      .insert({
-        owner_id: ownerSupabaseId,
-        owner_name: ownerName,
-        event_snapshot: snapshot,
-        role: snapshot.role,
-      })
-      .select('share_id')
-      .single();
+  ): Promise<CreateShareResult> {
+    // Reintentar ante colisión (poco probable) del código corto único.
+    let lastError: any = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const shortCode = generateShortCode();
+      const { data, error } = await supabase
+        .from('shared_events')
+        .insert({
+          owner_id: ownerSupabaseId,
+          owner_name: ownerName,
+          event_snapshot: snapshot,
+          role: snapshot.role,
+          short_code: shortCode,
+        })
+        .select('share_id, short_code')
+        .single();
 
-    if (error) throw new Error(error.message);
-    return (data as any).share_id as string;
+      if (!error) {
+        return {
+          shareId: (data as any).share_id as string,
+          shortCode: (data as any).short_code as string,
+        };
+      }
+
+      // 23505 = unique_violation en Postgres → reintentar con otro código.
+      if ((error as any).code === '23505') {
+        lastError = error;
+        continue;
+      }
+      throw new Error(error.message);
+    }
+    throw new Error(lastError?.message || 'No se pudo generar un código único.');
   },
 
   /**
@@ -87,7 +144,7 @@ const SharedEventService = {
   async fetchShare(shareId: string): Promise<SharedEventRecord> {
     const { data, error } = await supabase
       .from('shared_events')
-      .select('share_id, owner_id, owner_name, event_snapshot, role, created_at, updated_at')
+      .select('share_id, owner_id, owner_name, event_snapshot, role, short_code, created_at, updated_at')
       .eq('share_id', shareId)
       .single();
 
@@ -98,15 +155,26 @@ const SharedEventService = {
       throw new Error(error.message);
     }
 
-    return {
-      shareId: (data as any).share_id,
-      ownerId: (data as any).owner_id,
-      ownerName: (data as any).owner_name,
-      snapshot: (data as any).event_snapshot as SharedEventSnapshot,
-      role: (data as any).role as 'editor' | 'viewer',
-      createdAt: (data as any).created_at,
-      updatedAt: (data as any).updated_at,
-    };
+    return mapShareRow(data);
+  },
+
+  /**
+   * Obtiene un share por su código corto legible (ingreso manual sin escanear QR).
+   * Si el código no existe o expiró, lanza 'QR_NOT_FOUND'.
+   */
+  async fetchShareByCode(rawCode: string): Promise<SharedEventRecord> {
+    const code = normalizeShortCode(rawCode);
+    if (!code) throw new Error('QR_NOT_FOUND');
+    const { data, error } = await supabase
+      .from('shared_events')
+      .select('share_id, owner_id, owner_name, event_snapshot, role, short_code, created_at, updated_at')
+      .eq('short_code', code)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error('QR_NOT_FOUND');
+
+    return mapShareRow(data);
   },
 
   /**
@@ -116,21 +184,13 @@ const SharedEventService = {
   async getMyShares(ownerSupabaseId: string): Promise<SharedEventRecord[]> {
     const { data, error } = await supabase
       .from('shared_events')
-      .select('share_id, owner_id, owner_name, event_snapshot, role, created_at, updated_at')
+      .select('share_id, owner_id, owner_name, event_snapshot, role, short_code, created_at, updated_at')
       .eq('owner_id', ownerSupabaseId)
       .order('created_at', { ascending: false });
 
     if (error) throw new Error(error.message);
 
-    return ((data as any[]) ?? []).map((row: any) => ({
-      shareId: row.share_id,
-      ownerId: row.owner_id,
-      ownerName: row.owner_name,
-      snapshot: row.event_snapshot as SharedEventSnapshot,
-      role: row.role as 'editor' | 'viewer',
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    }));
+    return ((data as any[]) ?? []).map(mapShareRow);
   },
 
   /**

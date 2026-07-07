@@ -16,6 +16,7 @@ export { UserAvatar } from './UserAvatar';
 export { SettlementItem } from './SettlementItem';
 export { ConsolidationModal } from './ConsolidationModal';
 export { default as CustomAlertContainer } from './CustomAlert';
+export { SyncStatusIndicator } from './SyncStatusIndicator';
 
 // Re-exportar solo los tipos que no dan problemas
 export type { HeaderBarProps } from './HeaderBar';
@@ -25,5 +26,6 @@ export type { ListItemProps } from './ListItem';
 export type { ButtonProps } from './Button';
 export type { EventCardProps, EventData } from './EventCard';
 export type { MetricsCardProps, MetricData } from './MetricsCard';
+export type { SyncStatusIndicatorProps } from './SyncStatusIndicator';
 
 // CardProps se importará directamente donde se necesite

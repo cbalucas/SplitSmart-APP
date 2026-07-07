@@ -31,12 +31,15 @@ ALTER TABLE public.push_tokens               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.event_invitations         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shared_events             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.activities                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.activity_participants     ENABLE ROW LEVEL SECURITY;
 
 -- ─── REVOCAR ACCESO RPC DIRECTO A HELPER FUNCTIONS ───────────────────────────
 -- Estas funciones son solo para uso interno de las políticas RLS.
 -- No deben ser llamables via /rest/v1/rpc por anon ni authenticated.
 REVOKE EXECUTE ON FUNCTION public.user_participates_in_event(UUID) FROM anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.user_can_access_event(UUID) FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.user_shares_event_with_participant(UUID) FROM anon, authenticated;
 
 -- ─── USERS ────────────────────────────────────────────────────────────────────
 -- Cada usuario solo puede ver y editar su propio perfil.
@@ -103,14 +106,7 @@ CREATE POLICY "participants_select"
     user_id = auth.uid()
     OR created_by_user_id = auth.uid()
     OR is_public = TRUE
-    OR EXISTS (
-      SELECT 1
-      FROM public.event_participants ep1
-      JOIN public.event_participants ep2 ON ep1.event_id = ep2.event_id
-      JOIN public.participants p2 ON ep2.participant_id = p2.id
-      WHERE ep1.participant_id = participants.id
-        AND p2.user_id = auth.uid()
-    )
+    OR public.user_shares_event_with_participant(id)
   );
 
 CREATE POLICY "participants_insert"
@@ -303,6 +299,65 @@ CREATE POLICY "consolidations_update"
 CREATE POLICY "consolidations_delete"
   ON public.consolidation_assignments FOR DELETE
   USING (public.user_can_access_event(event_id));
+
+-- ─── ACTIVITIES (Organización) ───────────────────────────────────────────────
+CREATE POLICY "activities_select"
+  ON public.activities FOR SELECT
+  USING (public.user_can_access_event(event_id));
+
+CREATE POLICY "activities_insert"
+  ON public.activities FOR INSERT
+  WITH CHECK (public.user_can_access_event(event_id));
+
+CREATE POLICY "activities_update"
+  ON public.activities FOR UPDATE
+  USING (public.user_can_access_event(event_id))
+  WITH CHECK (public.user_can_access_event(event_id));
+
+CREATE POLICY "activities_delete"
+  ON public.activities FOR DELETE
+  USING (public.user_can_access_event(event_id));
+
+-- ─── ACTIVITY_PARTICIPANTS ───────────────────────────────────────────────────
+CREATE POLICY "activity_participants_select"
+  ON public.activity_participants FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.activities a
+      WHERE a.id = activity_participants.activity_id
+        AND public.user_can_access_event(a.event_id)
+    )
+  );
+
+CREATE POLICY "activity_participants_insert"
+  ON public.activity_participants FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.activities a
+      WHERE a.id = activity_participants.activity_id
+        AND public.user_can_access_event(a.event_id)
+    )
+  );
+
+CREATE POLICY "activity_participants_update"
+  ON public.activity_participants FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.activities a
+      WHERE a.id = activity_participants.activity_id
+        AND public.user_can_access_event(a.event_id)
+    )
+  );
+
+CREATE POLICY "activity_participants_delete"
+  ON public.activity_participants FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.activities a
+      WHERE a.id = activity_participants.activity_id
+        AND public.user_can_access_event(a.event_id)
+    )
+  );
 
 -- ─── PUSH_TOKENS ──────────────────────────────────────────────────────────────
 CREATE POLICY "push_tokens_own"

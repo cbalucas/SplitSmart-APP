@@ -28,7 +28,8 @@ import {
   EventCard, 
   MetricsCard,
   HeaderBar,
-  UserAvatar
+  UserAvatar,
+  SyncStatusIndicator
 } from '../../components';
 import SearchBar from '../../components/SearchBar';
 import { useData } from '../../context/DataContext';
@@ -66,6 +67,10 @@ const HomeScreen: React.FC = () => {
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const qrScannedRef = useRef(false);
+  // Ingreso manual de código (alternativa a escanear el QR)
+  const [showCodeInput, setShowCodeInput] = useState(false);
+  const [codeInput, setCodeInput] = useState('');
+  const [codeLoading, setCodeLoading] = useState(false);
 
   // Tour
   const [tourVisible, setTourVisible] = useState(false);
@@ -460,6 +465,61 @@ const HomeScreen: React.FC = () => {
     }
   }, [importSharedEvent, navigation, t]);
 
+  // Confirma e importa un evento a partir de un record de share (usado por el ingreso manual de código).
+  const confirmImportRecord = useCallback((record: any) => {
+    const roleLabel = record.role === 'editor' ? t.qr.importRoleEditor : t.qr.importRoleViewer;
+    const confirmMsg = t.qr.importConfirmMessage
+      .replace('{name}', record.snapshot?.e?.n || '?')
+      .replace('{role}', roleLabel);
+    showAlert({
+      type: 'confirm',
+      title: t.qr.importConfirmTitle,
+      message: confirmMsg,
+      buttons: [
+        { text: t.actions.cancel, style: 'cancel' },
+        {
+          text: t.actions.ok,
+          onPress: async () => {
+            try {
+              const newEvent = await importSharedEvent(record.snapshot, record.role, record.shareId, record.ownerName);
+              showAlert({
+                type: 'success',
+                title: t.qr.importSuccess,
+                message: t.qr.importSuccessMessage.replace('{name}', newEvent.name),
+                buttons: [{ text: t.actions.ok, onPress: () => {
+                  (navigation as any).navigate('EventDetail', { eventId: newEvent.id });
+                }}],
+              });
+            } catch {
+              showAlert({ type: 'error', title: t.actions.error, message: t.qr.importError, buttons: [{ text: 'OK' }] });
+            }
+          }
+        },
+      ],
+    });
+  }, [importSharedEvent, navigation, t]);
+
+  // Vincula un evento ingresando el código corto manualmente (sin escanear el QR).
+  const handleCodeSubmit = useCallback(async () => {
+    const raw = codeInput.trim();
+    if (!raw) return;
+    setCodeLoading(true);
+    try {
+      const mod = await import('../../services/SharedEventService');
+      const record = await mod.default.fetchShareByCode(raw);
+      setCodeLoading(false);
+      setShowCodeInput(false);
+      setShowQRScanner(false);
+      setCodeInput('');
+      confirmImportRecord(record);
+    } catch (err: any) {
+      setCodeLoading(false);
+      const msg = err?.message === 'QR_NOT_FOUND' ? t.qr.codeNotFound : t.qr.importError;
+      showAlert({ type: 'error', title: t.actions.error, message: msg, buttons: [{ text: 'OK' }] });
+    }
+  }, [codeInput, confirmImportRecord, t]);
+
+
   const handleOpenQRScanner = useCallback(async () => {
     if (!cameraPermission?.granted) {
       const result = await requestCameraPermission();
@@ -659,9 +719,11 @@ const HomeScreen: React.FC = () => {
           showLanguageSelector={true}
           showHelp={true}
           showLogout={true}
+          additionalRightElements={<SyncStatusIndicator variant="icon" size={22} color="#FFFFFF" />}
           overflowBeforeItems={[
             { icon: 'account-group', label: t.header.friends, onPress: handleManageFriends },
             { icon: 'qrcode-scan', label: t.qr.scanButton, onPress: handleOpenQRScanner },
+            { icon: 'keyboard-outline', label: t.qr.enterCodeButton, onPress: () => { setCodeInput(''); setShowCodeInput(true); } },
           ]}
           elevation={true}
           onHelpPress={() => { setTourStep(0); setTourVisible(true); }}
@@ -802,6 +864,78 @@ const HomeScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
           )}
+
+          {/* Footer: ingresar código manualmente (sin escanear) */}
+          <View style={{ paddingHorizontal: 24, paddingBottom: 40, paddingTop: 12 }}>
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                paddingVertical: 14, borderRadius: 12, borderWidth: 1.5, borderColor: '#9C27B0',
+              }}
+              onPress={() => { setCodeInput(''); setShowCodeInput(true); }}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="keyboard-outline" size={20} color="#FFFFFF" />
+              <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>{t.qr.enterCodeButton}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Modal Ingresar Código ──────────────────────────────────────── */}
+      <Modal
+        visible={showCodeInput}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCodeInput(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: theme.colors.surface, borderRadius: 20, padding: 24, width: '100%', maxWidth: 360 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 10 }}>
+              <MaterialCommunityIcons name="ticket-confirmation-outline" size={24} color="#9C27B0" />
+              <Text style={{ fontSize: 18, fontWeight: '700', color: theme.colors.onSurface, flex: 1 }}>
+                {t.qr.enterCodeTitle}
+              </Text>
+              <TouchableOpacity onPress={() => setShowCodeInput(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <MaterialCommunityIcons name="close" size={22} color={theme.colors.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ fontSize: 13, color: theme.colors.onSurfaceVariant, marginBottom: 16, lineHeight: 18 }}>
+              {t.qr.enterCodeDesc}
+            </Text>
+            <TextInput
+              value={codeInput}
+              onChangeText={(txt) => setCodeInput(txt.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))}
+              placeholder={t.qr.enterCodePlaceholder}
+              placeholderTextColor={theme.colors.onSurfaceVariant}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={8}
+              style={{
+                borderWidth: 1.5, borderColor: theme.colors.outline, borderRadius: 12,
+                paddingVertical: 14, paddingHorizontal: 16, fontSize: 22, fontWeight: '800',
+                letterSpacing: 4, textAlign: 'center', color: theme.colors.onSurface,
+                backgroundColor: theme.colors.surfaceVariant, marginBottom: 20,
+              }}
+            />
+            <TouchableOpacity
+              style={{
+                backgroundColor: codeInput.trim() ? '#9C27B0' : theme.colors.surfaceVariant,
+                paddingVertical: 14, borderRadius: 12, alignItems: 'center',
+                flexDirection: 'row', justifyContent: 'center', gap: 8,
+              }}
+              disabled={!codeInput.trim() || codeLoading}
+              onPress={handleCodeSubmit}
+              activeOpacity={0.8}
+            >
+              {codeLoading
+                ? <MaterialCommunityIcons name="loading" size={20} color="#FFFFFF" />
+                : <MaterialCommunityIcons name="link-variant" size={20} color={codeInput.trim() ? '#FFFFFF' : theme.colors.onSurfaceVariant} />}
+              <Text style={{ fontSize: 14, fontWeight: '700', color: codeInput.trim() ? '#FFFFFF' : theme.colors.onSurfaceVariant }}>
+                {t.qr.enterCodeSubmit}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
 

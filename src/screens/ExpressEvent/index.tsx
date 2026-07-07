@@ -27,8 +27,7 @@ import { expressLanguage, ExpressLanguage } from './language';
 import { getSplittyImage } from '../../constants/splitty';
 import { ChatMessage, WizardStep, ExpressEventState, ExpenseEntry } from './types';
 import { Participant } from '../../types';
-// ID generation consistent with the rest of the project
-const generateId = () => `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+import { generateId } from '../../utils/uuid';
 
 const formatDateDisplay = (dateStr: string, lang: string) => {
   try {

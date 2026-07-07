@@ -13,11 +13,12 @@
  */
 
 import { openDB, IDBPDatabase } from 'idb';
-import { Event, Participant, Expense, EventParticipant, Split, Payment } from '../types';
+import { Event, Participant, Expense, EventParticipant, Split, Payment, Activity, ActivityTemplate } from '../types';
 import { IDatabaseService } from './IDatabaseService';
+import { generateId } from '../utils/uuid';
 
 const DB_NAME = 'splitsmart';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 // ─── Tipos internos ───────────────────────────────────────────────────────────
 
@@ -32,7 +33,10 @@ type StoreNames =
   | 'users'
   | 'user_preferences'
   | 'app_versions'
-  | 'consolidation_assignments';
+  | 'consolidation_assignments'
+  | 'activities'
+  | 'activity_participants'
+  | 'activity_templates';
 
 // ─── Clase principal ──────────────────────────────────────────────────────────
 
@@ -117,12 +121,196 @@ export class IndexedDBDatabaseService implements IDatabaseService {
           const caStore = db.createObjectStore('consolidation_assignments', { keyPath: 'id', autoIncrement: true });
           caStore.createIndex('event_id', 'event_id');
         }
+        // activities
+        if (!db.objectStoreNames.contains('activities')) {
+          const actStore = db.createObjectStore('activities', { keyPath: 'id' });
+          actStore.createIndex('event_id', 'event_id');
+        }
+        // activity_participants
+        if (!db.objectStoreNames.contains('activity_participants')) {
+          const apStore = db.createObjectStore('activity_participants', { keyPath: 'id' });
+          apStore.createIndex('activity_id', 'activity_id');
+          apStore.createIndex('participant_id', 'participant_id');
+          apStore.createIndex('activity_participant', ['activity_id', 'participant_id'], { unique: true });
+        }
+        // activity_templates
+        if (!db.objectStoreNames.contains('activity_templates')) {
+          const atStore = db.createObjectStore('activity_templates', { keyPath: 'id' });
+          atStore.createIndex('user_id', 'user_id');
+        }
       },
     });
 
     this.isInitialized = true;
+    try {
+      await this._migrateLegacyIdsToUuid();
+    } catch (e) {
+      console.warn('⚠️ Migración de IDs legacy falló (continuando):', e);
+    }
     await this._createDemoUserIfNotExists();
     console.log('✅ IndexedDB initialized successfully');
+  }
+
+  // ─── Migración única: IDs legacy (Date.now()_random) → UUID ─────────────────
+  // Los registros creados antes de unificar la generación de IDs usaban el
+  // formato `${Date.now()}_${random}`, que las columnas UUID de Supabase
+  // rechazan (invalid input syntax for type uuid). Esta migración normaliza
+  // los IDs a UUID válidos y actualiza todas las referencias FK de forma
+  // consistente. Es idempotente: tras la primera ejecución todo es UUID y
+  // no vuelve a modificar nada.
+  private async _migrateLegacyIdsToUuid(): Promise<void> {
+    const db = this._db();
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const isUuid = (v: any): boolean => typeof v === 'string' && UUID_RE.test(v);
+
+    // Paso 1: construir el mapa old→new para entidades referenciadas por FK
+    // (events, participants, expenses). Sus PKs deben resolverse en el remap.
+    const idMap = new Map<string, string>();
+    for (const store of ['events', 'participants', 'expenses'] as const) {
+      const rows = (await db.getAll(store)) as any[];
+      for (const r of rows) {
+        if (r && typeof r.id === 'string' && !isUuid(r.id)) {
+          idMap.set(r.id, generateId());
+        }
+      }
+    }
+    const remap = (v: any): any => (typeof v === 'string' && idMap.has(v) ? idMap.get(v)! : v);
+
+    let changed = 0;
+
+    // events (solo PK)
+    for (const r of (await db.getAll('events')) as any[]) {
+      if (!isUuid(r.id)) {
+        const oldId = r.id;
+        r.id = idMap.get(oldId)!;
+        await db.delete('events', oldId);
+        await db.put('events', r);
+        changed++;
+      }
+    }
+
+    // participants (solo PK)
+    for (const r of (await db.getAll('participants')) as any[]) {
+      if (!isUuid(r.id)) {
+        const oldId = r.id;
+        r.id = idMap.get(oldId)!;
+        await db.delete('participants', oldId);
+        await db.put('participants', r);
+        changed++;
+      }
+    }
+
+    // expenses (PK + FK event_id, payer_id)
+    for (const r of (await db.getAll('expenses')) as any[]) {
+      const oldId = r.id;
+      const needPk = !isUuid(oldId);
+      const nEvent = remap(r.event_id);
+      const nPayer = remap(r.payer_id);
+      if (needPk || nEvent !== r.event_id || nPayer !== r.payer_id) {
+        r.event_id = nEvent;
+        r.payer_id = nPayer;
+        if (needPk) {
+          r.id = idMap.get(oldId)!;
+          await db.delete('expenses', oldId);
+        }
+        await db.put('expenses', r);
+        changed++;
+      }
+    }
+
+    // event_participants (PK propio + FK event_id, participant_id, parent_participant_id)
+    for (const r of (await db.getAll('event_participants')) as any[]) {
+      const oldId = r.id;
+      const needPk = !isUuid(oldId);
+      const nEv = remap(r.event_id);
+      const nP = remap(r.participant_id);
+      const nParent = r.parent_participant_id ? remap(r.parent_participant_id) : r.parent_participant_id;
+      if (needPk || nEv !== r.event_id || nP !== r.participant_id || nParent !== r.parent_participant_id) {
+        r.event_id = nEv;
+        r.participant_id = nP;
+        r.parent_participant_id = nParent;
+        if (needPk) {
+          r.id = generateId();
+          await db.delete('event_participants', oldId);
+        }
+        await db.put('event_participants', r);
+        changed++;
+      }
+    }
+
+    // expense_payers (PK propio + FK expense_id, participant_id)
+    for (const r of (await db.getAll('expense_payers')) as any[]) {
+      const oldId = r.id;
+      const needPk = !isUuid(oldId);
+      const nEx = remap(r.expense_id);
+      const nP = remap(r.participant_id);
+      if (needPk || nEx !== r.expense_id || nP !== r.participant_id) {
+        r.expense_id = nEx;
+        r.participant_id = nP;
+        if (needPk) {
+          r.id = generateId();
+          await db.delete('expense_payers', oldId);
+        }
+        await db.put('expense_payers', r);
+        changed++;
+      }
+    }
+
+    // splits (PK propio + FK expense_id, participant_id)
+    for (const r of (await db.getAll('splits')) as any[]) {
+      const oldId = r.id;
+      const needPk = !isUuid(oldId);
+      const nEx = remap(r.expense_id);
+      const nP = remap(r.participant_id);
+      if (needPk || nEx !== r.expense_id || nP !== r.participant_id) {
+        r.expense_id = nEx;
+        r.participant_id = nP;
+        if (needPk) {
+          r.id = generateId();
+          await db.delete('splits', oldId);
+        }
+        await db.put('splits', r);
+        changed++;
+      }
+    }
+
+    // settlements (PK propio + FK event_id, from_participant_id, to_participant_id)
+    for (const r of (await db.getAll('settlements')) as any[]) {
+      const oldId = r.id;
+      const needPk = !isUuid(oldId);
+      const nEv = remap(r.event_id);
+      const nFrom = remap(r.from_participant_id);
+      const nTo = remap(r.to_participant_id);
+      if (needPk || nEv !== r.event_id || nFrom !== r.from_participant_id || nTo !== r.to_participant_id) {
+        r.event_id = nEv;
+        r.from_participant_id = nFrom;
+        r.to_participant_id = nTo;
+        if (needPk) {
+          r.id = generateId();
+          await db.delete('settlements', oldId);
+        }
+        await db.put('settlements', r);
+        changed++;
+      }
+    }
+
+    // consolidation_assignments (PK autoIncrement → se conserva; FK event_id, payer_id, debtor_id)
+    for (const r of (await db.getAll('consolidation_assignments')) as any[]) {
+      const nEv = remap(r.event_id);
+      const nPayer = remap(r.payer_id);
+      const nDebtor = remap(r.debtor_id);
+      if (nEv !== r.event_id || nPayer !== r.payer_id || nDebtor !== r.debtor_id) {
+        r.event_id = nEv;
+        r.payer_id = nPayer;
+        r.debtor_id = nDebtor;
+        await db.put('consolidation_assignments', r);
+        changed++;
+      }
+    }
+
+    if (changed > 0) {
+      console.log(`🔧 Migración de IDs legacy → UUID: ${changed} registros normalizados`);
+    }
   }
 
   private _db(): IDBPDatabase {
@@ -312,6 +500,142 @@ export class IndexedDBDatabaseService implements IDatabaseService {
   async getEventShares(_eventId?: string): Promise<any[]> {
     // Web: not implemented
     return [];
+  }
+
+  // ==================== Activities (Organización) ====================
+
+  async getActivitiesByEvent(eventId: string): Promise<Activity[]> {
+    const db = this._db();
+    const rows = await db.getAllFromIndex('activities', 'event_id', eventId) as any[];
+    const result: Activity[] = [];
+    for (const row of rows) {
+      const links = await db.getAllFromIndex('activity_participants', 'activity_id', row.id) as any[];
+      result.push({
+        id: row.id,
+        eventId: row.event_id,
+        title: row.title,
+        description: row.description || undefined,
+        position: row.position ?? 0,
+        createdByUserId: row.created_by_user_id || undefined,
+        createdAt: row.created_at || undefined,
+        updatedAt: row.updated_at || undefined,
+        assignedParticipantIds: links.map((l) => l.participant_id),
+      });
+    }
+    result.sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || (a.createdAt || '').localeCompare(b.createdAt || ''));
+    return result;
+  }
+
+  async createActivity(activity: Activity): Promise<void> {
+    const db = this._db();
+    const now = new Date().toISOString();
+    await db.put('activities', {
+      id: activity.id,
+      event_id: activity.eventId,
+      title: activity.title,
+      description: activity.description || null,
+      position: activity.position ?? 0,
+      created_by_user_id: activity.createdByUserId || null,
+      created_at: activity.createdAt || now,
+      updated_at: activity.updatedAt || now,
+      sync_status: 'pending',
+    });
+    if (activity.assignedParticipantIds && activity.assignedParticipantIds.length > 0) {
+      await this.setActivityParticipants(activity.id, activity.assignedParticipantIds);
+    }
+  }
+
+  async updateActivity(activityId: string, updates: Partial<Activity>): Promise<void> {
+    const db = this._db();
+    const existing = await db.get('activities', activityId) as any;
+    if (!existing) return;
+    const now = new Date().toISOString();
+    if (updates.title !== undefined) existing.title = updates.title;
+    if (updates.description !== undefined) existing.description = updates.description || null;
+    if (updates.position !== undefined) existing.position = updates.position;
+    existing.updated_at = now;
+    existing.sync_status = 'pending';
+    await db.put('activities', existing);
+    if (updates.assignedParticipantIds !== undefined) {
+      await this.setActivityParticipants(activityId, updates.assignedParticipantIds);
+    }
+  }
+
+  async deleteActivity(activityId: string): Promise<void> {
+    const db = this._db();
+    const links = await db.getAllFromIndex('activity_participants', 'activity_id', activityId) as any[];
+    for (const l of links) {
+      await db.delete('activity_participants', l.id);
+    }
+    await db.delete('activities', activityId);
+  }
+
+  async setActivityParticipants(activityId: string, participantIds: string[]): Promise<void> {
+    const db = this._db();
+    const now = new Date().toISOString();
+    const existing = await db.getAllFromIndex('activity_participants', 'activity_id', activityId) as any[];
+    for (const l of existing) {
+      await db.delete('activity_participants', l.id);
+    }
+    for (const pid of participantIds) {
+      await db.put('activity_participants', {
+        id: generateId(),
+        activity_id: activityId,
+        participant_id: pid,
+        created_at: now,
+        sync_status: 'pending',
+      });
+    }
+  }
+
+  // ==================== Activity Templates ====================
+
+  async getActivityTemplates(userId: string): Promise<ActivityTemplate[]> {
+    const db = this._db();
+    const rows = await db.getAllFromIndex('activity_templates', 'user_id', userId) as any[];
+    return rows
+      .map((row) => {
+        let tasks: string[] = [];
+        try { tasks = JSON.parse(row.tasks || '[]'); } catch { tasks = []; }
+        return {
+          id: row.id,
+          userId: row.user_id,
+          name: row.name,
+          tasks,
+          createdAt: row.created_at || undefined,
+          updatedAt: row.updated_at || undefined,
+        } as ActivityTemplate;
+      })
+      .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+  }
+
+  async createActivityTemplate(template: ActivityTemplate): Promise<void> {
+    const db = this._db();
+    const now = new Date().toISOString();
+    await db.put('activity_templates', {
+      id: template.id,
+      user_id: template.userId,
+      name: template.name,
+      tasks: JSON.stringify(template.tasks || []),
+      created_at: template.createdAt || now,
+      updated_at: template.updatedAt || now,
+    });
+  }
+
+  async updateActivityTemplate(templateId: string, updates: Partial<ActivityTemplate>): Promise<void> {
+    const db = this._db();
+    const existing = await db.get('activity_templates', templateId) as any;
+    if (!existing) return;
+    const now = new Date().toISOString();
+    if (updates.name !== undefined) existing.name = updates.name;
+    if (updates.tasks !== undefined) existing.tasks = JSON.stringify(updates.tasks);
+    existing.updated_at = now;
+    await db.put('activity_templates', existing);
+  }
+
+  async deleteActivityTemplate(templateId: string): Promise<void> {
+    const db = this._db();
+    await db.delete('activity_templates', templateId);
   }
 
   async createParticipant(participant: Participant): Promise<void> {
@@ -556,7 +880,7 @@ export class IndexedDBDatabaseService implements IDatabaseService {
 
   async addSecondaryParticipant(eventId: string, primaryParticipantId: string, name: string): Promise<string> {
     const db = this._db();
-    const secondaryId = `sec_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const secondaryId = generateId();
     const now = new Date().toISOString();
 
     // Verificar duplicado de nombre en el evento
@@ -975,7 +1299,7 @@ export class IndexedDBDatabaseService implements IDatabaseService {
     const now = new Date().toISOString();
     for (const s of newSettlements) {
       if (s.amount > 0.01) {
-        const id = `settlement_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        const id = generateId();
         await this.createSettlement({
           id, eventId,
           fromParticipantId: s.fromParticipantId,

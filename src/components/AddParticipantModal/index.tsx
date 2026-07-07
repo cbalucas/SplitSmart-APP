@@ -27,6 +27,7 @@ import HeaderBar from '../HeaderBar';
 import SearchBar from '../SearchBar';
 import Avatar from '../Avatar';
 import { showAlert } from '../../services/alertService';
+import { generateId } from '../../utils/uuid';
 
 interface AddParticipantModalProps {
   visible: boolean;
@@ -287,7 +288,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
 
     try {
       const participant: Participant = {
-        id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: generateId(),
         name: (() => { const n = newParticipant.name.trim(); return n.charAt(0).toUpperCase() + n.slice(1); })(),
         email: newParticipant.email.trim() || undefined,
         phone: newParticipant.phone.trim() || undefined,
@@ -322,7 +323,6 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
   const handleCreateBulkParticipants = async () => {
     try {
       let participantsToAdd: Participant[] = [];
-      const baseTimestamp = Date.now();
 
       if (bulkType === 'custom') {
         setBulkSubmittedOnce(true);
@@ -345,7 +345,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
         }
 
         participantsToAdd = names.map((name, index) => ({
-          id: `${baseTimestamp}_${index}_${Math.random().toString(36).substr(2, 9)}`,
+          id: generateId(),
           name: name.charAt(0).toUpperCase() + name.slice(1),
           participantType: 'temporary' as const,
           isActive: true,
@@ -371,7 +371,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
         const maxNumber = existingGenericNumbers.length > 0 ? Math.max(...existingGenericNumbers) : 0;
         
         participantsToAdd = Array.from({ length: genericCount }, (_, index) => ({
-          id: `${baseTimestamp}_${index}_${Math.random().toString(36).substr(2, 9)}`,
+          id: generateId(),
           name: `Participante ${maxNumber + index + 1}`,
           participantType: 'temporary' as const,
           isActive: true,

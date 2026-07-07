@@ -125,6 +125,17 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '500',
   } as TextStyle,
 
+  // Sufijo de moneda para el campo SIN label (misma moneda): centrado dentro
+  // de la caja de 48px (sin los ~28px que ocupa el label).
+  currencySuffixNoLabel: {
+    position: 'absolute',
+    right: 16,
+    top: 14,
+    fontSize: 16,
+    color: theme.colors.onSurfaceVariant,
+    fontWeight: '500',
+  } as TextStyle,
+
   // ── Selector de moneda del gasto ──────────────────────────
   currencyRow: {
     flexDirection: 'row',

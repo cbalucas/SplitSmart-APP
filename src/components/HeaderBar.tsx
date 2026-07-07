@@ -222,17 +222,21 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
     // Modo overflow: más de 2 íconos → mostrar botón "..."
     if (useOverflow) {
       return (
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => openOverflow()}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons
-            name="dots-vertical"
-            size={24}
-            color={dynamicTitleColor}
-          />
-        </TouchableOpacity>
+        <View style={styles.rightRow}>
+          {/* Elementos persistentes (ej: indicador de sync) siempre visibles */}
+          {additionalRightElements}
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => openOverflow()}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name="dots-vertical"
+              size={24}
+              color={dynamicTitleColor}
+            />
+          </TouchableOpacity>
+        </View>
       );
     }
 
@@ -527,6 +531,11 @@ const createStyles = (theme: Theme, titleAlignment: 'left' | 'center' = 'center'
       alignItems: 'center',
       justifyContent: 'center',
       borderRadius: theme.borderRadius.full,
+    } as ViewStyle,
+    
+    rightRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
     } as ViewStyle,
     
     avatarButton: {

@@ -44,24 +44,24 @@
 
 import { ISyncService } from './ISyncService';
 import { LocalOnlySyncService } from './SyncService';
-// import { SupabaseSyncService } from './SupabaseSyncService'; // ← descomentar cuando esté listo
-// import { supabase } from './supabase';
-// import { databaseService } from './DatabaseFactory';
+import { SupabaseSyncService } from './SupabaseSyncService';
+import { databaseService } from './DatabaseFactory';
 
 /**
- * Cambiar a true (o usar variable de entorno) para activar Supabase sync.
- * Con false, la app funciona completamente offline sin ningún cambio en la UI.
+ * true = Supabase sync habilitado (offline-first, bidireccional).
+ * Se activa automáticamente cuando las variables de entorno de Supabase están configuradas.
+ * Con false, la app funciona completamente offline.
  */
-const CLOUD_SYNC_ENABLED = false;
+const CLOUD_SYNC_ENABLED =
+  !!process.env.EXPO_PUBLIC_SUPABASE_URL &&
+  !!process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 function createSyncService(): ISyncService {
   if (CLOUD_SYNC_ENABLED) {
-    // TODO: return new SupabaseSyncService(supabase, databaseService);
-    console.warn(
-      '⚠️ SyncFactory: CLOUD_SYNC_ENABLED=true pero SupabaseSyncService no está implementado aún. ' +
-      'Usando LocalOnlySyncService como fallback.'
-    );
+    console.log('☁️ SyncFactory: Supabase sync habilitado');
+    return new SupabaseSyncService(databaseService);
   }
+  console.log('📴 SyncFactory: modo local (sin Supabase sync)');
   return new LocalOnlySyncService();
 }
 

@@ -7,6 +7,7 @@ import { User } from '../types';
 import { DEMO_USER, DEMO_USER_ID, DEMO_CREDENTIALS } from '../constants/demoUser';
 import { databaseService } from '../services/DatabaseFactory';
 import { supabase } from '../services/supabase';
+import { isNativeGoogleSignInAvailable, nativeGoogleSignIn, nativeGoogleSignOut } from '../services/googleSignIn';
 
 // Necesario para completar el flujo OAuth en iOS/Android
 WebBrowser.maybeCompleteAuthSession();
@@ -342,6 +343,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Cerrar sesión en Supabase si el usuario era online
     if (isOnlineUser) {
       supabase.auth.signOut().catch(e => console.warn('\u26a0\ufe0f Supabase signOut error:', e));
+      // También cerrar sesión del SDK nativo de Google (si aplica)
+      nativeGoogleSignOut().catch(() => {});
     }
     setIsOnlineUser(false);
     setOfferLinkToSupabase(false);
@@ -586,8 +589,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // En nativo: usar expo-web-browser + expo-linking
-      const redirectTo = Linking.createURL('auth/callback');
+      // En nativo (Android/iOS): usar el SELECTOR NATIVO de cuentas si está
+      // disponible. Obtiene un idToken de Google y lo intercambia con Supabase
+      // sin abrir el navegador (experiencia in-app).
+      if (isNativeGoogleSignInAvailable()) {
+        try {
+          const { idToken } = await nativeGoogleSignIn();
+          const { error: idTokenError } = await supabase.auth.signInWithIdToken({
+            provider: 'google',
+            token: idToken,
+          });
+          if (idTokenError) throw idTokenError;
+          // onAuthStateChange ('SIGNED_IN') se encarga de crear el usuario local
+          return;
+        } catch (nativeErr: any) {
+          if (nativeErr?.code === 'CANCELLED') {
+            console.log('ℹ️ Login con Google cancelado por el usuario');
+            return;
+          }
+          // Si el flujo nativo falla por config/entorno, caemos al navegador
+          console.warn('⚠️ Login nativo de Google falló, usando navegador:', nativeErr?.message);
+        }
+      }
+
+      // Fallback: expo-web-browser + expo-linking (flujo OAuth por navegador)
+      // Forzamos el scheme nativo (splitsmart://) en vez del prefijo exp:// que
+      // usa el dev server de Metro, para que el redirect coincida con la
+      // Redirect URL registrada en Supabase (splitsmart://auth/callback).
+      const redirectTo = Linking.createURL('auth/callback', { scheme: 'splitsmart' });
       console.log('🔗 Google OAuth redirect URI:', redirectTo);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -598,9 +627,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
       if (result.type === 'success') {
-        const { error: sessionError } = await supabase.auth.exchangeCodeForSession(result.url);
+        // El navegador vuelve a splitsmart://auth/callback?code=XXX
+        // exchangeCodeForSession() espera SOLO el código, no la URL completa.
+        const { queryParams } = Linking.parse(result.url);
+        const code = queryParams?.code as string | undefined;
+        if (!code) {
+          throw new Error('No se recibió el código de autorización de Google');
+        }
+        const { error: sessionError } = await supabase.auth.exchangeCodeForSession(code);
         if (sessionError) throw sessionError;
         // onAuthStateChange ('SIGNED_IN') se encarga de crear el usuario local
+      } else if (result.type === 'cancel' || result.type === 'dismiss') {
+        // El usuario cerró el navegador sin completar el login: no es un error real
+        console.log('ℹ️ Login con Google cancelado por el usuario');
+        return;
       }
     } catch (err: any) {
       console.error('❌ Google sign-in error:', err);

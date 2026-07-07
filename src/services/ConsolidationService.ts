@@ -1,4 +1,5 @@
 import { Settlement, ConsolidationAssignment, ConsolidatedSettlement } from '../types';
+import { generateId } from '../utils/uuid';
 
 export class ConsolidationService {
   
@@ -131,7 +132,7 @@ export class ConsolidationService {
           contributingSettlements.map(s => `${s.fromParticipantName} $${s.amount}`).join(', '));
 
         const consolidatedSettlement: ConsolidatedSettlement = {
-          id: `consolidated_${payerId}_to_${creditorId}_${Math.random().toString(36).substr(2, 9)}`,
+          id: generateId(),
           eventId: settlementsToProcess[0]?.eventId || '',
           fromParticipantId: payerId,
           fromParticipantName: payerName,

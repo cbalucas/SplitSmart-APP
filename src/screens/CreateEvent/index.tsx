@@ -31,6 +31,7 @@ import {
 import { EventFormData, EventFormErrors, RouteParams } from './types';
 import { createEventLanguage } from './language';
 import { createStyles } from './styles';
+import { generateId } from '../../utils/uuid';
 
 const CreateEventScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -38,7 +39,7 @@ const CreateEventScreen: React.FC = () => {
   const { theme } = useTheme();
   const { language } = useLanguage();
   const { user } = useAuth();
-  const { addEvent, updateEvent, events, getUserProfile } = useData();
+  const { addEvent, updateEvent, events, getUserProfile, addParticipantToEvent, getParticipantByUserId, getUserPreference } = useData();
   const insets = useSafeAreaInsets();
   const styles = createStyles(theme, insets);
   
@@ -66,6 +67,7 @@ const CreateEventScreen: React.FC = () => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [submittedOnce, setSubmittedOnce] = useState(false);
   const [isConfigExpanded, setIsConfigExpanded] = useState(false);
+  const [addSelfAsParticipant, setAddSelfAsParticipant] = useState(true);
 
   // Cambiar a true cuando la funcionalidad de compartir esté lista
   const SHOW_SHARE_CARD = false;
@@ -140,6 +142,13 @@ const CreateEventScreen: React.FC = () => {
     if (!isEditing && user?.id) {
       console.log('Initial load: Loading user preferred currency for new event...');
       loadUserPreferredCurrency();
+      // Cargar preferencia de auto-agregarse como participante (default: activado)
+      (async () => {
+        try {
+          const pref = await getUserPreference(user.id, 'auto_add_self_participant');
+          setAddSelfAsParticipant(pref === null ? true : pref === '1');
+        } catch {}
+      })();
     }
   }, [user?.id, isEditing]);
 
@@ -297,7 +306,7 @@ const CreateEventScreen: React.FC = () => {
         await updateEvent(editingEventId, eventUpdates);
       } else {
         // Crear evento nuevo
-        newEventId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        newEventId = generateId();
         const eventData = {
           id: newEventId,
           name: formData.name.trim(),
@@ -313,6 +322,31 @@ const CreateEventScreen: React.FC = () => {
 
         console.log('Creating event in SQLite:', eventData);
         await addEvent(eventData);
+
+        // Auto-agregar al usuario como participante si está activado y hay usuario
+        if (addSelfAsParticipant && user?.id) {
+          try {
+            let selfParticipant = await getParticipantByUserId(user.id);
+            if (!selfParticipant) {
+              const nowIso = new Date().toISOString();
+              selfParticipant = {
+                id: generateId(),
+                name: user.name || 'Yo',
+                email: user.email || undefined,
+                isActive: true,
+                participantType: 'friend',
+                userId: user.id,
+                createdByUserId: user.id,
+                isPublic: false,
+                createdAt: nowIso,
+                updatedAt: nowIso,
+              };
+            }
+            await addParticipantToEvent(newEventId, selfParticipant);
+          } catch (selfErr) {
+            console.warn('No se pudo auto-agregar al usuario como participante:', selfErr);
+          }
+        }
       }
       
       showAlert({ type: 'success', title: isEditing ? t.actions.eventUpdated : t.actions.eventCreated, message: isEditing ? t.actions.eventUpdatedSuccess : t.actions.eventCreatedSuccess, buttons: [
@@ -662,6 +696,25 @@ const CreateEventScreen: React.FC = () => {
                   ))}
                 </View>
               </View>
+
+              {/* Auto-agregarme como participante (solo al crear) */}
+              {!isEditing && (
+                <TouchableOpacity
+                  style={styles.selfParticipantRow}
+                  onPress={() => setAddSelfAsParticipant(prev => !prev)}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons
+                    name={addSelfAsParticipant ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                    size={24}
+                    color={addSelfAsParticipant ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.selfParticipantTitle}>{t.form.addSelfParticipant}</Text>
+                    <Text style={styles.selfParticipantDesc}>{t.form.addSelfParticipantDesc}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
             </>
           )}
         </Card>
