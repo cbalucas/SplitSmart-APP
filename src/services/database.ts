@@ -2,7 +2,7 @@ import * as SQLite from 'expo-sqlite';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Event, Participant, Expense, EventParticipant, Split, Payment, Activity, ActivityTemplate } from '../types';
 import { IDatabaseService } from './IDatabaseService';
-import { generateId } from '../utils/uuid';
+import { generateId, deterministicId } from '../utils/uuid';
 
 class DatabaseService implements IDatabaseService {
   private db: SQLite.SQLiteDatabase | null = null;
@@ -1285,6 +1285,8 @@ class DatabaseService implements IDatabaseService {
       // Siempre actualizar updated_at
       fields.push('updated_at = ?');
       values.push(new Date().toISOString());
+      // Marcar pendiente para que el push lo suba a Supabase y el pull no lo revierta
+      fields.push("sync_status = 'pending'");
       
       // Añadir el ID al final
       values.push(id);
@@ -1405,30 +1407,43 @@ class DatabaseService implements IDatabaseService {
    * Los IDs originales se reemplazan por nuevos IDs locales.
    * Si se provee shareId (QR online), lo guarda en event_shares.
    */
-  async importSharedEvent(payload: any, role: 'editor' | 'viewer', shareId?: string, ownerName?: string): Promise<Event> {
+  async importSharedEvent(payload: any, role: 'editor' | 'viewer', shareId?: string, ownerName?: string, ownerId?: string): Promise<Event> {
     if (!this.db) throw new Error('Database not initialized');
 
     const now = new Date().toISOString();
-    const newEventId = generateId();
+
+    // COLABORACIÓN EN LA NUBE (share con shareId):
+    //   Conservamos los IDs ORIGINALES del dueño (evento, participantes, gastos,
+    //   splits) para que la sincronización por-registro converja sobre el mismo
+    //   event_id en Supabase. Marcamos los registros importados como 'synced'
+    //   (ya existen en la nube bajo el dueño) para no re-subirlos como duplicados.
+    //   creator_id = ownerId (el dueño es el creador; el colaborador NO reclama
+    //   la propiedad del evento).
+    // QR EMBEBIDO LEGACY (sin shareId): comportamiento previo → IDs nuevos,
+    //   creator_id NULL (se reclama en el push), sync_status por defecto 'pending'.
+    const isCloudShare = !!shareId;
+    const importSyncStatus = isCloudShare ? 'synced' : 'pending';
+    const newEventId = isCloudShare && payload.e?.id ? payload.e.id : generateId();
+    const creatorId = isCloudShare && ownerId ? ownerId : null;
 
     // Crear el evento
     await this.db.runAsync(
-      `INSERT INTO events (id, name, description, start_date, location, currency, total_amount, status, type, category, creator_id, is_locked, is_express, is_shared, shared_role, share_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 0, 'active', 'public', ?, NULL, 0, 0, 1, ?, ?, ?, ?)`,
+      `INSERT INTO events (id, name, description, start_date, location, currency, total_amount, status, type, category, creator_id, is_locked, is_express, is_shared, shared_role, share_id, sync_status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 0, 'active', 'public', ?, ?, 0, 0, 1, ?, ?, ?, ?, ?)`,
       [newEventId, payload.e.n, payload.e.d || null, payload.e.s, payload.e.l || null,
-       payload.e.c, payload.e.cat || 'evento', role, shareId || null, now, now]
+       payload.e.c, payload.e.cat || 'evento', creatorId, role, shareId || null, importSyncStatus, now, now]
     );
 
-    // Mapear IDs originales a nuevos IDs locales
+    // Mapear IDs originales a IDs locales (identidad si es share de la nube).
     const idMap: Record<string, string> = {};
 
     // Crear participantes
     for (const p of (payload.p || [])) {
-      const newParticipantId = generateId();
+      const newParticipantId = isCloudShare && p.id ? p.id : generateId();
       idMap[p.id] = newParticipantId;
       await this.db.runAsync(
-        `INSERT INTO participants (id, name, is_active, participant_type, created_at, updated_at) VALUES (?, ?, 1, 'temporary', ?, ?)`,
-        [newParticipantId, p.n, now, now]
+        `INSERT INTO participants (id, name, is_active, participant_type, sync_status, created_at, updated_at) VALUES (?, ?, 1, 'temporary', ?, ?, ?)`,
+        [newParticipantId, p.n, importSyncStatus, now, now]
       );
       await this.db.runAsync(
         `INSERT INTO event_participants (id, event_id, participant_id, role, joined_at) VALUES (?, ?, ?, 'member', ?)`,
@@ -1438,19 +1453,20 @@ class DatabaseService implements IDatabaseService {
 
     // Crear gastos y splits
     for (const ex of (payload.ex || [])) {
-      const newExpenseId = generateId();
+      const newExpenseId = isCloudShare && ex.id ? ex.id : generateId();
       idMap[ex.id] = newExpenseId;
       const newPayerId = idMap[ex.pid] || generateId();
       await this.db.runAsync(
-        `INSERT INTO expenses (id, event_id, description, amount, currency, date, category, payer_id, payer_name, is_active, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+        `INSERT INTO expenses (id, event_id, description, amount, currency, date, category, payer_id, payer_name, is_active, sync_status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
         [newExpenseId, newEventId, ex.d, ex.a, ex.c || payload.e.c,
-         ex.dt, ex.cat || null, newPayerId, ex.pn || '', now, now]
+         ex.dt, ex.cat || null, newPayerId, ex.pn || '', importSyncStatus, now, now]
       );
       for (const sp of (payload.sp || []).filter((s: any) => s.eid === ex.id)) {
+        const newSplitId = isCloudShare && sp.id ? sp.id : generateId();
         await this.db.runAsync(
-          `INSERT INTO splits (id, expense_id, participant_id, amount, type, is_paid, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)`,
-          [generateId(), newExpenseId, idMap[sp.pid] || sp.pid, sp.a, sp.t || 'equal', now, now]
+          `INSERT INTO splits (id, expense_id, participant_id, amount, type, is_paid, sync_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)`,
+          [newSplitId, newExpenseId, idMap[sp.pid] || sp.pid, sp.a, sp.t || 'equal', importSyncStatus, now, now]
         );
       }
     }
@@ -1929,6 +1945,8 @@ class DatabaseService implements IDatabaseService {
 
       fields.push('updated_at = ?');
       values.push(new Date().toISOString());
+      // Marcar pendiente para que el push lo suba a Supabase
+      fields.push("sync_status = 'pending'");
       values.push(id);
 
       await this.db.runAsync(
@@ -2173,7 +2191,7 @@ class DatabaseService implements IDatabaseService {
 
     try {
       await this.db.runAsync(
-        `INSERT INTO splits (id, expense_id, participant_id, amount, percentage, type, created_at, updated_at)
+        `INSERT OR REPLACE INTO splits (id, expense_id, participant_id, amount, percentage, type, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           split.id,
@@ -2630,6 +2648,8 @@ class DatabaseService implements IDatabaseService {
       // Siempre actualizar updated_at
       updateFields.push('updated_at = ?');
       values.push(new Date().toISOString());
+      // Marcar pendiente para que el push lo suba a Supabase
+      updateFields.push("sync_status = 'pending'");
 
       values.push(settlementId);
 
@@ -2849,8 +2869,8 @@ class DatabaseService implements IDatabaseService {
 
     try {
       await this.db.runAsync(
-        'UPDATE settlements SET event_status = ?, updated_at = ? WHERE event_id = ?',
-        [newEventStatus, new Date().toISOString(), eventId]
+        'UPDATE settlements SET event_status = ?, updated_at = ?, sync_status = ? WHERE event_id = ?',
+        [newEventStatus, new Date().toISOString(), 'pending', eventId]
       );
       console.log(`✅ Updated settlements status to ${newEventStatus} for event ${eventId}`);
     } catch (error) {
@@ -3457,6 +3477,9 @@ class DatabaseService implements IDatabaseService {
 
       updates.push('updated_at = ?');
       values.push(new Date().toISOString());
+      // Marcar como pendiente para que el push lo suba a Supabase y el pull no
+      // lo revierta (INSERT OR REPLACE respeta sync_status='pending').
+      updates.push("sync_status = 'pending'");
       values.push(expenseId);
 
       if (updates.length > 0) {
@@ -3474,7 +3497,7 @@ class DatabaseService implements IDatabaseService {
         // Insert new splits
         for (const split of splits) {
           await this.db.runAsync(
-            `INSERT INTO splits (id, expense_id, participant_id, amount, percentage, type, is_paid, created_at, updated_at)
+            `INSERT OR REPLACE INTO splits (id, expense_id, participant_id, amount, percentage, type, is_paid, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               split.id,
@@ -3692,7 +3715,7 @@ class DatabaseService implements IDatabaseService {
         }
 
         // Add new split for the new participant
-        const newSplitId = `${expense.id}_${participantId}`;
+        const newSplitId = deterministicId(`${expense.id}_${participantId}`);
         await this.db.runAsync(
           `INSERT INTO splits (id, expense_id, participant_id, amount, percentage, type, is_paid, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,

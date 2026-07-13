@@ -198,12 +198,43 @@ export class SupabaseSyncService implements ISyncService {
         }
       }
 
-      // ── 2. Obtener todos los event IDs del usuario ────────────────────────
+      // ── 2. Obtener todos los event IDs escribibles por el usuario ─────────
+      // (a) Eventos propios (creator_id = userId).
       const userEventRows: any[] = await db.getAllAsync(
         `SELECT id FROM events WHERE creator_id = ?`,
         [userId]
       );
-      const userEventIds: string[] = userEventRows.map(r => r.id);
+      const ownedEventIds: string[] = userEventRows.map(r => r.id);
+
+      // (b) Eventos compartidos recibidos con rol EDITOR (colaboración en la nube).
+      //     El usuario NO es el creador pero puede escribir gastos/splits/liquidaciones.
+      const sharedEditorRows: any[] = await db.getAllAsync(
+        `SELECT id, share_id FROM events
+         WHERE is_shared = 1 AND shared_role = 'editor'
+           AND share_id IS NOT NULL
+           AND (creator_id IS NULL OR creator_id <> ?)`,
+        [userId]
+      );
+      const sharedEditorEventIds: string[] = sharedEditorRows.map(r => r.id);
+
+      // Asegurar el registro de colaborador en la nube (idempotente) para que las
+      // políticas RLS habiliten la escritura. Best-effort: no bloquea el push.
+      for (const row of sharedEditorRows) {
+        if (!row.share_id) continue;
+        try {
+          await supabase
+            .from('event_collaborators')
+            .upsert(
+              { event_id: row.id, user_id: userId, role: 'editor', share_id: row.share_id },
+              { onConflict: 'event_id,user_id', ignoreDuplicates: true }
+            );
+        } catch (e: any) {
+          console.warn('⚠️ SyncPush registrar colaborador error:', e?.message || e);
+        }
+      }
+
+      // Conjunto combinado de eventos cuyos registros hijos se suben.
+      const userEventIds: string[] = [...ownedEventIds, ...sharedEditorEventIds];
 
       if (userEventIds.length === 0) {
         console.log('✅ SyncPush: sin eventos, fin de push');
@@ -286,7 +317,7 @@ export class SupabaseSyncService implements ISyncService {
 
         const { error: epError } = await supabase
           .from('event_participants')
-          .upsert(epsToUpsert, { onConflict: 'id' });
+          .upsert(epsToUpsert, { onConflict: 'event_id,participant_id', ignoreDuplicates: true });
 
         if (epError) {
           console.warn('⚠️ SyncPush event_participants error:', epError.message);
@@ -465,7 +496,7 @@ export class SupabaseSyncService implements ISyncService {
 
           const { error: apError } = await supabase
             .from('activity_participants')
-            .upsert(apToUpsert, { onConflict: 'id' });
+            .upsert(apToUpsert, { onConflict: 'activity_id,participant_id', ignoreDuplicates: true });
 
           if (!apError) {
             await this._markSynced(db, 'activity_participants', pendingActivityParticipants.map(ap => ap.id));
@@ -540,7 +571,29 @@ export class SupabaseSyncService implements ISyncService {
         participatedEvents = pEvents ?? [];
       }
 
-      const allCloudEvents = [...(ownedEvents ?? []), ...participatedEvents];
+      // ── 2.5. Eventos donde el usuario es COLABORADOR (share editor/viewer) ─
+      // Permite que el colaborador reciba las actualizaciones del dueño y de
+      // otros colaboradores del evento compartido.
+      let collaboratorEvents: any[] = [];
+      const { data: collabRows } = await supabase
+        .from('event_collaborators')
+        .select('event_id')
+        .eq('user_id', userId);
+      if (collabRows && collabRows.length > 0) {
+        const ownedIds = new Set((ownedEvents || []).map(e => e.id));
+        const participatedIds = new Set(participatedEventIds);
+        const collabEventIds = [...new Set(collabRows.map((c: any) => c.event_id))]
+          .filter(id => !ownedIds.has(id) && !participatedIds.has(id));
+        if (collabEventIds.length > 0) {
+          const { data: cEvents } = await supabase
+            .from('events')
+            .select('*')
+            .in('id', collabEventIds);
+          collaboratorEvents = cEvents ?? [];
+        }
+      }
+
+      const allCloudEvents = [...(ownedEvents ?? []), ...participatedEvents, ...collaboratorEvents];
 
       if (allCloudEvents.length === 0) {
         console.log('ℹ️ SyncPull: no hay eventos en Supabase para este usuario');
@@ -1069,7 +1122,32 @@ export class SupabaseSyncService implements ISyncService {
         }
       }
 
-      const userEventIds = ownEvents.map((e) => e.id);
+      const ownEventIds = ownEvents.map((e) => e.id);
+
+      // ── 1.5 Eventos compartidos recibidos con rol EDITOR (colaboración) ───
+      // No se sube la fila del evento (pertenece al dueño), pero sí sus hijos.
+      const sharedEditorEvents = allEvents.filter(
+        (e) =>
+          (e.is_shared === 1 || e.is_shared === true) &&
+          e.shared_role === 'editor' &&
+          e.share_id &&
+          e.creator_id && e.creator_id !== userId
+      );
+      // Registrar al colaborador en la nube (idempotente) para habilitar RLS.
+      for (const e of sharedEditorEvents) {
+        try {
+          await supabase
+            .from('event_collaborators')
+            .upsert(
+              { event_id: e.id, user_id: userId, role: 'editor', share_id: e.share_id },
+              { onConflict: 'event_id,user_id', ignoreDuplicates: true }
+            );
+        } catch (err: any) {
+          console.warn('⚠️ WebPush registrar colaborador error:', err?.message || err);
+        }
+      }
+
+      const userEventIds = [...ownEventIds, ...sharedEditorEvents.map((e) => e.id)];
       if (userEventIds.length === 0) {
         // Aún así intentamos subir los amigos del usuario (pueden no tener eventos)
         const friendsOnly = await this._pushWebFriendsOnly(db, userId);
@@ -1134,7 +1212,7 @@ export class SupabaseSyncService implements ISyncService {
           joined_at: ep.joined_at || new Date().toISOString(),
           parent_participant_id: ep.parent_participant_id || null,
         }));
-        const { error } = await supabase.from('event_participants').upsert(epsToUpsert, { onConflict: 'id' });
+        const { error } = await supabase.from('event_participants').upsert(epsToUpsert, { onConflict: 'event_id,participant_id', ignoreDuplicates: true });
         if (error) console.warn('⚠️ WebPush event_participants error:', error.message);
       }
 
@@ -1245,7 +1323,7 @@ export class SupabaseSyncService implements ISyncService {
           participant_id: ap.participant_id,
           created_at: ap.created_at || new Date().toISOString(),
         }));
-        const { error } = await supabase.from('activity_participants').upsert(apToUpsert, { onConflict: 'id' });
+        const { error } = await supabase.from('activity_participants').upsert(apToUpsert, { onConflict: 'activity_id,participant_id', ignoreDuplicates: true });
         if (!error) pushed += relevantActivityParticipants.length;
         else console.warn('⚠️ WebPush activity_participants error:', error.message);
       }
@@ -1302,7 +1380,22 @@ export class SupabaseSyncService implements ISyncService {
         participatedEvents = pEvents ?? [];
       }
 
-      const allCloudEvents = [...(ownedEvents ?? []), ...participatedEvents];
+      // Eventos donde el usuario es COLABORADOR (share editor/viewer).
+      let collaboratorEvents: any[] = [];
+      const { data: collabRows } = await supabase
+        .from('event_collaborators').select('event_id').eq('user_id', userId);
+      if (collabRows && collabRows.length > 0) {
+        const ownedIds = new Set((ownedEvents || []).map((e) => e.id));
+        const participatedIds = new Set(participatedEventIds);
+        const collabEventIds = [...new Set(collabRows.map((c: any) => c.event_id))]
+          .filter((id) => !ownedIds.has(id) && !participatedIds.has(id));
+        if (collabEventIds.length > 0) {
+          const { data: cEvents } = await supabase.from('events').select('*').in('id', collabEventIds);
+          collaboratorEvents = cEvents ?? [];
+        }
+      }
+
+      const allCloudEvents = [...(ownedEvents ?? []), ...participatedEvents, ...collaboratorEvents];
       if (allCloudEvents.length === 0) {
         await AsyncStorage.setItem(LAST_PULL_KEY, new Date().toISOString());
         return { success: true, pushed: 0, pulled: 0, conflicts: 0 };
@@ -1492,14 +1585,28 @@ export class SupabaseSyncService implements ISyncService {
           .from('activity_participants').select('*').in('activity_id', cloudActivityIds);
         if (cloudActivityParticipants) {
           for (const ap of cloudActivityParticipants) {
-            await db.put('activity_participants', {
-              id: ap.id,
-              activity_id: ap.activity_id,
-              participant_id: ap.participant_id,
-              created_at: ap.created_at,
-              sync_status: 'synced',
-            });
-            pulled++;
+            try {
+              // El índice único (activity_id, participant_id) aborta el put si ya
+              // existe localmente la misma pareja con OTRO id. Se elimina el
+              // duplicado local (la nube es la fuente de verdad) antes de insertar.
+              const existing: any = await db.getFromIndex(
+                'activity_participants', 'activity_participant',
+                [ap.activity_id, ap.participant_id]
+              );
+              if (existing && existing.id !== ap.id) {
+                await db.delete('activity_participants', existing.id);
+              }
+              await db.put('activity_participants', {
+                id: ap.id,
+                activity_id: ap.activity_id,
+                participant_id: ap.participant_id,
+                created_at: ap.created_at,
+                sync_status: 'synced',
+              });
+              pulled++;
+            } catch (apErr: any) {
+              console.warn('⚠️ WebPull activity_participant omitido:', apErr?.message);
+            }
           }
         }
       }

@@ -23,7 +23,7 @@ export interface IDatabaseService {
   deleteEvent(id: string): Promise<void>;
   getEvents(): Promise<Event[]>;
   getEventById(eventId: string): Promise<Event | null>;
-  importSharedEvent(payload: any, role: 'editor' | 'viewer', shareId?: string, ownerName?: string): Promise<Event>;
+  importSharedEvent(payload: any, role: 'editor' | 'viewer', shareId?: string, ownerName?: string, ownerId?: string): Promise<Event>;
   saveEventShare(shareId: string, eventId: string, direction: 'sent' | 'received', role: 'editor' | 'viewer', ownerName?: string): Promise<void>;
   getEventShares(eventId?: string): Promise<any[]>;
 

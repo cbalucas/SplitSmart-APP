@@ -395,7 +395,7 @@ const HomeScreen: React.FC = () => {
                         text: t.actions.ok,
                         onPress: async () => {
                           try {
-                            const newEvent = await importSharedEvent(record.snapshot, record.role, shareId, record.ownerName);
+                            const newEvent = await importSharedEvent(record.snapshot, record.role, shareId, record.ownerName, record.ownerId);
                             showAlert({
                               type: 'success',
                               title: t.qr.importSuccess,
@@ -481,7 +481,7 @@ const HomeScreen: React.FC = () => {
           text: t.actions.ok,
           onPress: async () => {
             try {
-              const newEvent = await importSharedEvent(record.snapshot, record.role, record.shareId, record.ownerName);
+              const newEvent = await importSharedEvent(record.snapshot, record.role, record.shareId, record.ownerName, record.ownerId);
               showAlert({
                 type: 'success',
                 title: t.qr.importSuccess,

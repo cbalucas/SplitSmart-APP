@@ -219,7 +219,8 @@ export default function EventDetailScreen() {
   const isSharedEvent = event?.isShared === true;
   const sharedRole = event?.sharedRole;
   // Los eventos compartidos con rol viewer son solo lectura
-  const isEditable = event?.status === 'active' && !isLocked && !(isSharedEvent && sharedRole === 'viewer');
+  const isViewerReadOnly = isSharedEvent && sharedRole === 'viewer';
+  const isEditable = event?.status === 'active' && !isLocked && !isViewerReadOnly;
 
   // Crear un objeto indexable para balances
   const balancesById = balances.reduce((acc: Record<string, number>, balance) => {
@@ -638,7 +639,9 @@ export default function EventDetailScreen() {
 
   const handleAddExpense = () => {
     if (!isEditable) {
-      showAlert({ type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyAddExpensesActive') });
+      showAlert(isViewerReadOnly
+        ? { type: 'warning', title: t('message.sharedViewerReadOnly'), message: t('message.sharedViewerReadOnlyDesc') }
+        : { type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyAddExpensesActive') });
       return;
     }
     (navigation as any).navigate('CreateExpense', { eventId });
@@ -646,7 +649,9 @@ export default function EventDetailScreen() {
 
   const handleEditExpense = (expense: Expense) => {
     if (!isEditable) {
-      showAlert({ type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyEditExpensesActive') });
+      showAlert(isViewerReadOnly
+        ? { type: 'warning', title: t('message.sharedViewerReadOnly'), message: t('message.sharedViewerReadOnlyDesc') }
+        : { type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyEditExpensesActive') });
       return;
     }
     (navigation as any).navigate('CreateExpense', { 
@@ -658,7 +663,9 @@ export default function EventDetailScreen() {
 
   const handleDeleteExpense = (expense: Expense) => {
     if (!isEditable) {
-      showAlert({ type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyDeleteExpensesActive') });
+      showAlert(isViewerReadOnly
+        ? { type: 'warning', title: t('message.sharedViewerReadOnly'), message: t('message.sharedViewerReadOnlyDesc') }
+        : { type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyDeleteExpensesActive') });
       return;
     }
     showAlert({ type: 'destructive', title: t('message.deleteExpenseTitle'), message: t('message.deleteExpenseMessage', { name: expense.description }), buttons: [
@@ -4426,6 +4433,28 @@ export default function EventDetailScreen() {
       </View>
       
       <View style={[styles.safeContent, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+        {/* Banner de solo lectura (evento compartido con rol viewer) */}
+        {isViewerReadOnly && (
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            marginHorizontal: 16,
+            marginTop: 10,
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+            borderRadius: 10,
+            backgroundColor: theme.colors.warning + '22',
+            borderWidth: 1,
+            borderColor: theme.colors.warning + '55',
+          }}>
+            <MaterialCommunityIcons name="eye-outline" size={18} color={theme.colors.warning} />
+            <Text style={{ color: theme.colors.onSurface, fontSize: 12, flex: 1 }}>
+              {t('message.sharedViewerReadOnlyDesc')}
+            </Text>
+          </View>
+        )}
+
         {/* Tab Bar */}
         {renderTabBar()}
 

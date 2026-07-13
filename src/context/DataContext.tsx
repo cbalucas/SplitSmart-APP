@@ -33,7 +33,7 @@ interface DataContextValue {
   addEvent: (event: Partial<Event>) => Promise<void>;
   updateEvent: (id: string, updates: Partial<Event>) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
-  importSharedEvent: (payload: any, role: 'editor' | 'viewer', shareId?: string, ownerName?: string) => Promise<Event>;
+  importSharedEvent: (payload: any, role: 'editor' | 'viewer', shareId?: string, ownerName?: string, ownerId?: string) => Promise<Event>;
   /** Sube un snapshot del evento a Supabase. Retorna el share_id (UUID para QR) y el código corto legible. Requiere usuario online. */
   createShareLink: (eventId: string, role: 'editor' | 'viewer') => Promise<{ shareId: string; shortCode: string }>;
   /** Actualiza el snapshot en Supabase con los datos actuales del evento. */
@@ -1575,8 +1575,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshData]);
 
-  const importSharedEvent = useCallback(async (payload: any, role: 'editor' | 'viewer', shareId?: string, ownerName?: string): Promise<Event> => {
-    const newEvent = await databaseService.importSharedEvent(payload, role, shareId, ownerName);
+  const importSharedEvent = useCallback(async (payload: any, role: 'editor' | 'viewer', shareId?: string, ownerName?: string, ownerId?: string): Promise<Event> => {
+    const newEvent = await databaseService.importSharedEvent(payload, role, shareId, ownerName, ownerId);
+    // Registrar al usuario como colaborador en la nube (solo shares con shareId).
+    // Esto habilita las políticas RLS: editor → puede escribir gastos; viewer → solo lee.
+    if (shareId) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const uid = session?.user?.id;
+        if (uid) {
+          const SharedEventService = (await import('../services/SharedEventService')).default;
+          await SharedEventService.registerCollaborator(newEvent.id, uid, role, shareId);
+        }
+      } catch (e) {
+        // No bloquear el import si el registro de colaborador falla (p.ej. offline).
+        console.warn('registerCollaborator falló:', (e as any)?.message || e);
+      }
+    }
     await refreshData();
     // Subir el evento importado a Supabase para que sea accesible desde otros dispositivos
     backgroundPush();

@@ -35,7 +35,7 @@ import SearchBar from '../../components/SearchBar';
 import { CurrencySelector } from '../../components/CurrencySelector';
 import { Participant, Expense, Split } from '../../types';
 import { showAlert } from '../../services/alertService';
-import { generateId } from '../../utils/uuid';
+import { generateId, deterministicId } from '../../utils/uuid';
 import { 
   ExpenseFormData, 
   ExpenseSplit, 
@@ -969,7 +969,7 @@ const CreateExpenseScreen: React.FC = () => {
         };
 
         const splits: Split[] = formData.splits.map(split => ({
-          id: `${editingExpenseId}_${split.participantId}`,
+          id: deterministicId(`${editingExpenseId}_${split.participantId}`),
           expenseId: editingExpenseId,
           participantId: split.participantId,
           amount: split.amount,
@@ -1037,7 +1037,7 @@ const CreateExpenseScreen: React.FC = () => {
         };
 
         const splits: Split[] = formData.splits.map(split => ({
-          id: `${expense.id}_${split.participantId}`,
+          id: deterministicId(`${expense.id}_${split.participantId}`),
           expenseId: expense.id,
           participantId: split.participantId,
           amount: split.amount,

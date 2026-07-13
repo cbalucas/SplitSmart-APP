@@ -210,6 +210,28 @@ const SharedEventService = {
   buildShareUrl(shareId: string): string {
     return `splitsmart://join?share=${shareId}`;
   },
+
+  /**
+   * Registra al usuario autenticado como colaborador del evento compartido.
+   * Requiere poseer un share válido (share_id) cuyo snapshot corresponde al
+   * eventId y cuyo rol coincide (lo valida la política RLS de INSERT).
+   * Idempotente: si ya está registrado, no falla (ignoreDuplicates).
+   * Solo tiene efecto online; en error se ignora para no bloquear el import.
+   */
+  async registerCollaborator(
+    eventId: string,
+    userId: string,
+    role: 'editor' | 'viewer',
+    shareId: string,
+  ): Promise<void> {
+    const { error } = await supabase
+      .from('event_collaborators')
+      .upsert(
+        { event_id: eventId, user_id: userId, role, share_id: shareId },
+        { onConflict: 'event_id,user_id', ignoreDuplicates: true },
+      );
+    if (error) throw new Error(error.message);
+  },
 };
 
 export default SharedEventService;

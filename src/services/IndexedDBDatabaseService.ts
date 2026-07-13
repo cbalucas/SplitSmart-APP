@@ -15,7 +15,7 @@
 import { openDB, IDBPDatabase } from 'idb';
 import { Event, Participant, Expense, EventParticipant, Split, Payment, Activity, ActivityTemplate } from '../types';
 import { IDatabaseService } from './IDatabaseService';
-import { generateId } from '../utils/uuid';
+import { generateId, deterministicId } from '../utils/uuid';
 
 const DB_NAME = 'splitsmart';
 const DB_VERSION = 3;
@@ -446,11 +446,17 @@ export class IndexedDBDatabaseService implements IDatabaseService {
 
   // ─── Participants ──────────────────────────────────────────────────────────
 
-  async importSharedEvent(payload: any, role: 'editor' | 'viewer', shareId?: string, ownerName?: string): Promise<Event> {
+  async importSharedEvent(payload: any, role: 'editor' | 'viewer', shareId?: string, ownerName?: string, ownerId?: string): Promise<Event> {
     // Web implementation: delegates to a thin local-only import
     const { v4: uuidv4 } = await import('uuid');
     const now = new Date().toISOString();
-    const newEventId = uuidv4();
+    // Colaboración en la nube (share con shareId): conservar IDs originales del
+    // dueño y marcar como 'synced' para que la sync por-registro converja sobre
+    // el mismo event_id. creator_id = ownerId (no reclamar propiedad).
+    const isCloudShare = !!shareId;
+    const importSyncStatus = isCloudShare ? 'synced' : 'pending';
+    const newEventId = isCloudShare && payload.e?.id ? payload.e.id : uuidv4();
+    const creatorId = isCloudShare && ownerId ? ownerId : null;
     const db = this._db();
     await db.put('events', {
       id: newEventId,
@@ -463,29 +469,31 @@ export class IndexedDBDatabaseService implements IDatabaseService {
       status: 'active',
       type: 'public',
       category: payload.e.cat || 'evento',
-      creator_id: null,
+      creator_id: creatorId,
       is_locked: 0,
       is_express: 0,
       is_shared: 1,
       shared_role: role,
       share_id: shareId || null,
+      sync_status: importSyncStatus,
       created_at: now,
       updated_at: now,
     });
     const idMap: Record<string, string> = {};
     for (const p of (payload.p || [])) {
-      const newPId = uuidv4();
+      const newPId = isCloudShare && p.id ? p.id : uuidv4();
       idMap[p.id] = newPId;
-      await db.put('participants', { id: newPId, name: p.n, is_active: 1, participant_type: 'temporary', created_at: now, updated_at: now });
+      await db.put('participants', { id: newPId, name: p.n, is_active: 1, participant_type: 'temporary', sync_status: importSyncStatus, created_at: now, updated_at: now });
       await db.put('event_participants', { id: uuidv4(), event_id: newEventId, participant_id: newPId, role: 'member', joined_at: now });
     }
     for (const ex of (payload.ex || [])) {
-      const newExId = uuidv4();
+      const newExId = isCloudShare && ex.id ? ex.id : uuidv4();
       idMap[ex.id] = newExId;
       const newPayerId = idMap[ex.pid] || uuidv4();
-      await db.put('expenses', { id: newExId, event_id: newEventId, description: ex.d, amount: ex.a, currency: ex.c || payload.e.c, date: ex.dt, category: ex.cat || null, payer_id: newPayerId, payer_name: ex.pn || '', is_active: 1, created_at: now, updated_at: now });
+      await db.put('expenses', { id: newExId, event_id: newEventId, description: ex.d, amount: ex.a, currency: ex.c || payload.e.c, date: ex.dt, category: ex.cat || null, payer_id: newPayerId, payer_name: ex.pn || '', is_active: 1, sync_status: importSyncStatus, created_at: now, updated_at: now });
       for (const sp of (payload.sp || []).filter((s: any) => s.eid === ex.id)) {
-        await db.put('splits', { id: uuidv4(), expense_id: newExId, participant_id: idMap[sp.pid] || sp.pid, amount: sp.a, type: sp.t || 'equal', is_paid: 0, created_at: now, updated_at: now });
+        const newSpId = isCloudShare && sp.id ? sp.id : uuidv4();
+        await db.put('splits', { id: newSpId, expense_id: newExId, participant_id: idMap[sp.pid] || sp.pid, amount: sp.a, type: sp.t || 'equal', is_paid: 0, sync_status: importSyncStatus, created_at: now, updated_at: now });
       }
     }
     const imported = await this.getEventById(newEventId);
@@ -865,7 +873,7 @@ export class IndexedDBDatabaseService implements IDatabaseService {
         await db.put('splits', s);
       }
       await db.put('splits', {
-        id: `${expense.id}_${participantId}`,
+        id: deterministicId(`${expense.id}_${participantId}`),
         expense_id: expense.id,
         participant_id: participantId,
         amount: perPerson,
@@ -1013,6 +1021,7 @@ export class IndexedDBDatabaseService implements IDatabaseService {
     if (expense.currency !== undefined) row.currency = expense.currency;
     if (expense.receiptImage !== undefined) row.receipt_image = expense.receiptImage;
     row.updated_at = new Date().toISOString();
+    row.sync_status = 'pending';
     await db.put('expenses', row);
 
     if (splits && splits.length > 0) {
