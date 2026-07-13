@@ -968,7 +968,10 @@ const CreateExpenseScreen: React.FC = () => {
           updatedAt: new Date().toISOString()
         };
 
-        const splits: Split[] = formData.splits.map(split => ({
+        const uniqueSplits = formData.splits.filter(
+          (split, index, arr) => arr.findIndex(s => s.participantId === split.participantId) === index
+        );
+        const splits: Split[] = uniqueSplits.map(split => ({
           id: deterministicId(`${editingExpenseId}_${split.participantId}`),
           expenseId: editingExpenseId,
           participantId: split.participantId,
@@ -1036,7 +1039,10 @@ const CreateExpenseScreen: React.FC = () => {
           updatedAt: new Date().toISOString()
         };
 
-        const splits: Split[] = formData.splits.map(split => ({
+        const uniqueSplits = formData.splits.filter(
+          (split, index, arr) => arr.findIndex(s => s.participantId === split.participantId) === index
+        );
+        const splits: Split[] = uniqueSplits.map(split => ({
           id: deterministicId(`${expense.id}_${split.participantId}`),
           expenseId: expense.id,
           participantId: split.participantId,
