@@ -103,6 +103,9 @@ export class SupabaseSyncService implements ISyncService {
       // usuario actual para que puedan subirse (RLS exige creator_id = auth.uid()).
       await this._adoptOrphanRecords(db, userId);
 
+      // ── 0.1 Propagar eliminaciones locales (tombstones) a Supabase ────────
+      await this._pushDeletions();
+
       // ── 0.5 Asegurar que el usuario existe en public.users ────────────────
       // events.creator_id → users.id (FK). Si la fila del usuario no existe en
       // Supabase (p.ej. se vació la tabla, o el trigger de alta no corrió para
@@ -603,13 +606,13 @@ export class SupabaseSyncService implements ISyncService {
 
       const allEventIds = allCloudEvents.map(e => e.id);
 
-      // ── 3. Upsert eventos → SQLite (respeta registros pending locales) ────
+      // ── 3. Upsert eventos → SQLite (respeta pending y LWW por updated_at) ──
       for (const e of allCloudEvents) {
-        // Si existe localmente con sync_status='pending', no sobrescribir
+        // No sobrescribir si hay cambios locales pending o si el local es más nuevo
         const localRow: any = await db.getFirstAsync(
-          `SELECT sync_status FROM events WHERE id = ?`, [e.id]
+          `SELECT sync_status, updated_at FROM events WHERE id = ?`, [e.id]
         );
-        if (localRow?.sync_status === 'pending') continue;
+        if (!this._remoteWins(localRow, e.updated_at)) continue;
 
         await db.runAsync(
           `INSERT OR REPLACE INTO events (
@@ -665,9 +668,9 @@ export class SupabaseSyncService implements ISyncService {
         if (cloudParticipants) {
           for (const p of cloudParticipants) {
             const localP: any = await db.getFirstAsync(
-              `SELECT sync_status FROM participants WHERE id = ?`, [p.id]
+              `SELECT sync_status, updated_at FROM participants WHERE id = ?`, [p.id]
             );
-            if (localP?.sync_status === 'pending') continue;
+            if (!this._remoteWins(localP, p.updated_at)) continue;
 
             await db.runAsync(
               `INSERT OR REPLACE INTO participants (
@@ -727,9 +730,9 @@ export class SupabaseSyncService implements ISyncService {
       if (cloudExpenses && cloudExpenses.length > 0) {
         for (const ex of cloudExpenses) {
           const localEx: any = await db.getFirstAsync(
-            `SELECT sync_status FROM expenses WHERE id = ?`, [ex.id]
+            `SELECT sync_status, updated_at FROM expenses WHERE id = ?`, [ex.id]
           );
-          if (localEx?.sync_status === 'pending') {
+          if (!this._remoteWins(localEx, ex.updated_at)) {
             cloudExpenseIds.push(ex.id);
             continue;
           }
@@ -768,9 +771,9 @@ export class SupabaseSyncService implements ISyncService {
         if (cloudSplits) {
           for (const sp of cloudSplits) {
             const localSp: any = await db.getFirstAsync(
-              `SELECT sync_status FROM splits WHERE id = ?`, [sp.id]
+              `SELECT sync_status, updated_at FROM splits WHERE id = ?`, [sp.id]
             );
-            if (localSp?.sync_status === 'pending') continue;
+            if (!this._remoteWins(localSp, sp.updated_at)) continue;
 
             // Guarda FK: participant_id → participants(id)
             if (sp.participant_id && !localParticipantIds.has(sp.participant_id)) {
@@ -802,9 +805,9 @@ export class SupabaseSyncService implements ISyncService {
       if (cloudSettlements) {
         for (const s of cloudSettlements) {
           const localS: any = await db.getFirstAsync(
-            `SELECT sync_status FROM settlements WHERE id = ?`, [s.id]
+            `SELECT sync_status, updated_at FROM settlements WHERE id = ?`, [s.id]
           );
-          if (localS?.sync_status === 'pending') continue;
+          if (!this._remoteWins(localS, s.updated_at)) continue;
 
           // Guarda FK: from/to_participant_id → participants(id)
           if ((s.from_participant_id && !localParticipantIds.has(s.from_participant_id)) ||
@@ -840,9 +843,9 @@ export class SupabaseSyncService implements ISyncService {
       if (cloudActivities) {
         for (const a of cloudActivities) {
           const localA: any = await db.getFirstAsync(
-            `SELECT sync_status FROM activities WHERE id = ?`, [a.id]
+            `SELECT sync_status, updated_at FROM activities WHERE id = ?`, [a.id]
           );
-          if (localA?.sync_status === 'pending') continue;
+          if (!this._remoteWins(localA, a.updated_at)) continue;
 
           await db.runAsync(
             `INSERT OR REPLACE INTO activities (
@@ -912,6 +915,92 @@ export class SupabaseSyncService implements ISyncService {
       conflicts: 0,
       error: pushResult.error || pullResult.error,
     };
+  }
+
+  // ─── Helper LWW: ¿el registro remoto debe sobreescribir al local? ─────────
+  // Aplica Last-Write-Wins por updated_at al hacer pull:
+  //  - Sin fila local → sí (traer el remoto).
+  //  - Local con cambios sin sincronizar (pending) → no (se sube en el push).
+  //  - Local igual o más nuevo que el remoto → no (se prioriza el dato más nuevo).
+  private _remoteWins(localRow: any, remoteUpdatedAt?: string | null): boolean {
+    if (!localRow) return true;
+    if (localRow.sync_status === 'pending') return false;
+    const localTs = localRow.updated_at ? new Date(localRow.updated_at).getTime() : 0;
+    const remoteTs = remoteUpdatedAt ? new Date(remoteUpdatedAt).getTime() : 0;
+    return remoteTs > localTs;
+  }
+
+  // Variante web: lee la fila local de IndexedDB por su clave primaria.
+  private async _remoteWinsWeb(
+    db: any,
+    store: string,
+    id: string,
+    remoteUpdatedAt?: string | null
+  ): Promise<boolean> {
+    try {
+      const local = await db.get(store, id);
+      return this._remoteWins(local, remoteUpdatedAt);
+    } catch {
+      return true;
+    }
+  }
+
+  // Orden de borrado en Supabase respetando las FKs (hijos → padres).
+  private readonly _deletionOrder = [
+    'splits', 'expense_payers', 'event_participants', 'activity_participants',
+    'settlements', 'expenses', 'activities', 'participants', 'events',
+  ];
+
+  // ─── Propaga eliminaciones locales (tombstones) a Supabase ────────────────
+  // Sin esto, el push (solo upsert) nunca borra en la nube y el pull vuelve a
+  // traer el registro eliminado. Los tombstones aplicados con éxito se limpian.
+  private async _pushDeletions(): Promise<number> {
+    const isWeb = Platform.OS === 'web';
+    const db = isWeb ? this.getWebDb() : this.getDb();
+    if (!db) return 0;
+
+    let rows: Array<{ table_name: string; record_id: string }> = [];
+    try {
+      if (isWeb) {
+        const all: any[] = await db.getAll('deletions');
+        rows = all.map((r) => ({ table_name: r.table_name, record_id: r.record_id }));
+      } else {
+        rows = (await db.getAllAsync(`SELECT table_name, record_id FROM deletions`)) as any[];
+      }
+    } catch {
+      return 0; // tabla/store inexistente (versión previa) → nada que hacer
+    }
+    if (!rows || rows.length === 0) return 0;
+
+    const byTable = new Map<string, string[]>();
+    for (const r of rows) {
+      if (!byTable.has(r.table_name)) byTable.set(r.table_name, []);
+      byTable.get(r.table_name)!.push(r.record_id);
+    }
+
+    const orderedTables = [
+      ...this._deletionOrder.filter((t) => byTable.has(t)),
+      ...[...byTable.keys()].filter((t) => !this._deletionOrder.includes(t)),
+    ];
+
+    let deleted = 0;
+    for (const table of orderedTables) {
+      const ids = byTable.get(table)!;
+      const { error } = await supabase.from(table).delete().in('id', ids);
+      if (error) {
+        console.warn(`⚠️ pushDeletions ${table}:`, error.message);
+        continue; // conservar tombstone para reintentar en el próximo sync
+      }
+      deleted += ids.length;
+      for (const id of ids) {
+        try {
+          if (isWeb) await db.delete('deletions', `${table}:${id}`);
+          else await db.runAsync(`DELETE FROM deletions WHERE table_name = ? AND record_id = ?`, [table, id]);
+        } catch { /* ignorar */ }
+      }
+    }
+    if (deleted > 0) console.log(`🗑️ pushDeletions: ${deleted} eliminaciones propagadas a Supabase`);
+    return deleted;
   }
 
   // ─── Helper: marcar registros como 'synced' en SQLite ─────────────────────
@@ -1034,6 +1123,9 @@ export class SupabaseSyncService implements ISyncService {
       // NO compartidos (is_shared) que no tengan al usuario como dueño se reasignan,
       // de modo que puedan subirse a Supabase (RLS exige creator_id = auth.uid()).
       await this._adoptOrphanRecordsWeb(db, userId);
+
+      // ── 0.1 Propagar eliminaciones locales (tombstones) a Supabase ────────
+      await this._pushDeletions();
 
       // ── 0.5 Asegurar que el usuario existe en public.users ────────────────
       // events.creator_id → users.id (FK). Si la fila del usuario no existe en
@@ -1402,8 +1494,9 @@ export class SupabaseSyncService implements ISyncService {
       }
       const allEventIds = allCloudEvents.map((e) => e.id);
 
-      // Upsert eventos → IndexedDB
+      // Upsert eventos → IndexedDB (LWW: no pisar lo local si es igual o más nuevo)
       for (const e of allCloudEvents) {
+        if (!(await this._remoteWinsWeb(db, 'events', e.id, e.updated_at))) continue;
         await db.put('events', {
           id: e.id,
           name: e.name,
@@ -1460,6 +1553,7 @@ export class SupabaseSyncService implements ISyncService {
           .from('participants').select('*').in('id', allParticipantIdsToFetch);
         if (cloudParticipants) {
           for (const p of cloudParticipants) {
+            if (!(await this._remoteWinsWeb(db, 'participants', p.id, p.updated_at))) continue;
             await db.put('participants', {
               id: p.id,
               name: p.name,
@@ -1488,6 +1582,8 @@ export class SupabaseSyncService implements ISyncService {
       const cloudExpenseIds: string[] = [];
       if (cloudExpenses) {
         for (const ex of cloudExpenses) {
+          cloudExpenseIds.push(ex.id);
+          if (!(await this._remoteWinsWeb(db, 'expenses', ex.id, ex.updated_at))) continue;
           await db.put('expenses', {
             id: ex.id,
             event_id: ex.event_id,
@@ -1505,7 +1601,6 @@ export class SupabaseSyncService implements ISyncService {
             created_at: ex.created_at,
             updated_at: ex.updated_at,
           });
-          cloudExpenseIds.push(ex.id);
           pulled++;
         }
       }
@@ -1516,6 +1611,7 @@ export class SupabaseSyncService implements ISyncService {
           .from('splits').select('*').in('expense_id', cloudExpenseIds);
         if (cloudSplits) {
           for (const sp of cloudSplits) {
+            if (!(await this._remoteWinsWeb(db, 'splits', sp.id, sp.updated_at))) continue;
             await db.put('splits', {
               id: sp.id,
               expense_id: sp.expense_id,
@@ -1537,6 +1633,7 @@ export class SupabaseSyncService implements ISyncService {
         .from('settlements').select('*').in('event_id', allEventIds);
       if (cloudSettlements) {
         for (const s of cloudSettlements) {
+          if (!(await this._remoteWinsWeb(db, 'settlements', s.id, s.updated_at))) continue;
           await db.put('settlements', {
             id: s.id,
             event_id: s.event_id,
@@ -1563,6 +1660,8 @@ export class SupabaseSyncService implements ISyncService {
       const cloudActivityIds: string[] = [];
       if (cloudActivities) {
         for (const a of cloudActivities) {
+          cloudActivityIds.push(a.id);
+          if (!(await this._remoteWinsWeb(db, 'activities', a.id, a.updated_at))) continue;
           await db.put('activities', {
             id: a.id,
             event_id: a.event_id,
@@ -1574,7 +1673,6 @@ export class SupabaseSyncService implements ISyncService {
             updated_at: a.updated_at,
             sync_status: 'synced',
           });
-          cloudActivityIds.push(a.id);
           pulled++;
         }
       }

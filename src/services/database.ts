@@ -1150,6 +1150,19 @@ class DatabaseService implements IDatabaseService {
         )
       `);
 
+      // Deletions (tombstones): registros eliminados localmente pendientes de
+      // propagar a Supabase. Sin esto, el push (solo upsert) nunca borra en la
+      // nube y el pull vuelve a traer el registro eliminado.
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS deletions (
+          id TEXT PRIMARY KEY,
+          table_name TEXT NOT NULL,
+          record_id TEXT NOT NULL,
+          deleted_at TEXT NOT NULL,
+          UNIQUE(table_name, record_id)
+        )
+      `);
+
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_event_participants_event_id ON event_participants(event_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_expenses_event_id ON expenses(event_id)`);
       await this.db.execAsync(`CREATE INDEX IF NOT EXISTS idx_splits_expense_id ON splits(expense_id)`);
@@ -1306,13 +1319,25 @@ class DatabaseService implements IDatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
+      // Capturar ids de hijos antes de borrar para registrar tombstones
+      const settlementRows = await this.db.getAllAsync('SELECT id FROM settlements WHERE event_id = ?', [id]) as Array<{ id: string }>;
+      const splitRows = await this.db.getAllAsync('SELECT id FROM splits WHERE expense_id IN (SELECT id FROM expenses WHERE event_id = ?)', [id]) as Array<{ id: string }>;
+      const expenseRows = await this.db.getAllAsync('SELECT id FROM expenses WHERE event_id = ?', [id]) as Array<{ id: string }>;
+      const epRows = await this.db.getAllAsync('SELECT id FROM event_participants WHERE event_id = ?', [id]) as Array<{ id: string }>;
+
       // Eliminar en orden por dependencias
       await this.db.runAsync('DELETE FROM settlements WHERE event_id = ?', [id]);
       await this.db.runAsync('DELETE FROM splits WHERE expense_id IN (SELECT id FROM expenses WHERE event_id = ?)', [id]);
       await this.db.runAsync('DELETE FROM expenses WHERE event_id = ?', [id]);
       await this.db.runAsync('DELETE FROM event_participants WHERE event_id = ?', [id]);
       await this.db.runAsync('DELETE FROM events WHERE id = ?', [id]);
-      
+
+      for (const r of splitRows) await this._recordDeletion('splits', r.id);
+      for (const r of settlementRows) await this._recordDeletion('settlements', r.id);
+      for (const r of expenseRows) await this._recordDeletion('expenses', r.id);
+      for (const r of epRows) await this._recordDeletion('event_participants', r.id);
+      await this._recordDeletion('events', id);
+
       console.log('✅ Event and related data deleted successfully:', id);
     } catch (error) {
       console.error('❌ Error deleting event:', error);
@@ -1960,6 +1985,19 @@ class DatabaseService implements IDatabaseService {
     }
   }
 
+  // Registra una eliminación local (tombstone) para propagarla a Supabase en el push.
+  private async _recordDeletion(table: string, recordId: string): Promise<void> {
+    if (!this.db || !recordId) return;
+    try {
+      await this.db.runAsync(
+        `INSERT OR REPLACE INTO deletions (id, table_name, record_id, deleted_at) VALUES (?, ?, ?, ?)`,
+        [`${table}:${recordId}`, table, recordId, new Date().toISOString()]
+      );
+    } catch (e) {
+      console.warn('⚠️ recordDeletion:', (e as any)?.message);
+    }
+  }
+
   // Delete participant (only if not used in any events)
   async deleteParticipant(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
@@ -1976,6 +2014,7 @@ class DatabaseService implements IDatabaseService {
       }
 
       await this.db.runAsync('DELETE FROM participants WHERE id = ?', [id]);
+      await this._recordDeletion('participants', id);
       console.log(`✅ Participant ${id} deleted successfully`);
     } catch (error) {
       console.error('❌ Error deleting participant:', error);
@@ -2714,10 +2753,14 @@ class DatabaseService implements IDatabaseService {
 
       if (expenses.length === 0) {
         console.log('📝 No hay gastos, eliminando liquidaciones no pagadas');
+        const unpaidRows = await this.db.getAllAsync(
+          'SELECT id FROM settlements WHERE event_id = ? AND is_paid = 0', [eventId]
+        ) as Array<{ id: string }>;
         await this.db.runAsync(
           'DELETE FROM settlements WHERE event_id = ? AND is_paid = 0',
           [eventId]
         );
+        for (const r of unpaidRows) await this._recordDeletion('settlements', r.id);
         return;
       }
 
@@ -2750,10 +2793,14 @@ class DatabaseService implements IDatabaseService {
       const newSettlements = this.calculateOptimalSettlements(consolidatedBalances);
 
       // 5. Eliminar liquidaciones NO PAGADAS (mantener las pagadas)
+      const unpaidToDelete = await this.db.getAllAsync(
+        'SELECT id FROM settlements WHERE event_id = ? AND is_paid = 0', [eventId]
+      ) as Array<{ id: string }>;
       await this.db.runAsync(
         'DELETE FROM settlements WHERE event_id = ? AND is_paid = 0',
         [eventId]
       );
+      for (const r of unpaidToDelete) await this._recordDeletion('settlements', r.id);
 
       // 6. Crear nuevas liquidaciones
       const currentTime = new Date().toISOString();
@@ -2906,7 +2953,9 @@ class DatabaseService implements IDatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
+      const rows = await this.db.getAllAsync('SELECT id FROM settlements WHERE event_id = ?', [eventId]) as Array<{ id: string }>;
       await this.db.runAsync('DELETE FROM settlements WHERE event_id = ?', [eventId]);
+      for (const r of rows) await this._recordDeletion('settlements', r.id);
       console.log('✅ Settlements deleted for event');
     } catch (error) {
       console.error('❌ Error deleting settlements:', error);
@@ -2919,6 +2968,7 @@ class DatabaseService implements IDatabaseService {
 
     try {
       await this.db.runAsync('DELETE FROM settlements WHERE id = ?', [settlementId]);
+      await this._recordDeletion('settlements', settlementId);
       console.log('✅ Settlement deleted successfully');
     } catch (error) {
       console.error('❌ Error deleting settlement:', error);
@@ -3548,12 +3598,16 @@ class DatabaseService implements IDatabaseService {
     try {
       // 🔄 OBTENER EVENT_ID ANTES DE BORRAR
       const expenseData = await this.db.getFirstAsync('SELECT event_id FROM expenses WHERE id = ?', [expenseId]) as any;
-      
+      const splitRows = await this.db.getAllAsync('SELECT id FROM splits WHERE expense_id = ?', [expenseId]) as Array<{ id: string }>;
+
       // First delete all splits related to this expense
       await this.db.runAsync('DELETE FROM splits WHERE expense_id = ?', [expenseId]);
       
       // Then delete the expense itself
       await this.db.runAsync('DELETE FROM expenses WHERE id = ?', [expenseId]);
+
+      for (const r of splitRows) await this._recordDeletion('splits', r.id);
+      await this._recordDeletion('expenses', expenseId);
       
       // 🔄 RECALCULAR LIQUIDACIONES DESPUÉS DE BORRAR
       if (expenseData?.event_id) {
@@ -3612,12 +3666,19 @@ class DatabaseService implements IDatabaseService {
         ) as Array<{ id: string; amount: number; event_id: string }>;
 
         // Remove participant's splits only for this event
+        const splitsToDelete = await this.db.getAllAsync(
+          `SELECT s.id FROM splits s
+           WHERE s.participant_id = ?
+           AND s.expense_id IN (SELECT id FROM expenses WHERE event_id = ?)`,
+          [participantId, eventId]
+        ) as Array<{ id: string }>;
         await this.db.runAsync(
           `DELETE FROM splits 
            WHERE participant_id = ? 
            AND expense_id IN (SELECT id FROM expenses WHERE event_id = ?)`,
           [participantId, eventId]
         );
+        for (const s of splitsToDelete) await this._recordDeletion('splits', s.id);
 
         // Recalculate splits for each affected expense
         for (const expense of expensesWithSplits) {
@@ -3642,16 +3703,26 @@ class DatabaseService implements IDatabaseService {
       }
 
       // Eliminar filas de expense_payers del participante en gastos de este evento
+      const payersToDelete = await this.db.getAllAsync(
+        `SELECT id FROM expense_payers WHERE participant_id = ? AND expense_id IN (SELECT id FROM expenses WHERE event_id = ?)`,
+        [participantId, eventId]
+      ) as Array<{ id: string }>;
       await this.db.runAsync(
         `DELETE FROM expense_payers WHERE participant_id = ? AND expense_id IN (SELECT id FROM expenses WHERE event_id = ?)`,
         [participantId, eventId]
       );
+      for (const ep of payersToDelete) await this._recordDeletion('expense_payers', ep.id);
 
       // Remove participant from event
+      const epRow = await this.db.getFirstAsync(
+        'SELECT id FROM event_participants WHERE event_id = ? AND participant_id = ?',
+        [eventId, participantId]
+      ) as { id: string } | null;
       await this.db.runAsync(
         'DELETE FROM event_participants WHERE event_id = ? AND participant_id = ?',
         [eventId, participantId]
       );
+      if (epRow?.id) await this._recordDeletion('event_participants', epRow.id);
 
       // Delete participant only if not in other events AND is not a permanent friend
       const otherEvents = await this.db.getFirstAsync(
@@ -3667,6 +3738,7 @@ class DatabaseService implements IDatabaseService {
 
         if (participantRow && participantRow.participant_type !== 'friend') {
           await this.db.runAsync('DELETE FROM participants WHERE id = ?', [participantId]);
+          await this._recordDeletion('participants', participantId);
         }
       }
 

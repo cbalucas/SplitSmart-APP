@@ -18,7 +18,7 @@ import { IDatabaseService } from './IDatabaseService';
 import { generateId, deterministicId } from '../utils/uuid';
 
 const DB_NAME = 'splitsmart';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 // ─── Tipos internos ───────────────────────────────────────────────────────────
 
@@ -137,6 +137,11 @@ export class IndexedDBDatabaseService implements IDatabaseService {
         if (!db.objectStoreNames.contains('activity_templates')) {
           const atStore = db.createObjectStore('activity_templates', { keyPath: 'id' });
           atStore.createIndex('user_id', 'user_id');
+        }
+        // deletions (tombstones): eliminaciones locales pendientes de propagar a Supabase
+        if (!db.objectStoreNames.contains('deletions')) {
+          const delStore = db.createObjectStore('deletions', { keyPath: 'id' });
+          delStore.createIndex('table_name', 'table_name');
         }
       },
     });
@@ -392,18 +397,20 @@ export class IndexedDBDatabaseService implements IDatabaseService {
     const db = this._db();
     // cascade manual
     await db.delete('events', id);
+    await this._recordDeletion('events', id);
     const epList = await db.getAllFromIndex('event_participants', 'event_id', id) as any[];
-    for (const ep of epList) await db.delete('event_participants', ep.id);
+    for (const ep of epList) { await db.delete('event_participants', ep.id); await this._recordDeletion('event_participants', ep.id); }
     const exList = await db.getAllFromIndex('expenses', 'event_id', id) as any[];
     for (const ex of exList) {
       const splits = await db.getAllFromIndex('splits', 'expense_id', ex.id) as any[];
-      for (const s of splits) await db.delete('splits', s.id);
+      for (const s of splits) { await db.delete('splits', s.id); await this._recordDeletion('splits', s.id); }
       const payers = await db.getAllFromIndex('expense_payers', 'expense_id', ex.id) as any[];
-      for (const p of payers) await db.delete('expense_payers', p.id);
+      for (const p of payers) { await db.delete('expense_payers', p.id); await this._recordDeletion('expense_payers', p.id); }
       await db.delete('expenses', ex.id);
+      await this._recordDeletion('expenses', ex.id);
     }
     const settlements = await db.getAllFromIndex('settlements', 'event_id', id) as any[];
-    for (const s of settlements) await db.delete('settlements', s.id);
+    for (const s of settlements) { await db.delete('settlements', s.id); await this._recordDeletion('settlements', s.id); }
   }
 
   async getEvents(): Promise<Event[]> {
@@ -745,11 +752,28 @@ export class IndexedDBDatabaseService implements IDatabaseService {
     await db.put('participants', row);
   }
 
+  // Registra una eliminación local (tombstone) para propagarla a Supabase en el push.
+  private async _recordDeletion(table: string, recordId: string): Promise<void> {
+    if (!recordId) return;
+    try {
+      const db = this._db();
+      await db.put('deletions', {
+        id: `${table}:${recordId}`,
+        table_name: table,
+        record_id: recordId,
+        deleted_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn('⚠️ recordDeletion:', (e as any)?.message);
+    }
+  }
+
   async deleteParticipant(id: string): Promise<void> {
     const db = this._db();
     const epList = await db.getAllFromIndex('event_participants', 'participant_id', id) as any[];
     if (epList.length > 0) throw new Error('Cannot delete participant: still used in events');
     await db.delete('participants', id);
+    await this._recordDeletion('participants', id);
   }
 
   private _mapParticipant(row: any): Participant {
@@ -830,6 +854,7 @@ export class IndexedDBDatabaseService implements IDatabaseService {
       const mySplit = splits.find((s: any) => s.participant_id === participantId);
       if (!mySplit) continue;
       await db.delete('splits', mySplit.id);
+      await this._recordDeletion('splits', mySplit.id);
       const remaining = splits.filter((s: any) => s.participant_id !== participantId);
       if (remaining.length > 0) {
         const perPerson = expense.amount / remaining.length;
@@ -845,7 +870,10 @@ export class IndexedDBDatabaseService implements IDatabaseService {
 
     // Quitar de event_participants
     const ep = allEps.find((e: any) => e.participant_id === participantId);
-    if (ep) await db.delete('event_participants', ep.id);
+    if (ep) {
+      await db.delete('event_participants', ep.id);
+      await this._recordDeletion('event_participants', ep.id);
+    }
 
     // Borrar participante temporal si ya no está en ningún evento
     const remaining = await db.getAllFromIndex('event_participants', 'participant_id', participantId) as any[];
@@ -853,6 +881,7 @@ export class IndexedDBDatabaseService implements IDatabaseService {
       const p = await db.get('participants', participantId) as any;
       if (p && p.participant_type !== 'friend') {
         await db.delete('participants', participantId);
+        await this._recordDeletion('participants', participantId);
       }
     }
   }
@@ -1054,8 +1083,9 @@ export class IndexedDBDatabaseService implements IDatabaseService {
     const row = await db.get('expenses', expenseId) as any;
     if (!row) return;
     const splits = await db.getAllFromIndex('splits', 'expense_id', expenseId) as any[];
-    for (const s of splits) await db.delete('splits', s.id);
+    for (const s of splits) { await db.delete('splits', s.id); await this._recordDeletion('splits', s.id); }
     await db.delete('expenses', expenseId);
+    await this._recordDeletion('expenses', expenseId);
     await this.recalculateSettlementsForEvent(row.event_id);
   }
 
@@ -1209,12 +1239,13 @@ export class IndexedDBDatabaseService implements IDatabaseService {
   async deleteSettlement(settlementId: string): Promise<void> {
     const db = this._db();
     await db.delete('settlements', settlementId);
+    await this._recordDeletion('settlements', settlementId);
   }
 
   async deleteSettlementsByEvent(eventId: string): Promise<void> {
     const db = this._db();
     const rows = await db.getAllFromIndex('settlements', 'event_id', eventId) as any[];
-    for (const r of rows) await db.delete('settlements', r.id);
+    for (const r of rows) { await db.delete('settlements', r.id); await this._recordDeletion('settlements', r.id); }
   }
 
   async updateSettlementsEventStatus(eventId: string, newEventStatus: string): Promise<void> {
@@ -1286,6 +1317,7 @@ export class IndexedDBDatabaseService implements IDatabaseService {
     const existing = await db.getAllFromIndex('settlements', 'event_id', eventId) as any[];
     for (const s of existing.filter((s: any) => s.is_paid === 0)) {
       await db.delete('settlements', s.id);
+      await this._recordDeletion('settlements', s.id);
     }
 
     if (expenses.length === 0) return;
