@@ -3713,6 +3713,22 @@ class DatabaseService implements IDatabaseService {
       );
       for (const ep of payersToDelete) await this._recordDeletion('expense_payers', ep.id);
 
+      // Eliminar liquidaciones que referencian a este participante en el evento.
+      // En Supabase settlements.from/to_participant_id → participants es RESTRICT:
+      // sin borrar estas filas primero, el borrado del participante en la nube
+      // fallaría y el tombstone quedaría atascado (el cambio no se refleja).
+      const settlementsToDelete = await this.db.getAllAsync(
+        `SELECT id FROM settlements WHERE event_id = ? AND (from_participant_id = ? OR to_participant_id = ?)`,
+        [eventId, participantId, participantId]
+      ) as Array<{ id: string }>;
+      if (settlementsToDelete.length > 0) {
+        await this.db.runAsync(
+          `DELETE FROM settlements WHERE event_id = ? AND (from_participant_id = ? OR to_participant_id = ?)`,
+          [eventId, participantId, participantId]
+        );
+        for (const s of settlementsToDelete) await this._recordDeletion('settlements', s.id);
+      }
+
       // Remove participant from event
       const epRow = await this.db.getFirstAsync(
         'SELECT id FROM event_participants WHERE event_id = ? AND participant_id = ?',

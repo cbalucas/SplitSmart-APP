@@ -808,6 +808,7 @@ export class SupabaseSyncService implements ISyncService {
       }
 
       // ── 7. Splits ─────────────────────────────────────────────────────────
+      const cloudSplitIds = new Set<string>();
       if (cloudExpenseIds.length > 0) {
         const { data: cloudSplits } = await supabase
           .from('splits')
@@ -816,6 +817,7 @@ export class SupabaseSyncService implements ISyncService {
 
         if (cloudSplits) {
           for (const sp of cloudSplits) {
+            cloudSplitIds.add(sp.id);
             const localSp: any = await db.getFirstAsync(
               `SELECT sync_status, updated_at FROM splits WHERE id = ?`, [sp.id]
             );
@@ -909,6 +911,7 @@ export class SupabaseSyncService implements ISyncService {
       }
 
       // ── 10. Asignaciones de actividades (activity_participants) ────────────
+      const cloudActivityParticipantIds = new Set<string>();
       if (cloudActivityIds.length > 0) {
         const { data: cloudActivityParticipants } = await supabase
           .from('activity_participants')
@@ -917,6 +920,7 @@ export class SupabaseSyncService implements ISyncService {
 
         if (cloudActivityParticipants) {
           for (const ap of cloudActivityParticipants) {
+            cloudActivityParticipantIds.add(ap.id);
             const localAp: any = await db.getFirstAsync(
               `SELECT sync_status FROM activity_participants WHERE id = ?`, [ap.id]
             );
@@ -937,6 +941,122 @@ export class SupabaseSyncService implements ISyncService {
             pulled++;
           }
         }
+      }
+
+      // ── 11. Reconciliación de borrados remotos ────────────────────────────
+      // Lo eliminado en la nube debe reflejarse localmente al sincronizar.
+      // Solo se borran filas 'synced' (ya sincronizadas): las 'pending' son
+      // cambios locales aún no subidos y se respetan. El push corre antes del
+      // pull en syncAll, por lo que la nube ya es la fuente de verdad.
+      try {
+        const inClause = allEventIds.map(() => '?').join(',');
+        const cloudEPIdSet = new Set((cloudEPs ?? []).map((ep: any) => ep.id));
+        const cloudExpenseIdSet = new Set(cloudExpenseIds);
+        const cloudSettlementIdSet = new Set((cloudSettlements ?? []).map((s: any) => s.id));
+        const cloudActivityIdSet = new Set(cloudActivityIds);
+        const cloudEventIdSet = new Set(allEventIds);
+
+        // 1) Gastos eliminados en la nube → borrar local (synced) + sus splits
+        const localExpenses: any[] = await db.getAllAsync(
+          `SELECT id FROM expenses WHERE event_id IN (${inClause}) AND sync_status = 'synced'`, allEventIds
+        );
+        for (const le of localExpenses) {
+          if (!cloudExpenseIdSet.has(le.id)) {
+            await db.runAsync(`DELETE FROM splits WHERE expense_id = ?`, [le.id]);
+            await db.runAsync(`DELETE FROM expenses WHERE id = ?`, [le.id]);
+          }
+        }
+
+        // 2) Splits eliminados individualmente (el gasto sigue existiendo)
+        if (cloudExpenseIds.length > 0) {
+          const exClause = cloudExpenseIds.map(() => '?').join(',');
+          const localSplits: any[] = await db.getAllAsync(
+            `SELECT id FROM splits WHERE expense_id IN (${exClause}) AND sync_status = 'synced'`, cloudExpenseIds
+          );
+          for (const ls of localSplits) {
+            if (!cloudSplitIds.has(ls.id)) await db.runAsync(`DELETE FROM splits WHERE id = ?`, [ls.id]);
+          }
+        }
+
+        // 3) Liquidaciones eliminadas en la nube
+        const localSettlements: any[] = await db.getAllAsync(
+          `SELECT id FROM settlements WHERE event_id IN (${inClause}) AND sync_status = 'synced'`, allEventIds
+        );
+        for (const ls of localSettlements) {
+          if (!cloudSettlementIdSet.has(ls.id)) await db.runAsync(`DELETE FROM settlements WHERE id = ?`, [ls.id]);
+        }
+
+        // 4) Actividades eliminadas → borrar local + sus asignaciones
+        const localActivities: any[] = await db.getAllAsync(
+          `SELECT id FROM activities WHERE event_id IN (${inClause}) AND sync_status = 'synced'`, allEventIds
+        );
+        for (const la of localActivities) {
+          if (!cloudActivityIdSet.has(la.id)) {
+            await db.runAsync(`DELETE FROM activity_participants WHERE activity_id = ?`, [la.id]);
+            await db.runAsync(`DELETE FROM activities WHERE id = ?`, [la.id]);
+          }
+        }
+
+        // 5) Asignaciones de actividad eliminadas (la actividad sigue existiendo)
+        if (cloudActivityIds.length > 0) {
+          const acClause = cloudActivityIds.map(() => '?').join(',');
+          const localAP: any[] = await db.getAllAsync(
+            `SELECT id FROM activity_participants WHERE activity_id IN (${acClause})`, cloudActivityIds
+          );
+          for (const lap of localAP) {
+            if (!cloudActivityParticipantIds.has(lap.id)) {
+              await db.runAsync(`DELETE FROM activity_participants WHERE id = ?`, [lap.id]);
+            }
+          }
+        }
+
+        // 6) Membresías (event_participants) eliminadas en la nube.
+        // event_participants no tiene sync_status; se reconcilia por evento.
+        const localEPs: any[] = await db.getAllAsync(
+          `SELECT id, participant_id FROM event_participants WHERE event_id IN (${inClause})`, allEventIds
+        );
+        const removedParticipantIds: string[] = [];
+        for (const lep of localEPs) {
+          if (!cloudEPIdSet.has(lep.id)) {
+            await db.runAsync(`DELETE FROM event_participants WHERE id = ?`, [lep.id]);
+            if (lep.participant_id) removedParticipantIds.push(lep.participant_id);
+          }
+        }
+
+        // 7) Participantes temporales/secundarios huérfanos (sin membresía local)
+        for (const pid of [...new Set(removedParticipantIds)]) {
+          const stillLinked: any = await db.getFirstAsync(
+            `SELECT COUNT(*) as c FROM event_participants WHERE participant_id = ?`, [pid]
+          );
+          if ((stillLinked?.c ?? 0) === 0) {
+            const p: any = await db.getFirstAsync(
+              `SELECT participant_type FROM participants WHERE id = ?`, [pid]
+            );
+            if (p && p.participant_type !== 'friend') {
+              await db.runAsync(`DELETE FROM participants WHERE id = ?`, [pid]);
+            }
+          }
+        }
+
+        // 8) Eventos COMPARTIDOS (importados) eliminados o revocados en la nube.
+        // Solo se reconcilian eventos is_shared=1 para NO arriesgar datos propios
+        // del dueño ante fallos transitorios de consulta.
+        const localSyncedShared: any[] = await db.getAllAsync(
+          `SELECT id FROM events WHERE sync_status = 'synced' AND is_shared = 1`
+        );
+        for (const lev of localSyncedShared) {
+          if (!cloudEventIdSet.has(lev.id)) {
+            await db.runAsync(`DELETE FROM activity_participants WHERE activity_id IN (SELECT id FROM activities WHERE event_id = ?)`, [lev.id]);
+            await db.runAsync(`DELETE FROM activities WHERE event_id = ?`, [lev.id]);
+            await db.runAsync(`DELETE FROM splits WHERE expense_id IN (SELECT id FROM expenses WHERE event_id = ?)`, [lev.id]);
+            await db.runAsync(`DELETE FROM expenses WHERE event_id = ?`, [lev.id]);
+            await db.runAsync(`DELETE FROM settlements WHERE event_id = ?`, [lev.id]);
+            await db.runAsync(`DELETE FROM event_participants WHERE event_id = ?`, [lev.id]);
+            await db.runAsync(`DELETE FROM events WHERE id = ?`, [lev.id]);
+          }
+        }
+      } catch (reconErr: any) {
+        console.warn('⚠️ SyncPull: reconciliación de borrados falló:', reconErr?.message || reconErr);
       }
 
       await AsyncStorage.setItem(LAST_PULL_KEY, new Date().toISOString());
@@ -1034,8 +1154,22 @@ export class SupabaseSyncService implements ISyncService {
       const ids = byTable.get(table)!;
       const { error } = await supabase.from(table).delete().in('id', ids);
       if (error) {
-        console.warn(`⚠️ pushDeletions ${table}:`, error.message);
-        continue; // conservar tombstone para reintentar en el próximo sync
+        // El lote falló (FK/RLS sobre algún id). Reintentar id por id para que
+        // las eliminaciones válidas igual se propaguen y quede claro cuál falla.
+        console.warn(`⚠️ pushDeletions ${table} (lote):`, error.message);
+        for (const id of ids) {
+          const { error: oneErr } = await supabase.from(table).delete().eq('id', id);
+          if (oneErr) {
+            console.warn(`⚠️ pushDeletions ${table}:${id}:`, oneErr.message);
+            continue; // conservar tombstone para reintentar en el próximo sync
+          }
+          deleted += 1;
+          try {
+            if (isWeb) await db.delete('deletions', `${table}:${id}`);
+            else await db.runAsync(`DELETE FROM deletions WHERE table_name = ? AND record_id = ?`, [table, id]);
+          } catch { /* ignorar */ }
+        }
+        continue;
       }
       deleted += ids.length;
       for (const id of ids) {
@@ -1706,11 +1840,13 @@ export class SupabaseSyncService implements ISyncService {
       }
 
       // ── 5. Splits ─────────────────────────────────────────────────────────
+      const cloudSplitIds = new Set<string>();
       if (cloudExpenseIds.length > 0) {
         const { data: cloudSplits } = await supabase
           .from('splits').select('*').in('expense_id', cloudExpenseIds);
         if (cloudSplits) {
           for (const sp of cloudSplits) {
+            cloudSplitIds.add(sp.id);
             if (!(await this._remoteWinsWeb(db, 'splits', sp.id, sp.updated_at))) continue;
             await db.put('splits', {
               id: sp.id,
@@ -1778,11 +1914,13 @@ export class SupabaseSyncService implements ISyncService {
       }
 
       // ── 8. Asignaciones de actividades ────────────────────────────────────
+      const cloudActivityParticipantIds = new Set<string>();
       if (cloudActivityIds.length > 0) {
         const { data: cloudActivityParticipants } = await supabase
           .from('activity_participants').select('*').in('activity_id', cloudActivityIds);
         if (cloudActivityParticipants) {
           for (const ap of cloudActivityParticipants) {
+            cloudActivityParticipantIds.add(ap.id);
             try {
               // El índice único (activity_id, participant_id) aborta el put si ya
               // existe localmente la misma pareja con OTRO id. Se elimina el
@@ -1807,6 +1945,114 @@ export class SupabaseSyncService implements ISyncService {
             }
           }
         }
+      }
+
+      // ── 9. Reconciliación de borrados remotos (web / IndexedDB) ───────────
+      // Igual que en nativo: lo eliminado en la nube se borra localmente.
+      // Se respetan filas con sync_status = 'pending' (cambios locales sin subir).
+      try {
+        const eligible = (row: any) => row?.sync_status !== 'pending';
+        const cloudEventIdSet = new Set(allEventIds);
+        const cloudEPIdSet = new Set((cloudEPs ?? []).map((ep: any) => ep.id));
+        const cloudExpenseIdSet = new Set(cloudExpenseIds);
+        const cloudSettlementIdSet = new Set((cloudSettlements ?? []).map((s: any) => s.id));
+        const cloudActivityIdSet = new Set(cloudActivityIds);
+        const cloudExpenseIdArrSet = new Set(cloudExpenseIds);
+
+        // 1) Gastos eliminados → borrar local + sus splits
+        const allLocalExpenses: any[] = await db.getAll('expenses');
+        const localExpensesInScope = allLocalExpenses.filter((ex) => cloudEventIdSet.has(ex.event_id) && eligible(ex));
+        for (const le of localExpensesInScope) {
+          if (!cloudExpenseIdSet.has(le.id)) {
+            const spOfEx: any[] = (await db.getAll('splits')).filter((sp) => sp.expense_id === le.id);
+            for (const sp of spOfEx) await db.delete('splits', sp.id);
+            await db.delete('expenses', le.id);
+          }
+        }
+
+        // 2) Splits eliminados individualmente (el gasto sigue existiendo)
+        const allLocalSplits: any[] = await db.getAll('splits');
+        for (const ls of allLocalSplits) {
+          if (cloudExpenseIdArrSet.has(ls.expense_id) && eligible(ls) && !cloudSplitIds.has(ls.id)) {
+            await db.delete('splits', ls.id);
+          }
+        }
+
+        // 3) Liquidaciones eliminadas
+        const allLocalSettlements: any[] = await db.getAll('settlements');
+        for (const ls of allLocalSettlements) {
+          if (cloudEventIdSet.has(ls.event_id) && eligible(ls) && !cloudSettlementIdSet.has(ls.id)) {
+            await db.delete('settlements', ls.id);
+          }
+        }
+
+        // 4) Actividades eliminadas → borrar local + asignaciones
+        const allLocalActivities: any[] = await db.getAll('activities');
+        for (const la of allLocalActivities) {
+          if (cloudEventIdSet.has(la.event_id) && eligible(la) && !cloudActivityIdSet.has(la.id)) {
+            const apOfAct: any[] = (await db.getAll('activity_participants')).filter((ap) => ap.activity_id === la.id);
+            for (const ap of apOfAct) await db.delete('activity_participants', ap.id);
+            await db.delete('activities', la.id);
+          }
+        }
+
+        // 5) Asignaciones de actividad eliminadas (la actividad sigue existiendo)
+        const allLocalAP: any[] = await db.getAll('activity_participants');
+        for (const lap of allLocalAP) {
+          if (cloudActivityIdSet.has(lap.activity_id) && !cloudActivityParticipantIds.has(lap.id)) {
+            await db.delete('activity_participants', lap.id);
+          }
+        }
+
+        // 6) Membresías (event_participants) eliminadas en la nube
+        const allLocalEPs: any[] = await db.getAll('event_participants');
+        const removedParticipantIds: string[] = [];
+        for (const lep of allLocalEPs) {
+          if (cloudEventIdSet.has(lep.event_id) && !cloudEPIdSet.has(lep.id)) {
+            await db.delete('event_participants', lep.id);
+            if (lep.participant_id) removedParticipantIds.push(lep.participant_id);
+          }
+        }
+
+        // 7) Participantes temporales/secundarios huérfanos (sin membresía local)
+        if (removedParticipantIds.length > 0) {
+          const remainingEPs: any[] = await db.getAll('event_participants');
+          const linkedPids = new Set(remainingEPs.map((ep) => ep.participant_id));
+          for (const pid of [...new Set(removedParticipantIds)]) {
+            if (!linkedPids.has(pid)) {
+              const p: any = await db.get('participants', pid);
+              if (p && p.participant_type !== 'friend') {
+                await db.delete('participants', pid);
+              }
+            }
+          }
+        }
+
+        // 8) Eventos COMPARTIDOS (importados) eliminados/revocados en la nube
+        const allLocalEvents: any[] = await db.getAll('events');
+        for (const lev of allLocalEvents) {
+          if (lev.is_shared === 1 && eligible(lev) && !cloudEventIdSet.has(lev.id)) {
+            const exToDel: any[] = (await db.getAll('expenses')).filter((ex) => ex.event_id === lev.id);
+            for (const ex of exToDel) {
+              const spToDel: any[] = (await db.getAll('splits')).filter((sp) => sp.expense_id === ex.id);
+              for (const sp of spToDel) await db.delete('splits', sp.id);
+              await db.delete('expenses', ex.id);
+            }
+            const actToDel: any[] = (await db.getAll('activities')).filter((a) => a.event_id === lev.id);
+            for (const a of actToDel) {
+              const apToDel: any[] = (await db.getAll('activity_participants')).filter((ap) => ap.activity_id === a.id);
+              for (const ap of apToDel) await db.delete('activity_participants', ap.id);
+              await db.delete('activities', a.id);
+            }
+            const stToDel: any[] = (await db.getAll('settlements')).filter((s) => s.event_id === lev.id);
+            for (const s of stToDel) await db.delete('settlements', s.id);
+            const epToDel: any[] = (await db.getAll('event_participants')).filter((ep) => ep.event_id === lev.id);
+            for (const ep of epToDel) await db.delete('event_participants', ep.id);
+            await db.delete('events', lev.id);
+          }
+        }
+      } catch (reconErr: any) {
+        console.warn('⚠️ WebPull: reconciliación de borrados falló:', reconErr?.message || reconErr);
       }
 
       await AsyncStorage.setItem(LAST_PULL_KEY, new Date().toISOString());

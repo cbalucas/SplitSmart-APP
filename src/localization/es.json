@@ -109,7 +109,12 @@
     "eventArchivedError": "Error al archivar el evento",
     "participantAddedError": "Error al agregar el participante",
     "receiptAddedSuccess": "Comprobante agregado exitosamente",
-    "receiptAddedError": "Error al agregar el comprobante"
+    "receiptAddedError": "Error al agregar el comprobante",
+    "sharedViewerReadOnly": "Solo lectura",
+    "sharedViewerReadOnlyDesc": "Este evento fue compartido en modo solo lectura. No puedes agregar, editar ni eliminar.",
+    "sharedEditorRole": "Acción no permitida",
+    "sharedEditorNoParticipants": "Solo el propietario del evento puede gestionar los participantes. Como editor puedes agregar y editar gastos y actividades.",
+    "sharedEditorNoEventSettings": "Solo el propietario del evento puede modificar, bloquear, cerrar o eliminar el evento."
   },
   "consolidation": {
     "title": "🔗 Pagos Consolidados",

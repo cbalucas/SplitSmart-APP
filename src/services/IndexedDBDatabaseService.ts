@@ -875,6 +875,16 @@ export class IndexedDBDatabaseService implements IDatabaseService {
       await this._recordDeletion('event_participants', ep.id);
     }
 
+    // Eliminar liquidaciones que referencian a este participante (FK RESTRICT en
+    // Supabase: sin esto, el borrado del participante en la nube fallaría).
+    const evSettlements = await db.getAllFromIndex('settlements', 'event_id', eventId) as any[];
+    for (const s of evSettlements) {
+      if (s.from_participant_id === participantId || s.to_participant_id === participantId) {
+        await db.delete('settlements', s.id);
+        await this._recordDeletion('settlements', s.id);
+      }
+    }
+
     // Borrar participante temporal si ya no está en ningún evento
     const remaining = await db.getAllFromIndex('event_participants', 'participant_id', participantId) as any[];
     if (remaining.length === 0) {

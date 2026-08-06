@@ -109,7 +109,12 @@
     "eventArchivedError": "Error archiving event",
     "participantAddedError": "Error adding participant",
     "receiptAddedSuccess": "Receipt added successfully",
-    "receiptAddedError": "Error adding receipt"
+    "receiptAddedError": "Error adding receipt",
+    "sharedViewerReadOnly": "Read only",
+    "sharedViewerReadOnlyDesc": "This event was shared in read-only mode. You cannot add, edit or delete.",
+    "sharedEditorRole": "Action not allowed",
+    "sharedEditorNoParticipants": "Only the event owner can manage participants. As an editor you can add and edit expenses and activities.",
+    "sharedEditorNoEventSettings": "Only the event owner can edit, lock, close or delete the event."
   },
   "consolidation": {
     "title": "🔗 Consolidated Payments",

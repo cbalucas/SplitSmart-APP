@@ -219,9 +219,20 @@ export default function EventDetailScreen() {
   const isClosed = event?.status === 'archived';
   const isSharedEvent = event?.isShared === true;
   const sharedRole = event?.sharedRole;
-  // Los eventos compartidos con rol viewer son solo lectura
+  // Evento propio (no importado por QR): el dueño tiene control total
+  const isOwnerEvent = !isSharedEvent;
+  // Rol viewer (solo lectura): todo bloqueado (editar, eliminar, cargar)
   const isViewerReadOnly = isSharedEvent && sharedRole === 'viewer';
+  // Rol editor: puede editar gastos y organización, pero NO gestionar participantes ni ajustes del evento
+  const isSharedEditor = isSharedEvent && sharedRole === 'editor';
+  // isEditable: edición de gastos/actividades (dueño + editor)
   const isEditable = event?.status === 'active' && !isLocked && !isViewerReadOnly;
+  // Gestión de participantes: SOLO el dueño del evento.
+  // (RLS en Supabase: únicamente el creador del evento puede insertar/editar/eliminar
+  //  participants y event_participants; un editor no podría sincronizar esos cambios.)
+  const canManageParticipants = isEditable && isOwnerEvent;
+  // Administración del evento (editar ajustes, bloquear/desbloquear, cerrar/reactivar, eliminar): SOLO el dueño
+  const canManageEvent = isOwnerEvent;
 
   // Crear un objeto indexable para balances
   const balancesById = balances.reduce((acc: Record<string, number>, balance) => {
@@ -687,8 +698,12 @@ export default function EventDetailScreen() {
   };
 
   const handleEditParticipant = (participant: Participant) => {
-    if (!isEditable) {
-      showAlert({ type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyEditParticipantsActive') });
+    if (!canManageParticipants) {
+      showAlert(isSharedEditor
+        ? { type: 'warning', title: t('message.sharedEditorRole'), message: t('message.sharedEditorNoParticipants') }
+        : isViewerReadOnly
+          ? { type: 'warning', title: t('message.sharedViewerReadOnly'), message: t('message.sharedViewerReadOnlyDesc') }
+          : { type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyEditParticipantsActive') });
       return;
     }
     if (participant.participantType === 'temporary') {
@@ -703,6 +718,12 @@ export default function EventDetailScreen() {
   };
 
   const handleSaveEditedParticipant = async (name: string, email?: string, phone?: string, aliasCbu?: string, convertToFriend?: boolean) => {
+    if (!canManageParticipants) {
+      showAlert(isSharedEditor
+        ? { type: 'warning', title: t('message.sharedEditorRole'), message: t('message.sharedEditorNoParticipants') }
+        : { type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyEditParticipantsActive') });
+      return;
+    }
     if (!editingParticipant || !name.trim()) {
       showAlert({ type: 'error', title: t('common.error'), message: t('message.nameRequired') });
       return;
@@ -770,8 +791,12 @@ export default function EventDetailScreen() {
   };
 
   const handleRemoveParticipant = (participant: any) => {
-    if (!isEditable) {
-      showAlert({ type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyDeleteParticipantsActive') });
+    if (!canManageParticipants) {
+      showAlert(isSharedEditor
+        ? { type: 'warning', title: t('message.sharedEditorRole'), message: t('message.sharedEditorNoParticipants') }
+        : isViewerReadOnly
+          ? { type: 'warning', title: t('message.sharedViewerReadOnly'), message: t('message.sharedViewerReadOnlyDesc') }
+          : { type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyDeleteParticipantsActive') });
       return;
     }
     showAlert({ type: 'destructive', title: t('message.removeParticipantTitle'), message: t('message.removeParticipantMessage', { name: participant.name }), buttons: [
@@ -794,6 +819,12 @@ export default function EventDetailScreen() {
   };
 
   const handleRemoveSelectedParticipants = () => {
+    if (!canManageParticipants) {
+      showAlert(isSharedEditor
+        ? { type: 'warning', title: t('message.sharedEditorRole'), message: t('message.sharedEditorNoParticipants') }
+        : { type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyDeleteParticipantsActive') });
+      return;
+    }
     if (selectedParticipantIds.size === 0) return;
     const count = selectedParticipantIds.size;
     showAlert({ type: 'destructive', title: t('message.removeParticipantTitle'), message: t('participants.confirmDeleteSelected', { count, plural: count !== 1 ? 's' : '' }), buttons: [
@@ -825,6 +856,12 @@ export default function EventDetailScreen() {
 
   const handleAddSecondaryParticipant = async (primaryParticipant: Participant, name: string) => {
     if (!eventId) return;
+    if (!canManageParticipants) {
+      showAlert(isSharedEditor
+        ? { type: 'warning', title: t('message.sharedEditorRole'), message: t('message.sharedEditorNoParticipants') }
+        : { type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyEditParticipantsActive') });
+      return;
+    }
     try {
       await addSecondaryParticipant(eventId, primaryParticipant.id, name);
       await loadEventData();
@@ -834,6 +871,10 @@ export default function EventDetailScreen() {
   };
 
   const handleSaveSecondaryName = async (secondary: Participant) => {
+    if (!canManageParticipants) {
+      setEditingSecondaryId(null);
+      return;
+    }
     const newName = editingSecondaryName.trim();
     if (!newName || newName === secondary.name) {
       setEditingSecondaryId(null);
@@ -850,6 +891,12 @@ export default function EventDetailScreen() {
   };
 
   const handleRemoveSecondaryParticipant = (secondary: Participant) => {
+    if (!canManageParticipants) {
+      showAlert(isSharedEditor
+        ? { type: 'warning', title: t('message.sharedEditorRole'), message: t('message.sharedEditorNoParticipants') }
+        : { type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyDeleteParticipantsActive') });
+      return;
+    }
     showAlert({ type: 'destructive', title: t('participants.removeSecondary'), message: t('participants.confirmRemoveSecondary', { name: secondary.name }), buttons: [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -1045,6 +1092,10 @@ export default function EventDetailScreen() {
 
   const handleToggleLock = useCallback(async () => {
     if (!event) return;
+    if (!canManageEvent) {
+      showAlert({ type: 'warning', title: t('message.sharedEditorRole'), message: t('message.sharedEditorNoEventSettings') });
+      return;
+    }
 
     const willLock = !isLocked;
     if (willLock) {
@@ -1087,6 +1138,10 @@ export default function EventDetailScreen() {
 
   const handleReactivateEvent = useCallback(async () => {
     if (!event) return;
+    if (!canManageEvent) {
+      showAlert({ type: 'warning', title: t('message.sharedEditorRole'), message: t('message.sharedEditorNoEventSettings') });
+      return;
+    }
 
     showAlert({ type: 'warning', title: `⚠️ ${t('message.reactivateEvent')}`, message: t('message.reactivateWarningMessage'), buttons: [
         { text: t('common.cancel'), style: 'cancel' },
@@ -1110,6 +1165,10 @@ export default function EventDetailScreen() {
 
   const handleCloseEvent = useCallback(async () => {
     if (!event) return;
+    if (!canManageEvent) {
+      showAlert({ type: 'warning', title: t('message.sharedEditorRole'), message: t('message.sharedEditorNoEventSettings') });
+      return;
+    }
 
     const pendingCount = dbSettlements.filter((s: any) => !s.isPaid).length;
 
@@ -2313,7 +2372,7 @@ export default function EventDetailScreen() {
                     </Text>
                   </View>
                   <View style={{ flexDirection: 'row', gap: 8 }}>
-                    {isEditable && (
+                    {canManageParticipants && (
                       <TouchableOpacity
                         style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
                         onPress={() => setShowAddParticipantModal(true)}
@@ -2322,7 +2381,7 @@ export default function EventDetailScreen() {
                         <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 14 }}>{t('common.add')}</Text>
                       </TouchableOpacity>
                     )}
-                    {isEditable && visiblePrimaries.length > 0 && (
+                    {canManageParticipants && visiblePrimaries.length > 0 && (
                       <TouchableOpacity
                         style={{ backgroundColor: theme.colors.error + '15', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 }}
                         onPress={() => { setIsParticipantSelectMode(true); setSelectedParticipantIds(new Set()); }}
@@ -2488,7 +2547,7 @@ export default function EventDetailScreen() {
                       </View>
                     </View>
                     <View style={styles.participantRightSection}>
-                      {isEditable && !isParticipantSelectMode && (
+                      {canManageParticipants && !isParticipantSelectMode && (
                         <View style={styles.participantActions}>
                           {participant.participantType === 'temporary' && (
                             <TouchableOpacity
@@ -2646,7 +2705,7 @@ export default function EventDetailScreen() {
                               )}
 
                               {/* Lápiz editar */}
-                              {isEditable && !isParticipantSelectMode && (
+                              {canManageParticipants && !isParticipantSelectMode && (
                                 isEditingThis ? (
                                   <TouchableOpacity
                                     onPress={() => handleSaveSecondaryName(secondary)}
@@ -2682,7 +2741,7 @@ export default function EventDetailScreen() {
                               </Text>
 
                               {/* Eliminar */}
-                              {isEditable && !isParticipantSelectMode && (
+                              {canManageParticipants && !isParticipantSelectMode && (
                                 <TouchableOpacity onPress={() => handleRemoveSecondaryParticipant(secondary)} style={{ padding: 4 }}>
                                   <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.error} />
                                 </TouchableOpacity>
@@ -2852,7 +2911,7 @@ export default function EventDetailScreen() {
             <MaterialCommunityIcons name="whatsapp" size={22} color="#25D366" />
             <Text style={{ fontSize: 11, fontWeight: '600', color: '#25D366', textAlign: 'center' }}>{t('eventDetail.shareEventLabel')}</Text>
           </TouchableOpacity>
-          {isEditable && (
+          {canManageEvent && isEditable && (
             <TouchableOpacity
               onPress={handleToggleLock}
               style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.primary, paddingVertical: 12, borderRadius: 10, gap: 4 }}
@@ -2862,7 +2921,7 @@ export default function EventDetailScreen() {
               <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 11, textAlign: 'center' }}>{t('events.lock')}</Text>
             </TouchableOpacity>
           )}
-          {isLocked && (
+          {canManageEvent && isLocked && (
             <TouchableOpacity
               onPress={handleToggleLock}
               style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.colors.primary, paddingVertical: 12, borderRadius: 10, gap: 4 }}
@@ -2872,7 +2931,7 @@ export default function EventDetailScreen() {
               <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 11, textAlign: 'center' }}>{t('events.unlock')}</Text>
             </TouchableOpacity>
           )}
-          {isClosed && (
+          {canManageEvent && isClosed && (
             <TouchableOpacity
               onPress={handleReactivateEvent}
               style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.primary, paddingVertical: 12, borderRadius: 10, gap: 4 }}
@@ -2882,7 +2941,7 @@ export default function EventDetailScreen() {
               <Text style={{ color: theme.colors.onPrimary, fontWeight: '600', fontSize: 11, textAlign: 'center' }}>{t('events.reactivate')}</Text>
             </TouchableOpacity>
           )}
-          {!isClosed && (
+          {canManageEvent && !isClosed && (
             <TouchableOpacity
               onPress={handleCloseEvent}
               style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.colors.outline, paddingVertical: 12, borderRadius: 10, gap: 4 }}
@@ -4353,11 +4412,19 @@ export default function EventDetailScreen() {
 
   const handleEditEvent = () => {
     if (!event) return;
+    if (!canManageEvent) {
+      showAlert({ type: 'warning', title: t('message.sharedEditorRole'), message: t('message.sharedEditorNoEventSettings') });
+      return;
+    }
     (navigation as any).navigate('CreateEvent', { eventId: event.id, mode: 'edit' });
   };
 
   const handleDeleteEvent = () => {
     if (!event) return;
+    if (!canManageEvent) {
+      showAlert({ type: 'warning', title: t('message.sharedEditorRole'), message: t('message.sharedEditorNoEventSettings') });
+      return;
+    }
     showAlert({ type: 'destructive', title: t('events.deleteTitle'), message: t('events.deleteMessage', { name: event.name }), buttons: [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -4456,6 +4523,28 @@ export default function EventDetailScreen() {
             <MaterialCommunityIcons name="eye-outline" size={18} color={theme.colors.warning} />
             <Text style={{ color: theme.colors.onSurface, fontSize: 12, flex: 1 }}>
               {t('message.sharedViewerReadOnlyDesc')}
+            </Text>
+          </View>
+        )}
+
+        {/* Banner informativo (evento compartido con rol editor) */}
+        {isSharedEditor && (
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            marginHorizontal: 16,
+            marginTop: 10,
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+            borderRadius: 10,
+            backgroundColor: theme.colors.primary + '18',
+            borderWidth: 1,
+            borderColor: theme.colors.primary + '44',
+          }}>
+            <MaterialCommunityIcons name="pencil-outline" size={18} color={theme.colors.primary} />
+            <Text style={{ color: theme.colors.onSurface, fontSize: 12, flex: 1 }}>
+              {t('message.sharedEditorNoParticipants')}
             </Text>
           </View>
         )}
