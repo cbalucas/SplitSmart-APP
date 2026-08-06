@@ -758,12 +758,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateUserProfile = useCallback(async (userId: string, updates: any) => {
     try {
       await databaseService.updateUserProfile(userId, updates);
+      await refreshData();
+      backgroundPush();
       console.log('âœ… User profile updated successfully');
     } catch (error) {
       console.error('âŒ Error updating user profile:', error);
       throw error;
     }
-  }, []);
+  }, [refreshData, backgroundPush]);
 
   const verifyUserPassword = useCallback(async (userId: string, password: string): Promise<boolean> => {
     try {
@@ -1555,25 +1557,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const secondaryId = await databaseService.addSecondaryParticipant(eventId, primaryParticipantId, name);
       await databaseService.recalculateSettlementsForEvent(eventId);
       await refreshData();
+      backgroundPush();
       console.log('âœ… Secondary participant added:', name);
       return secondaryId;
     } catch (error) {
       console.error('âŒ Error adding secondary participant:', error);
       throw error;
     }
-  }, [refreshData]);
+  }, [refreshData, backgroundPush]);
 
   const removeSecondaryParticipant = useCallback(async (eventId: string, secondaryParticipantId: string): Promise<void> => {
     try {
       await databaseService.removeSecondaryParticipant(eventId, secondaryParticipantId);
       await databaseService.recalculateSettlementsForEvent(eventId);
       await refreshData();
+      backgroundPush();
       console.log('âœ… Secondary participant removed');
     } catch (error) {
       console.error('âŒ Error removing secondary participant:', error);
       throw error;
     }
-  }, [refreshData]);
+  }, [refreshData, backgroundPush]);
 
   const importSharedEvent = useCallback(async (payload: any, role: 'editor' | 'viewer', shareId?: string, ownerName?: string, ownerId?: string): Promise<Event> => {
     const newEvent = await databaseService.importSharedEvent(payload, role, shareId, ownerName, ownerId);

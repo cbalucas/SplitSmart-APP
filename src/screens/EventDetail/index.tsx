@@ -53,6 +53,7 @@ export default function EventDetailScreen() {
     const { 
     events, 
     expenses,
+    syncNow,
     getExpensesByEvent, 
     getEventParticipants, 
     getSplitsByEvent,
@@ -984,6 +985,7 @@ export default function EventDetailScreen() {
         }
         
         await loadEventData();
+        syncNow();
         return;
       }
 
@@ -1000,6 +1002,7 @@ export default function EventDetailScreen() {
                   paidAt: null
                 });
                 await loadEventData();
+                syncNow();
               }
             }
           ] });
@@ -1013,6 +1016,7 @@ export default function EventDetailScreen() {
       });
       
       await loadEventData();
+      syncNow();
     } catch (error) {
       console.error('Error toggling settlement paid:', error);
       showAlert({ type: 'error', title: t('common.error'), message: t('message.paymentStateError') });
@@ -1031,6 +1035,7 @@ export default function EventDetailScreen() {
         receiptImage: imageUri
       });
       await loadEventData();
+      syncNow();
       showAlert({ type: 'success', title: '✅', message: imageUri ? t('message.receiptAdded') : t('message.receiptRemoved') });
     } catch (error) {
       console.error('Error updating settlement receipt:', error);
