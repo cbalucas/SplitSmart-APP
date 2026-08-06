@@ -308,23 +308,37 @@ export class SupabaseSyncService implements ISyncService {
       );
 
       if (allLocalEPs.length > 0) {
-        const epsToUpsert = allLocalEPs.map(ep => ({
-          id: ep.id,
-          event_id: ep.event_id,
-          participant_id: ep.participant_id,
-          role: ep.role || 'member',
-          balance: ep.balance ?? 0,
-          joined_at: ep.joined_at || new Date().toISOString(),
-          parent_participant_id: ep.parent_participant_id || null,
-        }));
+        // Evitar violar la FK event_participants.participant_id → participants.id:
+        // solo subimos relaciones cuyo participante YA existe en Supabase (recién
+        // subido arriba o creado por el dueño). Las relaciones cuyo participante
+        // aún no está en la nube se reintentan en el próximo sync.
+        const existingPids = await this._existingIds('participants',
+          allLocalEPs.flatMap((ep: any) => [ep.participant_id, ep.parent_participant_id]));
 
-        const { error: epError } = await supabase
-          .from('event_participants')
-          .upsert(epsToUpsert, { onConflict: 'event_id,participant_id', ignoreDuplicates: true });
+        const epsToUpsert = allLocalEPs
+          .filter((ep: any) => existingPids.has(ep.participant_id))
+          .map(ep => ({
+            id: ep.id,
+            event_id: ep.event_id,
+            participant_id: ep.participant_id,
+            role: ep.role || 'member',
+            balance: ep.balance ?? 0,
+            joined_at: ep.joined_at || new Date().toISOString(),
+            // Anular el padre si aún no existe en la nube (FK a participants).
+            parent_participant_id: (ep.parent_participant_id && existingPids.has(ep.parent_participant_id))
+              ? ep.parent_participant_id
+              : null,
+          }));
 
-        if (epError) {
-          console.warn('⚠️ SyncPush event_participants error:', epError.message);
-          pushErrors.push(`event_participants: ${epError.message}`);
+        if (epsToUpsert.length > 0) {
+          const { error: epError } = await supabase
+            .from('event_participants')
+            .upsert(epsToUpsert, { onConflict: 'event_id,participant_id', ignoreDuplicates: true });
+
+          if (epError) {
+            console.warn('⚠️ SyncPush event_participants error:', epError.message);
+            pushErrors.push(`event_participants: ${epError.message}`);
+          }
         }
       }
 
@@ -335,7 +349,11 @@ export class SupabaseSyncService implements ISyncService {
       );
 
       if (pendingExpenses.length > 0) {
-        const expensesToUpsert = pendingExpenses.map(ex => ({
+        // Guardia FK: expenses.payer_id → participants.id (RESTRICT). No subir
+        // gastos cuyo pagador aún no está en la nube; se reintentan luego.
+        const validPayerIds = await this._existingIds('participants', pendingExpenses.map(ex => ex.payer_id));
+        const syncableExpenses = pendingExpenses.filter(ex => validPayerIds.has(ex.payer_id));
+        const expensesToUpsert = syncableExpenses.map(ex => ({
           id: ex.id,
           event_id: ex.event_id,
           description: ex.description,
@@ -353,16 +371,18 @@ export class SupabaseSyncService implements ISyncService {
           updated_at: ex.updated_at || new Date().toISOString(),
         }));
 
-        const { error: exError } = await supabase
-          .from('expenses')
-          .upsert(expensesToUpsert, { onConflict: 'id' });
+        if (expensesToUpsert.length > 0) {
+          const { error: exError } = await supabase
+            .from('expenses')
+            .upsert(expensesToUpsert, { onConflict: 'id' });
 
-        if (!exError) {
-          await this._markSynced(db, 'expenses', pendingExpenses.map(ex => ex.id));
-          pushed += pendingExpenses.length;
-        } else {
-          console.warn('⚠️ SyncPush expenses error:', exError.message);
-          pushErrors.push(`expenses: ${exError.message}`);
+          if (!exError) {
+            await this._markSynced(db, 'expenses', syncableExpenses.map(ex => ex.id));
+            pushed += syncableExpenses.length;
+          } else {
+            console.warn('⚠️ SyncPush expenses error:', exError.message);
+            pushErrors.push(`expenses: ${exError.message}`);
+          }
         }
       }
 
@@ -381,7 +401,14 @@ export class SupabaseSyncService implements ISyncService {
         );
 
         if (pendingSplits.length > 0) {
-          const splitsToUpsert = pendingSplits.map(sp => ({
+          // Guardia FK: splits.expense_id → expenses.id y splits.participant_id →
+          // participants.id. Solo subir splits cuyos padres ya existen en la nube.
+          const validSplitExpenseIds = await this._existingIds('expenses', pendingSplits.map(sp => sp.expense_id));
+          const validSplitPids = await this._existingIds('participants', pendingSplits.map(sp => sp.participant_id));
+          const syncableSplits = pendingSplits.filter(
+            sp => validSplitExpenseIds.has(sp.expense_id) && validSplitPids.has(sp.participant_id)
+          );
+          const splitsToUpsert = syncableSplits.map(sp => ({
             id: sp.id,
             expense_id: sp.expense_id,
             participant_id: sp.participant_id,
@@ -393,16 +420,18 @@ export class SupabaseSyncService implements ISyncService {
             updated_at: sp.updated_at || new Date().toISOString(),
           }));
 
-          const { error: spError } = await supabase
-            .from('splits')
-            .upsert(splitsToUpsert, { onConflict: 'id' });
+          if (splitsToUpsert.length > 0) {
+            const { error: spError } = await supabase
+              .from('splits')
+              .upsert(splitsToUpsert, { onConflict: 'id' });
 
-          if (!spError) {
-            await this._markSynced(db, 'splits', pendingSplits.map(sp => sp.id));
-            pushed += pendingSplits.length;
-          } else {
-            console.warn('⚠️ SyncPush splits error:', spError.message);
-            pushErrors.push(`splits: ${spError.message}`);
+            if (!spError) {
+              await this._markSynced(db, 'splits', syncableSplits.map(sp => sp.id));
+              pushed += syncableSplits.length;
+            } else {
+              console.warn('⚠️ SyncPush splits error:', spError.message);
+              pushErrors.push(`splits: ${spError.message}`);
+            }
           }
         }
       }
@@ -414,7 +443,13 @@ export class SupabaseSyncService implements ISyncService {
       );
 
       if (pendingSettlements.length > 0) {
-        const settlementsToUpsert = pendingSettlements.map(s => ({
+        // Guardia FK: settlements.from/to_participant_id → participants.id (RESTRICT).
+        const validStPids = await this._existingIds('participants',
+          pendingSettlements.flatMap(s => [s.from_participant_id, s.to_participant_id]));
+        const syncableSettlements = pendingSettlements.filter(
+          s => validStPids.has(s.from_participant_id) && validStPids.has(s.to_participant_id)
+        );
+        const settlementsToUpsert = syncableSettlements.map(s => ({
           id: s.id,
           event_id: s.event_id,
           from_participant_id: s.from_participant_id,
@@ -431,16 +466,18 @@ export class SupabaseSyncService implements ISyncService {
           updated_at: s.updated_at || new Date().toISOString(),
         }));
 
-        const { error: stError } = await supabase
-          .from('settlements')
-          .upsert(settlementsToUpsert, { onConflict: 'id' });
+        if (settlementsToUpsert.length > 0) {
+          const { error: stError } = await supabase
+            .from('settlements')
+            .upsert(settlementsToUpsert, { onConflict: 'id' });
 
-        if (!stError) {
-          await this._markSynced(db, 'settlements', pendingSettlements.map(s => s.id));
-          pushed += pendingSettlements.length;
-        } else {
-          console.warn('⚠️ SyncPush settlements error:', stError.message);
-          pushErrors.push(`settlements: ${stError.message}`);
+          if (!stError) {
+            await this._markSynced(db, 'settlements', syncableSettlements.map(s => s.id));
+            pushed += syncableSettlements.length;
+          } else {
+            console.warn('⚠️ SyncPush settlements error:', stError.message);
+            pushErrors.push(`settlements: ${stError.message}`);
+          }
         }
       }
 
@@ -490,23 +527,32 @@ export class SupabaseSyncService implements ISyncService {
         );
 
         if (pendingActivityParticipants.length > 0) {
-          const apToUpsert = pendingActivityParticipants.map(ap => ({
+          // Guardia FK: activity_participants.activity_id → activities.id y
+          // participant_id → participants.id. Solo subir si ambos padres existen.
+          const validApActivityIds = await this._existingIds('activities', pendingActivityParticipants.map(ap => ap.activity_id));
+          const validApPids = await this._existingIds('participants', pendingActivityParticipants.map(ap => ap.participant_id));
+          const syncableAP = pendingActivityParticipants.filter(
+            ap => validApActivityIds.has(ap.activity_id) && validApPids.has(ap.participant_id)
+          );
+          const apToUpsert = syncableAP.map(ap => ({
             id: ap.id,
             activity_id: ap.activity_id,
             participant_id: ap.participant_id,
             created_at: ap.created_at || new Date().toISOString(),
           }));
 
-          const { error: apError } = await supabase
-            .from('activity_participants')
-            .upsert(apToUpsert, { onConflict: 'activity_id,participant_id', ignoreDuplicates: true });
+          if (apToUpsert.length > 0) {
+            const { error: apError } = await supabase
+              .from('activity_participants')
+              .upsert(apToUpsert, { onConflict: 'activity_id,participant_id', ignoreDuplicates: true });
 
-          if (!apError) {
-            await this._markSynced(db, 'activity_participants', pendingActivityParticipants.map(ap => ap.id));
-            pushed += pendingActivityParticipants.length;
-          } else {
-            console.warn('⚠️ SyncPush activity_participants error:', apError.message);
-            pushErrors.push(`activity_participants: ${apError.message}`);
+            if (!apError) {
+              await this._markSynced(db, 'activity_participants', syncableAP.map(ap => ap.id));
+              pushed += syncableAP.length;
+            } else {
+              console.warn('⚠️ SyncPush activity_participants error:', apError.message);
+              pushErrors.push(`activity_participants: ${apError.message}`);
+            }
           }
         }
       }
@@ -1013,6 +1059,20 @@ export class SupabaseSyncService implements ISyncService {
     );
   }
 
+  // ─── Helper: qué ids ya existen en una tabla de Supabase (guardia FK) ─────
+  // Se usa para no subir hijos cuyo padre aún no está en la nube (evita violar
+  // FKs como expenses.payer_id / splits.expense_id / settlements.*_participant_id).
+  private async _existingIds(table: string, ids: (string | null | undefined)[]): Promise<Set<string>> {
+    const result = new Set<string>();
+    const unique = [...new Set(ids.filter(Boolean) as string[])];
+    for (let i = 0; i < unique.length; i += 100) {
+      const chunk = unique.slice(i, i + 100);
+      const { data } = await supabase.from(table).select('id').in('id', chunk);
+      (data || []).forEach((r: any) => result.add(r.id));
+    }
+    return result;
+  }
+
   // ─── Helper: adoptar registros huérfanos (sin dueño válido) ───────────────
   private async _adoptOrphanRecords(db: any, userId: string): Promise<void> {
     try {
@@ -1295,17 +1355,29 @@ export class SupabaseSyncService implements ISyncService {
 
       // 2b. Event_participants (después de participants por la FK)
       if (relevantEPs.length > 0) {
-        const epsToUpsert = relevantEPs.map((ep) => ({
-          id: ep.id,
-          event_id: ep.event_id,
-          participant_id: ep.participant_id,
-          role: ep.role || 'member',
-          balance: ep.balance ?? 0,
-          joined_at: ep.joined_at || new Date().toISOString(),
-          parent_participant_id: ep.parent_participant_id || null,
-        }));
-        const { error } = await supabase.from('event_participants').upsert(epsToUpsert, { onConflict: 'event_id,participant_id', ignoreDuplicates: true });
-        if (error) console.warn('⚠️ WebPush event_participants error:', error.message);
+        // Guardia FK: solo subir relaciones cuyo participante ya existe en la nube.
+        const referencedPids = [...new Set(
+          relevantEPs.flatMap((ep) => [ep.participant_id, ep.parent_participant_id].filter(Boolean))
+        )];
+        const existingPids = await this._existingIds('participants', referencedPids);
+
+        const epsToUpsert = relevantEPs
+          .filter((ep) => existingPids.has(ep.participant_id))
+          .map((ep) => ({
+            id: ep.id,
+            event_id: ep.event_id,
+            participant_id: ep.participant_id,
+            role: ep.role || 'member',
+            balance: ep.balance ?? 0,
+            joined_at: ep.joined_at || new Date().toISOString(),
+            parent_participant_id: (ep.parent_participant_id && existingPids.has(ep.parent_participant_id))
+              ? ep.parent_participant_id
+              : null,
+          }));
+        if (epsToUpsert.length > 0) {
+          const { error } = await supabase.from('event_participants').upsert(epsToUpsert, { onConflict: 'event_id,participant_id', ignoreDuplicates: true });
+          if (error) console.warn('⚠️ WebPush event_participants error:', error.message);
+        }
       }
 
       // ── 4. Gastos ─────────────────────────────────────────────────────────
@@ -1314,7 +1386,11 @@ export class SupabaseSyncService implements ISyncService {
       const expenseIdSet = new Set(relevantExpenses.map((ex) => ex.id));
 
       if (relevantExpenses.length > 0) {
-        const expensesToUpsert = relevantExpenses.map((ex) => ({
+        // Guardia FK: expenses.payer_id → participants.id (RESTRICT).
+        const validPayerIds = await this._existingIds('participants', relevantExpenses.map((ex) => ex.payer_id));
+        const expensesToUpsert = relevantExpenses
+          .filter((ex) => validPayerIds.has(ex.payer_id))
+          .map((ex) => ({
           id: ex.id,
           event_id: ex.event_id,
           description: ex.description,
@@ -1331,9 +1407,11 @@ export class SupabaseSyncService implements ISyncService {
           created_at: ex.created_at || new Date().toISOString(),
           updated_at: ex.updated_at || new Date().toISOString(),
         }));
-        const { error } = await supabase.from('expenses').upsert(expensesToUpsert, { onConflict: 'id' });
-        if (!error) pushed += relevantExpenses.length;
-        else console.warn('⚠️ WebPush expenses error:', error.message);
+        if (expensesToUpsert.length > 0) {
+          const { error } = await supabase.from('expenses').upsert(expensesToUpsert, { onConflict: 'id' });
+          if (!error) pushed += expensesToUpsert.length;
+          else console.warn('⚠️ WebPush expenses error:', error.message);
+        }
       }
 
       // ── 5. Splits ─────────────────────────────────────────────────────────
@@ -1341,7 +1419,12 @@ export class SupabaseSyncService implements ISyncService {
       const relevantSplits = allSplits.filter((sp) => expenseIdSet.has(sp.expense_id));
 
       if (relevantSplits.length > 0) {
-        const splitsToUpsert = relevantSplits.map((sp) => ({
+        // Guardia FK: splits.expense_id → expenses.id y participant_id → participants.id.
+        const validSplitExpenseIds = await this._existingIds('expenses', relevantSplits.map((sp) => sp.expense_id));
+        const validSplitPids = await this._existingIds('participants', relevantSplits.map((sp) => sp.participant_id));
+        const splitsToUpsert = relevantSplits
+          .filter((sp) => validSplitExpenseIds.has(sp.expense_id) && validSplitPids.has(sp.participant_id))
+          .map((sp) => ({
           id: sp.id,
           expense_id: sp.expense_id,
           participant_id: sp.participant_id,
@@ -1352,9 +1435,11 @@ export class SupabaseSyncService implements ISyncService {
           created_at: sp.created_at || new Date().toISOString(),
           updated_at: sp.updated_at || new Date().toISOString(),
         }));
-        const { error } = await supabase.from('splits').upsert(splitsToUpsert, { onConflict: 'id' });
-        if (!error) pushed += relevantSplits.length;
-        else console.warn('⚠️ WebPush splits error:', error.message);
+        if (splitsToUpsert.length > 0) {
+          const { error } = await supabase.from('splits').upsert(splitsToUpsert, { onConflict: 'id' });
+          if (!error) pushed += splitsToUpsert.length;
+          else console.warn('⚠️ WebPush splits error:', error.message);
+        }
       }
 
       // ── 6. Liquidaciones ──────────────────────────────────────────────────
@@ -1362,7 +1447,12 @@ export class SupabaseSyncService implements ISyncService {
       const relevantSettlements = allSettlements.filter((s) => eventIdSet.has(s.event_id));
 
       if (relevantSettlements.length > 0) {
-        const settlementsToUpsert = relevantSettlements.map((s) => ({
+        // Guardia FK: settlements.from/to_participant_id → participants.id (RESTRICT).
+        const validStPids = await this._existingIds('participants',
+          relevantSettlements.flatMap((s) => [s.from_participant_id, s.to_participant_id]));
+        const settlementsToUpsert = relevantSettlements
+          .filter((s) => validStPids.has(s.from_participant_id) && validStPids.has(s.to_participant_id))
+          .map((s) => ({
           id: s.id,
           event_id: s.event_id,
           from_participant_id: s.from_participant_id,
@@ -1378,9 +1468,11 @@ export class SupabaseSyncService implements ISyncService {
           created_at: s.created_at || new Date().toISOString(),
           updated_at: s.updated_at || new Date().toISOString(),
         }));
-        const { error } = await supabase.from('settlements').upsert(settlementsToUpsert, { onConflict: 'id' });
-        if (!error) pushed += relevantSettlements.length;
-        else console.warn('⚠️ WebPush settlements error:', error.message);
+        if (settlementsToUpsert.length > 0) {
+          const { error } = await supabase.from('settlements').upsert(settlementsToUpsert, { onConflict: 'id' });
+          if (!error) pushed += settlementsToUpsert.length;
+          else console.warn('⚠️ WebPush settlements error:', error.message);
+        }
       }
 
       // ── 7. Actividades (organización) ─────────────────────────────────────
@@ -1409,15 +1501,23 @@ export class SupabaseSyncService implements ISyncService {
       const relevantActivityParticipants = allActivityParticipants.filter((ap) => activityIdSet.has(ap.activity_id));
 
       if (relevantActivityParticipants.length > 0) {
-        const apToUpsert = relevantActivityParticipants.map((ap) => ({
+        // Guardia FK: activity_participants.activity_id → activities.id y
+        // participant_id → participants.id.
+        const validApActivityIds = await this._existingIds('activities', relevantActivityParticipants.map((ap) => ap.activity_id));
+        const validApPids = await this._existingIds('participants', relevantActivityParticipants.map((ap) => ap.participant_id));
+        const apToUpsert = relevantActivityParticipants
+          .filter((ap) => validApActivityIds.has(ap.activity_id) && validApPids.has(ap.participant_id))
+          .map((ap) => ({
           id: ap.id,
           activity_id: ap.activity_id,
           participant_id: ap.participant_id,
           created_at: ap.created_at || new Date().toISOString(),
         }));
-        const { error } = await supabase.from('activity_participants').upsert(apToUpsert, { onConflict: 'activity_id,participant_id', ignoreDuplicates: true });
-        if (!error) pushed += relevantActivityParticipants.length;
-        else console.warn('⚠️ WebPush activity_participants error:', error.message);
+        if (apToUpsert.length > 0) {
+          const { error } = await supabase.from('activity_participants').upsert(apToUpsert, { onConflict: 'activity_id,participant_id', ignoreDuplicates: true });
+          if (!error) pushed += apToUpsert.length;
+          else console.warn('⚠️ WebPush activity_participants error:', error.message);
+        }
       }
 
       console.log(`${criticalError ? '⚠️' : '✅'} WebPush completo: ${pushed} registros subidos${criticalError ? ` (con error: ${criticalError})` : ''}`);
