@@ -22,7 +22,7 @@ export interface SharedEventSnapshot {
     id: string; n: string; d: string;
     s: string; l: string; c: string; cat: string;
   };
-  p: Array<{ id: string; n: string }>;             // participantes
+  p: Array<{ id: string; n: string; pp?: string }>; // participantes (pp = id del principal si es secundario)
   ex: Array<{                                      // gastos
     id: string; d: string; a: number; dt: string;
     c: string; cat: string; pid: string; pn: string;

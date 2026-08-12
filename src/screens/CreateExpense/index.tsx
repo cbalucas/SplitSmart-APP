@@ -320,25 +320,36 @@ const CreateExpenseScreen: React.FC = () => {
         setParticipantsPeopleCount(peopleCountMap);
 
         // Inicializar multiPayers solo con participantes primarios (sin secundarios)
-        setMultiPayers(participants.filter(p => !p.parentParticipantId).map(p => ({
-          participantId: p.id,
-          amount: '',
-          isSelected: false
-        })));
+        // IMPORTANTE: preservar selecciones existentes si el usuario ya interactuó
+        // (este efecto se re-ejecuta cuando `events` cambia por sincronización)
+        setMultiPayers(prev => {
+          const primaries = participants.filter(p => !p.parentParticipantId);
+          if (prev.length > 0 && prev.some(mp => mp.isSelected || mp.amount)) {
+            // Ya hay datos ingresados: no sobreescribir para no perder la selección del usuario
+            return prev;
+          }
+          return primaries.map(p => ({
+            participantId: p.id,
+            amount: '',
+            isSelected: false
+          }));
+        });
 
         // Inicializar con todos los participantes incluidos por defecto SOLO si NO estamos editando
         if (participants.length > 0 && !isEditing) {
-          console.log('🔄 Initializing splits for', participants.length, 'participants');
           const initialSplits: ExpenseSplit[] = participants.map(p => ({
             participantId: p.id,
             amount: 0,
             percentage: 100 / participants.length,
             defaultPeopleCount: (p as any).peopleCount || 1
           }));
+          // IMPORTANTE: solo inicializar si aún no hay splits. Este efecto se vuelve a
+          // ejecutar cada vez que `events` cambia (frecuente en eventos compartidos por la
+          // sincronización), y reinicializar aquí borraría los montos ya calculados por el
+          // usuario (bug: había que destildar/tildar la división para recuperarlos).
           setFormData(prev => {
-            const newData = { ...prev, splits: initialSplits };
-            console.log('✅ Initial splits set:', initialSplits.length);
-            return newData;
+            if (prev.splits.length > 0) return prev;
+            return { ...prev, splits: initialSplits };
           });
         } else if (participants.length === 0) {
           console.warn('⚠️ No participants loaded for event:', eventId);

@@ -491,7 +491,10 @@ export class IndexedDBDatabaseService implements IDatabaseService {
       const newPId = isCloudShare && p.id ? p.id : uuidv4();
       idMap[p.id] = newPId;
       await db.put('participants', { id: newPId, name: p.n, is_active: 1, participant_type: 'temporary', sync_status: importSyncStatus, created_at: now, updated_at: now });
-      await db.put('event_participants', { id: uuidv4(), event_id: newEventId, participant_id: newPId, role: 'member', joined_at: now });
+    }
+    for (const p of (payload.p || [])) {
+      const parentId = p.pp ? (idMap[p.pp] || null) : null;
+      await db.put('event_participants', { id: uuidv4(), event_id: newEventId, participant_id: idMap[p.id], role: 'member', joined_at: now, parent_participant_id: parentId });
     }
     for (const ex of (payload.ex || [])) {
       const newExId = isCloudShare && ex.id ? ex.id : uuidv4();

@@ -1622,7 +1622,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       v: 1,
       role,
       e: { id: ev.id, n: ev.name, d: ev.description || '', s: ev.startDate, l: ev.location || '', c: ev.currency, cat: ev.category || 'evento' },
-      p: participants.map(p => ({ id: p.id, n: p.name })),
+      p: participants.map(p => ({ id: p.id, n: p.name, pp: (p as any).parentParticipantId || undefined })),
       ex: expenses.map(e => ({ id: e.id, d: e.description, a: e.amount, dt: e.date, c: e.currency, cat: e.category || '', pid: e.payerId, pn: e.payerName || '' })),
       sp: splits.map(s => ({ id: s.id, eid: s.expenseId, pid: s.participantId, a: s.amount, t: s.type || 'equal' })),
     };
@@ -1647,7 +1647,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       v: 1,
       role,
       e: { id: ev.id, n: ev.name, d: ev.description || '', s: ev.startDate, l: ev.location || '', c: ev.currency, cat: ev.category || 'evento' },
-      p: participants.map(p => ({ id: p.id, n: p.name })),
+      p: participants.map(p => ({ id: p.id, n: p.name, pp: (p as any).parentParticipantId || undefined })),
       ex: expenses.map(e => ({ id: e.id, d: e.description, a: e.amount, dt: e.date, c: e.currency, cat: e.category || '', pid: e.payerId, pn: e.payerName || '' })),
       sp: splits.map(s => ({ id: s.id, eid: s.expenseId, pid: s.participantId, a: s.amount, t: s.type || 'equal' })),
     };

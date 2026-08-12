@@ -1462,7 +1462,7 @@ class DatabaseService implements IDatabaseService {
     // Mapear IDs originales a IDs locales (identidad si es share de la nube).
     const idMap: Record<string, string> = {};
 
-    // Crear participantes
+    // Crear participantes (pasada 1: participants + idMap)
     for (const p of (payload.p || [])) {
       const newParticipantId = isCloudShare && p.id ? p.id : generateId();
       idMap[p.id] = newParticipantId;
@@ -1470,9 +1470,13 @@ class DatabaseService implements IDatabaseService {
         `INSERT INTO participants (id, name, is_active, participant_type, sync_status, created_at, updated_at) VALUES (?, ?, 1, 'temporary', ?, ?, ?)`,
         [newParticipantId, p.n, importSyncStatus, now, now]
       );
+    }
+    // Vincular al evento (pasada 2: event_participants con parent ya mapeado)
+    for (const p of (payload.p || [])) {
+      const parentId = p.pp ? (idMap[p.pp] || null) : null;
       await this.db.runAsync(
-        `INSERT INTO event_participants (id, event_id, participant_id, role, joined_at) VALUES (?, ?, ?, 'member', ?)`,
-        [generateId(), newEventId, newParticipantId, now]
+        `INSERT INTO event_participants (id, event_id, participant_id, role, joined_at, parent_participant_id) VALUES (?, ?, ?, 'member', ?, ?)`,
+        [generateId(), newEventId, idMap[p.id], now, parentId]
       );
     }
 

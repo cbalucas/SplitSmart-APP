@@ -1455,10 +1455,16 @@ export class SupabaseSyncService implements ISyncService {
       const relevantEPs = allEPs.filter((ep) => eventIdSet.has(ep.event_id));
       const participantIdsInEvents = new Set(relevantEPs.map((ep) => ep.participant_id));
 
-      // 2a. Participantes: amigos del usuario + los de sus eventos
+      // 2a. Participantes: amigos del usuario + los de sus eventos SIN dueño.
+      // IMPORTANTE: no re-subir participantes que pertenecen a OTRO usuario (p.ej.
+      // los del dueño de un evento compartido, importados vía QR con created_by ajeno).
+      // Hacerlo viola la política RLS `participants_update_own` (created_by = auth.uid())
+      // y marca un error espurio. El dueño ya los mantiene sincronizados.
       const allParticipants: any[] = await db.getAll('participants');
       const relevantParticipants = allParticipants.filter(
-        (p) => p.created_by_user_id === userId || participantIdsInEvents.has(p.id)
+        (p) =>
+          p.created_by_user_id === userId ||
+          (participantIdsInEvents.has(p.id) && (!p.created_by_user_id || p.created_by_user_id === ''))
       );
 
       if (relevantParticipants.length > 0) {
