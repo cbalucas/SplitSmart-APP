@@ -4290,36 +4290,36 @@ export default function EventDetailScreen() {
                 </>
               ) : (
                 <>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                  <View style={styles.organizationTitleGroup}>
                     <MaterialCommunityIcons name="clipboard-list-outline" size={18} color="#FF6F00" />
-                    <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
+                    <Text style={[styles.sectionTitle, { marginBottom: 0, flexShrink: 1 }]} numberOfLines={1}>
                       {t('organization.title')} ({eventActivities.length})
                     </Text>
                   </View>
                   {isEditable && (
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <View style={styles.organizationActionsRow}>
                       <TouchableOpacity
-                        style={{ backgroundColor: '#FF6F00', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
+                        style={styles.organizationAddBtn}
                         onPress={openAddActivity}
                         activeOpacity={0.7}
                       >
-                        <MaterialCommunityIcons name="plus" size={16} color="#fff" style={{ marginRight: 6 }} />
-                        <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>{t('add')}</Text>
+                        <MaterialCommunityIcons name="plus" size={18} color="#fff" />
+                        <Text style={styles.organizationAddBtnText}>{t('add')}</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={{ backgroundColor: '#FF6F0015', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 }}
+                        style={[styles.organizationIconBtn, { backgroundColor: '#FF6F0015' }]}
                         onPress={openTemplateModal}
                         activeOpacity={0.7}
                       >
-                        <MaterialCommunityIcons name="clipboard-text-multiple-outline" size={18} color="#FF6F00" />
+                        <MaterialCommunityIcons name="clipboard-text-multiple-outline" size={20} color="#FF6F00" />
                       </TouchableOpacity>
                       {eventActivities.length > 0 && (
                         <TouchableOpacity
-                          style={{ backgroundColor: theme.colors.error + '15', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 }}
+                          style={[styles.organizationIconBtn, { backgroundColor: theme.colors.error + '15' }]}
                           onPress={() => enterActivitySelectMode()}
                           activeOpacity={0.7}
                         >
-                          <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.error} />
+                          <MaterialCommunityIcons name="trash-can-outline" size={20} color={theme.colors.error} />
                         </TouchableOpacity>
                       )}
                     </View>
@@ -4340,7 +4340,7 @@ export default function EventDetailScreen() {
               </View>
             </Card>
           ) : (
-            <View style={{ marginHorizontal: 16 }}>
+            <View>
               {eventActivities.map((activity) => {
                 const isSelected = selectedActivityIds.has(activity.id);
                 return (
