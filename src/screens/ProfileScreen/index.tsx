@@ -2001,15 +2001,56 @@ const ProfileScreen: React.FC = () => {
               contentContainerStyle={{ flexGrow: 1 }}
               nestedScrollEnabled={true}
             >
-                                                                                                                                                                        {/* Versión 1.10.4 - Versión Actual */}
+                                                                                                                                                                                      {/* Versión 1.10.5 - Versión Actual */}
               <TouchableOpacity 
                 style={[styles.versionBlock, styles.currentVersionBlock]} 
+                onPress={() => toggleVersionExpanded('1.10.5')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.versionHeader}>
+                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.10.5 (Actual)</Text>
+                  <Text style={[styles.versionDate, styles.currentVersionDate]}>25 Ago 2026</Text>
+                  <MaterialCommunityIcons 
+                    name={expandedVersions.has('1.10.5') ? 'chevron-up' : 'chevron-down'} 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
+                </View>
+                {expandedVersions.has('1.10.5') && (
+                  <View style={styles.versionContent}>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>🚀 Novedades</Text>
+                      <Text style={styles.changelogItem}>• Vinculación usuario local ↔ Supabase</Text>
+                      <Text style={styles.changelogItem}>• Campo en User</Text>
+                      <Text style={styles.changelogItem}>• Columna en SQLite</Text>
+                      <Text style={styles.changelogItem}>• Tablas Supabase nuevas</Text>
+                      <Text style={styles.changelogItem}>• : tokens Expo/FCM/APNs por dispositivo por usuario</Text>
+                      <Text style={styles.changelogItem}>• : notificaciones in-app y push con tipos</Text>
+                      <Text style={styles.changelogItem}>• : invitaciones para compartir eventos entre usuarios (con estado pending/accepted/decli...</Text>
+                      <Text style={styles.changelogItem}>• exportado desde como constante centralizada</Text>
+                      <Text style={styles.changelogItem}>• state en AuthContext</Text>
+                      <Text style={styles.changelogItem}>• en AuthContext</Text>
+                    </View>
+                    <View style={styles.changelogSection}>
+                      <Text style={styles.sectionTitle}>✨ Mejoras</Text>
+                      <Text style={styles.changelogItem}>• ahora usa la constante importada en vez de una variable local.</Text>
+                      <Text style={styles.changelogItem}>• resetea .</Text>
+                      <Text style={styles.changelogItem}>• incluye desde .</Text>
+                      <Text style={styles.changelogItem}>• acepta como campo actualizable.</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+{/* Versión 1.10.4 - Versión Actual */}
+              <TouchableOpacity 
+                style={[styles.versionBlock]} 
                 onPress={() => toggleVersionExpanded('1.10.4')}
                 activeOpacity={0.7}
               >
                 <View style={styles.versionHeader}>
-                  <Text style={[styles.versionNumber, styles.currentVersionNumber]}>v1.10.4 (Actual)</Text>
-                  <Text style={[styles.versionDate, styles.currentVersionDate]}>22 Jun 2026</Text>
+                  <Text style={[styles.versionNumber]}>v1.10.4</Text>
+                  <Text style={[styles.versionDate]}>22 Jun 2026</Text>
                   <MaterialCommunityIcons 
                     name={expandedVersions.has('1.10.4') ? 'chevron-up' : 'chevron-down'} 
                     size={24} 
@@ -3030,7 +3071,7 @@ const ProfileScreen: React.FC = () => {
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                     <Text style={styles.aboutTitle}>SplitSmart</Text>
-                    <View style={styles.versionBadge}><Text style={styles.versionBadgeText}>v1.10.4</Text></View>
+                    <View style={styles.versionBadge}><Text style={styles.versionBadgeText}>v1.10.5</Text></View>
                   </View>
                   <Text style={styles.aboutDescription}>{t('profile.about.appDescription')}</Text>
                 </View>
