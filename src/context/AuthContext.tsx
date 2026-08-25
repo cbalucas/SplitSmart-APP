@@ -8,6 +8,7 @@ import { DEMO_USER, DEMO_USER_ID, DEMO_CREDENTIALS } from '../constants/demoUser
 import { databaseService } from '../services/DatabaseFactory';
 import { supabase } from '../services/supabase';
 import { isNativeGoogleSignInAvailable, nativeGoogleSignIn, nativeGoogleSignOut } from '../services/googleSignIn';
+import { generateId } from '../utils/uuid';
 
 // Necesario para completar el flujo OAuth en iOS/Android
 WebBrowser.maybeCompleteAuthSession();
@@ -183,6 +184,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const rawUsername = (supaUser.user_metadata?.preferred_username || email.split('@')[0])
           .toLowerCase()
           .replace(/[^a-z0-9_]/g, '_');
+        const avatarUrl =
+          supaUser.user_metadata?.avatar_url ||
+          supaUser.user_metadata?.picture ||
+          undefined;
 
         try {
           await databaseService.init();
@@ -204,6 +209,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             localUser = await databaseService.getUserById(supaUser.id);
           }
           if (localUser) {
+            // Usar el avatar de la cuenta de Google si el usuario aún no tiene uno propio
+            if (avatarUrl && !localUser.avatar) {
+              try {
+                await databaseService.updateUserProfile(localUser.id, { avatar: avatarUrl });
+                localUser = await databaseService.getUserById(localUser.id);
+              } catch (_) {}
+            }
+            // Crear el "amigo" propio del usuario si aún no existe (igual que en el registro local)
+            try {
+              const existingFriend = await databaseService.getParticipantByUserId(localUser.id);
+              if (!existingFriend) {
+                const nowIso = new Date().toISOString();
+                await databaseService.createParticipant({
+                  id: generateId(),
+                  name: localUser.name || name,
+                  email: localUser.email || email,
+                  avatar: avatarUrl,
+                  isActive: true,
+                  participantType: 'friend',
+                  userId: localUser.id,
+                  createdByUserId: localUser.id,
+                  isPublic: false,
+                  createdAt: nowIso,
+                  updatedAt: nowIso,
+                } as any);
+              }
+            } catch (friendErr) {
+              console.warn('⚠️ No se pudo crear el amigo del usuario Google:', friendErr);
+            }
             try { await databaseService.updateLastLogin(localUser.id); } catch (_) {}
             setUser(_mapDbUserToUser(localUser, true));
             setIsOnlineUser(true);
