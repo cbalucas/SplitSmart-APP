@@ -1309,36 +1309,111 @@ export class SupabaseSyncService implements ISyncService {
   // El push web sube todo (no hay sync_status fiable en IndexedDB). Para no pisar
   // cambios más recientes hechos desde otro dispositivo, solo se suben las filas
   // cuyo updated_at local es >= al remoto; las demás las trae el pull posterior (LWW).
-  // Trae los updated_at remotos de una tabla para los ids dados (consultas en paralelo).
-  private async _fetchRemoteStamps(table: string, ids: string[]): Promise<Map<string, number>> {
+  // ─── Ledger web: ids que YA estuvieron sincronizados con la nube ───────────
+  // IndexedDB no marca sync_status en cada escritura, así que no se puede saber si una fila
+  // local ausente en la nube es NUEVA (hay que subirla) o fue BORRADA desde otro dispositivo
+  // (hay que descartarla). Antes el push web subía todo y "resucitaba" lo borrado en la app.
+  // El ledger guarda, por tabla, los ids vistos en la nube en el último pull / subidos en un
+  // push exitoso:
+  //   • local + ausente en la nube + en el ledger  → borrado remoto: NO se sube, el pull lo borra.
+  //   • local + ausente en la nube + fuera del ledger → fila nueva: se sube.
+  private _ledgerKey(userId: string): string {
+    return `@splitsmart/web_synced_ids:${userId}`;
+  }
+
+  private async _loadLedger(userId: string): Promise<Map<string, Set<string>>> {
+    const ledger = new Map<string, Set<string>>();
+    try {
+      const raw = await AsyncStorage.getItem(this._ledgerKey(userId));
+      if (raw) {
+        const obj = JSON.parse(raw) as { [table: string]: string[] };
+        Object.keys(obj).forEach(t => ledger.set(t, new Set(obj[t])));
+      }
+    } catch (e) {
+      console.warn('⚠️ No se pudo leer el ledger de sync web:', (e as any)?.message);
+    }
+    return ledger;
+  }
+
+  private async _saveLedger(userId: string, ledger: Map<string, Set<string>>): Promise<void> {
+    try {
+      const obj: { [table: string]: string[] } = {};
+      ledger.forEach((ids, t) => { obj[t] = [...ids]; });
+      await AsyncStorage.setItem(this._ledgerKey(userId), JSON.stringify(obj));
+    } catch (e) {
+      console.warn('⚠️ No se pudo guardar el ledger de sync web:', (e as any)?.message);
+    }
+  }
+
+  private _ledgerAdd(ledger: Map<string, Set<string>>, table: string, rows: { id: string }[]): void {
+    if (rows.length === 0) return;
+    const set = ledger.get(table) ?? new Set<string>();
+    rows.forEach(r => set.add(r.id));
+    ledger.set(table, set);
+  }
+
+  /** Separa las filas locales entre vigentes y "borradas en la nube" (estuvieron sincronizadas y ya no existen allá). */
+  private _splitRemoteDeleted<T extends { id: string }>(
+    table: string,
+    rows: T[],
+    remote: Map<string, Map<string, number>>,
+    ledger: Map<string, Set<string>>
+  ): { alive: T[]; gone: T[] } {
+    const remoteIds = remote.get(table);
+    const known = ledger.get(table);
+    if (!remoteIds || !known) return { alive: rows, gone: [] };
+    const alive: T[] = [];
+    const gone: T[] = [];
+    for (const r of rows) {
+      if (!remoteIds.has(r.id) && known.has(r.id)) gone.push(r);
+      else alive.push(r);
+    }
+    if (gone.length > 0) {
+      console.log(`🧹 WebPush (${table}): ${gone.length} fila(s) borradas en la nube; no se vuelven a subir`);
+    }
+    return { alive, gone };
+  }
+
+  // Trae de la nube, para los ids dados, su existencia y (si la tabla lo tiene) updated_at.
+  // ESTRICTO: ante cualquier error lanza; un resultado vacío por error haría parecer que
+  // todo fue borrado en la nube.
+  private async _fetchRemoteStamps(table: string, ids: string[], withStamp = true): Promise<Map<string, number>> {
     const remote = new Map<string, number>();
     const CHUNK = 150;
     const chunks: string[][] = [];
     for (let i = 0; i < ids.length; i += CHUNK) chunks.push(ids.slice(i, i + CHUNK));
     const results = await Promise.all(
-      chunks.map(async chunk => (await supabase.from(table).select('id, updated_at').in('id', chunk)).data || [])
+      chunks.map(async chunk => {
+        const { data, error } = await supabase.from(table).select(withStamp ? 'id, updated_at' : 'id').in('id', chunk);
+        if (error) throw new Error(`${table}: ${error.message}`);
+        return data || [];
+      })
     );
     results.flat().forEach((r: any) => {
       const t = r.updated_at ? Date.parse(r.updated_at) : NaN;
-      if (!isNaN(t)) remote.set(r.id, t);
+      remote.set(r.id, t); // NaN = existe pero sin fecha comparable
     });
     return remote;
   }
 
-  // Precarga, EN PARALELO y de una sola vez, los sellos remotos de todas las tablas que
-  // el push web va a subir (antes era una ronda de consultas en serie por cada tabla).
+  // Precarga, EN PARALELO y de una sola vez, el estado remoto de todas las tablas que el
+  // push web va a subir. Propaga errores (el push se aborta y se reintenta).
   private async _prefetchRemoteStamps(db: any): Promise<Map<string, Map<string, number>>> {
     const stamps = new Map<string, Map<string, number>>();
-    const tables = ['events', 'participants', 'expenses', 'splits', 'settlements', 'activities'];
-    try {
-      await Promise.all(tables.map(async table => {
-        const rows: any[] = await db.getAll(table);
-        stamps.set(table, await this._fetchRemoteStamps(table, rows.map(r => r.id)));
-      }));
-    } catch (e) {
-      console.warn('⚠️ WebPush LWW prefetch:', (e as any)?.message);
-      stamps.clear(); // sin datos → cada guarda consulta por su cuenta (o sube todo si falla)
-    }
+    const tables: { name: string; withStamp: boolean }[] = [
+      { name: 'events', withStamp: true },
+      { name: 'participants', withStamp: true },
+      { name: 'expenses', withStamp: true },
+      { name: 'splits', withStamp: true },
+      { name: 'settlements', withStamp: true },
+      { name: 'activities', withStamp: true },
+      { name: 'event_participants', withStamp: false },
+      { name: 'activity_participants', withStamp: false },
+    ];
+    await Promise.all(tables.map(async ({ name, withStamp }) => {
+      const rows: any[] = await db.getAll(name);
+      stamps.set(name, await this._fetchRemoteStamps(name, rows.map(r => r.id), withStamp));
+    }));
     return stamps;
   }
 
@@ -1347,17 +1422,11 @@ export class SupabaseSyncService implements ISyncService {
     rows: T[],
     stamps?: Map<string, Map<string, number>>
   ): Promise<T[]> {
-    if (rows.length === 0) return rows;
-    let remote: Map<string, number>;
-    try {
-      remote = stamps?.get(table) ?? await this._fetchRemoteStamps(table, rows.map(r => r.id));
-    } catch (e) {
-      console.warn(`⚠️ WebPush LWW guard (${table}):`, (e as any)?.message);
-      return rows; // ante error de red, comportamiento previo (subir todo)
-    }
+    const remote = stamps?.get(table);
+    if (!remote || rows.length === 0) return rows;
     const kept = rows.filter(r => {
       const rt = remote.get(r.id);
-      if (rt === undefined) return true;
+      if (rt === undefined || isNaN(rt)) return true;
       const lt = r.updated_at ? Date.parse(r.updated_at) : NaN;
       return isNaN(lt) || lt >= rt;
     });
@@ -1465,10 +1534,18 @@ export class SupabaseSyncService implements ISyncService {
   }
 
   // ─── Subir solo amigos del usuario (cuando no hay eventos) ─────────────────
-  private async _pushWebFriendsOnly(db: any, userId: string, localIds: Set<string>): Promise<{ pushed: number; error?: string }> {
+  private async _pushWebFriendsOnly(
+    db: any,
+    userId: string,
+    localIds: Set<string>,
+    stamps: Map<string, Map<string, number>>,
+    ledger: Map<string, Set<string>>
+  ): Promise<{ pushed: number; error?: string }> {
     try {
       const allParticipants: any[] = await db.getAll('participants');
-      const friends = allParticipants.filter((p) => p.created_by_user_id === userId || localIds.has(p.created_by_user_id));
+      const friends = await this._notOlderThanRemote('participants', this._splitRemoteDeleted('participants',
+        allParticipants.filter((p) => p.created_by_user_id === userId || localIds.has(p.created_by_user_id)),
+        stamps, ledger).alive, stamps);
       if (friends.length === 0) return { pushed: 0 };
 
       const toUpsert = friends.map((p) => ({
@@ -1490,6 +1567,7 @@ export class SupabaseSyncService implements ISyncService {
       }));
       const { error } = await supabase.from('participants').upsert(toUpsert, { onConflict: 'id' });
       if (error) return { pushed: 0, error: `participants: ${error.message}` };
+      this._ledgerAdd(ledger, 'participants', friends);
       return { pushed: friends.length };
     } catch (err: any) {
       return { pushed: 0, error: err?.message };
@@ -1521,6 +1599,7 @@ export class SupabaseSyncService implements ISyncService {
 
       // ── 0.2 Sellos remotos (updated_at) para la guarda LWW, todo en paralelo ─
       const stamps = await this._prefetchRemoteStamps(db);
+      const ledger = await this._loadLedger(userId);
 
       // Ids locales del usuario actual (p.ej. `user_<timestamp>`) → se traducen a su UUID de Supabase
       const localIds = await this._localOwnerIds(db, true, userId, session.user.email);
@@ -1567,10 +1646,10 @@ export class SupabaseSyncService implements ISyncService {
 
       // ── 1. Eventos: propios (creator_id=userId) + importados via QR ───────
       const allEvents: any[] = await db.getAll('events');
-      const ownEvents = allEvents.filter(
+      const ownEvents = this._splitRemoteDeleted('events', allEvents.filter(
         (e) => e.creator_id === userId || localIds.has(e.creator_id) ||
                ((e.is_shared === 1 || e.is_shared === true) && (!e.creator_id || e.creator_id === ''))
-      );
+      ), stamps, ledger).alive;
 
       const eventsToPush = await this._notOlderThanRemote('events', ownEvents, stamps);
       if (eventsToPush.length > 0) {
@@ -1601,6 +1680,7 @@ export class SupabaseSyncService implements ISyncService {
         const { error } = await supabase.from('events').upsert(eventsToUpsert, { onConflict: 'id' });
         if (!error) {
           pushed += eventsToPush.length;
+          this._ledgerAdd(ledger, 'events', eventsToPush);
           // Actualizar creator_id local para eventos importados
           for (const e of eventsToPush) {
             if (!e.creator_id || e.creator_id === '') {
@@ -1641,8 +1721,9 @@ export class SupabaseSyncService implements ISyncService {
       const userEventIds = [...ownEventIds, ...sharedEditorEvents.map((e) => e.id)];
       if (userEventIds.length === 0) {
         // Aún así intentamos subir los amigos del usuario (pueden no tener eventos)
-        const friendsOnly = await this._pushWebFriendsOnly(db, userId, localIds);
+        const friendsOnly = await this._pushWebFriendsOnly(db, userId, localIds, stamps, ledger);
         pushed += friendsOnly.pushed;
+        await this._saveLedger(userId, ledger);
         return {
           success: !criticalError && !friendsOnly.error,
           pushed,
@@ -1657,7 +1738,8 @@ export class SupabaseSyncService implements ISyncService {
       // IMPORTANTE: se suben primero los participants y luego event_participants
       // por la FK event_participants.participant_id → participants.id
       const allEPs: any[] = await db.getAll('event_participants');
-      const relevantEPs = allEPs.filter((ep: any) => eventIdSet.has(ep.event_id));
+      const relevantEPs = this._splitRemoteDeleted('event_participants',
+        allEPs.filter((ep: any) => eventIdSet.has(ep.event_id)), stamps, ledger).alive;
       const participantIdsInEvents = new Set(relevantEPs.map((ep) => ep.participant_id));
 
       // 2a. Participantes: amigos del usuario + los de sus eventos SIN dueño.
@@ -1666,11 +1748,11 @@ export class SupabaseSyncService implements ISyncService {
       // Hacerlo viola la política RLS `participants_update_own` (created_by = auth.uid())
       // y marca un error espurio. El dueño ya los mantiene sincronizados.
       const allParticipants: any[] = await db.getAll('participants');
-      const relevantParticipants = await this._notOlderThanRemote('participants', allParticipants.filter(
+      const relevantParticipants = await this._notOlderThanRemote('participants', this._splitRemoteDeleted('participants', allParticipants.filter(
         (p) =>
           p.created_by_user_id === userId || localIds.has(p.created_by_user_id) ||
           (participantIdsInEvents.has(p.id) && (!p.created_by_user_id || p.created_by_user_id === ''))
-      ), stamps);
+      ), stamps, ledger).alive, stamps);
 
       if (relevantParticipants.length > 0) {
         const participantsToUpsert = relevantParticipants.map((p) => ({
@@ -1691,7 +1773,7 @@ export class SupabaseSyncService implements ISyncService {
           updated_at: p.updated_at || new Date().toISOString(),
         }));
         const { error } = await supabase.from('participants').upsert(participantsToUpsert, { onConflict: 'id' });
-        if (!error) pushed += relevantParticipants.length;
+        if (!error) { pushed += relevantParticipants.length; this._ledgerAdd(ledger, 'participants', relevantParticipants); }
         else {
           if (!criticalError) criticalError = `participants: ${error.message}`;
           console.warn('⚠️ WebPush participants error:', error.message);
@@ -1724,13 +1806,16 @@ export class SupabaseSyncService implements ISyncService {
           if (error) {
             if (!criticalError) criticalError = `event_participants: ${error.message}`;
             console.warn('⚠️ WebPush event_participants error:', error.message);
+          } else {
+            this._ledgerAdd(ledger, 'event_participants', epsToUpsert);
           }
         }
       }
 
       // ── 4. Gastos ─────────────────────────────────────────────────────────
       const allExpenses: any[] = await db.getAll('expenses');
-      const relevantExpenses = allExpenses.filter((ex: any) => eventIdSet.has(ex.event_id));
+      const relevantExpenses = this._splitRemoteDeleted('expenses',
+        allExpenses.filter((ex: any) => eventIdSet.has(ex.event_id)), stamps, ledger).alive;
       const expenseIdSet = new Set(relevantExpenses.map((ex) => ex.id));
 
       if (relevantExpenses.length > 0) {
@@ -1757,7 +1842,7 @@ export class SupabaseSyncService implements ISyncService {
         }));
         if (expensesToUpsert.length > 0) {
           const { error } = await supabase.from('expenses').upsert(expensesToUpsert, { onConflict: 'id' });
-          if (!error) pushed += expensesToUpsert.length;
+          if (!error) { pushed += expensesToUpsert.length; this._ledgerAdd(ledger, 'expenses', expensesToUpsert); }
           else {
             if (!criticalError) criticalError = `expenses: ${error.message}`;
             console.warn('⚠️ WebPush expenses error:', error.message);
@@ -1767,7 +1852,8 @@ export class SupabaseSyncService implements ISyncService {
 
       // ── 5. Splits ─────────────────────────────────────────────────────────
       const allSplits: any[] = await db.getAll('splits');
-      const relevantSplits = allSplits.filter((sp: any) => expenseIdSet.has(sp.expense_id));
+      const relevantSplits = this._splitRemoteDeleted('splits',
+        allSplits.filter((sp: any) => expenseIdSet.has(sp.expense_id)), stamps, ledger).alive;
 
       if (relevantSplits.length > 0) {
         // Guardia FK: splits.expense_id → expenses.id y participant_id → participants.id.
@@ -1788,7 +1874,7 @@ export class SupabaseSyncService implements ISyncService {
         }));
         if (splitsToUpsert.length > 0) {
           const { error } = await supabase.from('splits').upsert(splitsToUpsert, { onConflict: 'id' });
-          if (!error) pushed += splitsToUpsert.length;
+          if (!error) { pushed += splitsToUpsert.length; this._ledgerAdd(ledger, 'splits', splitsToUpsert); }
           else {
             if (!criticalError) criticalError = `splits: ${error.message}`;
             console.warn('⚠️ WebPush splits error:', error.message);
@@ -1798,7 +1884,8 @@ export class SupabaseSyncService implements ISyncService {
 
       // ── 6. Liquidaciones ──────────────────────────────────────────────────
       const allSettlements: any[] = await db.getAll('settlements');
-      const relevantSettlements = allSettlements.filter((s: any) => eventIdSet.has(s.event_id));
+      const relevantSettlements = this._splitRemoteDeleted('settlements',
+        allSettlements.filter((s: any) => eventIdSet.has(s.event_id)), stamps, ledger).alive;
 
       if (relevantSettlements.length > 0) {
         // Guardia FK: settlements.from/to_participant_id → participants.id (RESTRICT).
@@ -1824,7 +1911,7 @@ export class SupabaseSyncService implements ISyncService {
         }));
         if (settlementsToUpsert.length > 0) {
           const { error } = await supabase.from('settlements').upsert(settlementsToUpsert, { onConflict: 'id' });
-          if (!error) pushed += settlementsToUpsert.length;
+          if (!error) { pushed += settlementsToUpsert.length; this._ledgerAdd(ledger, 'settlements', settlementsToUpsert); }
           else {
             if (!criticalError) criticalError = `settlements: ${error.message}`;
             console.warn('⚠️ WebPush settlements error:', error.message);
@@ -1834,7 +1921,8 @@ export class SupabaseSyncService implements ISyncService {
 
       // ── 7. Actividades (organización) ─────────────────────────────────────
       const allActivities: any[] = await db.getAll('activities');
-      const relevantActivities = allActivities.filter((a: any) => eventIdSet.has(a.event_id));
+      const relevantActivities = this._splitRemoteDeleted('activities',
+        allActivities.filter((a: any) => eventIdSet.has(a.event_id)), stamps, ledger).alive;
       const activityIdSet = new Set(relevantActivities.map((a) => a.id));
 
       if (relevantActivities.length > 0) {
@@ -1852,7 +1940,7 @@ export class SupabaseSyncService implements ISyncService {
         const { error } = activitiesToUpsert.length > 0
           ? await supabase.from('activities').upsert(activitiesToUpsert, { onConflict: 'id' })
           : { error: null };
-        if (!error) pushed += activitiesToPush.length;
+        if (!error) { pushed += activitiesToPush.length; this._ledgerAdd(ledger, 'activities', activitiesToPush); }
         else {
           if (!criticalError) criticalError = `activities: ${error.message}`;
           console.warn('⚠️ WebPush activities error:', error.message);
@@ -1861,7 +1949,8 @@ export class SupabaseSyncService implements ISyncService {
 
       // ── 8. Asignaciones de actividades ────────────────────────────────────
       const allActivityParticipants: any[] = await db.getAll('activity_participants');
-      const relevantActivityParticipants = allActivityParticipants.filter((ap: any) => activityIdSet.has(ap.activity_id));
+      const relevantActivityParticipants = this._splitRemoteDeleted('activity_participants',
+        allActivityParticipants.filter((ap: any) => activityIdSet.has(ap.activity_id)), stamps, ledger).alive;
 
       if (relevantActivityParticipants.length > 0) {
         // Guardia FK: activity_participants.activity_id → activities.id y
@@ -1878,7 +1967,7 @@ export class SupabaseSyncService implements ISyncService {
         }));
         if (apToUpsert.length > 0) {
           const { error } = await supabase.from('activity_participants').upsert(apToUpsert, { onConflict: 'activity_id,participant_id', ignoreDuplicates: true });
-          if (!error) pushed += apToUpsert.length;
+          if (!error) { pushed += apToUpsert.length; this._ledgerAdd(ledger, 'activity_participants', apToUpsert); }
           else {
             if (!criticalError) criticalError = `activity_participants: ${error.message}`;
             console.warn('⚠️ WebPush activity_participants error:', error.message);
@@ -1886,6 +1975,7 @@ export class SupabaseSyncService implements ISyncService {
         }
       }
 
+      await this._saveLedger(userId, ledger);
       console.log(`${criticalError ? '⚠️' : '✅'} WebPush completo: ${pushed} registros subidos${criticalError ? ` (con error: ${criticalError})` : ''}`);
       return {
         success: !criticalError,
@@ -1918,6 +2008,15 @@ export class SupabaseSyncService implements ISyncService {
       // nunca recibe actualizaciones posteriores del evento compartido.
       await this._ensureCollaboratorRegistrationWeb(db, userId);
 
+      // Ledger de ids ya sincronizados (ver _loadLedger) y helper estricto: si una consulta
+      // falla, el pull se aborta. Un resultado vacío por error haría borrar datos locales.
+      const ledger = await this._loadLedger(userId);
+      const known = (table: string, id: string): boolean => !!ledger.get(table)?.has(id);
+      const must = <T,>(res: { data: T | null; error: any }, label: string): T | null => {
+        if (res.error) throw new Error(`WebPull ${label}: ${res.error.message}`);
+        return res.data;
+      };
+
       // ── 1. Eventos: propios + donde participa ─────────────────────────────
       // Las 3 consultas iniciales son independientes: se lanzan juntas.
       const [ownedRes, userParticipantsRes, collabRowsRes] = await Promise.all([
@@ -1927,13 +2026,13 @@ export class SupabaseSyncService implements ISyncService {
       ]);
       const { data: ownedEvents, error: oeError } = ownedRes;
       if (oeError) throw new Error(`WebPull events: ${oeError.message}`);
-      const { data: userParticipants } = userParticipantsRes;
+      const userParticipants = must(userParticipantsRes, 'participants(user)');
 
       let participatedEventIds: string[] = [];
       if (userParticipants && userParticipants.length > 0) {
         const pIds = userParticipants.map((p) => p.id);
-        const { data: epData } = await supabase
-          .from('event_participants').select('event_id').in('participant_id', pIds);
+        const epData = must(await supabase
+          .from('event_participants').select('event_id').in('participant_id', pIds), 'event_participants(event_id)');
         if (epData) {
           const ownedIds = new Set((ownedEvents || []).map((e) => e.id));
           participatedEventIds = [...new Set(epData.map((ep) => ep.event_id))].filter((id) => !ownedIds.has(id));
@@ -1942,20 +2041,20 @@ export class SupabaseSyncService implements ISyncService {
 
       let participatedEvents: any[] = [];
       if (participatedEventIds.length > 0) {
-        const { data: pEvents } = await supabase.from('events').select('*').in('id', participatedEventIds);
+        const pEvents = must(await supabase.from('events').select('*').in('id', participatedEventIds), 'events(participated)');
         participatedEvents = pEvents ?? [];
       }
 
       // Eventos donde el usuario es COLABORADOR (share editor/viewer).
       let collaboratorEvents: any[] = [];
-      const { data: collabRows } = collabRowsRes;
+      const collabRows = must(collabRowsRes, 'event_collaborators');
       if (collabRows && collabRows.length > 0) {
         const ownedIds = new Set((ownedEvents || []).map((e) => e.id));
         const participatedIds = new Set(participatedEventIds);
         const collabEventIds = [...new Set(collabRows.map((c: any) => c.event_id))]
           .filter((id) => !ownedIds.has(id) && !participatedIds.has(id));
         if (collabEventIds.length > 0) {
-          const { data: cEvents } = await supabase.from('events').select('*').in('id', collabEventIds);
+          const cEvents = must(await supabase.from('events').select('*').in('id', collabEventIds), 'events(collab)');
           collaboratorEvents = cEvents ?? [];
         }
       }
@@ -2006,7 +2105,7 @@ export class SupabaseSyncService implements ISyncService {
       }
 
       // ── 2. Event_participants ─────────────────────────────────────────────
-      const { data: cloudEPs } = await epsQ;
+      const cloudEPs = must(await epsQ, 'event_participants');
       const participantIds: string[] = [];
       if (cloudEPs) {
         for (const ep of cloudEPs) {
@@ -2024,15 +2123,17 @@ export class SupabaseSyncService implements ISyncService {
       }
 
       // ── 3. Participantes (de eventos + amigos) ────────────────────────────
-      const { data: userFriends } = await friendsQ;
+      const userFriends = must(await friendsQ, 'participants(friends)');
       const friendIds = (userFriends ?? []).map((p) => p.id);
       const allParticipantIdsToFetch = [...new Set([...participantIds, ...friendIds])];
+      const cloudParticipantIdSet = new Set<string>();
 
       if (allParticipantIdsToFetch.length > 0) {
-        const { data: cloudParticipants } = await supabase
-          .from('participants').select('*').in('id', allParticipantIdsToFetch);
+        const cloudParticipants = must(await supabase
+          .from('participants').select('*').in('id', allParticipantIdsToFetch), 'participants');
         if (cloudParticipants) {
           for (const p of cloudParticipants) {
+            cloudParticipantIdSet.add(p.id);
             if (!(await this._remoteWinsWeb(db, 'participants', p.id, p.updated_at))) continue;
             await db.put('participants', {
               id: p.id,
@@ -2057,7 +2158,7 @@ export class SupabaseSyncService implements ISyncService {
       }
 
       // ── 4. Gastos ─────────────────────────────────────────────────────────
-      const { data: cloudExpenses } = await expensesQ;
+      const cloudExpenses = must(await expensesQ, 'expenses');
       const cloudExpenseIds: string[] = [];
       if (cloudExpenses) {
         for (const ex of cloudExpenses) {
@@ -2087,8 +2188,8 @@ export class SupabaseSyncService implements ISyncService {
       // ── 5. Splits ─────────────────────────────────────────────────────────
       const cloudSplitIds = new Set<string>();
       if (cloudExpenseIds.length > 0) {
-        const { data: cloudSplits } = await supabase
-          .from('splits').select('*').in('expense_id', cloudExpenseIds);
+        const cloudSplits = must(await supabase
+          .from('splits').select('*').in('expense_id', cloudExpenseIds), 'splits');
         if (cloudSplits) {
           for (const sp of cloudSplits) {
             cloudSplitIds.add(sp.id);
@@ -2110,7 +2211,7 @@ export class SupabaseSyncService implements ISyncService {
       }
 
       // ── 6. Liquidaciones ──────────────────────────────────────────────────
-      const { data: cloudSettlements } = await settlementsQ;
+      const cloudSettlements = must(await settlementsQ, 'settlements');
       if (cloudSettlements) {
         for (const s of cloudSettlements) {
           if (!(await this._remoteWinsWeb(db, 'settlements', s.id, s.updated_at))) continue;
@@ -2135,7 +2236,7 @@ export class SupabaseSyncService implements ISyncService {
       }
 
       // ── 7. Actividades (organización) ─────────────────────────────────────
-      const { data: cloudActivities } = await activitiesQ;
+      const cloudActivities = must(await activitiesQ, 'activities');
       const cloudActivityIds: string[] = [];
       if (cloudActivities) {
         for (const a of cloudActivities) {
@@ -2159,8 +2260,8 @@ export class SupabaseSyncService implements ISyncService {
       // ── 8. Asignaciones de actividades ────────────────────────────────────
       const cloudActivityParticipantIds = new Set<string>();
       if (cloudActivityIds.length > 0) {
-        const { data: cloudActivityParticipants } = await supabase
-          .from('activity_participants').select('*').in('activity_id', cloudActivityIds);
+        const cloudActivityParticipants = must(await supabase
+          .from('activity_participants').select('*').in('activity_id', cloudActivityIds), 'activity_participants');
         if (cloudActivityParticipants) {
           for (const ap of cloudActivityParticipants) {
             cloudActivityParticipantIds.add(ap.id);
@@ -2204,7 +2305,7 @@ export class SupabaseSyncService implements ISyncService {
 
         // 1) Gastos eliminados → borrar local + sus splits
         const allLocalExpenses: any[] = await db.getAll('expenses');
-        const localExpensesInScope = allLocalExpenses.filter((ex: any) => cloudEventIdSet.has(ex.event_id) && eligible(ex));
+        const localExpensesInScope = allLocalExpenses.filter((ex: any) => cloudEventIdSet.has(ex.event_id) && eligible(ex) && known('expenses', ex.id));
         for (const le of localExpensesInScope) {
           if (!cloudExpenseIdSet.has(le.id)) {
             const spOfEx: any[] = (await db.getAll('splits')).filter((sp: any) => sp.expense_id === le.id);
@@ -2216,7 +2317,7 @@ export class SupabaseSyncService implements ISyncService {
         // 2) Splits eliminados individualmente (el gasto sigue existiendo)
         const allLocalSplits: any[] = await db.getAll('splits');
         for (const ls of allLocalSplits) {
-          if (cloudExpenseIdArrSet.has(ls.expense_id) && eligible(ls) && !cloudSplitIds.has(ls.id)) {
+          if (cloudExpenseIdArrSet.has(ls.expense_id) && eligible(ls) && known('splits', ls.id) && !cloudSplitIds.has(ls.id)) {
             await db.delete('splits', ls.id);
           }
         }
@@ -2224,7 +2325,7 @@ export class SupabaseSyncService implements ISyncService {
         // 3) Liquidaciones eliminadas
         const allLocalSettlements: any[] = await db.getAll('settlements');
         for (const ls of allLocalSettlements) {
-          if (cloudEventIdSet.has(ls.event_id) && eligible(ls) && !cloudSettlementIdSet.has(ls.id)) {
+          if (cloudEventIdSet.has(ls.event_id) && eligible(ls) && known('settlements', ls.id) && !cloudSettlementIdSet.has(ls.id)) {
             await db.delete('settlements', ls.id);
           }
         }
@@ -2232,7 +2333,7 @@ export class SupabaseSyncService implements ISyncService {
         // 4) Actividades eliminadas → borrar local + asignaciones
         const allLocalActivities: any[] = await db.getAll('activities');
         for (const la of allLocalActivities) {
-          if (cloudEventIdSet.has(la.event_id) && eligible(la) && !cloudActivityIdSet.has(la.id)) {
+          if (cloudEventIdSet.has(la.event_id) && eligible(la) && known('activities', la.id) && !cloudActivityIdSet.has(la.id)) {
             const apOfAct: any[] = (await db.getAll('activity_participants')).filter((ap: any) => ap.activity_id === la.id);
             for (const ap of apOfAct) await db.delete('activity_participants', ap.id);
             await db.delete('activities', la.id);
@@ -2242,7 +2343,7 @@ export class SupabaseSyncService implements ISyncService {
         // 5) Asignaciones de actividad eliminadas (la actividad sigue existiendo)
         const allLocalAP: any[] = await db.getAll('activity_participants');
         for (const lap of allLocalAP) {
-          if (cloudActivityIdSet.has(lap.activity_id) && !cloudActivityParticipantIds.has(lap.id)) {
+          if (cloudActivityIdSet.has(lap.activity_id) && known('activity_participants', lap.id) && !cloudActivityParticipantIds.has(lap.id)) {
             await db.delete('activity_participants', lap.id);
           }
         }
@@ -2251,7 +2352,7 @@ export class SupabaseSyncService implements ISyncService {
         const allLocalEPs: any[] = await db.getAll('event_participants');
         const removedParticipantIds: string[] = [];
         for (const lep of allLocalEPs) {
-          if (cloudEventIdSet.has(lep.event_id) && !cloudEPIdSet.has(lep.id)) {
+          if (cloudEventIdSet.has(lep.event_id) && known('event_participants', lep.id) && !cloudEPIdSet.has(lep.id)) {
             await db.delete('event_participants', lep.id);
             if (lep.participant_id) removedParticipantIds.push(lep.participant_id);
           }
@@ -2271,10 +2372,21 @@ export class SupabaseSyncService implements ISyncService {
           }
         }
 
-        // 8) Eventos COMPARTIDOS (importados) eliminados/revocados en la nube
+        // 7b) Participantes eliminados en la nube (p.ej. borrados desde la app)
+        // Solo si ya no queda ninguna membresía local que lo use (las que estuvieron sincronizadas
+        // ya se eliminaron en el paso 6; una membresía local aún sin subir lo mantiene a salvo).
+        const localParticipantsAll: any[] = await db.getAll('participants');
+        const stillLinked = new Set((await db.getAll('event_participants')).map((ep: any) => ep.participant_id));
+        for (const lp of localParticipantsAll) {
+          if (known('participants', lp.id) && eligible(lp) && !cloudParticipantIdSet.has(lp.id) && !stillLinked.has(lp.id)) {
+            await db.delete('participants', lp.id);
+          }
+        }
+
+        // 8) Eventos (propios o compartidos) eliminados/revocados en la nube
         const allLocalEvents: any[] = await db.getAll('events');
         for (const lev of allLocalEvents) {
-          if (lev.is_shared === 1 && eligible(lev) && !cloudEventIdSet.has(lev.id)) {
+          if (known('events', lev.id) && eligible(lev) && !cloudEventIdSet.has(lev.id)) {
             const exToDel: any[] = (await db.getAll('expenses')).filter((ex: any) => ex.event_id === lev.id);
             for (const ex of exToDel) {
               const spToDel: any[] = (await db.getAll('splits')).filter((sp: any) => sp.expense_id === ex.id);
@@ -2297,6 +2409,18 @@ export class SupabaseSyncService implements ISyncService {
       } catch (reconErr: any) {
         console.warn('⚠️ WebPull: reconciliación de borrados falló:', reconErr?.message || reconErr);
       }
+
+      // El ledger pasa a ser exactamente lo que hoy existe en la nube (visible para este usuario).
+      await this._saveLedger(userId, new Map<string, Set<string>>([
+        ['events', new Set(allEventIds)],
+        ['event_participants', new Set((cloudEPs ?? []).map((ep: any) => ep.id))],
+        ['participants', cloudParticipantIdSet],
+        ['expenses', new Set(cloudExpenseIds)],
+        ['splits', cloudSplitIds],
+        ['settlements', new Set((cloudSettlements ?? []).map((st: any) => st.id))],
+        ['activities', new Set(cloudActivityIds)],
+        ['activity_participants', cloudActivityParticipantIds],
+      ]));
 
       await AsyncStorage.setItem(LAST_PULL_KEY, new Date().toISOString());
       console.log(`✅ WebPull completo: ${pulled} registros descargados (${allCloudEvents.length} eventos)`);

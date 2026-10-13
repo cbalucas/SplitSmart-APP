@@ -7,6 +7,7 @@
 --     - Deja todas las tablas vacías (como recién creadas).
 --     - Reinicia los contadores SERIAL (app_versions, consolidation_assignments).
 --     - Elimina TAMBIÉN los usuarios de autenticación (auth.users).
+--     - Vacía también app_versions (datos de referencia de versiones).
 --     NO borra la estructura (tablas, funciones, triggers, políticas RLS).
 --
 -- Hacer un backup antes si hay dudas.
@@ -19,6 +20,7 @@ BEGIN;
 -- porque todas las tablas referenciadas se truncan a la vez.
 -- RESTART IDENTITY reinicia las secuencias SERIAL a 1.
 TRUNCATE TABLE
+  public.event_collaborators,
   public.activity_participants,
   public.activities,
   public.event_invitations,
@@ -43,19 +45,30 @@ RESTART IDENTITY CASCADE;
 -- (el SQL Editor del Dashboard los tiene).
 DELETE FROM auth.users;
 
--- ─── 3) Vaciar archivos de Storage (recibos y avatars) ────────────────────────
--- Las imágenes que se suben a Supabase Storage viven en storage.objects.
--- Esto elimina TODOS los archivos de todos los buckets, dejándolos vacíos
--- (los buckets en sí NO se borran, solo su contenido).
--- Nota: si además tenés avatars/recibos guardados como base64 en columnas TEXT
--- (users.avatar, participants.avatar, expenses.receipt_image, settlements.receipt_image),
--- esos ya se eliminaron en el TRUNCATE del paso 1.
-DELETE FROM storage.objects;
+-- ─── Storage ──────────────────────────────────────────────────────────────────
+-- La app NO usa Supabase Storage: avatars y comprobantes se guardan como texto en
+-- columnas (users.avatar, participants.avatar, expenses.receipt_image,
+-- settlements.receipt_image) y ya se eliminaron en el TRUNCATE del paso 1.
+-- Nota: Supabase bloquea el DELETE directo sobre storage.objects ("Direct deletion from
+-- storage tables is not allowed"); si algún día hubiera archivos, se vacían desde
+-- Dashboard → Storage o con la Storage API, no con SQL.
 
 COMMIT;
 
 -- ─── Verificación (opcional) ──────────────────────────────────────────────────
 -- SELECT 'users' AS tabla, COUNT(*) FROM public.users
 -- UNION ALL SELECT 'events', COUNT(*) FROM public.events
--- UNION ALL SELECT 'auth.users', COUNT(*) FROM auth.users
--- UNION ALL SELECT 'storage.objects', COUNT(*) FROM storage.objects;
+-- UNION ALL SELECT 'event_collaborators', COUNT(*) FROM public.event_collaborators
+-- UNION ALL SELECT 'shared_events', COUNT(*) FROM public.shared_events
+-- UNION ALL SELECT 'auth.users', COUNT(*) FROM auth.users;
+
+-- =====================================================================
+-- DESPUÉS DE EJECUTARLO — datos locales de cada dispositivo
+-- =====================================================================
+-- Este script solo limpia la NUBE. Cada celular/navegador conserva su base local
+-- y su sesión. Para evitar estados mezclados (la sincronización interpretaría lo
+-- que falta en la nube como "borrado" y lo eliminaría, o intentaría subirlo con
+-- usuarios que ya no existen):
+--   • App: Perfil → borrar datos (incluyendo usuarios) o desinstalar/reinstalar.
+--   • Web: borrar los datos del sitio (DevTools → Application → Clear site data).
+--   • Volver a registrarse / iniciar sesión (los usuarios de Auth ya no existen).

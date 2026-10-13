@@ -8,6 +8,7 @@ import { notificationService } from '../services/NotificationService';
 import { useAuth } from './AuthContext';
 import { generateId } from '../utils/uuid';
 import { describeSyncError } from '../utils/syncErrors';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
  * Estado de sincronización con la nube:
@@ -31,6 +32,8 @@ interface DataContextValue {
   lastSyncError: string | null;
   /** Marca de tiempo (ms) en que se reintentará solo la sincronización fallida; null si no hay reintento programado. */
   syncRetryAt: number | null;
+  /** true mientras haya cambios locales (altas/ediciones/borrados) que todavía no se confirmaron en la nube. */
+  hasPendingChanges: boolean;
   syncNow: () => Promise<void>;
   // Event methods
   addEvent: (event: Partial<Event>) => Promise<void>;
@@ -108,6 +111,7 @@ const DataContext = createContext<DataContextValue>({
   lastSyncedAt: null,
   lastSyncError: null,
   syncRetryAt: null,
+  hasPendingChanges: false,
   syncNow: async () => {},
   addEvent: async () => {},
   updateEvent: async () => {},
@@ -262,6 +266,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const pushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [syncRetryAt, setSyncRetryAt] = useState<number | null>(null);
 
+  // Cambios locales sin confirmar en la nube. writeSeqRef cuenta las escrituras: si durante
+  // una sync entra una escritura nueva, al terminar NO se limpia la marca (queda un push en cola).
+  // Se persiste para que, tras cerrar la app con cambios sin enviar, el indicador lo siga mostrando.
+  const PENDING_KEY = '@splitsmart/pending_push';
+  const writeSeqRef = useRef(0);
+  const pendingRef = useRef(false);
+  const [hasPendingChanges, setHasPendingChanges] = useState(false);
+  const setPending = (value: boolean) => {
+    pendingRef.current = value;
+    setHasPendingChanges(value);
+    AsyncStorage.setItem(PENDING_KEY, value ? '1' : '0').catch(() => {});
+  };
+  useEffect(() => {
+    AsyncStorage.getItem(PENDING_KEY)
+      .then(v => { if (v === '1') { pendingRef.current = true; setHasPendingChanges(true); } })
+      .catch(() => {});
+  }, []);
+
   const mergeModes = (a: SyncMode | null, b: SyncMode): SyncMode =>
     !a ? b : a === b ? a : 'full';
 
@@ -282,6 +304,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     syncRunningRef.current = true;
     setIsSyncing(true);
     setSyncStatus('syncing');
+    const writeSeqAtStart = writeSeqRef.current;
     let failure: ReturnType<typeof describeSyncError> | null = null;
     try {
       const result = mode === 'push' ? await syncService.push(syncUserId)
@@ -292,6 +315,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         await refreshData();
       }
       if (result.success) {
+        if (mode !== 'pull' && writeSeqRef.current === writeSeqAtStart) setPending(false);
         retryAttemptRef.current = 0;
         clearRetry();
         setLastSyncError(null);
@@ -367,6 +391,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Se agrupa: varias escrituras seguidas generan UN solo push.
   const backgroundPush = useCallback(() => {
     if (!isOnlineUser || !syncUserId || !syncService.isEnabled) return;
+    writeSeqRef.current += 1;
+    if (!pendingRef.current) setPending(true);
     if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
     pushTimerRef.current = setTimeout(() => {
       pushTimerRef.current = null;
@@ -417,6 +443,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         event: '*', schema: 'public', table: 'participants',
         filter: `created_by_user_id=eq.${syncUserId}`,
       }, schedulePull)
+      // Membresías (alta/baja de participantes en un evento), splits y actividades:
+      // sin estas, quitar un participante o un reparto desde otro dispositivo no avisaba.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_participants' }, schedulePull)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'splits' }, schedulePull)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'activities' }, schedulePull)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_participants' }, schedulePull)
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           console.log('✅ Realtime: suscripción activa para usuario', syncUserId);
@@ -456,6 +488,46 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription.remove();
   }, [syncUserId, isOnlineUser, refreshData]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Actualizaciones remotas: chequeo periódico y al volver a la pestaña ─────
+  // Realtime es el camino rápido, pero puede perder eventos (red caída, pestaña dormida).
+  // Red de seguridad: cada 60 s (app/pestaña visible) y al volver a la pestaña web se trae lo
+  // nuevo con un pull; si hay cambios locales sin enviar se hace una sync completa.
+  useEffect(() => {
+    if (!isOnlineUser || !syncUserId || !syncService.isEnabled) return;
+    const POLL_MS = 60_000;
+    const MIN_FOCUS_GAP_MS = 20_000;
+    let lastAuto = Date.now();
+
+    const isVisible = (): boolean => {
+      if (Platform.OS === 'web') {
+        return typeof document === 'undefined' || document.visibilityState === 'visible';
+      }
+      return AppState.currentState === 'active';
+    };
+    const auto = (reason: string) => {
+      if (!isVisible()) return;
+      lastAuto = Date.now();
+      console.log(`⏱️ Auto-sync (${reason})`);
+      runSyncRef.current(pendingRef.current ? 'full' : 'pull');
+    };
+
+    const timer = setInterval(() => auto('periódico'), POLL_MS);
+    const onVisible = () => {
+      if (isVisible() && Date.now() - lastAuto > MIN_FOCUS_GAP_MS) auto('volvió a la pestaña');
+    };
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisible);
+      window.addEventListener('focus', onVisible);
+    }
+    return () => {
+      clearInterval(timer);
+      if (Platform.OS === 'web' && typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVisible);
+        window.removeEventListener('focus', onVisible);
+      }
+    };
+  }, [syncUserId, isOnlineUser]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Web: al volver la conexión, sincronizar sin esperar al próximo reintento ──
   useEffect(() => {
@@ -1762,6 +1834,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       lastSyncedAt,
       lastSyncError,
       syncRetryAt,
+      hasPendingChanges,
       syncNow,
       clearAllData,
       resetDatabase,

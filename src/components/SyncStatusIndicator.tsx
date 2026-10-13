@@ -52,11 +52,28 @@ const LABELS: Record<'es' | 'en' | 'pt', Record<Exclude<SyncStatus, 'disabled'>,
   },
 };
 
-const EXTRA: Record<'es' | 'en' | 'pt', { retryIn: string; retryNow: string; close: string; willRetry: string }> = {
-  es: { retryIn: 'reintento en {s}s', retryNow: 'Reintentar ahora', close: 'Cerrar', willRetry: 'Se reintentará automáticamente en {s} s.' },
-  en: { retryIn: 'retry in {s}s', retryNow: 'Retry now', close: 'Close', willRetry: 'It will retry automatically in {s} s.' },
-  pt: { retryIn: 'nova tentativa em {s}s', retryNow: 'Tentar agora', close: 'Fechar', willRetry: 'Tentará novamente automaticamente em {s} s.' },
+const EXTRA: Record<'es' | 'en' | 'pt', {
+  retryIn: string; retryNow: string; close: string; willRetry: string;
+  pending: string; sending: string; lastSync: string; justNow: string; ago: string;
+}> = {
+  es: { retryIn: 'reintento en {s}s', retryNow: 'Reintentar ahora', close: 'Cerrar', willRetry: 'Se reintentará automáticamente en {s} s.',
+        pending: 'Cambios sin enviar', sending: 'Enviando cambios…', lastSync: 'Última sync', justNow: 'recién', ago: 'hace {t}' },
+  en: { retryIn: 'retry in {s}s', retryNow: 'Retry now', close: 'Close', willRetry: 'It will retry automatically in {s} s.',
+        pending: 'Unsent changes', sending: 'Sending changes…', lastSync: 'Last sync', justNow: 'just now', ago: '{t} ago' },
+  pt: { retryIn: 'nova tentativa em {s}s', retryNow: 'Tentar agora', close: 'Fechar', willRetry: 'Tentará novamente automaticamente em {s} s.',
+        pending: 'Alterações não enviadas', sending: 'Enviando alterações…', lastSync: 'Última sync', justNow: 'agora', ago: 'há {t}' },
 };
+
+/** Tiempo transcurrido corto ("3 min", "2 h"). */
+function formatElapsed(iso: string | null, now: number): string | null {
+  if (!iso) return null;
+  const secs = Math.max(0, Math.floor((now - Date.parse(iso)) / 1000));
+  if (secs < 45) return '';
+  const mins = Math.round(secs / 60);
+  if (mins < 60) return `${mins} min`;
+  const hours = Math.round(mins / 60);
+  return hours < 24 ? `${hours} h` : `${Math.round(hours / 24)} d`;
+}
 
 export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
   variant = 'icon',
@@ -66,13 +83,20 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
 }) => {
   const { theme } = useTheme();
   const { language } = useLanguage();
-  const { syncStatus, syncNow, isSyncing, lastSyncError, syncRetryAt } = useData();
+  const { syncStatus, syncNow, isSyncing, lastSyncError, syncRetryAt, hasPendingChanges, lastSyncedAt } = useData();
   const spinValue = useRef(new Animated.Value(0)).current;
   const spinAnimation = useRef<Animated.CompositeAnimation | null>(null);
 
   const lang = (['es', 'en', 'pt'].includes(language) ? language : 'es') as 'es' | 'en' | 'pt';
   const labels = LABELS[lang];
   const extra = EXTRA[lang];
+
+  // Reloj para refrescar el "hace X min" de la última sincronización
+  const [nowTs, setNowTs] = React.useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowTs(Date.now()), 30000);
+    return () => clearInterval(t);
+  }, []);
 
   // Segundos que faltan para el próximo reintento automático (cuenta regresiva en vivo)
   const [retrySeconds, setRetrySeconds] = React.useState(0);
@@ -93,18 +117,26 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
   const getVisual = (): StatusVisual => {
     switch (syncStatus) {
       case 'syncing':
-        return { icon: 'cloud-sync-outline', color: theme.colors.primary, label: labels.syncing, spin: true };
+        return { icon: 'cloud-sync-outline', color: theme.colors.primary, label: hasPendingChanges ? extra.sending : labels.syncing, spin: true };
       case 'offline':
         return { icon: 'cloud-off-outline', color: theme.colors.onSurfaceVariant, label: labels.offline, spin: false };
       case 'error':
         return { icon: 'cloud-alert-outline', color: theme.colors.error, label: labels.error, spin: false };
       case 'synced':
       default:
+        if (hasPendingChanges) {
+          return { icon: 'cloud-upload-outline', color: '#E65100', label: extra.pending, spin: false };
+        }
         return { icon: 'cloud-check-outline', color: color || theme.colors.success, label: labels.synced, spin: false };
     }
   };
 
   const baseVisual = getVisual();
+  const elapsed = formatElapsed(lastSyncedAt, nowTs);
+  const lastSyncText = elapsed === null
+    ? null
+    : `${extra.lastSync}: ${elapsed === '' ? extra.justNow : extra.ago.replace('{t}', elapsed)}`;
+  const showPendingBadge = hasPendingChanges && syncStatus !== 'syncing' && syncStatus !== 'disabled';
   const visual =
     (syncStatus === 'error' || syncStatus === 'offline') && retrySeconds > 0
       ? { ...baseVisual, label: `${baseVisual.label} · ${extra.retryIn.replace('{s}', String(retrySeconds))}` }
@@ -146,7 +178,7 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
       showAlert({
         type: syncStatus === 'offline' ? 'warning' : 'error',
         title: syncStatus === 'offline' ? labels.offline : labels.error,
-        message: `${lastSyncError}${retryLine}`,
+        message: `${lastSyncError}${retryLine}${hasPendingChanges ? `\n\n${extra.pending}.` : ''}`,
         buttons: [
           { text: extra.close, style: 'cancel' },
           { text: extra.retryNow, onPress: () => { syncNow(); } },
@@ -174,9 +206,16 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
         accessibilityLabel={visual.label}
       >
         {iconNode}
-        <Text style={[styles.fullLabel, { color: visual.color }]} numberOfLines={1}>
-          {visual.label}
-        </Text>
+        <View style={{ flexShrink: 1 }}>
+          <Text style={[styles.fullLabel, { color: visual.color }]} numberOfLines={1}>
+            {visual.label}
+          </Text>
+          {!!lastSyncText && (
+            <Text style={[styles.fullSub, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
+              {lastSyncText}
+            </Text>
+          )}
+        </View>
       </TouchableOpacity>
     );
   }
@@ -191,6 +230,7 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
       accessibilityLabel={visual.label}
     >
       {iconNode}
+      {showPendingBadge && <View style={styles.pendingBadge} />}
     </TouchableOpacity>
   );
 };
@@ -214,6 +254,21 @@ const styles = StyleSheet.create({
   fullLabel: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  fullSub: {
+    fontSize: 11,
+    marginTop: 1,
+  },
+  pendingBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#E65100',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
   },
 });
 
