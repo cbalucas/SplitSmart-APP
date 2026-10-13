@@ -111,10 +111,10 @@ export const createLoginStyles = (theme: Theme) => StyleSheet.create({
   authRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    gap: 10,
+    justifyContent: 'space-between',
   },
   loginButtonWrap: {
-    flex: 2,
+    width: '55%',
   },
 
   // ── Separador "o" ─────────────────────────────────────────
@@ -136,32 +136,43 @@ export const createLoginStyles = (theme: Theme) => StyleSheet.create({
 
   // ── Botón Google ──────────────────────────────────────────
   googleButton: {
+    width: '40%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: theme.colors.outline,
     backgroundColor: theme.colors.surface,
   },
   googleButtonText: {
+    flexShrink: 1,
     color: theme.colors.onSurface,
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
+    textAlign: 'center',
   },
 
-  // ── Botón biométrico (1/3 del ancho de la fila) ────────────────
+  // ── Botón biométrico (fila propia, ancho completo) ─────────────
   biometricButton: {
-    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: theme.colors.outline,
     backgroundColor: theme.colors.surface,
+  },
+
+  biometricButtonText: {
+    color: theme.colors.primary,
+    fontSize: 14,
+    fontWeight: '600',
   },
 
   // ── Link "¿No tienes cuenta?" ─────────────────────────────

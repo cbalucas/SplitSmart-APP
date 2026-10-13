@@ -30,6 +30,8 @@
 
 ### ✨ Mejoras
 
+- **Aviso de Metro por `@noble/hashes/crypto`**: la librería de hash importa un archivo interno que no declara en su `exports`; Metro lo resolvía igual pero emitía un WARN en cada arranque. `metro.config.js` ahora lo resuelve explícitamente (variante no-Node). Sin cambio funcional.
+- **Login: "Iniciar Sesión" y "Continuar con Google" en la misma línea** (55 % / 40 % del ancho, sin el separador "o"). El botón de huella pasó a una fila propia sobre ellos, con ícono y texto. Archivos: `Auth/LoginScreen.tsx`, `Auth/LoginScreen.styles.ts`.
 - **Tipado limpio**: `npx tsc --noEmit` pasa de 53 errores a 0. `IDatabaseService` declara `getConsolidationAssignments`, `saveConsolidationAssignments`, `clearConsolidationAssignments` y `linkUserToSupabase`; el filtro `locked` de Home tiene su tipo; parámetros `any` explícitos en el sync; `catch (e: any)` en la importación.
 - **Logs de colaboración mejorados**: `console.error` con contexto (eventId, userId, shareId, error exacto) cuando falla el registro del colaborador en `event_collaborators` (importación o push). Antes eran `console.warn` silenciosos.
 - **Documentación**: `README.md` reescrito (estaba en v1.2.0 / RN 0.75 / "100% offline"); `CONTEXTO_PROYECTO.md` actualizado (sync con Realtime, hash de contraseñas, estado y deuda técnica); `VERSIONING.md` ya no fija una versión desactualizada.
@@ -47,7 +49,7 @@
 - `src/utils/passwordHash.ts`, `src/utils/loginThrottle.ts`
 
 **Autenticación / seguridad**
-- `src/context/AuthContext.tsx`, `src/screens/Auth/LoginScreen.tsx`, `src/screens/Auth/language.ts`, `src/services/database.ts`, `src/services/IndexedDBDatabaseService.ts`, `package.json` y `package-lock.json` (+`@noble/hashes`)
+- `src/context/AuthContext.tsx`, `src/screens/Auth/LoginScreen.tsx`, `src/screens/Auth/language.ts`, `src/services/database.ts`, `src/services/IndexedDBDatabaseService.ts`, `package.json` y `package-lock.json` (+`@noble/hashes`), `metro.config.js`
 
 **Sincronización / datos**
 - `src/services/SupabaseSyncService.ts` (reintento de registro de colaborador en pull nativo y web; guarda LWW en push web; logs de colaboración; tipos)

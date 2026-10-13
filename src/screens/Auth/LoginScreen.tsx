@@ -444,7 +444,26 @@ export default function LoginScreen() {
           {/* ── Footer fijo ─────────────────────────────────── */}
           <View style={styles.footer}>
 
-            {/* Fila 1: Login + Biométrico (si disponible) */}
+            {/* Biométrico (si disponible): fila propia */}
+            {showBiometricButton && Platform.OS !== 'web' && (
+              <TouchableOpacity
+                style={[styles.biometricButton, loading && { opacity: 0.5 }]}
+                accessibilityLabel={t.form.biometricButton}
+                onPress={async () => {
+                  const success = await loginWithBiometric(lastLoggedUser?.id);
+                  if (!success) {
+                    showAlert({ type: 'error', title: t.errors.general, message: t.errors.biometricFailed, buttons: [{ text: 'OK' }] });
+                  }
+                }}
+                disabled={loading}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons name="fingerprint" size={24} color={theme.colors.primary} />
+                <Text style={styles.biometricButtonText}>{t.form.biometricButton}</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Login (55%) + Google (40%) en la misma línea */}
             <View style={styles.authRow}>
               <View style={styles.loginButtonWrap}>
                 <Button
@@ -457,51 +476,27 @@ export default function LoginScreen() {
                 />
               </View>
 
-              {showBiometricButton && Platform.OS !== 'web' && (
-                <TouchableOpacity
-                  style={[styles.biometricButton, loading && { opacity: 0.5 }]}
-                  accessibilityLabel={t.form.biometricButton}
-                  onPress={async () => {
-                    const success = await loginWithBiometric(lastLoggedUser?.id);
-                    if (!success) {
-                      showAlert({ type: 'error', title: t.errors.general, message: t.errors.biometricFailed, buttons: [{ text: 'OK' }] });
-                    }
-                  }}
-                  disabled={loading}
-                  activeOpacity={0.7}
-                >
-                  <MaterialCommunityIcons name="fingerprint" size={24} color={theme.colors.primary} />
-                </TouchableOpacity>
-              )}
+              {/* Botón Google */}
+              <TouchableOpacity
+                style={[styles.googleButton, (loading || googleLoading) && { opacity: 0.6 }]}
+                onPress={handleGoogleLogin}
+                disabled={loading || googleLoading}
+                activeOpacity={0.8}
+              >
+                {googleLoading ? (
+                  <ActivityIndicator size={18} color={theme.colors.onSurface} />
+                ) : (
+                  <Image
+                    source={require('../../../assets/images/google-icon.png')}
+                    style={{ width: 20, height: 20 }}
+                    resizeMode="contain"
+                  />
+                )}
+                <Text style={styles.googleButtonText} numberOfLines={2}>
+                  {googleLoading ? t.form.googleLoginLoading : t.form.googleLogin}
+                </Text>
+              </TouchableOpacity>
             </View>
-
-            {/* Separador ── o ── */}
-            <View style={[styles.dividerRow, { marginTop: 12 }]}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>o</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            {/* Botón Google */}
-            <TouchableOpacity
-              style={[styles.googleButton, (loading || googleLoading) && { opacity: 0.6 }]}
-              onPress={handleGoogleLogin}
-              disabled={loading || googleLoading}
-              activeOpacity={0.8}
-            >
-              {googleLoading ? (
-                <ActivityIndicator size={18} color={theme.colors.onSurface} />
-              ) : (
-                <Image
-                  source={require('../../../assets/images/google-icon.png')}
-                  style={{ width: 20, height: 20 }}
-                  resizeMode="contain"
-                />
-              )}
-              <Text style={styles.googleButtonText}>
-                {googleLoading ? t.form.googleLoginLoading : t.form.googleLogin}
-              </Text>
-            </TouchableOpacity>
 
           </View>
         </SafeAreaView>
