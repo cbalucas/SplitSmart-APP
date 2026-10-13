@@ -1300,6 +1300,41 @@ export class SupabaseSyncService implements ISyncService {
     return result;
   }
 
+  // ─── Helper (web): descartar filas locales más viejas que la copia en la nube ─
+  // El push web sube todo (no hay sync_status fiable en IndexedDB). Para no pisar
+  // cambios más recientes hechos desde otro dispositivo, solo se suben las filas
+  // cuyo updated_at local es >= al remoto; las demás las trae el pull posterior (LWW).
+  private async _notOlderThanRemote<T extends { id: string; updated_at?: string | null }>(
+    table: string,
+    rows: T[]
+  ): Promise<T[]> {
+    if (rows.length === 0) return rows;
+    const remote = new Map<string, number>();
+    try {
+      for (let i = 0; i < rows.length; i += 100) {
+        const chunk = rows.slice(i, i + 100).map(r => r.id);
+        const { data } = await supabase.from(table).select('id, updated_at').in('id', chunk);
+        (data || []).forEach((r: any) => {
+          const t = r.updated_at ? Date.parse(r.updated_at) : NaN;
+          if (!isNaN(t)) remote.set(r.id, t);
+        });
+      }
+    } catch (e) {
+      console.warn(`⚠️ WebPush LWW guard (${table}):`, (e as any)?.message);
+      return rows; // ante error de red, comportamiento previo (subir todo)
+    }
+    const kept = rows.filter(r => {
+      const rt = remote.get(r.id);
+      if (rt === undefined) return true;
+      const lt = r.updated_at ? Date.parse(r.updated_at) : NaN;
+      return isNaN(lt) || lt >= rt;
+    });
+    if (kept.length !== rows.length) {
+      console.log(`🛡️ WebPush LWW guard (${table}): ${rows.length - kept.length} fila(s) omitidas por tener versión más nueva en la nube`);
+    }
+    return kept;
+  }
+
   // ─── Helper: adoptar registros huérfanos (sin dueño válido) ───────────────
   private async _adoptOrphanRecords(db: any, userId: string): Promise<void> {
     try {
@@ -1461,8 +1496,9 @@ export class SupabaseSyncService implements ISyncService {
                ((e.is_shared === 1 || e.is_shared === true) && (!e.creator_id || e.creator_id === ''))
       );
 
-      if (ownEvents.length > 0) {
-        const eventsToUpsert = ownEvents.map((e) => ({
+      const eventsToPush = await this._notOlderThanRemote('events', ownEvents);
+      if (eventsToPush.length > 0) {
+        const eventsToUpsert = eventsToPush.map((e) => ({
           id: e.id,
           name: e.name,
           description: e.description || null,
@@ -1488,9 +1524,9 @@ export class SupabaseSyncService implements ISyncService {
 
         const { error } = await supabase.from('events').upsert(eventsToUpsert, { onConflict: 'id' });
         if (!error) {
-          pushed += ownEvents.length;
+          pushed += eventsToPush.length;
           // Actualizar creator_id local para eventos importados
-          for (const e of ownEvents) {
+          for (const e of eventsToPush) {
             if (!e.creator_id || e.creator_id === '') {
               await db.put('events', { ...e, creator_id: userId });
             }
@@ -1545,7 +1581,7 @@ export class SupabaseSyncService implements ISyncService {
       // IMPORTANTE: se suben primero los participants y luego event_participants
       // por la FK event_participants.participant_id → participants.id
       const allEPs: any[] = await db.getAll('event_participants');
-      const relevantEPs = allEPs.filter((ep) => eventIdSet.has(ep.event_id));
+      const relevantEPs = allEPs.filter((ep: any) => eventIdSet.has(ep.event_id));
       const participantIdsInEvents = new Set(relevantEPs.map((ep) => ep.participant_id));
 
       // 2a. Participantes: amigos del usuario + los de sus eventos SIN dueño.
@@ -1554,11 +1590,11 @@ export class SupabaseSyncService implements ISyncService {
       // Hacerlo viola la política RLS `participants_update_own` (created_by = auth.uid())
       // y marca un error espurio. El dueño ya los mantiene sincronizados.
       const allParticipants: any[] = await db.getAll('participants');
-      const relevantParticipants = allParticipants.filter(
+      const relevantParticipants = await this._notOlderThanRemote('participants', allParticipants.filter(
         (p) =>
           p.created_by_user_id === userId ||
           (participantIdsInEvents.has(p.id) && (!p.created_by_user_id || p.created_by_user_id === ''))
-      );
+      ));
 
       if (relevantParticipants.length > 0) {
         const participantsToUpsert = relevantParticipants.map((p) => ({
@@ -1595,7 +1631,7 @@ export class SupabaseSyncService implements ISyncService {
         const existingPids = await this._existingIds('participants', referencedPids);
 
         const epsToUpsert = relevantEPs
-          .filter((ep) => existingPids.has(ep.participant_id))
+          .filter((ep: any) => existingPids.has(ep.participant_id))
           .map((ep) => ({
             id: ep.id,
             event_id: ep.event_id,
@@ -1615,14 +1651,14 @@ export class SupabaseSyncService implements ISyncService {
 
       // ── 4. Gastos ─────────────────────────────────────────────────────────
       const allExpenses: any[] = await db.getAll('expenses');
-      const relevantExpenses = allExpenses.filter((ex) => eventIdSet.has(ex.event_id));
+      const relevantExpenses = allExpenses.filter((ex: any) => eventIdSet.has(ex.event_id));
       const expenseIdSet = new Set(relevantExpenses.map((ex) => ex.id));
 
       if (relevantExpenses.length > 0) {
         // Guardia FK: expenses.payer_id → participants.id (RESTRICT).
         const validPayerIds = await this._existingIds('participants', relevantExpenses.map((ex) => ex.payer_id));
-        const expensesToUpsert = relevantExpenses
-          .filter((ex) => validPayerIds.has(ex.payer_id))
+        const expensesToUpsert = (await this._notOlderThanRemote('expenses', relevantExpenses))
+          .filter((ex: any) => validPayerIds.has(ex.payer_id))
           .map((ex) => ({
           id: ex.id,
           event_id: ex.event_id,
@@ -1649,14 +1685,14 @@ export class SupabaseSyncService implements ISyncService {
 
       // ── 5. Splits ─────────────────────────────────────────────────────────
       const allSplits: any[] = await db.getAll('splits');
-      const relevantSplits = allSplits.filter((sp) => expenseIdSet.has(sp.expense_id));
+      const relevantSplits = allSplits.filter((sp: any) => expenseIdSet.has(sp.expense_id));
 
       if (relevantSplits.length > 0) {
         // Guardia FK: splits.expense_id → expenses.id y participant_id → participants.id.
         const validSplitExpenseIds = await this._existingIds('expenses', relevantSplits.map((sp) => sp.expense_id));
         const validSplitPids = await this._existingIds('participants', relevantSplits.map((sp) => sp.participant_id));
-        const splitsToUpsert = relevantSplits
-          .filter((sp) => validSplitExpenseIds.has(sp.expense_id) && validSplitPids.has(sp.participant_id))
+        const splitsToUpsert = (await this._notOlderThanRemote('splits', relevantSplits))
+          .filter((sp: any) => validSplitExpenseIds.has(sp.expense_id) && validSplitPids.has(sp.participant_id))
           .map((sp) => ({
           id: sp.id,
           expense_id: sp.expense_id,
@@ -1677,14 +1713,14 @@ export class SupabaseSyncService implements ISyncService {
 
       // ── 6. Liquidaciones ──────────────────────────────────────────────────
       const allSettlements: any[] = await db.getAll('settlements');
-      const relevantSettlements = allSettlements.filter((s) => eventIdSet.has(s.event_id));
+      const relevantSettlements = allSettlements.filter((s: any) => eventIdSet.has(s.event_id));
 
       if (relevantSettlements.length > 0) {
         // Guardia FK: settlements.from/to_participant_id → participants.id (RESTRICT).
         const validStPids = await this._existingIds('participants',
           relevantSettlements.flatMap((s) => [s.from_participant_id, s.to_participant_id]));
-        const settlementsToUpsert = relevantSettlements
-          .filter((s) => validStPids.has(s.from_participant_id) && validStPids.has(s.to_participant_id))
+        const settlementsToUpsert = (await this._notOlderThanRemote('settlements', relevantSettlements))
+          .filter((s: any) => validStPids.has(s.from_participant_id) && validStPids.has(s.to_participant_id))
           .map((s) => ({
           id: s.id,
           event_id: s.event_id,
@@ -1710,11 +1746,12 @@ export class SupabaseSyncService implements ISyncService {
 
       // ── 7. Actividades (organización) ─────────────────────────────────────
       const allActivities: any[] = await db.getAll('activities');
-      const relevantActivities = allActivities.filter((a) => eventIdSet.has(a.event_id));
+      const relevantActivities = allActivities.filter((a: any) => eventIdSet.has(a.event_id));
       const activityIdSet = new Set(relevantActivities.map((a) => a.id));
 
       if (relevantActivities.length > 0) {
-        const activitiesToUpsert = relevantActivities.map((a) => ({
+        const activitiesToPush = await this._notOlderThanRemote('activities', relevantActivities);
+        const activitiesToUpsert = activitiesToPush.map((a) => ({
           id: a.id,
           event_id: a.event_id,
           title: a.title,
@@ -1724,14 +1761,16 @@ export class SupabaseSyncService implements ISyncService {
           created_at: a.created_at || new Date().toISOString(),
           updated_at: a.updated_at || new Date().toISOString(),
         }));
-        const { error } = await supabase.from('activities').upsert(activitiesToUpsert, { onConflict: 'id' });
-        if (!error) pushed += relevantActivities.length;
+        const { error } = activitiesToUpsert.length > 0
+          ? await supabase.from('activities').upsert(activitiesToUpsert, { onConflict: 'id' })
+          : { error: null };
+        if (!error) pushed += activitiesToPush.length;
         else console.warn('⚠️ WebPush activities error:', error.message);
       }
 
       // ── 8. Asignaciones de actividades ────────────────────────────────────
       const allActivityParticipants: any[] = await db.getAll('activity_participants');
-      const relevantActivityParticipants = allActivityParticipants.filter((ap) => activityIdSet.has(ap.activity_id));
+      const relevantActivityParticipants = allActivityParticipants.filter((ap: any) => activityIdSet.has(ap.activity_id));
 
       if (relevantActivityParticipants.length > 0) {
         // Guardia FK: activity_participants.activity_id → activities.id y
@@ -1739,7 +1778,7 @@ export class SupabaseSyncService implements ISyncService {
         const validApActivityIds = await this._existingIds('activities', relevantActivityParticipants.map((ap) => ap.activity_id));
         const validApPids = await this._existingIds('participants', relevantActivityParticipants.map((ap) => ap.participant_id));
         const apToUpsert = relevantActivityParticipants
-          .filter((ap) => validApActivityIds.has(ap.activity_id) && validApPids.has(ap.participant_id))
+          .filter((ap: any) => validApActivityIds.has(ap.activity_id) && validApPids.has(ap.participant_id))
           .map((ap) => ({
           id: ap.id,
           activity_id: ap.activity_id,
@@ -2065,10 +2104,10 @@ export class SupabaseSyncService implements ISyncService {
 
         // 1) Gastos eliminados → borrar local + sus splits
         const allLocalExpenses: any[] = await db.getAll('expenses');
-        const localExpensesInScope = allLocalExpenses.filter((ex) => cloudEventIdSet.has(ex.event_id) && eligible(ex));
+        const localExpensesInScope = allLocalExpenses.filter((ex: any) => cloudEventIdSet.has(ex.event_id) && eligible(ex));
         for (const le of localExpensesInScope) {
           if (!cloudExpenseIdSet.has(le.id)) {
-            const spOfEx: any[] = (await db.getAll('splits')).filter((sp) => sp.expense_id === le.id);
+            const spOfEx: any[] = (await db.getAll('splits')).filter((sp: any) => sp.expense_id === le.id);
             for (const sp of spOfEx) await db.delete('splits', sp.id);
             await db.delete('expenses', le.id);
           }
@@ -2094,7 +2133,7 @@ export class SupabaseSyncService implements ISyncService {
         const allLocalActivities: any[] = await db.getAll('activities');
         for (const la of allLocalActivities) {
           if (cloudEventIdSet.has(la.event_id) && eligible(la) && !cloudActivityIdSet.has(la.id)) {
-            const apOfAct: any[] = (await db.getAll('activity_participants')).filter((ap) => ap.activity_id === la.id);
+            const apOfAct: any[] = (await db.getAll('activity_participants')).filter((ap: any) => ap.activity_id === la.id);
             for (const ap of apOfAct) await db.delete('activity_participants', ap.id);
             await db.delete('activities', la.id);
           }
@@ -2136,21 +2175,21 @@ export class SupabaseSyncService implements ISyncService {
         const allLocalEvents: any[] = await db.getAll('events');
         for (const lev of allLocalEvents) {
           if (lev.is_shared === 1 && eligible(lev) && !cloudEventIdSet.has(lev.id)) {
-            const exToDel: any[] = (await db.getAll('expenses')).filter((ex) => ex.event_id === lev.id);
+            const exToDel: any[] = (await db.getAll('expenses')).filter((ex: any) => ex.event_id === lev.id);
             for (const ex of exToDel) {
-              const spToDel: any[] = (await db.getAll('splits')).filter((sp) => sp.expense_id === ex.id);
+              const spToDel: any[] = (await db.getAll('splits')).filter((sp: any) => sp.expense_id === ex.id);
               for (const sp of spToDel) await db.delete('splits', sp.id);
               await db.delete('expenses', ex.id);
             }
-            const actToDel: any[] = (await db.getAll('activities')).filter((a) => a.event_id === lev.id);
+            const actToDel: any[] = (await db.getAll('activities')).filter((a: any) => a.event_id === lev.id);
             for (const a of actToDel) {
-              const apToDel: any[] = (await db.getAll('activity_participants')).filter((ap) => ap.activity_id === a.id);
+              const apToDel: any[] = (await db.getAll('activity_participants')).filter((ap: any) => ap.activity_id === a.id);
               for (const ap of apToDel) await db.delete('activity_participants', ap.id);
               await db.delete('activities', a.id);
             }
-            const stToDel: any[] = (await db.getAll('settlements')).filter((s) => s.event_id === lev.id);
+            const stToDel: any[] = (await db.getAll('settlements')).filter((s: any) => s.event_id === lev.id);
             for (const s of stToDel) await db.delete('settlements', s.id);
-            const epToDel: any[] = (await db.getAll('event_participants')).filter((ep) => ep.event_id === lev.id);
+            const epToDel: any[] = (await db.getAll('event_participants')).filter((ep: any) => ep.event_id === lev.id);
             for (const ep of epToDel) await db.delete('event_participants', ep.id);
             await db.delete('events', lev.id);
           }

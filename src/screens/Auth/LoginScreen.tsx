@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, Modal, KeyboardAvoidingView, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -36,13 +36,23 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showDemoModal, setShowDemoModal] = useState(false);
   const [submittedOnce, setSubmittedOnce] = useState(false);
+  // Segundos restantes de bloqueo por intentos fallidos (cuenta regresiva en vivo)
+  const [lockSeconds, setLockSeconds] = useState(0);
+
+  useEffect(() => {
+    if (lockSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setLockSeconds(prev => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lockSeconds > 0]); // eslint-disable-line react-hooks/exhaustive-deps
   const [showBiometricButton, setShowBiometricButton] = useState(false);
   const [lastLoggedUser, setLastLoggedUser] = useState<LastUser | null>(null);
   const [showLastUserCard, setShowLastUserCard] = useState(false);
   const [showSwitchModal, setShowSwitchModal] = useState(false);
   const [knownUsers, setKnownUsers] = useState<LastUser[]>([]);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const { login, loading, loginWithBiometric, loginWithGoogle } = useAuth();
+  const { login, getLoginLockSeconds, loading, loginWithBiometric, loginWithGoogle } = useAuth();
   const { theme } = useTheme();
   const { language } = useLanguage();
   const navigation = useNavigation<NavigationProp>();
@@ -183,10 +193,23 @@ export default function LoginScreen() {
       return;
     }
 
+    if (lockSeconds > 0) return;
+    const remaining = await getLoginLockSeconds(formData.credential);
+    if (remaining > 0) {
+      setLockSeconds(remaining);
+      return;
+    }
+
     // Si no hay contraseña ingresada, intentar login sin contraseña (skipPassword)
     const success = await login(formData.credential, formData.password || '');
     if (!success) {
-      showAlert({ type: 'error', title: t.errors.general, message: t.errors.invalidCredentials, buttons: [{ text: 'OK' }] });
+      const lockedFor = await getLoginLockSeconds(formData.credential);
+      if (lockedFor > 0) {
+        // El aviso con cuenta regresiva se muestra en pantalla (no en un alert estático)
+        setLockSeconds(lockedFor);
+      } else {
+        showAlert({ type: 'error', title: t.errors.general, message: t.errors.invalidCredentials, buttons: [{ text: 'OK' }] });
+      }
     }
   };
 
@@ -401,6 +424,11 @@ export default function LoginScreen() {
                     placeholder={t.form.passwordPlaceholder}
                     icon="lock-outline"
                   />
+                  {lockSeconds > 0 && (
+                    <Text style={{ color: '#D32F2F', fontSize: 13, fontWeight: '600', marginTop: 8, textAlign: 'center' }}>
+                      {t.errors.tooManyAttempts.replace('{seconds}', String(lockSeconds))}
+                    </Text>
+                  )}
                   {/* Link ¿Olvidaste tu contraseña? */}
                   <TouchableOpacity
                     style={styles.forgotPasswordRow}
@@ -420,11 +448,11 @@ export default function LoginScreen() {
             <View style={styles.authRow}>
               <View style={styles.loginButtonWrap}>
                 <Button
-                  title={loading ? t.form.loginButtonLoading : t.form.loginButton}
+                  title={loading ? t.form.loginButtonLoading : lockSeconds > 0 ? `${t.form.loginButton} (${lockSeconds}s)` : t.form.loginButton}
                   variant="filled"
                   onPress={handleLogin}
                   loading={loading}
-                  disabled={loading}
+                  disabled={loading || lockSeconds > 0}
                   fullWidth
                 />
               </View>

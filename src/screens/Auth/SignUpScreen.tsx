@@ -69,7 +69,7 @@ export default function SignUpScreen() {
   const suPasswordRef = useRef<View>(null);
   const suButtonRef   = useRef<View>(null);
 
-  const suScrollTo = (ref: React.RefObject<View>) => {
+  const suScrollTo = (ref: React.RefObject<View | null>) => {
     if (ref.current && suScrollRef.current) {
       ref.current.measureLayout(
         suScrollRef.current as any,

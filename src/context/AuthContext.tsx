@@ -9,6 +9,7 @@ import { databaseService } from '../services/DatabaseFactory';
 import { supabase } from '../services/supabase';
 import { isNativeGoogleSignInAvailable, nativeGoogleSignIn, nativeGoogleSignOut } from '../services/googleSignIn';
 import { generateId } from '../utils/uuid';
+import { getLockRemainingSeconds, registerFailedAttempt, clearFailedAttempts } from '../utils/loginThrottle';
 
 // Necesario para completar el flujo OAuth en iOS/Android
 WebBrowser.maybeCompleteAuthSession();
@@ -17,6 +18,8 @@ interface AuthContextValue {
   user: User | null;
   isAuthenticated: boolean;
   login: (credential: string, password: string) => Promise<boolean>;
+  /** Segundos que faltan para poder reintentar el login de esa credencial (0 = sin bloqueo). */
+  getLoginLockSeconds: (credential: string) => Promise<number>;
   logout: () => void;
   loading: boolean;
   isInitializing: boolean;
@@ -42,6 +45,7 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   isAuthenticated: false,
   login: async () => false,
+  getLoginLockSeconds: async () => 0,
   logout: () => {},
   loading: false,
   isInitializing: true,
@@ -313,9 +317,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return true;
       }
       
-      // Validación normal con contraseña
+      // Validación normal con contraseña (con bloqueo temporal tras intentos fallidos)
+      if ((await getLockRemainingSeconds(dbUser.id)) > 0) {
+        console.log('⏳ Login bloqueado temporalmente por intentos fallidos');
+        setLoading(false);
+        return false;
+      }
       console.log('🔑 Checking password... provided:', !!password);
-      if (dbUser.password === password) {
+      if (await databaseService.verifyUserPassword(dbUser.id, password)) {
+        await clearFailedAttempts(dbUser.id);
         console.log('✅ Login successful with password');
         
         // Actualizar last_login
@@ -357,12 +367,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       console.log('❌ Password mismatch');
+      await registerFailedAttempt(dbUser.id);
       setLoading(false);
       return false;
     } catch (error) {
       console.error('❌ Error during login:', error);
       setLoading(false);
       return false;
+    }
+  };
+
+  // El bloqueo se lleva por id de usuario (no por texto tipeado) para que no se evada alternando usuario/email.
+  const getLoginLockSeconds = async (credential: string): Promise<number> => {
+    try {
+      const dbUser = await databaseService.getUserByCredential(credential);
+      return dbUser ? await getLockRemainingSeconds(dbUser.id) : 0;
+    } catch {
+      return 0;
     }
   };
 
@@ -760,6 +781,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       isAuthenticated: !!user,
       login,
+      getLoginLockSeconds,
       logout,
       loading,
       isInitializing,

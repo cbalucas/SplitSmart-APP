@@ -41,12 +41,14 @@ export default function CustomAlertContainer() {
     setState({ ...options, visible: true, type: options.type ?? 'info' });
   }, []);
 
-  const dismiss = () => setState(DEFAULT_STATE);
+  // Solo se oculta (visible:false) y se conserva el contenido: si se reiniciara el estado
+  // mientras el Modal hace el fade-out, se vería un instante una alerta vacía azul con "OK".
+  const dismiss = useCallback(() => setState(prev => ({ ...prev, visible: false })), []);
 
   useEffect(() => {
     registerAlertHandler(show);
     registerDismissHandler(dismiss);
-  }, [show]);
+  }, [show, dismiss]);
 
   const handleButton = (btn: AlertButton) => {
     dismiss();

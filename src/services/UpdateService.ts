@@ -25,8 +25,6 @@ export interface RemoteVersionInfo {
   forceUpdate?: boolean;
 }
 
-/**
- * Intenta obtener la versión directamente de la página del Play Store.
 const FETCH_TIMEOUT_MS = 5000;
 
 /**

@@ -24,6 +24,7 @@ export const loginLanguage = {
     errors: {
       credentialRequired: 'Por favor ingresa tu usuario o email',
       invalidCredentials: 'Credenciales incorrectas. Intenta con:\nUsuario: Demo (sin contraseña)',
+      tooManyAttempts: 'Demasiados intentos fallidos. Esperá {seconds} segundos para volver a intentar.',
       general: 'Error',
       googleFailed: 'No se pudo iniciar sesión con Google. Intenta nuevamente.',
       biometricFailed: 'No se pudo autenticar con biometría'
@@ -63,6 +64,7 @@ export const loginLanguage = {
     errors: {
       credentialRequired: 'Please enter your username or email',
       invalidCredentials: 'Invalid credentials. Try with:\nUsername: Demo (no password)',
+      tooManyAttempts: 'Too many failed attempts. Please wait {seconds} seconds before trying again.',
       general: 'Error',
       googleFailed: 'Could not sign in with Google. Please try again.',
       biometricFailed: 'Could not authenticate with biometrics'
@@ -102,6 +104,7 @@ export const loginLanguage = {
     errors: {
       credentialRequired: 'Por favor digite seu usuário ou email',
       invalidCredentials: 'Credenciais inválidas. Tente com:\nUsuário: Demo (sem senha)',
+      tooManyAttempts: 'Muitas tentativas falhas. Aguarde {seconds} segundos para tentar novamente.',
       general: 'Erro',
       googleFailed: 'Não foi possível entrar com o Google. Tente novamente.',
       biometricFailed: 'Não foi possível autenticar com biometria'

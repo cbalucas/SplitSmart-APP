@@ -72,9 +72,6 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background
   },
-  searchContainer: {
-    paddingVertical: 8
-  },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -85,22 +82,6 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: theme.colors.onSurface
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: theme.colors.primaryContainer,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.primary
-  },
-  addButtonText: {
-    fontSize: 12,
-    color: theme.colors.primary,
-    fontWeight: '600',
-    marginLeft: 4
   },
   emptyState: {
     alignItems: 'center',
@@ -771,11 +752,6 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 8,
     fontSize: 16
   },
-  filterToggleButton: {
-    marginLeft: 8,
-    padding: 8,
-    borderRadius: 8
-  },
   filtersPanel: {
     backgroundColor: theme.colors.surfaceVariant,
     borderRadius: 8,
@@ -816,15 +792,6 @@ export const createStyles = (theme: Theme) => StyleSheet.create({
   },
   filterOptionTextInactive: {
     color: theme.colors.onSurfaceVariant
-  },
-  clearFiltersButton: {
-    alignItems: 'center',
-    paddingVertical: 8
-  },
-  clearFiltersText: {
-    fontSize: 14,
-    color: theme.colors.primary,
-    fontWeight: '500'
   },
 
   // Modal styles

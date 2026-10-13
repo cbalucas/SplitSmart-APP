@@ -2,7 +2,7 @@
 
 ## 📊 Sistema de Versiones
 
-### Versión Actual: **v1.4.0** (versionCode: 6)
+### Versión Actual: ver `app.json` (`expo.version` y `android.versionCode`)
 
 ---
 

@@ -21,7 +21,7 @@ export interface HomeMetricData {
   value: string;
   label: string;
   color: string;
-  status: 'active' | 'completed' | 'archived';
+  status: 'active' | 'locked' | 'archived';
 }
 
 export interface HomeScreenState {

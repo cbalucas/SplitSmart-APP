@@ -785,7 +785,7 @@ const ExpressEventScreen: React.FC = () => {
             participantId: cs.participantId,
             amount: cs.amount,
             percentage: cs.percentage,
-            type: e.splitType === 'percentage' ? 'percentage' as const : 'custom' as const,
+            type: e.splitType === 'percentage' ? 'percentage' as const : 'fixed' as const,
             isPaid: false,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),

@@ -3,6 +3,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Event, Participant, Expense, EventParticipant, Split, Payment, Activity, ActivityTemplate } from '../types';
 import { IDatabaseService } from './IDatabaseService';
 import { generateId, deterministicId } from '../utils/uuid';
+import { hashPassword, isHashed, checkStoredPassword } from '../utils/passwordHash';
 
 class DatabaseService implements IDatabaseService {
   private db: SQLite.SQLiteDatabase | null = null;
@@ -3974,6 +3975,9 @@ class DatabaseService implements IDatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
+      const storedPassword = user.password && !isHashed(user.password)
+        ? await hashPassword(user.password)
+        : user.password;
       await this.db.runAsync(
         `INSERT INTO users (id, username, email, password, name, phone, alias_cbu, skip_password, auto_login, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -3981,7 +3985,7 @@ class DatabaseService implements IDatabaseService {
           user.id,
           user.username,
           user.email,
-          user.password,
+          storedPassword,
           user.name,
           user.phone || null,
           user.alias_cbu || null,
@@ -4273,7 +4277,12 @@ class DatabaseService implements IDatabaseService {
         'SELECT password FROM users WHERE id = ?',
         [userId]
       ) as { password: string } | null;
-      return user?.password === password;
+      const { ok, needsRehash } = await checkStoredPassword(password, user?.password);
+      if (ok && needsRehash) {
+        // Migración transparente: texto plano (o hash viejo) → hash actual
+        await this.db.runAsync('UPDATE users SET password = ? WHERE id = ?', [await hashPassword(password), userId]);
+      }
+      return ok;
     } catch (error) {
       console.error('❌ Error verifying user password:', error);
       return false;
@@ -4286,7 +4295,7 @@ class DatabaseService implements IDatabaseService {
     try {
       await this.db.runAsync(
         'UPDATE users SET password = ?, updated_at = ? WHERE id = ?',
-        [newPassword, new Date().toISOString(), userId]
+        [newPassword && !isHashed(newPassword) ? await hashPassword(newPassword) : newPassword, new Date().toISOString(), userId]
       );
 
       console.log('✅ User password updated successfully');

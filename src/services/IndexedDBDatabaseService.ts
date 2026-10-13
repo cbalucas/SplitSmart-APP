@@ -16,6 +16,7 @@ import { openDB, IDBPDatabase } from 'idb';
 import { Event, Participant, Expense, EventParticipant, Split, Payment, Activity, ActivityTemplate } from '../types';
 import { IDatabaseService } from './IDatabaseService';
 import { generateId, deterministicId } from '../utils/uuid';
+import { hashPassword, isHashed, checkStoredPassword } from '../utils/passwordHash';
 
 const DB_NAME = 'splitsmart';
 const DB_VERSION = 4;
@@ -1490,9 +1491,12 @@ export class IndexedDBDatabaseService implements IDatabaseService {
   }): Promise<void> {
     const db = this._db();
     const now = new Date().toISOString();
+    const storedPassword = user.password && !isHashed(user.password)
+      ? await hashPassword(user.password)
+      : user.password;
     await db.put('users', {
       id: user.id, username: user.username, email: user.email,
-      password: user.password, name: user.name,
+      password: storedPassword, name: user.name,
       phone: user.phone || null, alias_cbu: user.alias_cbu || null,
       avatar: null, preferred_currency: 'ARS', auto_logout: 'never',
       skip_password: user.skipPassword ? 1 : 0, auto_login: user.autoLogin ? 1 : 0,
@@ -1547,18 +1551,32 @@ export class IndexedDBDatabaseService implements IDatabaseService {
     await db.put('users', row);
   }
 
+  async linkUserToSupabase(localUserId: string, supabaseId: string): Promise<void> {
+    const db = this._db();
+    const row = await db.get('users', localUserId) as any;
+    if (!row) throw new Error('Usuario local no encontrado');
+    row.supabase_user_id = supabaseId;
+    row.sync_status = 'pending';
+    row.updated_at = new Date().toISOString();
+    await db.put('users', row);
+  }
+
   async updateUserPassword(userId: string, newPassword: string): Promise<void> {
     const db = this._db();
     const row = await db.get('users', userId) as any;
     if (!row) return;
-    row.password = newPassword;
+    row.password = newPassword && !isHashed(newPassword) ? await hashPassword(newPassword) : newPassword;
     row.updated_at = new Date().toISOString();
     await db.put('users', row);
   }
 
   async verifyUserPassword(userId: string, password: string): Promise<boolean> {
     const row = await this.getUserProfile(userId) as any;
-    return row?.password === password;
+    const { ok, needsRehash } = await checkStoredPassword(password, row?.password);
+    if (ok && needsRehash) {
+      await this.updateUserPassword(userId, password);
+    }
+    return ok;
   }
 
   async toggleAutoLogin(userId: string, autoLogin: boolean): Promise<void> {

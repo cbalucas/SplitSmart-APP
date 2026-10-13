@@ -39,7 +39,8 @@ interface NameValidation {
 
 const FriendItem: React.FC<FriendItemProps> = ({ friend, onPress, onDelete, canEdit }) => {
   const { theme } = useTheme();
-  const styles = createStyles(theme);
+  const insets = useSafeAreaInsets();
+  const styles = createStyles(theme, insets);
 
   const borderColor = canEdit ? '#4CAF50' : '#2196F3';
 

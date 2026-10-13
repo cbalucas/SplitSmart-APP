@@ -2347,9 +2347,6 @@ const translations = {
     'tour.splitty.input.title': 'Área de resposta',
     'tour.splitty.input.desc': 'Aqui você responde às perguntas do Splitty. A seção muda conforme a etapa do assistente: texto, data, participantes, gastos e resumo final.',
     // EventDetail tour
-    'tour.splitty.input.title': 'Área de resposta',
-    'tour.splitty.input.desc': 'Aqui você responde às perguntas do Splitty. A seção muda conforme a etapa do assistente: texto, data, participantes, gastos e resumo final.',
-    // EventDetail tour
     'tour.eventdetail.header.title': 'Menu do evento',
     'tour.eventdetail.header.desc': 'Mude o tema, o idioma, acesse amigos, encerre a sessão ou abra este tour daqui.',
     'tour.eventdetail.info.title': 'Informações do evento',

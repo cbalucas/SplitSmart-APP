@@ -609,7 +609,7 @@ export default function EventDetailScreen() {
   // (útil en eventos activos: cada nuevo gasto actualiza la vista consolidada sin esperar reload)
   useEffect(() => {
     if (consolidationAssignments.length > 0 && settlements.length > 0 && isEditable) {
-      const recalculated = ConsolidationService.applyConsolidations(settlements, consolidationAssignments);
+      const recalculated = ConsolidationService.applyConsolidations(settlements as unknown as Settlement[], consolidationAssignments);
       setConsolidatedSettlements(recalculated);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

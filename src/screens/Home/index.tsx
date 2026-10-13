@@ -17,7 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { showAlert } from '../../services/alertService';
 import { checkForUpdate } from '../../services/UpdateService';
-import { version as appVersion } from '../../../app.json';
+import Constants from 'expo-constants';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -224,7 +224,7 @@ const HomeScreen: React.FC = () => {
     useCallback(() => {
       if (!updateChecked.current) {
         updateChecked.current = true;
-        checkForUpdate(appVersion);
+        checkForUpdate(Constants.expoConfig?.version ?? '0.0.0');
       }
     }, [])
   );

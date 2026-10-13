@@ -87,7 +87,7 @@ interface DataContextValue {
   updateUserPrivacy: (userId: string, privacy: any) => Promise<void>;
   // Utility methods
   refreshData: () => Promise<void>;
-  clearAllData: () => Promise<void>;
+  clearAllData: (includeVersions?: boolean) => Promise<void>;
   resetDatabase: () => Promise<void>;
   nukeDatabase: () => Promise<void>;
   exportData: () => Promise<string>;
@@ -394,7 +394,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // ─── AppState: sync al volver al primer plano ──────────────────────────────
   useEffect(() => {
-    if (!isOnlineUser || !user?.id || !syncService.isEnabled) return;
+    if (!isOnlineUser || !user?.id || !syncUserId || !syncService.isEnabled) return;
 
     const MIN_INTERVAL_MS = 30_000; // Mínimo 30 segundos entre syncs por AppState
     const lastSyncRef = { time: Date.now() };
@@ -967,7 +967,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             console.log('ðŸ”” Current user profile notification setting:', currentUserProfile?.notifications_payment_received);
             console.log('ðŸ‘¤ Logged user ID:', currentUserId);
             shouldNotify = currentUserProfile?.notifications_payment_received === 1;
-          } catch (profileError) {
+          } catch (profileError: any) {
             console.log('âš ï¸ Could not get logged user profile, assuming no notifications');
             shouldNotify = false;
           }
@@ -992,7 +992,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         } else {
           console.log('âŒ Missing data for notification - Recipient:', !!recipient, 'Payer:', !!payer, 'Event:', !!event);
         }
-      } catch (notificationError) {
+      } catch (notificationError: any) {
         console.log('âš ï¸ Payment notification failed:', notificationError);
         // No fallar si la notificaciÃ³n falla
       }
@@ -1022,9 +1022,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Utility methods
-  const clearAllData = useCallback(async () => {
+  const clearAllData = useCallback(async (includeVersions?: boolean) => {
     try {
-      await databaseService.clearAllData();
+      await databaseService.clearAllData(includeVersions);
       setEvents([]);
       setParticipants([]);
       setExpenses([]);
@@ -1116,21 +1116,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
             let counter = 1;
             while (true) {
               try {
-                const existingUser = await databaseService.db.getFirstAsync(
+                const existingUser = await (databaseService as any).db.getFirstAsync(
                   'SELECT id FROM users WHERE username = ? AND id != ?',
                   [finalUsername, userData.id]
                 );
                 if (!existingUser) break;
                 finalUsername = `${userData.username}_${counter}`;
                 counter++;
-              } catch (checkError) {
+              } catch (checkError: any) {
                 break; // If check fails, proceed with original username
               }
             }
             userData.username = finalUsername;
             
             // Insert user with all required and optional fields
-            await databaseService.db.runAsync(
+            await (databaseService as any).db.runAsync(
               `INSERT OR REPLACE INTO users (
                 id, name, email, username, password, phone, alias_cbu, avatar,
                 preferred_currency, auto_logout, skip_password,
@@ -1170,16 +1170,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
             // Execute updates
             for (const update of updates) {
               try {
-                await databaseService.db.runAsync(
+                await (databaseService as any).db.runAsync(
                   `UPDATE users SET ${update.field} = ? WHERE id = ?`,
                   [update.value, user.id]
                 );
-              } catch (updateError) {
+              } catch (updateError: any) {
                 console.warn(`âš ï¸ Could not update ${update.field} for user ${user.id}:`, updateError);
               }
             }
             
-          } catch (userError) {
+          } catch (userError: any) {
             console.error(`âŒ Error importing user ${user.id} (${user.email}):`, userError);
             console.error('âŒ User data:', user);
             throw new Error(`Failed to import user ${user.email}: ${userError.message}`);
@@ -1211,7 +1211,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               updated_at: event.updatedAt || event.updated_at || new Date().toISOString()
             };
             
-            await databaseService.db.runAsync(
+            await (databaseService as any).db.runAsync(
               `INSERT OR REPLACE INTO events (
                 id, name, description, start_date, location, currency, 
                 total_amount, status, type, category, creator_id, 
@@ -1224,7 +1224,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 eventData.completed_at, eventData.is_locked, eventData.created_at, eventData.updated_at
               ]
             );
-          } catch (eventError) {
+          } catch (eventError: any) {
             console.error(`âŒ Error importing event ${event.id}:`, eventError);
             throw new Error(`Failed to import event ${event.name || event.id}: ${eventError.message}`);
           }
@@ -1249,7 +1249,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               updated_at: participant.updatedAt || participant.updated_at || new Date().toISOString()
             };
             
-            await databaseService.db.runAsync(
+            await (databaseService as any).db.runAsync(
               `INSERT OR REPLACE INTO participants (
                 id, name, email, phone, alias_cbu, avatar, is_active, participant_type, created_at, updated_at
               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -1259,7 +1259,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 participantData.created_at, participantData.updated_at
               ]
             );
-          } catch (participantError) {
+          } catch (participantError: any) {
             console.error(`âŒ Error importing participant ${participant.id}:`, participantError);
             throw new Error(`Failed to import participant ${participant.name || participant.id}: ${participantError.message}`);
           }
@@ -1280,13 +1280,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
               joined_at: ep.joinedAt || ep.joined_at || new Date().toISOString()
             };
 
-            await databaseService.db.runAsync(
+            await (databaseService as any).db.runAsync(
               `INSERT OR REPLACE INTO event_participants (
                 id, event_id, participant_id, role, balance, joined_at
               ) VALUES (?, ?, ?, ?, ?, ?)`,
               [epData.id, epData.event_id, epData.participant_id, epData.role, epData.balance, epData.joined_at]
             );
-          } catch (epError) {
+          } catch (epError: any) {
             console.error(`âŒ Error importing event participant ${ep.id}:`, epError);
             throw new Error(`Failed to import event participant ${ep.id}: ${epError.message}`);
           }
@@ -1313,7 +1313,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               updated_at: expense.updatedAt || expense.updated_at || new Date().toISOString()
             };
             
-            await databaseService.db.runAsync(
+            await (databaseService as any).db.runAsync(
               `INSERT OR REPLACE INTO expenses (
                 id, event_id, description, amount, currency, date, category, payer_id, 
                 receipt_image, is_active, created_at, updated_at
@@ -1324,7 +1324,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 expenseData.receipt_image, expenseData.is_active, expenseData.created_at, expenseData.updated_at
               ]
             );
-          } catch (expenseError) {
+          } catch (expenseError: any) {
             console.error(`âŒ Error importing expense ${expense.id}:`, expenseError);
             throw new Error(`Failed to import expense ${expense.description || expense.id}: ${expenseError.message}`);
           }
@@ -1348,7 +1348,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               updated_at: split.updatedAt || split.updated_at || new Date().toISOString()
             };
             
-            await databaseService.db.runAsync(
+            await (databaseService as any).db.runAsync(
               `INSERT OR REPLACE INTO splits (
                 id, expense_id, participant_id, amount, percentage, type, is_paid, created_at, updated_at
               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -1358,7 +1358,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 splitData.created_at, splitData.updated_at
               ]
             );
-          } catch (splitError) {
+          } catch (splitError: any) {
             console.error(`âŒ Error importing split ${split.id}:`, splitError);
             throw new Error(`Failed to import split ${split.id}: ${splitError.message}`);
           }
@@ -1386,7 +1386,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               updated_at: settlement.updated_at || settlement.updatedAt || new Date().toISOString()
             };
 
-            await databaseService.db!.runAsync(
+            await (databaseService as any).db.runAsync(
               `INSERT OR REPLACE INTO settlements (
                 id, event_id, from_participant_id, from_participant_name, to_participant_id, to_participant_name,
                 amount, is_paid, paid_at, event_status, notes, created_at, updated_at
@@ -1400,7 +1400,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 settlementData.created_at, settlementData.updated_at
               ]
             );
-          } catch (settlementError) {
+          } catch (settlementError: any) {
             console.error(`âŒ Error importing settlement ${settlement.id}:`, settlementError);
             throw new Error(`Failed to import settlement ${settlement.id}: ${settlementError.message}`);
           }
@@ -1428,7 +1428,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               updated_at: payment.updatedAt || payment.updated_at || new Date().toISOString()
             };
 
-            await databaseService.db!.runAsync(
+            await (databaseService as any).db.runAsync(
               `INSERT OR REPLACE INTO settlements (
                 id, event_id, from_participant_id, from_participant_name, to_participant_id, to_participant_name,
                 amount, is_paid, paid_at, event_status, notes, created_at, updated_at
@@ -1442,7 +1442,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 settlementData.created_at, settlementData.updated_at
               ]
             );
-          } catch (paymentError) {
+          } catch (paymentError: any) {
             console.error(`âŒ Error converting payment ${payment.id}:`, paymentError);
             throw new Error(`Failed to convert payment ${payment.id}: ${paymentError.message}`);
           }
@@ -1467,7 +1467,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
             console.log(`ðŸ“¥ Importing consolidation: ${consolidationData.payer_name} -> ${consolidationData.debtor_name}`);
 
-            await databaseService.db!.runAsync(
+            await (databaseService as any).db.runAsync(
               `INSERT OR REPLACE INTO consolidation_assignments (
                 event_id, payer_id, payer_name, debtor_id, debtor_name,
                 created_at, updated_at
@@ -1480,7 +1480,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             );
 
             console.log(`âœ… Consolidation imported: ${consolidationData.payer_name} -> ${consolidationData.debtor_name}`);
-          } catch (consolidationError) {
+          } catch (consolidationError: any) {
             console.error(`âŒ Error importing consolidation ${consolidation.id}:`, consolidationError);
             throw new Error(`Failed to import consolidation ${consolidation.id}: ${consolidationError.message}`);
           }

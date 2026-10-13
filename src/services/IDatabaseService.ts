@@ -130,6 +130,7 @@ export interface IDatabaseService {
   verifyUserPassword(userId: string, password: string): Promise<boolean>;
   toggleAutoLogin(userId: string, autoLogin: boolean): Promise<void>;
   updateLastLogin(userId: string): Promise<void>;
+  linkUserToSupabase(localUserId: string, supabaseId: string): Promise<void>;
   forceUpdateDemoUser(userId: string): Promise<void>;
   updateUserNotifications(userId: string, notifications: {
     expenseAdded?: boolean;
@@ -146,6 +147,11 @@ export interface IDatabaseService {
   // ─── User Preferences ────────────────────────────────────────────────────
   getUserPreference(userId: string, key: string): Promise<string | null>;
   setUserPreference(userId: string, key: string, value: string): Promise<void>;
+
+  // ─── Consolidation assignments ───────────────────────────────────────────
+  getConsolidationAssignments(eventId: string): Promise<any[]>;
+  saveConsolidationAssignments(eventId: string, assignments: any[]): Promise<void>;
+  clearConsolidationAssignments(eventId: string): Promise<void>;
 
   // ─── Migrations ──────────────────────────────────────────────────────────
   migrateTransactionsToSettlements(): Promise<void>;
