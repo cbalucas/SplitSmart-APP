@@ -240,7 +240,7 @@ export default function SignUpScreen() {
       }
 
       // Crear el usuario en la BD local
-      const userId = `user_${Date.now()}`;
+      const userId = generateId(); // UUID: las columnas de usuario en Supabase son UUID
       await databaseService.createUser({
         id: userId,
         username: formData.username.trim().toLowerCase(),

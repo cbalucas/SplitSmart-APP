@@ -97,6 +97,11 @@ export class SupabaseSyncService implements ISyncService {
       let pushed = 0;
       const pushErrors: string[] = [];
 
+      // Ids locales del usuario actual (p.ej. `user_<timestamp>`) → se traducen a su UUID de Supabase
+      const localIds = await this._localOwnerIds(db, false, userId, session.user.email);
+      const ownerIds = [userId, ...localIds];
+      const ownerPh = ownerIds.map(() => '?').join(',');
+
       // ── 0. Adopción de registros huérfanos ────────────────────────────────
       // Eventos/amigos creados sin un dueño válido (creator_id nulo, vacío o
       // 'anonymous', p.ej. creados antes de iniciar sesión) se reasignan al
@@ -148,8 +153,8 @@ export class SupabaseSyncService implements ISyncService {
       // ── 1. Eventos ────────────────────────────────────────────────────────
       // Incluye eventos propios del usuario y eventos importados via QR (is_shared=1, creator_id NULL)
       const pendingOwnEvents: any[] = await db.getAllAsync(
-        `SELECT * FROM events WHERE creator_id = ? AND sync_status = 'pending'`,
-        [userId]
+        `SELECT * FROM events WHERE creator_id IN (${ownerPh}) AND sync_status = 'pending'`,
+        ownerIds
       );
       const pendingSharedEvents: any[] = await db.getAllAsync(
         `SELECT * FROM events WHERE is_shared = 1 AND (creator_id IS NULL OR creator_id = '') AND sync_status = 'pending'`,
@@ -169,7 +174,7 @@ export class SupabaseSyncService implements ISyncService {
           status: e.status || 'active',
           type: e.type || 'public',
           category: e.category || null,
-          creator_id: e.creator_id || userId,   // QR events: asignar al usuario importador
+          creator_id: this._cloudUserRef(e.creator_id, userId, localIds) || userId,   // QR events: asignar al usuario importador
           is_locked: e.is_locked === 1 || e.is_locked === true,
           is_express: e.is_express === 1 || e.is_express === true,
           is_shared: e.is_shared === 1 || e.is_shared === true,
@@ -204,8 +209,8 @@ export class SupabaseSyncService implements ISyncService {
       // ── 2. Obtener todos los event IDs escribibles por el usuario ─────────
       // (a) Eventos propios (creator_id = userId).
       const userEventRows: any[] = await db.getAllAsync(
-        `SELECT id FROM events WHERE creator_id = ?`,
-        [userId]
+        `SELECT id FROM events WHERE creator_id IN (${ownerPh})`,
+        ownerIds
       );
       const ownedEventIds: string[] = userEventRows.map(r => r.id);
 
@@ -215,8 +220,8 @@ export class SupabaseSyncService implements ISyncService {
         `SELECT id, share_id FROM events
          WHERE is_shared = 1 AND shared_role = 'editor'
            AND share_id IS NOT NULL
-           AND (creator_id IS NULL OR creator_id <> ?)`,
-        [userId]
+           AND (creator_id IS NULL OR creator_id NOT IN (${ownerPh}))`,
+        ownerIds
       );
       const sharedEditorEventIds: string[] = sharedEditorRows.map(r => r.id);
 
@@ -268,8 +273,8 @@ export class SupabaseSyncService implements ISyncService {
       // ── 3. Participantes ──────────────────────────────────────────────────
       // Participantes creados por el usuario (amigos)
       const pendingFriends: any[] = await db.getAllAsync(
-        `SELECT * FROM participants WHERE created_by_user_id = ? AND sync_status = 'pending'`,
-        [userId]
+        `SELECT * FROM participants WHERE created_by_user_id IN (${ownerPh}) AND sync_status = 'pending'`,
+        ownerIds
       );
       // Participantes en eventos del usuario sin creator_id (importados via QR)
       const pendingEventParticipants: any[] = await db.getAllAsync(
@@ -297,8 +302,8 @@ export class SupabaseSyncService implements ISyncService {
           avatar: p.avatar || null,
           is_active: p.is_active === 1 || p.is_active === true,
           participant_type: p.participant_type || 'temporary',
-          user_id: p.user_id || null,
-          created_by_user_id: p.created_by_user_id || userId,  // RLS exige este campo
+          user_id: this._cloudUserRef(p.user_id, userId, localIds),
+          created_by_user_id: this._cloudUserRef(p.created_by_user_id, userId, localIds) || userId,  // RLS exige este campo
           is_public: p.is_public === 1 || p.is_public === true,
           times_used: p.times_used ?? 0,
           last_used_at: p.last_used_at || null,
@@ -513,7 +518,7 @@ export class SupabaseSyncService implements ISyncService {
           title: a.title,
           description: a.description || null,
           position: a.position ?? 0,
-          created_by_user_id: a.created_by_user_id || null,
+          created_by_user_id: this._cloudUserRef(a.created_by_user_id, userId, localIds),
           created_at: a.created_at || new Date().toISOString(),
           updated_at: a.updated_at || new Date().toISOString(),
         }));
@@ -1304,21 +1309,48 @@ export class SupabaseSyncService implements ISyncService {
   // El push web sube todo (no hay sync_status fiable en IndexedDB). Para no pisar
   // cambios más recientes hechos desde otro dispositivo, solo se suben las filas
   // cuyo updated_at local es >= al remoto; las demás las trae el pull posterior (LWW).
+  // Trae los updated_at remotos de una tabla para los ids dados (consultas en paralelo).
+  private async _fetchRemoteStamps(table: string, ids: string[]): Promise<Map<string, number>> {
+    const remote = new Map<string, number>();
+    const CHUNK = 150;
+    const chunks: string[][] = [];
+    for (let i = 0; i < ids.length; i += CHUNK) chunks.push(ids.slice(i, i + CHUNK));
+    const results = await Promise.all(
+      chunks.map(async chunk => (await supabase.from(table).select('id, updated_at').in('id', chunk)).data || [])
+    );
+    results.flat().forEach((r: any) => {
+      const t = r.updated_at ? Date.parse(r.updated_at) : NaN;
+      if (!isNaN(t)) remote.set(r.id, t);
+    });
+    return remote;
+  }
+
+  // Precarga, EN PARALELO y de una sola vez, los sellos remotos de todas las tablas que
+  // el push web va a subir (antes era una ronda de consultas en serie por cada tabla).
+  private async _prefetchRemoteStamps(db: any): Promise<Map<string, Map<string, number>>> {
+    const stamps = new Map<string, Map<string, number>>();
+    const tables = ['events', 'participants', 'expenses', 'splits', 'settlements', 'activities'];
+    try {
+      await Promise.all(tables.map(async table => {
+        const rows: any[] = await db.getAll(table);
+        stamps.set(table, await this._fetchRemoteStamps(table, rows.map(r => r.id)));
+      }));
+    } catch (e) {
+      console.warn('⚠️ WebPush LWW prefetch:', (e as any)?.message);
+      stamps.clear(); // sin datos → cada guarda consulta por su cuenta (o sube todo si falla)
+    }
+    return stamps;
+  }
+
   private async _notOlderThanRemote<T extends { id: string; updated_at?: string | null }>(
     table: string,
-    rows: T[]
+    rows: T[],
+    stamps?: Map<string, Map<string, number>>
   ): Promise<T[]> {
     if (rows.length === 0) return rows;
-    const remote = new Map<string, number>();
+    let remote: Map<string, number>;
     try {
-      for (let i = 0; i < rows.length; i += 100) {
-        const chunk = rows.slice(i, i + 100).map(r => r.id);
-        const { data } = await supabase.from(table).select('id, updated_at').in('id', chunk);
-        (data || []).forEach((r: any) => {
-          const t = r.updated_at ? Date.parse(r.updated_at) : NaN;
-          if (!isNaN(t)) remote.set(r.id, t);
-        });
-      }
+      remote = stamps?.get(table) ?? await this._fetchRemoteStamps(table, rows.map(r => r.id));
     } catch (e) {
       console.warn(`⚠️ WebPush LWW guard (${table}):`, (e as any)?.message);
       return rows; // ante error de red, comportamiento previo (subir todo)
@@ -1333,6 +1365,44 @@ export class SupabaseSyncService implements ISyncService {
       console.log(`🛡️ WebPush LWW guard (${table}): ${rows.length - kept.length} fila(s) omitidas por tener versión más nueva en la nube`);
     }
     return kept;
+  }
+
+  // ─── IDs de usuario locales vs. UUID de Supabase ──────────────────────────
+  // Las cuentas locales creadas desde el registro usaban ids tipo `user_<timestamp>`
+  // (no UUID). En Supabase `participants.user_id`, `created_by_user_id`, `creator_id`,
+  // etc. son UUID → el upsert fallaba con "invalid input syntax for type uuid".
+  // Los datos locales NO se reescriben (la app compara creatorId === user.id): solo se
+  // traducen al armar lo que se sube.
+  private _isUuid(v: any): boolean {
+    return typeof v === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+  }
+
+  /** Ids locales (no UUID) que representan al usuario actual en la tabla users. */
+  private async _localOwnerIds(db: any, isWeb: boolean, userId: string, email?: string | null): Promise<Set<string>> {
+    const ids = new Set<string>();
+    try {
+      const rows: any[] = isWeb
+        ? await db.getAll('users')
+        : await db.getAllAsync(
+            `SELECT id, email, supabase_user_id FROM users WHERE id = ? OR supabase_user_id = ? OR (email IS NOT NULL AND email = ?)`,
+            [userId, userId, email || '']
+          );
+      for (const u of rows) {
+        const matches = u.id === userId || u.supabase_user_id === userId || (!!email && u.email === email);
+        if (matches && u.id && u.id !== userId) ids.add(u.id);
+      }
+    } catch (e) {
+      console.warn('⚠️ _localOwnerIds:', (e as any)?.message);
+    }
+    return ids;
+  }
+
+  /** Valor apto para una columna UUID de usuario en la nube: UUID válido, el usuario actual (si era su id local) o null. */
+  private _cloudUserRef(v: any, userId: string, localIds: Set<string>): string | null {
+    if (!v) return null;
+    if (this._isUuid(v)) return v;
+    return localIds.has(v) ? userId : null;
   }
 
   // ─── Helper: adoptar registros huérfanos (sin dueño válido) ───────────────
@@ -1395,10 +1465,10 @@ export class SupabaseSyncService implements ISyncService {
   }
 
   // ─── Subir solo amigos del usuario (cuando no hay eventos) ─────────────────
-  private async _pushWebFriendsOnly(db: any, userId: string): Promise<{ pushed: number; error?: string }> {
+  private async _pushWebFriendsOnly(db: any, userId: string, localIds: Set<string>): Promise<{ pushed: number; error?: string }> {
     try {
       const allParticipants: any[] = await db.getAll('participants');
-      const friends = allParticipants.filter((p) => p.created_by_user_id === userId);
+      const friends = allParticipants.filter((p) => p.created_by_user_id === userId || localIds.has(p.created_by_user_id));
       if (friends.length === 0) return { pushed: 0 };
 
       const toUpsert = friends.map((p) => ({
@@ -1410,8 +1480,8 @@ export class SupabaseSyncService implements ISyncService {
         avatar: p.avatar || null,
         is_active: p.is_active === 1 || p.is_active === true,
         participant_type: p.participant_type || 'temporary',
-        user_id: p.user_id || null,
-        created_by_user_id: p.created_by_user_id || userId,
+        user_id: this._cloudUserRef(p.user_id, userId, localIds),
+        created_by_user_id: this._cloudUserRef(p.created_by_user_id, userId, localIds) || userId,
         is_public: p.is_public === 1 || p.is_public === true,
         times_used: p.times_used ?? 0,
         last_used_at: p.last_used_at || null,
@@ -1448,6 +1518,12 @@ export class SupabaseSyncService implements ISyncService {
 
       // ── 0.1 Propagar eliminaciones locales (tombstones) a Supabase ────────
       await this._pushDeletions();
+
+      // ── 0.2 Sellos remotos (updated_at) para la guarda LWW, todo en paralelo ─
+      const stamps = await this._prefetchRemoteStamps(db);
+
+      // Ids locales del usuario actual (p.ej. `user_<timestamp>`) → se traducen a su UUID de Supabase
+      const localIds = await this._localOwnerIds(db, true, userId, session.user.email);
 
       // ── 0.5 Asegurar que el usuario existe en public.users ────────────────
       // events.creator_id → users.id (FK). Si la fila del usuario no existe en
@@ -1492,11 +1568,11 @@ export class SupabaseSyncService implements ISyncService {
       // ── 1. Eventos: propios (creator_id=userId) + importados via QR ───────
       const allEvents: any[] = await db.getAll('events');
       const ownEvents = allEvents.filter(
-        (e) => e.creator_id === userId ||
+        (e) => e.creator_id === userId || localIds.has(e.creator_id) ||
                ((e.is_shared === 1 || e.is_shared === true) && (!e.creator_id || e.creator_id === ''))
       );
 
-      const eventsToPush = await this._notOlderThanRemote('events', ownEvents);
+      const eventsToPush = await this._notOlderThanRemote('events', ownEvents, stamps);
       if (eventsToPush.length > 0) {
         const eventsToUpsert = eventsToPush.map((e) => ({
           id: e.id,
@@ -1509,7 +1585,7 @@ export class SupabaseSyncService implements ISyncService {
           status: e.status || 'active',
           type: e.type || 'public',
           category: e.category || null,
-          creator_id: e.creator_id || userId,
+          creator_id: this._cloudUserRef(e.creator_id, userId, localIds) || userId,
           is_locked: e.is_locked === 1 || e.is_locked === true,
           is_express: e.is_express === 1 || e.is_express === true,
           is_shared: e.is_shared === 1 || e.is_shared === true,
@@ -1546,7 +1622,7 @@ export class SupabaseSyncService implements ISyncService {
           (e.is_shared === 1 || e.is_shared === true) &&
           e.shared_role === 'editor' &&
           e.share_id &&
-          e.creator_id && e.creator_id !== userId
+          e.creator_id && e.creator_id !== userId && !localIds.has(e.creator_id)
       );
       // Registrar al colaborador en la nube (idempotente) para habilitar RLS.
       for (const e of sharedEditorEvents) {
@@ -1565,7 +1641,7 @@ export class SupabaseSyncService implements ISyncService {
       const userEventIds = [...ownEventIds, ...sharedEditorEvents.map((e) => e.id)];
       if (userEventIds.length === 0) {
         // Aún así intentamos subir los amigos del usuario (pueden no tener eventos)
-        const friendsOnly = await this._pushWebFriendsOnly(db, userId);
+        const friendsOnly = await this._pushWebFriendsOnly(db, userId, localIds);
         pushed += friendsOnly.pushed;
         return {
           success: !criticalError && !friendsOnly.error,
@@ -1592,9 +1668,9 @@ export class SupabaseSyncService implements ISyncService {
       const allParticipants: any[] = await db.getAll('participants');
       const relevantParticipants = await this._notOlderThanRemote('participants', allParticipants.filter(
         (p) =>
-          p.created_by_user_id === userId ||
+          p.created_by_user_id === userId || localIds.has(p.created_by_user_id) ||
           (participantIdsInEvents.has(p.id) && (!p.created_by_user_id || p.created_by_user_id === ''))
-      ));
+      ), stamps);
 
       if (relevantParticipants.length > 0) {
         const participantsToUpsert = relevantParticipants.map((p) => ({
@@ -1606,8 +1682,8 @@ export class SupabaseSyncService implements ISyncService {
           avatar: p.avatar || null,
           is_active: p.is_active === 1 || p.is_active === true,
           participant_type: p.participant_type || 'temporary',
-          user_id: p.user_id || null,
-          created_by_user_id: p.created_by_user_id || userId,
+          user_id: this._cloudUserRef(p.user_id, userId, localIds),
+          created_by_user_id: this._cloudUserRef(p.created_by_user_id, userId, localIds) || userId,
           is_public: p.is_public === 1 || p.is_public === true,
           times_used: p.times_used ?? 0,
           last_used_at: p.last_used_at || null,
@@ -1645,7 +1721,10 @@ export class SupabaseSyncService implements ISyncService {
           }));
         if (epsToUpsert.length > 0) {
           const { error } = await supabase.from('event_participants').upsert(epsToUpsert, { onConflict: 'event_id,participant_id', ignoreDuplicates: true });
-          if (error) console.warn('⚠️ WebPush event_participants error:', error.message);
+          if (error) {
+            if (!criticalError) criticalError = `event_participants: ${error.message}`;
+            console.warn('⚠️ WebPush event_participants error:', error.message);
+          }
         }
       }
 
@@ -1657,7 +1736,7 @@ export class SupabaseSyncService implements ISyncService {
       if (relevantExpenses.length > 0) {
         // Guardia FK: expenses.payer_id → participants.id (RESTRICT).
         const validPayerIds = await this._existingIds('participants', relevantExpenses.map((ex) => ex.payer_id));
-        const expensesToUpsert = (await this._notOlderThanRemote('expenses', relevantExpenses))
+        const expensesToUpsert = (await this._notOlderThanRemote('expenses', relevantExpenses, stamps))
           .filter((ex: any) => validPayerIds.has(ex.payer_id))
           .map((ex) => ({
           id: ex.id,
@@ -1679,7 +1758,10 @@ export class SupabaseSyncService implements ISyncService {
         if (expensesToUpsert.length > 0) {
           const { error } = await supabase.from('expenses').upsert(expensesToUpsert, { onConflict: 'id' });
           if (!error) pushed += expensesToUpsert.length;
-          else console.warn('⚠️ WebPush expenses error:', error.message);
+          else {
+            if (!criticalError) criticalError = `expenses: ${error.message}`;
+            console.warn('⚠️ WebPush expenses error:', error.message);
+          }
         }
       }
 
@@ -1691,7 +1773,7 @@ export class SupabaseSyncService implements ISyncService {
         // Guardia FK: splits.expense_id → expenses.id y participant_id → participants.id.
         const validSplitExpenseIds = await this._existingIds('expenses', relevantSplits.map((sp) => sp.expense_id));
         const validSplitPids = await this._existingIds('participants', relevantSplits.map((sp) => sp.participant_id));
-        const splitsToUpsert = (await this._notOlderThanRemote('splits', relevantSplits))
+        const splitsToUpsert = (await this._notOlderThanRemote('splits', relevantSplits, stamps))
           .filter((sp: any) => validSplitExpenseIds.has(sp.expense_id) && validSplitPids.has(sp.participant_id))
           .map((sp) => ({
           id: sp.id,
@@ -1707,7 +1789,10 @@ export class SupabaseSyncService implements ISyncService {
         if (splitsToUpsert.length > 0) {
           const { error } = await supabase.from('splits').upsert(splitsToUpsert, { onConflict: 'id' });
           if (!error) pushed += splitsToUpsert.length;
-          else console.warn('⚠️ WebPush splits error:', error.message);
+          else {
+            if (!criticalError) criticalError = `splits: ${error.message}`;
+            console.warn('⚠️ WebPush splits error:', error.message);
+          }
         }
       }
 
@@ -1719,7 +1804,7 @@ export class SupabaseSyncService implements ISyncService {
         // Guardia FK: settlements.from/to_participant_id → participants.id (RESTRICT).
         const validStPids = await this._existingIds('participants',
           relevantSettlements.flatMap((s) => [s.from_participant_id, s.to_participant_id]));
-        const settlementsToUpsert = (await this._notOlderThanRemote('settlements', relevantSettlements))
+        const settlementsToUpsert = (await this._notOlderThanRemote('settlements', relevantSettlements, stamps))
           .filter((s: any) => validStPids.has(s.from_participant_id) && validStPids.has(s.to_participant_id))
           .map((s) => ({
           id: s.id,
@@ -1740,7 +1825,10 @@ export class SupabaseSyncService implements ISyncService {
         if (settlementsToUpsert.length > 0) {
           const { error } = await supabase.from('settlements').upsert(settlementsToUpsert, { onConflict: 'id' });
           if (!error) pushed += settlementsToUpsert.length;
-          else console.warn('⚠️ WebPush settlements error:', error.message);
+          else {
+            if (!criticalError) criticalError = `settlements: ${error.message}`;
+            console.warn('⚠️ WebPush settlements error:', error.message);
+          }
         }
       }
 
@@ -1750,14 +1838,14 @@ export class SupabaseSyncService implements ISyncService {
       const activityIdSet = new Set(relevantActivities.map((a) => a.id));
 
       if (relevantActivities.length > 0) {
-        const activitiesToPush = await this._notOlderThanRemote('activities', relevantActivities);
+        const activitiesToPush = await this._notOlderThanRemote('activities', relevantActivities, stamps);
         const activitiesToUpsert = activitiesToPush.map((a) => ({
           id: a.id,
           event_id: a.event_id,
           title: a.title,
           description: a.description || null,
           position: a.position ?? 0,
-          created_by_user_id: a.created_by_user_id || null,
+          created_by_user_id: this._cloudUserRef(a.created_by_user_id, userId, localIds),
           created_at: a.created_at || new Date().toISOString(),
           updated_at: a.updated_at || new Date().toISOString(),
         }));
@@ -1765,7 +1853,10 @@ export class SupabaseSyncService implements ISyncService {
           ? await supabase.from('activities').upsert(activitiesToUpsert, { onConflict: 'id' })
           : { error: null };
         if (!error) pushed += activitiesToPush.length;
-        else console.warn('⚠️ WebPush activities error:', error.message);
+        else {
+          if (!criticalError) criticalError = `activities: ${error.message}`;
+          console.warn('⚠️ WebPush activities error:', error.message);
+        }
       }
 
       // ── 8. Asignaciones de actividades ────────────────────────────────────
@@ -1788,7 +1879,10 @@ export class SupabaseSyncService implements ISyncService {
         if (apToUpsert.length > 0) {
           const { error } = await supabase.from('activity_participants').upsert(apToUpsert, { onConflict: 'activity_id,participant_id', ignoreDuplicates: true });
           if (!error) pushed += apToUpsert.length;
-          else console.warn('⚠️ WebPush activity_participants error:', error.message);
+          else {
+            if (!criticalError) criticalError = `activity_participants: ${error.message}`;
+            console.warn('⚠️ WebPush activity_participants error:', error.message);
+          }
         }
       }
 
@@ -1825,12 +1919,15 @@ export class SupabaseSyncService implements ISyncService {
       await this._ensureCollaboratorRegistrationWeb(db, userId);
 
       // ── 1. Eventos: propios + donde participa ─────────────────────────────
-      const { data: ownedEvents, error: oeError } = await supabase
-        .from('events').select('*').eq('creator_id', userId);
+      // Las 3 consultas iniciales son independientes: se lanzan juntas.
+      const [ownedRes, userParticipantsRes, collabRowsRes] = await Promise.all([
+        supabase.from('events').select('*').eq('creator_id', userId),
+        supabase.from('participants').select('id').eq('user_id', userId),
+        supabase.from('event_collaborators').select('event_id').eq('user_id', userId),
+      ]);
+      const { data: ownedEvents, error: oeError } = ownedRes;
       if (oeError) throw new Error(`WebPull events: ${oeError.message}`);
-
-      const { data: userParticipants } = await supabase
-        .from('participants').select('id').eq('user_id', userId);
+      const { data: userParticipants } = userParticipantsRes;
 
       let participatedEventIds: string[] = [];
       if (userParticipants && userParticipants.length > 0) {
@@ -1851,8 +1948,7 @@ export class SupabaseSyncService implements ISyncService {
 
       // Eventos donde el usuario es COLABORADOR (share editor/viewer).
       let collaboratorEvents: any[] = [];
-      const { data: collabRows } = await supabase
-        .from('event_collaborators').select('event_id').eq('user_id', userId);
+      const { data: collabRows } = collabRowsRes;
       if (collabRows && collabRows.length > 0) {
         const ownedIds = new Set((ownedEvents || []).map((e) => e.id));
         const participatedIds = new Set(participatedEventIds);
@@ -1870,6 +1966,15 @@ export class SupabaseSyncService implements ISyncService {
         return { success: true, pushed: 0, pulled: 0, conflicts: 0 };
       }
       const allEventIds = allCloudEvents.map((e) => e.id);
+
+      // Consultas que solo dependen de los ids de eventos: se lanzan YA, en paralelo con
+      // el resto del pull (antes se esperaba cada una en serie).
+      const startQuery = <T,>(q: PromiseLike<T>): Promise<T> => Promise.resolve(q);
+      const epsQ = startQuery(supabase.from('event_participants').select('*').in('event_id', allEventIds));
+      const friendsQ = startQuery(supabase.from('participants').select('*').eq('created_by_user_id', userId));
+      const expensesQ = startQuery(supabase.from('expenses').select('*').in('event_id', allEventIds));
+      const settlementsQ = startQuery(supabase.from('settlements').select('*').in('event_id', allEventIds));
+      const activitiesQ = startQuery(supabase.from('activities').select('*').in('event_id', allEventIds));
 
       // Upsert eventos → IndexedDB (LWW: no pisar lo local si es igual o más nuevo)
       for (const e of allCloudEvents) {
@@ -1901,8 +2006,7 @@ export class SupabaseSyncService implements ISyncService {
       }
 
       // ── 2. Event_participants ─────────────────────────────────────────────
-      const { data: cloudEPs } = await supabase
-        .from('event_participants').select('*').in('event_id', allEventIds);
+      const { data: cloudEPs } = await epsQ;
       const participantIds: string[] = [];
       if (cloudEPs) {
         for (const ep of cloudEPs) {
@@ -1920,8 +2024,7 @@ export class SupabaseSyncService implements ISyncService {
       }
 
       // ── 3. Participantes (de eventos + amigos) ────────────────────────────
-      const { data: userFriends } = await supabase
-        .from('participants').select('*').eq('created_by_user_id', userId);
+      const { data: userFriends } = await friendsQ;
       const friendIds = (userFriends ?? []).map((p) => p.id);
       const allParticipantIdsToFetch = [...new Set([...participantIds, ...friendIds])];
 
@@ -1954,8 +2057,7 @@ export class SupabaseSyncService implements ISyncService {
       }
 
       // ── 4. Gastos ─────────────────────────────────────────────────────────
-      const { data: cloudExpenses } = await supabase
-        .from('expenses').select('*').in('event_id', allEventIds);
+      const { data: cloudExpenses } = await expensesQ;
       const cloudExpenseIds: string[] = [];
       if (cloudExpenses) {
         for (const ex of cloudExpenses) {
@@ -2008,8 +2110,7 @@ export class SupabaseSyncService implements ISyncService {
       }
 
       // ── 6. Liquidaciones ──────────────────────────────────────────────────
-      const { data: cloudSettlements } = await supabase
-        .from('settlements').select('*').in('event_id', allEventIds);
+      const { data: cloudSettlements } = await settlementsQ;
       if (cloudSettlements) {
         for (const s of cloudSettlements) {
           if (!(await this._remoteWinsWeb(db, 'settlements', s.id, s.updated_at))) continue;
@@ -2034,8 +2135,7 @@ export class SupabaseSyncService implements ISyncService {
       }
 
       // ── 7. Actividades (organización) ─────────────────────────────────────
-      const { data: cloudActivities } = await supabase
-        .from('activities').select('*').in('event_id', allEventIds);
+      const { data: cloudActivities } = await activitiesQ;
       const cloudActivityIds: string[] = [];
       if (cloudActivities) {
         for (const a of cloudActivities) {

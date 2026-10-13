@@ -1,5 +1,5 @@
 ﻿import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, Platform } from 'react-native';
 import { Event, Participant, Expense, EventParticipant, Split, Payment, Activity, ActivityTemplate } from '../types';
 import { databaseService } from '../services/DatabaseFactory';
 import { syncService } from '../services/SyncFactory';
@@ -7,6 +7,7 @@ import { supabase } from '../services/supabase';
 import { notificationService } from '../services/NotificationService';
 import { useAuth } from './AuthContext';
 import { generateId } from '../utils/uuid';
+import { describeSyncError } from '../utils/syncErrors';
 
 /**
  * Estado de sincronización con la nube:
@@ -28,6 +29,8 @@ interface DataContextValue {
   syncStatus: SyncStatus;
   lastSyncedAt: string | null;
   lastSyncError: string | null;
+  /** Marca de tiempo (ms) en que se reintentará solo la sincronización fallida; null si no hay reintento programado. */
+  syncRetryAt: number | null;
   syncNow: () => Promise<void>;
   // Event methods
   addEvent: (event: Partial<Event>) => Promise<void>;
@@ -104,6 +107,7 @@ const DataContext = createContext<DataContextValue>({
   syncStatus: 'disabled',
   lastSyncedAt: null,
   lastSyncError: null,
+  syncRetryAt: null,
   syncNow: async () => {},
   addEvent: async () => {},
   updateEvent: async () => {},
@@ -242,11 +246,104 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // ─── Coordinador de sincronización ─────────────────────────────────────────
+  // Antes cada escritura lanzaba su propio push completo (17 puntos de llamada, sin
+  // debounce) y los pushes se solapaban, sobre todo en web donde se sube todo. Ahora:
+  //  • una sola sincronización a la vez (si llega otra, se encola y corre al terminar);
+  //  • los pushes tras escrituras se agrupan (debounce);
+  //  • todo camino (inicial, manual, segundo plano, Realtime, primer plano) informa el
+  //    MOTIVO del fallo y, si falla, se reintenta solo con espera creciente.
+  const RETRY_DELAYS_MS = [10_000, 30_000, 60_000, 120_000];
+  type SyncMode = 'full' | 'push' | 'pull';
+  const syncRunningRef = useRef(false);
+  const queuedModeRef = useRef<SyncMode | null>(null);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryAttemptRef = useRef(0);
+  const pushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [syncRetryAt, setSyncRetryAt] = useState<number | null>(null);
+
+  const mergeModes = (a: SyncMode | null, b: SyncMode): SyncMode =>
+    !a ? b : a === b ? a : 'full';
+
+  const clearRetry = () => {
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    retryTimerRef.current = null;
+    setSyncRetryAt(null);
+  };
+
+  const runSyncRef = useRef<(mode: SyncMode) => Promise<void>>(async () => {});
+
+  const runSync = useCallback(async (mode: SyncMode): Promise<void> => {
+    if (!isOnlineUser || !syncUserId || !syncService.isEnabled) return;
+    if (syncRunningRef.current) {
+      queuedModeRef.current = mergeModes(queuedModeRef.current, mode);
+      return;
+    }
+    syncRunningRef.current = true;
+    setIsSyncing(true);
+    setSyncStatus('syncing');
+    let failure: ReturnType<typeof describeSyncError> | null = null;
+    try {
+      const result = mode === 'push' ? await syncService.push(syncUserId)
+        : mode === 'pull' ? await syncService.pull(syncUserId)
+        : await syncService.syncAll(syncUserId);
+      console.log(`Sync (${mode}) completado:`, result.pushed, 'subidos,', result.pulled, 'descargados');
+      if (result.pulled > 0 || (mode === 'full' && result.pushed > 0)) {
+        await refreshData();
+      }
+      if (result.success) {
+        retryAttemptRef.current = 0;
+        clearRetry();
+        setLastSyncError(null);
+        setSyncStatus('synced');
+        setLastSyncedAt(new Date().toISOString());
+      } else {
+        failure = describeSyncError(result.error || 'Error desconocido de sincronización');
+      }
+    } catch (err) {
+      failure = describeSyncError(err);
+    } finally {
+      syncRunningRef.current = false;
+      setIsSyncing(false);
+    }
+
+    if (failure) {
+      console.warn('Sync fallido:', failure.raw);
+      setLastSyncError(failure.message);
+      setSyncStatus(failure.isNetwork ? 'offline' : 'error');
+      // Reintento automático con espera creciente (10 s, 30 s, 1 min, 2 min)
+      const attempt = retryAttemptRef.current;
+      if (attempt < RETRY_DELAYS_MS.length) {
+        const delay = RETRY_DELAYS_MS[attempt];
+        retryAttemptRef.current = attempt + 1;
+        if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+        setSyncRetryAt(Date.now() + delay);
+        retryTimerRef.current = setTimeout(() => {
+          retryTimerRef.current = null;
+          setSyncRetryAt(null);
+          runSyncRef.current('full');
+        }, delay);
+      } else {
+        setSyncRetryAt(null);
+      }
+    }
+
+    const queued = queuedModeRef.current;
+    if (queued) {
+      queuedModeRef.current = null;
+      await runSyncRef.current(queued);
+    }
+  }, [isOnlineUser, syncUserId, refreshData]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  runSyncRef.current = runSync;
+
   // --- Sync: disparo automatico al login con Google/Supabase ---
   useEffect(() => {
     // Ajustar estado base según disponibilidad de sync
     if (!isOnlineUser || !syncService.isEnabled) {
       setSyncStatus('disabled');
+      clearRetry();
+      retryAttemptRef.current = 0;
     } else if (syncStatus === 'disabled') {
       setSyncStatus('synced');
     }
@@ -254,77 +351,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (isOnlineUser && syncUserId && syncService.isEnabled && !hasSyncedRef.current) {
       hasSyncedRef.current = true;
       console.log('Iniciando sync automatico para usuario (auth id):', syncUserId);
-      setIsSyncing(true);
-      setSyncStatus('syncing');
-      syncService.syncAll(syncUserId)
-        .then(async (result) => {
-          console.log('Sync completado:', result.pushed, 'subidos,', result.pulled, 'descargados');
-          if (result.pulled > 0 || result.pushed > 0) {
-            await refreshData();
-          }
-          if (result.success) {
-            setSyncStatus('synced');
-            setLastSyncedAt(new Date().toISOString());
-          } else {
-            setSyncStatus('error');
-          }
-        })
-        .catch(err => {
-          console.warn('Sync error:', err);
-          setSyncStatus('offline');
-        })
-        .finally(() => setIsSyncing(false));
+      runSyncRef.current('full');
     } else if (!user) {
       hasSyncedRef.current = false;
     }
   }, [syncUserId, isOnlineUser]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Push en background despues de cada escritura (solo usuarios online)
+  // Limpieza de timers al desmontar
+  useEffect(() => () => {
+    if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+  }, []);
+
+  // Push en background despues de cada escritura (solo usuarios online).
+  // Se agrupa: varias escrituras seguidas generan UN solo push.
   const backgroundPush = useCallback(() => {
     if (!isOnlineUser || !syncUserId || !syncService.isEnabled) return;
-    setSyncStatus('syncing');
-    syncService.push(syncUserId)
-      .then(result => {
-        if (!result.success) {
-          console.warn('Background push failed:', result.error);
-          setSyncStatus('error');
-        } else {
-          setSyncStatus('synced');
-          setLastSyncedAt(new Date().toISOString());
-        }
-      })
-      .catch(err => {
-        console.warn('Background push error:', err);
-        setSyncStatus('offline');
-      });
+    if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
+    pushTimerRef.current = setTimeout(() => {
+      pushTimerRef.current = null;
+      runSyncRef.current('push');
+    }, 800);
   }, [isOnlineUser, syncUserId]);
 
-  // Sync manual completo (para exponer en contexto y UI)
+  // Sync manual completo (para exponer en contexto y UI). También cancela la espera de reintento.
   const syncNow = useCallback(async (): Promise<void> => {
-    if (!isOnlineUser || !syncUserId || !syncService.isEnabled) return;
-    setIsSyncing(true);
-    setSyncStatus('syncing');
-    try {
-      const result = await syncService.syncAll(syncUserId);
-      if (result.pulled > 0 || result.pushed > 0) {
-        await refreshData();
-      }
-      if (result.success) {
-        setSyncStatus('synced');
-        setLastSyncedAt(new Date().toISOString());
-        setLastSyncError(null);
-      } else {
-        setSyncStatus('error');
-        setLastSyncError(result.error || 'Error desconocido de sincronización');
-      }
-      console.log('Sync manual completado:', result.pushed, 'subidos,', result.pulled, 'descargados');
-    } catch (err) {
-      console.warn('Sync manual error:', err);
-      setSyncStatus('offline');
-    } finally {
-      setIsSyncing(false);
-    }
-  }, [isOnlineUser, syncUserId, refreshData]);
+    clearRetry();
+    retryAttemptRef.current = 0;
+    await runSyncRef.current('full');
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Supabase Realtime: recibir cambios de otros dispositivos en vivo ───────
   useEffect(() => {
@@ -335,22 +390,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     const schedulePull = () => {
       if (debounceRef.timer) clearTimeout(debounceRef.timer);
-      debounceRef.timer = setTimeout(async () => {
+      debounceRef.timer = setTimeout(() => {
         console.log('☁️ Realtime: cambio detectado en la nube, sincronizando...');
-        try {
-          const result = await syncService.pull(syncUserId);
-          if (result.pulled > 0) {
-            await refreshData();
-            console.log(`☁️ Realtime pull: ${result.pulled} registros actualizados`);
-          }
-          if (result.success) {
-            setSyncStatus('synced');
-            setLastSyncedAt(new Date().toISOString());
-          }
-        } catch (err) {
-          console.warn('⚠️ Realtime pull error:', err);
-          setSyncStatus('offline');
-        }
+        runSyncRef.current('pull');
       }, 1500);
     };
 
@@ -405,26 +447,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (now - lastSyncRef.time > MIN_INTERVAL_MS) {
           lastSyncRef.time = now;
           console.log('📲 App en primer plano → sincronizando con Supabase...');
-          setIsSyncing(true);
-          setSyncStatus('syncing');
-          syncService.syncAll(syncUserId)
-            .then(async (result) => {
-              if (result.pulled > 0 || result.pushed > 0) {
-                await refreshData();
-                console.log(`📲 AppState sync: ${result.pushed} subidos, ${result.pulled} descargados`);
-              }
-              if (result.success) {
-                setSyncStatus('synced');
-                setLastSyncedAt(new Date().toISOString());
-              } else {
-                setSyncStatus('error');
-              }
-            })
-            .catch(err => {
-              console.warn('⚠️ AppState sync error:', err);
-              setSyncStatus('offline');
-            })
-            .finally(() => setIsSyncing(false));
+          retryAttemptRef.current = 0;
+          runSyncRef.current('full');
         }
       }
     };
@@ -432,6 +456,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription.remove();
   }, [syncUserId, isOnlineUser, refreshData]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Web: al volver la conexión, sincronizar sin esperar al próximo reintento ──
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !isOnlineUser || !syncUserId || !syncService.isEnabled) return;
+    if (typeof window === 'undefined' || !window.addEventListener) return;
+    const onOnline = () => {
+      console.log('🌐 Conexión recuperada → sincronizando...');
+      clearRetry();
+      retryAttemptRef.current = 0;
+      runSyncRef.current('full');
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [syncUserId, isOnlineUser]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Event methods
   const addEvent = useCallback(async (eventData: Partial<Event>) => {
@@ -1723,6 +1761,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       syncStatus,
       lastSyncedAt,
       lastSyncError,
+      syncRetryAt,
       syncNow,
       clearAllData,
       resetDatabase,

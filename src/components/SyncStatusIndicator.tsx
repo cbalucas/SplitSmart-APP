@@ -7,12 +7,12 @@ import {
   Animated,
   Easing,
   ViewStyle,
-  Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useData, SyncStatus } from '../context/DataContext';
+import { showAlert } from '../services/alertService';
 
 export interface SyncStatusIndicatorProps {
   /** 'icon' = solo ícono (para headers); 'full' = ícono + texto (para perfil/ajustes) */
@@ -52,6 +52,12 @@ const LABELS: Record<'es' | 'en' | 'pt', Record<Exclude<SyncStatus, 'disabled'>,
   },
 };
 
+const EXTRA: Record<'es' | 'en' | 'pt', { retryIn: string; retryNow: string; close: string; willRetry: string }> = {
+  es: { retryIn: 'reintento en {s}s', retryNow: 'Reintentar ahora', close: 'Cerrar', willRetry: 'Se reintentará automáticamente en {s} s.' },
+  en: { retryIn: 'retry in {s}s', retryNow: 'Retry now', close: 'Close', willRetry: 'It will retry automatically in {s} s.' },
+  pt: { retryIn: 'nova tentativa em {s}s', retryNow: 'Tentar agora', close: 'Fechar', willRetry: 'Tentará novamente automaticamente em {s} s.' },
+};
+
 export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
   variant = 'icon',
   size = 22,
@@ -60,12 +66,26 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
 }) => {
   const { theme } = useTheme();
   const { language } = useLanguage();
-  const { syncStatus, syncNow, isSyncing, lastSyncError } = useData();
+  const { syncStatus, syncNow, isSyncing, lastSyncError, syncRetryAt } = useData();
   const spinValue = useRef(new Animated.Value(0)).current;
   const spinAnimation = useRef<Animated.CompositeAnimation | null>(null);
 
   const lang = (['es', 'en', 'pt'].includes(language) ? language : 'es') as 'es' | 'en' | 'pt';
   const labels = LABELS[lang];
+  const extra = EXTRA[lang];
+
+  // Segundos que faltan para el próximo reintento automático (cuenta regresiva en vivo)
+  const [retrySeconds, setRetrySeconds] = React.useState(0);
+  useEffect(() => {
+    if (!syncRetryAt) {
+      setRetrySeconds(0);
+      return;
+    }
+    const tick = () => setRetrySeconds(Math.max(0, Math.ceil((syncRetryAt - Date.now()) / 1000)));
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [syncRetryAt]);
 
   // No mostrar nada para usuarios locales / sync deshabilitado
   const visible = syncStatus !== 'disabled';
@@ -84,7 +104,11 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
     }
   };
 
-  const visual = getVisual();
+  const baseVisual = getVisual();
+  const visual =
+    (syncStatus === 'error' || syncStatus === 'offline') && retrySeconds > 0
+      ? { ...baseVisual, label: `${baseVisual.label} · ${extra.retryIn.replace('{s}', String(retrySeconds))}` }
+      : baseVisual;
 
   // Animación de giro cuando está sincronizando
   useEffect(() => {
@@ -115,16 +139,19 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
 
   const handlePress = () => {
     if (isSyncing) return;
-    // En estado de error, mostrar el detalle para poder diagnosticar y ofrecer reintento.
-    if (syncStatus === 'error' && lastSyncError) {
-      Alert.alert(
-        labels.error,
-        lastSyncError,
-        [
-          { text: 'Cerrar', style: 'cancel' },
-          { text: 'Reintentar', onPress: () => { syncNow(); } },
+    // En error / sin conexión, mostrar el MOTIVO y ofrecer reintento inmediato.
+    // Se usa el alert propio de la app: Alert.alert de React Native no hace nada en web.
+    if ((syncStatus === 'error' || syncStatus === 'offline') && lastSyncError) {
+      const retryLine = retrySeconds > 0 ? `\n\n${extra.willRetry.replace('{s}', String(retrySeconds))}` : '';
+      showAlert({
+        type: syncStatus === 'offline' ? 'warning' : 'error',
+        title: syncStatus === 'offline' ? labels.offline : labels.error,
+        message: `${lastSyncError}${retryLine}`,
+        buttons: [
+          { text: extra.close, style: 'cancel' },
+          { text: extra.retryNow, onPress: () => { syncNow(); } },
         ],
-      );
+      });
       return;
     }
     syncNow();
