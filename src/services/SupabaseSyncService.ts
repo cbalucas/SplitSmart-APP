@@ -225,14 +225,33 @@ export class SupabaseSyncService implements ISyncService {
       for (const row of sharedEditorRows) {
         if (!row.share_id) continue;
         try {
-          await supabase
+          const { data, error } = await supabase
             .from('event_collaborators')
             .upsert(
               { event_id: row.id, user_id: userId, role: 'editor', share_id: row.share_id },
               { onConflict: 'event_id,user_id', ignoreDuplicates: true }
             );
+          if (error) {
+            console.error('❌ SyncPush event_collaborators upsert rechazado por RLS:', {
+              eventId: row.id,
+              userId,
+              shareId: row.share_id,
+              error: error.message
+            });
+          } else {
+            console.log('✅ SyncPush event_collaborators registrado:', {
+              eventId: row.id,
+              userId,
+              shareId: row.share_id
+            });
+          }
         } catch (e: any) {
-          console.warn('⚠️ SyncPush registrar colaborador error:', e?.message || e);
+          console.error('❌ SyncPush registrar colaborador exception:', {
+            eventId: row.id,
+            userId,
+            shareId: row.share_id,
+            error: e?.message || String(e)
+          });
         }
       }
 
@@ -582,6 +601,13 @@ export class SupabaseSyncService implements ISyncService {
       }
 
       let pulled = 0;
+
+      // ── 0. Reintentar registro de colaborador (editor Y viewer) ───────────
+      // Si el alta en event_collaborators falló al importar por QR (p.ej. sin
+      // conexión en ese momento), el pull nunca traería actualizaciones del
+      // evento compartido (RLS `user_can_access_event` lo bloquea sin esta fila).
+      // Se reintenta en CADA pull, de forma idempotente, hasta que quede registrado.
+      await this._ensureCollaboratorRegistration(db, userId);
 
       // ── 1. Eventos del usuario como creador ───────────────────────────────
       const { data: ownedEvents, error: oeError } = await supabase
@@ -1193,6 +1219,73 @@ export class SupabaseSyncService implements ISyncService {
     );
   }
 
+  // ─── Helper: reintentar alta en event_collaborators (nativo) ─────────────
+  // Cubre editor Y viewer. Se llama en cada pull (idempotente vía upsert +
+  // ignoreDuplicates) para autocurar el caso en que el registro falló al
+  // importar el QR (p.ej. import offline, sesión aún no lista).
+  private async _ensureCollaboratorRegistration(db: any, userId: string): Promise<void> {
+    let localSharedRows: any[] = [];
+    try {
+      localSharedRows = await db.getAllAsync(
+        `SELECT id, share_id, shared_role FROM events
+         WHERE is_shared = 1 AND share_id IS NOT NULL AND shared_role IN ('editor', 'viewer')`
+      );
+    } catch {
+      return;
+    }
+    for (const row of localSharedRows) {
+      try {
+        const { error } = await supabase
+          .from('event_collaborators')
+          .upsert(
+            { event_id: row.id, user_id: userId, role: row.shared_role, share_id: row.share_id },
+            { onConflict: 'event_id,user_id', ignoreDuplicates: true }
+          );
+        if (error) {
+          console.error('❌ SyncPull event_collaborators upsert rechazado por RLS:', {
+            eventId: row.id, userId, shareId: row.share_id, role: row.shared_role, error: error.message
+          });
+        }
+      } catch (e: any) {
+        console.error('❌ SyncPull registrar colaborador exception:', {
+          eventId: row.id, userId, error: e?.message || String(e)
+        });
+      }
+    }
+  }
+
+  // ─── Helper: reintentar alta en event_collaborators (web) ─────────────────
+  private async _ensureCollaboratorRegistrationWeb(db: any, userId: string): Promise<void> {
+    let localSharedRows: any[] = [];
+    try {
+      const allEvents: any[] = await db.getAll('events');
+      localSharedRows = allEvents.filter(
+        (e) => e.is_shared && e.share_id && (e.shared_role === 'editor' || e.shared_role === 'viewer')
+      );
+    } catch {
+      return;
+    }
+    for (const row of localSharedRows) {
+      try {
+        const { error } = await supabase
+          .from('event_collaborators')
+          .upsert(
+            { event_id: row.id, user_id: userId, role: row.shared_role, share_id: row.share_id },
+            { onConflict: 'event_id,user_id', ignoreDuplicates: true }
+          );
+        if (error) {
+          console.error('❌ WebPull event_collaborators upsert rechazado por RLS:', {
+            eventId: row.id, userId, shareId: row.share_id, role: row.shared_role, error: error.message
+          });
+        }
+      } catch (e: any) {
+        console.error('❌ WebPull registrar colaborador exception:', {
+          eventId: row.id, userId, error: e?.message || String(e)
+        });
+      }
+    }
+  }
+
   // ─── Helper: qué ids ya existen en una tabla de Supabase (guardia FK) ─────
   // Se usa para no subir hijos cuyo padre aún no está en la nube (evita violar
   // FKs como expenses.payer_id / splits.expense_id / settlements.*_participant_id).
@@ -1686,6 +1779,11 @@ export class SupabaseSyncService implements ISyncService {
       }
 
       let pulled = 0;
+
+      // ── 0. Reintentar registro de colaborador (editor Y viewer) ───────────
+      // Ver comentario equivalente en pull() nativo: sin esta fila el colaborador
+      // nunca recibe actualizaciones posteriores del evento compartido.
+      await this._ensureCollaboratorRegistrationWeb(db, userId);
 
       // ── 1. Eventos: propios + donde participa ─────────────────────────────
       const { data: ownedEvents, error: oeError } = await supabase

@@ -945,6 +945,11 @@ export default function EventDetailScreen() {
 
   // Settlement handlers - SIMPLIFICADO
   const handleToggleSettlementPaid = async (settlementId: string, isPaid: boolean, skipConfirmation = false) => {
+    // Viewer (QR solo lectura): RLS rechaza la escritura → bloquear en la UI
+    if (isViewerReadOnly) {
+      showAlert({ type: 'warning', title: t('message.sharedViewerReadOnly'), message: t('message.sharedViewerReadOnlyDesc') });
+      return;
+    }
     // Solo permitir marcar pagos si el evento no está cerrado (tanto activo como bloqueado)
     if (isClosed) {
       showAlert({ type: 'error', title: t('message.actionNotAllowed'), message: t('message.onlyMarkPaymentsCompleted') });
@@ -1071,6 +1076,11 @@ export default function EventDetailScreen() {
   };
 
   const handleUpdateSettlementReceipt = async (settlementId: string, imageUri: string | null) => {
+    // Viewer (QR solo lectura): RLS rechaza la escritura → bloquear en la UI
+    if (isViewerReadOnly) {
+      showAlert({ type: 'warning', title: t('message.sharedViewerReadOnly'), message: t('message.sharedViewerReadOnlyDesc') });
+      return;
+    }
     // Solo permitir agregar comprobantes si el evento no está cerrado
     if (isClosed) {
       showAlert({ type: 'error', title: t('message.actionNotAllowed'), message: t('message.onlyReceiptsCompleted') });
@@ -3099,7 +3109,7 @@ export default function EventDetailScreen() {
                       currency={event?.currency || 'ARS'}
                       onTogglePaid={handleToggleSettlementPaid}
                       onUpdateReceipt={handleUpdateSettlementReceipt}
-                      disabled={event?.status === 'archived'}
+                      disabled={event?.status === 'archived' || isViewerReadOnly}
                     />
                   ))}
                 </View>
@@ -3191,7 +3201,7 @@ export default function EventDetailScreen() {
                   </Text>
                 </View>
                 <View style={{ flex: 1, height: 1, backgroundColor: theme.colors.outline + '30' }} />
-                {!allowUndoPayments && (
+                {!allowUndoPayments && !isViewerReadOnly && (
                   <TouchableOpacity
                     style={{ backgroundColor: theme.colors.surfaceVariant, width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}
                     onPress={() => { setAllowUndoPayments(true); setSelectedUndoIds(new Set()); }}
@@ -3940,6 +3950,12 @@ export default function EventDetailScreen() {
   };
 
   const handleSaveActivity = async () => {
+    if (!isEditable) {
+      showAlert(isViewerReadOnly
+        ? { type: 'warning', title: t('message.sharedViewerReadOnly'), message: t('message.sharedViewerReadOnlyDesc') }
+        : { type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyAddExpensesActive') });
+      return;
+    }
     const title = activityTitleInput.trim();
     if (!title) return;
     setIsSavingActivity(true);
@@ -3978,6 +3994,12 @@ export default function EventDetailScreen() {
   };
 
   const handleSaveAssign = async () => {
+    if (!isEditable) {
+      showAlert(isViewerReadOnly
+        ? { type: 'warning', title: t('message.sharedViewerReadOnly'), message: t('message.sharedViewerReadOnlyDesc') }
+        : { type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyAddExpensesActive') });
+      return;
+    }
     if (!assignActivity) return;
     setIsSavingAssign(true);
     try {
@@ -3993,6 +4015,12 @@ export default function EventDetailScreen() {
   };
 
   const handleDeleteActivity = (activity: Activity) => {
+    if (!isEditable) {
+      showAlert(isViewerReadOnly
+        ? { type: 'warning', title: t('message.sharedViewerReadOnly'), message: t('message.sharedViewerReadOnlyDesc') }
+        : { type: 'warning', title: t('message.eventNotEditable'), message: t('message.canOnlyDeleteExpensesActive') });
+      return;
+    }
     showAlert({
       type: 'destructive',
       title: t('organization.deleteTitle'),
@@ -4674,7 +4702,8 @@ export default function EventDetailScreen() {
                     <TouchableOpacity
                       key={p.id}
                       style={styles.activityAssigneeItem}
-                      onPress={() => toggleActivityAssignee(p.id)}
+                      onPress={() => !isViewerReadOnly && toggleActivityAssignee(p.id)}
+                      disabled={isViewerReadOnly}
                     >
                       <MaterialCommunityIcons
                         name={selected ? 'checkbox-marked' : 'checkbox-blank-outline'}

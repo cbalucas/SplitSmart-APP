@@ -1587,13 +1587,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const uid = session?.user?.id;
-        if (uid) {
-          const SharedEventService = (await import('../services/SharedEventService')).default;
-          await SharedEventService.registerCollaborator(newEvent.id, uid, role, shareId);
+        if (!uid) {
+          console.error('❌ importSharedEvent: sesión no disponible, no se pudo registrar colaborador', {
+            shareId, eventId: newEvent.id, role
+          });
+          return newEvent; // Retornar pero colaborador no registrado
         }
+        const SharedEventService = (await import('../services/SharedEventService')).default;
+        await SharedEventService.registerCollaborator(newEvent.id, uid, role, shareId);
+        console.log('✅ Colaborador registrado en event_collaborators:', { eventId: newEvent.id, uid, role, shareId });
       } catch (e) {
         // No bloquear el import si el registro de colaborador falla (p.ej. offline).
-        console.warn('registerCollaborator falló:', (e as any)?.message || e);
+        // Pero loguear con ERROR para que sea visible: esto explica por qué las ediciones no propagan.
+        console.error('❌ importSharedEvent → registerCollaborator falló (ediciones no propagarán hasta que se registre):', {
+          eventId: newEvent.id,
+          role,
+          shareId,
+          error: (e as any)?.message || String(e)
+        });
       }
     }
     await refreshData();
