@@ -8,7 +8,6 @@ import { DEMO_USER, DEMO_USER_ID, DEMO_CREDENTIALS } from '../constants/demoUser
 import { databaseService } from '../services/DatabaseFactory';
 import { supabase } from '../services/supabase';
 import { isNativeGoogleSignInAvailable, nativeGoogleSignIn, nativeGoogleSignOut } from '../services/googleSignIn';
-import { generateId } from '../utils/uuid';
 import { getLockRemainingSeconds, registerFailedAttempt, clearFailedAttempts } from '../utils/loginThrottle';
 
 // Necesario para completar el flujo OAuth en iOS/Android
@@ -220,28 +219,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 localUser = await databaseService.getUserById(localUser.id);
               } catch (_) {}
             }
-            // Crear el "amigo" propio del usuario si aún no existe (igual que en el registro local)
-            try {
-              const existingFriend = await databaseService.getParticipantByUserId(localUser.id);
-              if (!existingFriend) {
-                const nowIso = new Date().toISOString();
-                await databaseService.createParticipant({
-                  id: generateId(),
-                  name: localUser.name || name,
-                  email: localUser.email || email,
-                  avatar: avatarUrl,
-                  isActive: true,
-                  participantType: 'friend',
-                  userId: localUser.id,
-                  createdByUserId: localUser.id,
-                  isPublic: false,
-                  createdAt: nowIso,
-                  updatedAt: nowIso,
-                } as any);
-              }
-            } catch (friendErr) {
-              console.warn('⚠️ No se pudo crear el amigo del usuario Google:', friendErr);
-            }
+            // El "amigo" propio NO se crea aquí: en un dispositivo nuevo la base local aún está
+            // vacía y se duplicaría el que ya existe en la nube. DataContext lo crea (si de
+            // verdad no existe) después de la primera sincronización.
             try { await databaseService.updateLastLogin(localUser.id); } catch (_) {}
             setUser(_mapDbUserToUser(localUser, true));
             setIsOnlineUser(true);

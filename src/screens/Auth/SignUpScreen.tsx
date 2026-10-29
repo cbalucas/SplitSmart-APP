@@ -15,6 +15,7 @@ import { signUpLanguage } from './language';
 import { RootStackParamList } from '../../types/navigation';
 import { showAlert } from '../../services/alertService';
 import { generateId } from '../../utils/uuid';
+import { selfParticipantId } from '../../utils/selfParticipant';
 
 interface SignUpFormData {
   name: string;
@@ -271,7 +272,7 @@ export default function SignUpScreen() {
       // (antes se preguntaba; ahora se crea por defecto para que otros puedan agregarte a eventos)
       try {
         await databaseService.createParticipant({
-          id: generateId(),
+          id: selfParticipantId(userId),
           name: formData.name.trim(),
           email: formData.email.trim() || undefined,
           phone: formData.phone.trim() || undefined,

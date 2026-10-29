@@ -2,6 +2,55 @@
 
 ---
 
+## [1.10.6] — Pendiente de publicar
+
+### ✨ Novedades
+- **Contraseñas protegidas**: las contraseñas locales ahora se guardan con hash (PBKDF2-SHA256) y no en texto plano. Las cuentas existentes se migran solas en el próximo inicio de sesión correcto.
+- **Bloqueo temporal por intentos fallidos**: tras 5 contraseñas incorrectas seguidas la cuenta se bloquea 30 segundos, con cuenta regresiva en pantalla.
+- **Sincronización más clara y confiable**: la app muestra el motivo del error (sin conexión, sesión vencida, sin permiso, etc.), reintenta sola con espera creciente y permite "Reintentar ahora". Se agregan los avisos "Cambios sin enviar" / "Enviando cambios…" y "Última sync: hace X min" en Perfil.
+- **Actualizaciones remotas más rápidas**: chequeo cada 60 s y al volver a la pestaña web; también se detectan cambios en participantes y actividades hechos desde otro dispositivo.
+- **Sync web más rápida**: consultas en paralelo y envío de cambios agrupado.
+
+### 🔧 Problemas resueltos
+- **"Yo" duplicado al entrar desde otro dispositivo**: tu participante propio ya no se crea dos veces al iniciar sesión en la web y luego en la app (o al revés).
+- **Lo borrado reaparecía**: la web ya no vuelve a subir gastos, participantes o membresías que habías borrado desde la app.
+- **Participante que no se subía** por un identificador inválido en cuentas creadas con el registro local.
+- **Evento compartido por QR incompleto**: ahora se reintenta el alta como colaborador en cada sincronización, así el evento recibe todas las actualizaciones.
+- **Rol "solo lectura" (QR)**: ya no puede marcar pagos ni editar actividades (esos cambios nunca se reflejaban).
+- **Chequeo de nueva versión** que no funcionaba.
+- **Destello azul con "OK"** al cerrar cualquier alerta.
+- La web podía pisar cambios más recientes de la nube; ahora no.
+- Vinculación de cuenta en web, textos faltantes en inglés/portugués y detalles menores de estilo.
+
+### ✨ Mejoras
+- **Login**: "Iniciar Sesión" y "Continuar con Google" en la misma línea; el botón de huella pasa a su propia fila.
+- Código sin errores de tipado y documentación del proyecto actualizada.
+
+---
+
+## [1.10.5] — 25 de agosto de 2026
+
+### 🔧 Problemas resueltos
+- Correcciones en Perfil relacionadas con la cuenta y la sincronización.
+- Al iniciar sesión se completan los datos de la cuenta vinculada a la nube.
+
+---
+
+## [1.10.0 – 1.10.4] — junio a agosto de 2026
+
+> Entrada consolidada: estas versiones no se registraron una por una.
+
+### ✨ Novedades
+- **Sincronización con la nube (Supabase)**: tus eventos, participantes, gastos y liquidaciones se respaldan y se sincronizan entre dispositivos (app y web). Incluye inicio de sesión con Google e indicador de estado de sincronización.
+- **Invitación por QR**: compartí un evento con un código QR para que otras personas lo vean (solo lectura) o lo editen junto con vos.
+- **Actividades dentro de un evento**: creación, asignación de participantes y descripción.
+- **Resolución de conflictos**: gana siempre el cambio más reciente al sincronizar.
+
+### 🔧 Problemas resueltos
+- Varias correcciones en la carga de gastos, el detalle de eventos y la sincronización de participantes compartidos.
+
+---
+
 ## [1.9.1] — 27 de abril de 2026
 
 ### ✨ Novedades

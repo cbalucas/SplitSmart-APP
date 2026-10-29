@@ -24,6 +24,7 @@
 
 ### 🔧 Correcciones de Bugs
 
+- **El "amigo propio" se duplicaba al iniciar sesión en otro dispositivo (web y luego app, o al revés)**: al loguear con Google en un dispositivo nuevo la base local está vacía, `AuthContext` no veía el participante propio que ya existía en la nube y creaba otro con id aleatorio; la sync subía los dos (mismo `user_id`). Fix en dos capas: (1) el id del amigo propio ahora es determinista (`src/utils/selfParticipant.ts`, SHA-256 → UUID v4 válido, derivado de `supabaseUserId || id`) en los 4 sitios que lo crean (registro, Google, Perfil, CreateEvent), así varios dispositivos escriben la MISMA fila; (2) el login con Google ya no lo crea: `DataContext.ensureSelfParticipant` lo crea recién después de la primera sync completa exitosa y solo si no existe (busca por `user.id` y por `syncUserId`). Los duplicados que ya existen en la nube se fusionan con `supabase/merge-duplicate-self-participants.sql` (vista previa + fusión en transacción); no se corrigen solos.
 - **Lo borrado en la app reaparecía (la web "resucitaba" gastos, splits, participantes y membresías)**: `syncAll` hace push y luego pull, y el push web sube TODO lo que hay en IndexedDB; al recargar, la web re-subía lo que la app ya había borrado en Supabase y el pull no tenía nada que reconciliar, así que la app lo volvía a traer. Fix: *ledger* por usuario (`@splitsmart/web_synced_ids:<userId>` en AsyncStorage) con los ids que ya estuvieron sincronizados con la nube. Regla: fila local ausente en la nube + presente en el ledger = borrada remotamente → no se sube y el pull la elimina localmente; ausente y fuera del ledger = fila nueva → se sube. Cubre eventos, participantes, membresías, gastos, splits, liquidaciones, actividades y asignaciones. El pull ahora también elimina en web los participantes y eventos propios borrados en la nube (antes solo gastos/liquidaciones/etc.), sin tocar participantes que aún tengan una membresía local sin subir. Validado con una simulación (Supabase e IndexedDB falsos) que reproduce el escenario: con el código anterior falla (8 chequeos) y con el nuevo pasa. Nota: lo borrado ANTES de este fix y ya resucitado en la nube hay que volver a borrarlo una vez; el ledger se arma en la primera sync completa.
 - **Consultas estrictas en el sync web**: antes un error en cualquier consulta del pull/prefetch devolvía "vacío" y podía interpretarse como "se borró todo". Ahora cualquier error aborta el pull/push con el motivo (el estado previo queda intacto y se reintenta).
 
@@ -55,12 +56,13 @@
 - Rol `viewer`/`editor` por QR de punta a punta (`shared-collaboration.sql` ya está ejecutado en Supabase).
 - Tiempo de verificación del hash de contraseña en un celular real (en PC ~90 ms).
 - Cambio de contraseña desde Perfil y login posterior.
-- Antes del build: completar `CHANGELOG.md` (le faltan las entradas 1.10.0–1.10.5).
+- Ejecutar `supabase/merge-duplicate-self-participants.sql` en Supabase (paso 1 vista previa, paso 2 fusión) y sincronizar cada dispositivo.
+- Al generar el build: cambiar "Pendiente de publicar" por la fecha en la entrada 1.10.6 de `CHANGELOG.md` (ya cargada) y vaciar este archivo.
 
 ### 📁 Archivos Modificados
 
 **Nuevos**
-- `src/utils/passwordHash.ts`, `src/utils/loginThrottle.ts`
+- `src/utils/passwordHash.ts`, `src/utils/loginThrottle.ts`, `supabase/merge-duplicate-self-participants.sql`
 
 **Autenticación / seguridad**
 - `src/context/AuthContext.tsx`, `src/screens/Auth/LoginScreen.tsx`, `src/screens/Auth/language.ts`, `src/services/database.ts`, `src/services/IndexedDBDatabaseService.ts`, `package.json` y `package-lock.json` (+`@noble/hashes`), `metro.config.js`
@@ -71,7 +73,7 @@
 - `src/services/IDatabaseService.ts`
 
 **Pantallas / UI**
-- `src/components/SyncStatusIndicator.tsx` (motivo del error vía `showAlert`, cuenta regresiva de reintento, indicador de cambios pendientes y última sync), `src/utils/syncErrors.ts` (nuevo), `src/screens/Auth/SignUpScreen.tsx` (id UUID al registrar)
+- `src/components/SyncStatusIndicator.tsx` (motivo del error vía `showAlert`, cuenta regresiva de reintento, indicador de cambios pendientes y última sync), `src/utils/syncErrors.ts` (nuevo), `src/screens/Auth/SignUpScreen.tsx` (id UUID al registrar; amigo propio con id determinista), `src/utils/selfParticipant.ts` (nuevo), `src/context/AuthContext.tsx` (Google ya no crea el amigo propio), `src/screens/ProfileScreen/index.tsx` y `src/screens/CreateEvent/index.tsx` (id determinista)
 - `src/screens/EventDetail/index.tsx` (guardas `isViewerReadOnly`), `src/screens/EventDetail/styles.ts`
 - `src/screens/Home/index.tsx`, `src/screens/Home/types.ts`, `src/screens/ExpressEvent/index.tsx`, `src/screens/ExpressEvent/language.ts`, `src/screens/ManageFriends/index.tsx`, `src/screens/Auth/SignUpScreen.tsx`
 - `src/components/CustomAlert/index.tsx`, `src/context/LanguageContext.tsx`, `src/services/UpdateService.ts`

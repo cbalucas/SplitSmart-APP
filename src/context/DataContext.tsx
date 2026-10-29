@@ -8,6 +8,7 @@ import { notificationService } from '../services/NotificationService';
 import { useAuth } from './AuthContext';
 import { generateId } from '../utils/uuid';
 import { describeSyncError } from '../utils/syncErrors';
+import { selfParticipantId } from '../utils/selfParticipant';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
@@ -295,6 +296,42 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const runSyncRef = useRef<(mode: SyncMode) => Promise<void>>(async () => {});
 
+  // "Amigo" propio del usuario online. Se crea recién tras una sync completa exitosa: así, en un
+  // dispositivo nuevo ya se descargó el que existe en la nube y no se crea un duplicado.
+  // Usa un id determinista (ver utils/selfParticipant) para que varios dispositivos converjan.
+  const selfEnsuredForRef = useRef<string | null>(null);
+  const ensureSelfParticipantRef = useRef<() => Promise<void>>(async () => {});
+  ensureSelfParticipantRef.current = async () => {
+    if (!user?.id || !syncUserId || selfEnsuredForRef.current === user.id) return;
+    selfEnsuredForRef.current = user.id;
+    try {
+      const existing =
+        (await databaseService.getParticipantByUserId(user.id)) ||
+        (syncUserId !== user.id ? await databaseService.getParticipantByUserId(syncUserId) : null);
+      if (existing) return;
+      const nowIso = new Date().toISOString();
+      await databaseService.createParticipant({
+        id: selfParticipantId(syncUserId),
+        name: user.name || 'Yo',
+        email: user.email || undefined,
+        avatar: user.avatar || undefined,
+        isActive: true,
+        participantType: 'friend',
+        userId: user.id,
+        createdByUserId: user.id,
+        isPublic: false,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      } as any);
+      await refreshData();
+      backgroundPushRef.current();
+    } catch (e) {
+      selfEnsuredForRef.current = null; // reintentar en la próxima sync
+      console.warn('⚠️ No se pudo crear el amigo propio del usuario:', (e as any)?.message || e);
+    }
+  };
+  const backgroundPushRef = useRef<() => void>(() => {});
+
   const runSync = useCallback(async (mode: SyncMode): Promise<void> => {
     if (!isOnlineUser || !syncUserId || !syncService.isEnabled) return;
     if (syncRunningRef.current) {
@@ -316,6 +353,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
       if (result.success) {
         if (mode !== 'pull' && writeSeqRef.current === writeSeqAtStart) setPending(false);
+        if (mode === 'full') ensureSelfParticipantRef.current();
         retryAttemptRef.current = 0;
         clearRetry();
         setLastSyncError(null);
@@ -399,6 +437,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       runSyncRef.current('push');
     }, 800);
   }, [isOnlineUser, syncUserId]);
+
+  backgroundPushRef.current = backgroundPush;
 
   // Sync manual completo (para exponer en contexto y UI). También cancela la espera de reintento.
   const syncNow = useCallback(async (): Promise<void> => {

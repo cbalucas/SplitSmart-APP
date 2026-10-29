@@ -39,7 +39,7 @@ import {
 import { createStyles } from './styles';
 import { PROFILE_KEYS, NOTIFICATION_KEYS, getLanguageDisplayName, getUserInitials } from './language';
 import { showAlert } from '../../services/alertService';
-import { generateId } from '../../utils/uuid';
+import { selfParticipantId } from '../../utils/selfParticipant';
 import { fetchVersionInfo, isNewerVersion, RemoteVersionInfo } from '../../services/UpdateService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TutorialOverlay from '../../components/TutorialOverlay';
@@ -306,7 +306,7 @@ const ProfileScreen: React.FC = () => {
                   if (!user?.id) return;
                   try {
                     await databaseService.createParticipant({
-                      id: generateId(),
+                      id: selfParticipantId(user.supabaseUserId || user.id),
                       name: user.name || profileData.name,
                       email: user.email || profileData.email || undefined,
                       phone: profileData.phone || undefined,

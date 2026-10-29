@@ -32,6 +32,7 @@ import { EventFormData, EventFormErrors, RouteParams } from './types';
 import { createEventLanguage } from './language';
 import { createStyles } from './styles';
 import { generateId } from '../../utils/uuid';
+import { selfParticipantId } from '../../utils/selfParticipant';
 
 const CreateEventScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -330,7 +331,7 @@ const CreateEventScreen: React.FC = () => {
             if (!selfParticipant) {
               const nowIso = new Date().toISOString();
               selfParticipant = {
-                id: generateId(),
+                id: selfParticipantId(user.supabaseUserId || user.id),
                 name: user.name || 'Yo',
                 email: user.email || undefined,
                 isActive: true,

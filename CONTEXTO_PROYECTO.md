@@ -56,7 +56,7 @@ Todo el detalle está en `PENDING_CHANGES.md`. Resumen:
 - Archivos enormes: `EventDetail/index.tsx` (~5.800 líneas), `database.ts` (~4.800), `ProfileScreen/index.tsx` (~3.600). Candidatos a dividir.
 - Los scripts de `test/*.js` no usan Jest; `npm test` no ejecuta pruebas reales. No hay tests automatizados de cálculo/sync.
 - Posibles duplicados sin confirmar: `components/Button/index.tsx` y `components/Card/index.tsx` (los imports resuelven a `Button.tsx`/`Card.tsx`), `CHANGELOG.md.bak`. `services/SyncService.ts` NO es duplicado: es `LocalOnlySyncService`, el fallback de `SyncFactory`.
-- `CHANGELOG.md` se detiene en la 1.9.1 aunque la app va por la 1.10.x: faltan las entradas 1.10.0–1.10.5.
+- `CHANGELOG.md` ya incluye 1.10.0–1.10.6 (1.10.0–1.10.4 consolidadas).
 - Escrituras web no marcan `sync_status` de forma uniforme (mitigado con la guarda LWW; ver §4).
 - El `share_id` actúa como token del QR y `shared_events` es legible por quien lo conozca (por diseño); el código corto de 8 caracteres se genera con `Math.random()` (no criptográfico).
 - Los logs de `DataContext.tsx` tienen texto con doble codificación (mojibake) en los emojis; es solo cosmético.
@@ -71,7 +71,7 @@ Todo el detalle está en `PENDING_CHANGES.md`. Resumen:
 
 ## 8. Hacia dónde vamos (próximos pasos sugeridos)
 - Validar en dispositivo real el rol viewer/editor y el rendimiento del hash de contraseñas (PBKDF2, 20.000 iteraciones), y hacer el build de la 1.10.6.
-- Completar `CHANGELOG.md` (1.10.x) y mover ahí `PENDING_CHANGES.md` al generar el build.
+- Al generar el build, poner fecha a la 1.10.6 en `CHANGELOG.md` y vaciar `PENDING_CHANGES.md`.
 - Confirmar y borrar los archivos duplicados de §6.
 - Agregar pruebas automatizadas (Jest) para `calculations.ts`, `ConsolidationService` y `passwordHash`.
 - Evaluar partir los archivos gigantes.
