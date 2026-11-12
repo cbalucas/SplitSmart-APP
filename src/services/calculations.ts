@@ -145,8 +145,9 @@ export class CalculationService {
     const settlements: Settlement[] = [];
     
     // Separate debtors (positive balance) and creditors (negative balance)
-    const debtors = balances.filter(b => b.balance > 0.01).sort((a, b) => b.balance - a.balance);
-    const creditors = balances.filter(b => b.balance < -0.01).sort((a, b) => a.balance - b.balance);
+    // Se trabaja sobre copias: el algoritmo descuenta saldos y no debe alterar los balances del llamador
+    const debtors = balances.filter(b => b.balance > 0.01).map(b => ({ ...b })).sort((a, b) => b.balance - a.balance);
+    const creditors = balances.filter(b => b.balance < -0.01).map(b => ({ ...b })).sort((a, b) => a.balance - b.balance);
     
     console.log('  🔴 Debtors:', debtors.map(d => ({ name: d.participantName, owes: d.balance })));
     console.log('  🟢 Creditors:', creditors.map(c => ({ name: c.participantName, isOwed: Math.abs(c.balance) })));
@@ -194,16 +195,18 @@ export class CalculationService {
     expenseAmount: number,
     participants: Participant[]
   ): SplitCalculation[] {
-    const amountPerPerson = expenseAmount / participants.length;
-    
-    return participants.map(participant => {
-      return {
-        participantId: participant.id,
-        participantName: participant.name,
-        amount: parseFloat(amountPerPerson.toFixed(2)),
-        percentage: parseFloat((100 / participants.length).toFixed(2))
-      };
-    });
+    if (participants.length === 0) return [];
+    // Se trabaja en centavos y el resto se reparte de a 1 centavo, para que la suma siempre iguale el total
+    const totalCents = Math.round(expenseAmount * 100);
+    const baseCents = Math.floor(totalCents / participants.length);
+    const remainder = totalCents - baseCents * participants.length;
+
+    return participants.map((participant, index) => ({
+      participantId: participant.id,
+      participantName: participant.name,
+      amount: (baseCents + (index < remainder ? 1 : 0)) / 100,
+      percentage: parseFloat((100 / participants.length).toFixed(2))
+    }));
   }
 
   /**

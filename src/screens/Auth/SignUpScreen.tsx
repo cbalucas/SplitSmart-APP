@@ -85,7 +85,7 @@ export default function SignUpScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
   const { language } = useLanguage();
-  const { login, registerWithSupabase } = useAuth();
+  const { login } = useAuth();
   
   const styles = createSignUpStyles(theme);
   const t = signUpLanguage[language as keyof typeof signUpLanguage] || signUpLanguage.es;
@@ -251,22 +251,6 @@ export default function SignUpScreen() {
         phone: formData.phone.trim(),
         skipPassword: formData.skipPassword
       });
-
-      // Si tiene email y contraseña, también registrar en Supabase (en segundo plano)
-      if (formData.email.trim() && formData.password) {
-        const sbResult = await registerWithSupabase(
-          formData.email.trim().toLowerCase(),
-          formData.password,
-          formData.name.trim(),
-          formData.username.trim().toLowerCase(),
-        );
-        if (sbResult.success) {
-          console.log('✅ User also registered in Supabase');
-        } else {
-          // No bloquear el registro local por fallos de Supabase (puede ser email ya existente, etc.)
-          console.warn('⚠️ Supabase registration skipped:', sbResult.error);
-        }
-      }
 
       // Crear automáticamente el amigo vinculado con los datos del usuario
       // (antes se preguntaba; ahora se crea por defecto para que otros puedan agregarte a eventos)

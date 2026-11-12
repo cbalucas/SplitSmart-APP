@@ -20,6 +20,8 @@
  *  - Web: no-op (devuelve éxito vacío) porque usa IndexedDB y no necesita SQLite sync.
  */
 
+import { DEMO_USER_ID } from '../constants/demoUser';
+const isDemoUserId = (id?: string | null) => id === DEMO_USER_ID;
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
@@ -80,6 +82,7 @@ export class SupabaseSyncService implements ISyncService {
 
   // ─── PUSH: local → Supabase ───────────────────────────────────────────────
   async push(userId: string): Promise<SyncResult> {
+    if (isDemoUserId(userId)) return { success: true, pushed: 0, pulled: 0, conflicts: 0 };
     // En web usamos IndexedDB con full-sync (upsert idempotente)
     if (Platform.OS === 'web') {
       return this._pushWeb(userId);
@@ -591,6 +594,7 @@ export class SupabaseSyncService implements ISyncService {
 
   // ─── PULL: Supabase → local ────────────────────────────────────────────────
   async pull(userId: string): Promise<SyncResult> {
+    if (isDemoUserId(userId)) return { success: true, pushed: 0, pulled: 0, conflicts: 0 };
     // En web usamos IndexedDB
     if (Platform.OS === 'web') {
       return this._pullWeb(userId);
@@ -1102,6 +1106,7 @@ export class SupabaseSyncService implements ISyncService {
 
   // ─── syncAll: push → pull ──────────────────────────────────────────────────
   async syncAll(userId: string): Promise<SyncResult> {
+    if (isDemoUserId(userId)) return { success: true, pushed: 0, pulled: 0, conflicts: 0 };
     console.log('🔄 SyncAll iniciando para usuario:', userId);
     const pushResult = await this.push(userId);
     const pullResult = await this.pull(userId);
@@ -1516,7 +1521,7 @@ export class SupabaseSyncService implements ISyncService {
       const events: any[] = await db.getAll('events');
       for (const e of events) {
         const isShared = e.is_shared === 1 || e.is_shared === true;
-        if (!isShared && e.creator_id !== userId) {
+        if (!isShared && e.creator_id !== userId && !isDemoUserId(e.creator_id)) {
           await db.put('events', { ...e, creator_id: userId, sync_status: 'pending' });
         }
       }
@@ -1524,7 +1529,7 @@ export class SupabaseSyncService implements ISyncService {
       const participants: any[] = await db.getAll('participants');
       for (const p of participants) {
         const isFriend = p.participant_type === 'friend';
-        if (isFriend && p.created_by_user_id !== userId) {
+        if (isFriend && p.created_by_user_id !== userId && !isDemoUserId(p.created_by_user_id)) {
           await db.put('participants', { ...p, created_by_user_id: userId, sync_status: 'pending' });
         }
       }

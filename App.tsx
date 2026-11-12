@@ -9,6 +9,7 @@ import { LanguageProvider } from './src/context/LanguageContext';
 import RootNavigator from './src/navigation';
 import SplashScreen from './src/screens/SplashScreen';
 import CustomAlertContainer from './src/components/CustomAlert';
+import ErrorBoundary from './src/components/ErrorBoundary';
 
 // Si estamos volviendo de un redirect OAuth (web), saltamos el splash
 // para que el usuario entre directo al home sin esperar 6 segundos.
@@ -27,6 +28,7 @@ export default function App() {
   };
 
   return (
+    <ErrorBoundary>
     <SafeAreaProvider>
       <ThemeProvider>
         <LanguageProvider>
@@ -45,6 +47,7 @@ export default function App() {
         </LanguageProvider>
       </ThemeProvider>
     </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }
 

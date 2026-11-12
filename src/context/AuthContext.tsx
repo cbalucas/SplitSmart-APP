@@ -29,15 +29,8 @@ interface AuthContextValue {
   toggleChatMode: (enabled: boolean) => Promise<void>;
   loginWithBiometric: (userId?: string) => Promise<boolean>;
   toggleBiometric: (enabled: boolean) => Promise<void>;
-  registerWithSupabase: (email: string, password: string, name: string, username: string) => Promise<{ success: boolean; error?: string }>;
   loginWithGoogle: () => Promise<void>;
   isOnlineUser: boolean;
-  /** true cuando el usuario local tiene email válido y aún no está vinculado a Supabase */
-  offerLinkToSupabase: boolean;
-  /** Vincular el usuario local activo con su cuenta de Supabase (mismo email) */
-  linkToSupabase: (password: string) => Promise<{ success: boolean; error?: string }>;
-  /** Descartar la oferta de vinculación para esta sesión */
-  dismissLinkOffer: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -55,12 +48,8 @@ const AuthContext = createContext<AuthContextValue>({
   toggleChatMode: async () => {},
   loginWithBiometric: async (_userId?: string) => false,
   toggleBiometric: async () => {},
-  registerWithSupabase: async () => ({ success: false }),
   loginWithGoogle: async () => {},
   isOnlineUser: false,
-  offerLinkToSupabase: false,
-  linkToSupabase: async () => ({ success: false }),
-  dismissLinkOffer: () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -68,7 +57,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [isOnlineUser, setIsOnlineUser] = useState(false);
-  const [offerLinkToSupabase, setOfferLinkToSupabase] = useState(false);
 
   // Mapea datos de BD local a objeto User
   const _mapDbUserToUser = (dbUser: any, supabaseBased = false): User => ({
@@ -138,7 +126,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Restaurar sesión Supabase existente (si el usuario ya había hecho login online)
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.email) {
+      if (session?.user && session.user.app_metadata?.provider !== 'google') {
+        // Solo las cuentas de Google usan la nube; cualquier otra sesión residual se descarta.
+        await supabase.auth.signOut().catch(() => {});
+      } else if (session?.user?.email) {
         console.log('\ud83d\udd11 Supabase session found for:', session.user.email);
         let localUser = await databaseService.getUserByCredential(session.user.email);
         if (!localUser) {
@@ -284,15 +275,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           supabaseUserId: dbUser.supabase_user_id || undefined,
         };
         setUser(authenticatedUser);
-        // Ofrecer vinculación si el usuario no es demo, tiene email real y aún no está vinculado
-        if (
-          dbUser.id !== DEMO_USER_ID &&
-          dbUser.email &&
-          dbUser.email !== DEMO_CREDENTIALS.email &&
-          !dbUser.supabase_user_id
-        ) {
-          setOfferLinkToSupabase(true);
-        }
         setLoading(false);
         return true;
       }
@@ -333,15 +315,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           supabaseUserId: dbUser.supabase_user_id || undefined,
         };
         setUser(authenticatedUser);
-        // Ofrecer vinculación si el usuario no es demo, tiene email real y aún no está vinculado
-        if (
-          dbUser.id !== DEMO_USER_ID &&
-          dbUser.email &&
-          dbUser.email !== DEMO_CREDENTIALS.email &&
-          !dbUser.supabase_user_id
-        ) {
-          setOfferLinkToSupabase(true);
-        }
         setLoading(false);
         return true;
       }
@@ -382,7 +355,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       nativeGoogleSignOut().catch(() => {});
     }
     setIsOnlineUser(false);
-    setOfferLinkToSupabase(false);
     setUser(null);
   };
 
@@ -506,15 +478,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try { await databaseService.updateLastLogin(fullUserData.id); } catch (_) {}
       const authenticatedUser = _mapDbUserToUser(fullUserData);
       setUser(authenticatedUser);
-      setIsOnlineUser(false);      // Auto-login de usuario no-demo sin supabase_user_id → ofrecer vinculación
-      if (
-        fullUserData.id !== DEMO_USER_ID &&
-        fullUserData.email &&
-        fullUserData.email !== DEMO_CREDENTIALS.email &&
-        !fullUserData.supabase_user_id
-      ) {
-        setOfferLinkToSupabase(true);
-      }      return authenticatedUser;
+      setIsOnlineUser(false);
+      return authenticatedUser;
     } catch (error) {
       console.error('❌ Error in auto-login:', error);
       return null;
@@ -685,77 +650,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Vincular el usuario local activo con su cuenta Supabase (mismo email)
-  const linkToSupabase = async (password: string): Promise<{ success: boolean; error?: string }> => {
-    if (!user) return { success: false, error: 'No hay usuario activo' };
-    if (user.id === DEMO_USER_ID) {
-      return { success: false, error: 'El usuario Demo no puede vincularse a Supabase' };
-    }
-    if (!user.email || user.email === DEMO_CREDENTIALS.email) {
-      return { success: false, error: 'El usuario no tiene un email válido para vincular' };
-    }
-    if (user.supabaseUserId) {
-      return { success: false, error: 'El usuario ya está vinculado a Supabase' };
-    }
-    try {
-      console.log('🔗 Linking local user to Supabase:', user.email);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password,
-      });
-      if (error) {
-        console.error('❌ Supabase auth error during linking:', error.message);
-        return { success: false, error: error.message };
-      }
-      if (!data.user) {
-        return { success: false, error: 'No se pudo autenticar con Supabase' };
-      }
-      const supabaseId = data.user.id;
-      await databaseService.linkUserToSupabase(user.id, supabaseId);
-      setUser(prev => prev ? { ...prev, supabaseUserId: supabaseId } : null);
-      setIsOnlineUser(true);
-      setOfferLinkToSupabase(false);
-      console.log('✅ Local user linked to Supabase successfully. SupabaseId:', supabaseId);
-      return { success: true };
-    } catch (err: any) {
-      console.error('❌ Error linking to Supabase:', err);
-      return { success: false, error: err?.message ?? 'Error desconocido' };
-    }
-  };
-
-  /** Descartar la oferta de vinculación para esta sesión */
-  const dismissLinkOffer = () => {
-    setOfferLinkToSupabase(false);
-  };
-
-  // Registro de usuario real via Supabase (email requerido)
-  const registerWithSupabase = async (
-    email: string,
-    password: string,
-    name: string,
-    username: string,
-  ): Promise<{ success: boolean; error?: string }> => {
-    try {
-      console.log('🌐 Registering user in Supabase:', email);
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { name, username } },
-      });
-      if (error) {
-        console.error('❌ Supabase signUp error:', error.message);
-        return { success: false, error: error.message };
-      }
-      if (!data.user) return { success: false, error: 'No user returned from Supabase' };
-
-      console.log('✅ Supabase user created:', data.user.id);
-      return { success: true };
-    } catch (err: any) {
-      console.error('❌ registerWithSupabase error:', err);
-      return { success: false, error: err?.message ?? 'Unknown error' };
-    }
-  };
-
   return (
     <AuthContext.Provider value={{
       user,
@@ -772,12 +666,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toggleChatMode,
       loginWithBiometric,
       toggleBiometric,
-      registerWithSupabase,
       loginWithGoogle,
-      isOnlineUser,
-      offerLinkToSupabase,
-      linkToSupabase,
-      dismissLinkOffer,
+      isOnlineUser: isOnlineUser && user?.id !== DEMO_USER_ID && !!user,
     }}>
       {children}
     </AuthContext.Provider>

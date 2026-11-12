@@ -24,7 +24,7 @@ SplitSmart – Divide gastos fácil
 
 ### Descripción breve *(máx. 80 caracteres)*
 ```
-Divide gastos con amigos y grupos de forma inteligente y 100% offline.
+Divide gastos con amigos y grupos. Funciona sin internet; respaldo opcional con Google.
 ```
 
 ### Descripción larga *(máx. 4000 caracteres)*
@@ -33,7 +33,7 @@ Divide gastos con amigos y grupos de forma inteligente y 100% offline.
 ```
 SplitSmart es la forma más inteligente y segura de gestionar gastos compartidos con amigos, familia o compañeros de trabajo.
 
-¿Fuiste de viaje? ¿Compartiste una cena? ¿Vivís con compañeros de piso? SplitSmart te permite registrar cada gasto, ver quién debe a quién y liquidar cuentas de forma transparente y sencilla, todo desde tu teléfono y sin necesidad de internet.
+¿Fuiste de viaje? ¿Compartiste una cena? ¿Vivís con compañeros de piso? SplitSmart te permite registrar cada gasto, ver quién debe a quién y liquidar cuentas de forma transparente y sencilla, todo desde tu teléfono. Funciona sin internet y, si lo deseas, puedes iniciar sesión con Google para respaldar y sincronizar tus datos.
 
 ✨ FUNCIONALIDADES PRINCIPALES
 
@@ -54,10 +54,15 @@ SplitSmart es la forma más inteligente y segura de gestionar gastos compartidos
 💱 Multi-moneda
 • Soporte para ARS, USD, EUR, BRL y más
 
-🔒 Privacidad total
-• 100% offline: tus datos nunca salen de tu dispositivo
-• Base de datos SQLite local, sin cuentas ni servidores externos
+🔒 Tú decides dónde viven tus datos
+• Sin iniciar sesión: tus datos quedan solo en tu dispositivo (base local, funciona sin internet)
+• Con Google: tus datos se respaldan en la nube y se sincronizan entre tus dispositivos
 • Autenticación biométrica (huella digital / Face ID)
+• Sin publicidad ni rastreadores
+
+☁️ Sincronización y eventos compartidos (con Google)
+• Usa tus eventos en otro teléfono o en la web
+• Comparte un evento con un código QR (solo lectura o edición)
 
 🎨 Experiencia de usuario
 • Modo claro y oscuro automático
@@ -74,7 +79,7 @@ SplitSmart es ideal para viajeros, compañeros de piso, grupos de amigos o cualq
 ```
 SplitSmart is the smartest and safest way to manage shared expenses with friends, family, or coworkers.
 
-Going on a trip? Sharing a dinner? Living with roommates? SplitSmart lets you track every expense, see who owes what, and settle up easily — all from your phone, completely offline.
+Going on a trip? Sharing a dinner? Living with roommates? SplitSmart lets you track every expense, see who owes what, and settle up easily — all from your phone. It works offline, and you can optionally sign in with Google to back up and sync your data.
 
 ✨ KEY FEATURES
 
@@ -95,10 +100,15 @@ Going on a trip? Sharing a dinner? Living with roommates? SplitSmart lets you tr
 💱 Multi-currency
 • Support for ARS, USD, EUR, BRL and more
 
-🔒 Full privacy
-• 100% offline: your data never leaves your device
-• Local SQLite database — no accounts, no external servers
+🔒 You decide where your data lives
+• Not signed in: your data stays only on your device (local database, works offline)
+• Signed in with Google: your data is backed up to the cloud and synced across your devices
 • Biometric authentication (fingerprint / Face ID)
+• No ads, no trackers
+
+☁️ Sync & shared events (with Google)
+• Use your events on another phone or on the web
+• Share an event with a QR code (read-only or edit)
 
 🎨 User experience
 • Automatic light and dark mode
@@ -116,19 +126,35 @@ SplitSmart is ideal for travelers, roommates, friend groups, or any situation in
 ## 3. Configuración de contenido (Obligatorio)
 
 ### Política de privacidad
-- **Estado:** ⚠️ Pendiente de creación
-- **Herramienta recomendada:** [App Privacy Policy Generator](https://app-privacy-policy-generator.nisrulz.com/)
-- **Dónde alojarla (gratis):** GitHub Pages o Google Sites
-- **URL final (completar una vez creada):** `___________________________________`
+- **Estado:** ✅ Redactada en `docs/privacy-policy.html` (publicarla y completar la URL)
+- **Dónde alojarla (gratis):** GitHub Pages (carpeta `docs/`) o Google Sites
+- **URL final (completar una vez publicada):** `___________________________________`
 
-**Puntos clave que DEBE incluir la política** (por los permisos que usa la app):
-| Permiso | Qué declarar |
+**Modelo de datos de la app:** sin iniciar sesión con Google los datos quedan solo en el dispositivo; con Google se sincronizan con la nube (Supabase). La política y el formulario de Seguridad de los datos deben decir exactamente esto.
+
+### Seguridad de los datos (Data Safety) — respuestas a cargar
+| Pregunta | Respuesta |
 |---|---|
-| `CAMERA` / `READ_MEDIA_IMAGES` | Acceso a cámara y fotos para adjuntar comprobantes |
-| `USE_BIOMETRIC` / `USE_FINGERPRINT` | Autenticación biométrica local, no se envía a servidores |
-| `READ/WRITE_EXTERNAL_STORAGE` | Exportación de datos, solo en el dispositivo |
-| SQLite local | Los datos se almacenan únicamente en el dispositivo del usuario |
-| Sin analíticas ni publicidad | La app no recopila ni transmite datos personales |
+| ¿Recopila o comparte datos del usuario? | **Sí** (solo si el usuario inicia sesión con Google) |
+| ¿Datos cifrados en tránsito? | **Sí** (HTTPS) |
+| ¿El usuario puede pedir que se eliminen sus datos? | **Sí** (ver "Eliminación de cuenta") |
+| ¿Se comparten datos con terceros? | **No** (Supabase y Google actúan como proveedores de servicio) |
+
+| Tipo de dato | Recopilado | Finalidad | Opcional |
+|---|---|---|---|
+| Nombre | Sí | Funcionalidad de la app, cuenta | Sí (solo con Google) |
+| Dirección de email | Sí | Cuenta, funcionalidad | Sí (solo con Google) |
+| ID de usuario | Sí | Cuenta | Sí |
+| Fotos (comprobantes, avatar) | Sí | Funcionalidad de la app | Sí |
+| Otro contenido del usuario (eventos, gastos, participantes) | Sí | Funcionalidad de la app, respaldo | Sí |
+| Datos de contacto de terceros (teléfono, alias/CBU de participantes) | Sí | Funcionalidad de la app | Sí |
+| Ubicación, contactos, mensajes, audio, analíticas, publicidad | **No** | — | — |
+
+### Eliminación de cuenta (obligatorio si hay creación de cuentas)
+- **URL para solicitar la eliminación:** la URL de la política de privacidad (sección 5).
+- **Pendiente:** hoy la eliminación se solicita por email a cbalucas@gmail.com. Google además exige una opción **dentro de la app**; falta implementarla.
+
+**Permisos reales:** `CAMERA` (comprobantes y escaneo de QR), `USE_BIOMETRIC`/`USE_FINGERPRINT` (acceso local), `INTERNET` (sincronización y chequeo de versión). Se bloquean `RECORD_AUDIO`, `SYSTEM_ALERT_WINDOW` y `READ/WRITE_EXTERNAL_STORAGE`.
 
 ---
 
@@ -143,7 +169,7 @@ Respuestas para el cuestionario de Google Play:
 | ¿Drogas o alcohol? | No |
 | ¿Juego de azar simulado? | No |
 | ¿Compras dentro de la app? | No |
-| ¿Interacción con usuarios? | No (no hay chat ni red social) |
+| ¿Interacción con usuarios? | Compartir eventos por QR/código (sin chat ni red social) |
 | **Clasificación esperada** | **PEGI 3 / Everyone** |
 
 ---
@@ -156,12 +182,13 @@ Respuestas para el cuestionario de Google Play:
 ---
 
 ### Acceso a la aplicación
-- **¿Requiere login para probarla?** Sí, pero existe un **usuario DEMO** que Google puede usar.
+- **¿Requiere login para probarla?** No es obligatorio: existe un **usuario DEMO** local.
 - **Instrucciones para el revisor de Google:**
   ```
-  La aplicación incluye un modo DEMO accesible desde la pantalla de login.
-  Presionar el botón "Usar cuenta DEMO" para acceder sin registrarse.
-  No es necesaria conexión a internet.
+  La aplicación incluye un modo DEMO accesible desde la pantalla de login (botón "Usar cuenta DEMO").
+  Credenciales, si se solicitan: usuario "Demo" / contraseña "demo123456".
+  El usuario DEMO funciona 100% offline: sus datos quedan solo en el dispositivo y nunca se sincronizan.
+  El inicio de sesión con Google (opcional) activa el respaldo y la sincronización en la nube.
   ```
 
 ---
